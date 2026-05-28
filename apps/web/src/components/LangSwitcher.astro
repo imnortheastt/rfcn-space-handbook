@@ -1,0 +1,47 @@
+---
+/**
+ * LangSwitcher — resolves parityId to find the sibling lesson in the opposite
+ * language and renders a switch link. Falls back to the lang root with a
+ * banner when the sibling doesn't exist yet.
+ *
+ * NOTE: getParitySibling depends on packages/i18n resolver being available.
+ * Phase 4 wires the full packages/* workspace deps. For now we resolve the
+ * sibling directly from the lessons collection.
+ */
+import { getOppositeLang, t } from '../lib/i18n';
+import { getParitySibling } from '../lib/content-paths';
+
+interface Props {
+  lang: 'en' | 'vi';
+  parityId: string;
+  parityException?: 'vi-only' | 'en-only';
+}
+
+const { lang, parityId, parityException } = Astro.props;
+
+const targetLang = getOppositeLang(lang);
+const sibling = parityException ? undefined : await getParitySibling(parityId, targetLang);
+
+const switchUrl = sibling
+  ? `/${targetLang}/${sibling.data.domain}/${sibling.data.slug}`
+  : `/${targetLang}/`;
+
+const showFallbackBanner = !sibling && !parityException;
+const bannerKey = lang === 'en' ? 'noTranslationBannerReverse' : 'noTranslationBanner';
+---
+
+<div class="lang-switcher">
+  {showFallbackBanner && (
+    <div class="lang-switcher__banner" role="status">
+      {t(lang, bannerKey)}
+    </div>
+  )}
+  <a
+    href={switchUrl}
+    class="lang-switcher__link"
+    aria-label={t(lang, 'langSwitcherAriaLabel')}
+    hreflang={targetLang}
+  >
+    {t(lang, 'langSwitcherLabel')}
+  </a>
+</div>

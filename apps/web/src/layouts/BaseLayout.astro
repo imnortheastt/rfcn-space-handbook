@@ -1,0 +1,73 @@
+---
+import '../styles/global.css';
+
+interface Props {
+  lang: 'en' | 'vi';
+  title: string;
+  description?: string;
+  canonicalUrl?: string;
+  /** URL of the sibling page in the opposite locale (for hreflang) */
+  alternateUrl?: string;
+  ogImage?: string;
+}
+
+const {
+  lang,
+  title,
+  description = 'RF · Core Network · Space — Bilingual Open Learning Platform',
+  canonicalUrl = Astro.url.href,
+  alternateUrl,
+  ogImage,
+} = Astro.props;
+
+const oppositeLang = lang === 'en' ? 'vi' : 'en';
+const siteName = 'RFCN Space Handbook';
+---
+
+<!doctype html>
+<html lang={lang} dir="ltr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="generator" content={Astro.generator} />
+
+    <title>{title} | {siteName}</title>
+    <meta name="description" content={description} />
+
+    <!-- Canonical -->
+    <link rel="canonical" href={canonicalUrl} />
+
+    <!-- hreflang alternates for bilingual SEO -->
+    <link rel="alternate" hreflang={lang} href={canonicalUrl} />
+    {alternateUrl && (
+      <link rel="alternate" hreflang={oppositeLang} href={alternateUrl} />
+    )}
+    <link rel="alternate" hreflang="x-default" href={canonicalUrl} />
+
+    <!-- OpenGraph -->
+    <meta property="og:type" content="article" />
+    <meta property="og:site_name" content={siteName} />
+    <meta property="og:title" content={`${title} | ${siteName}`} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonicalUrl} />
+    <meta property="og:locale" content={lang === 'vi' ? 'vi_VN' : 'en_US'} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
+
+    <!-- Sitemap -->
+    <link rel="sitemap" href="/sitemap-index.xml" />
+
+    <!-- Favicon placeholder — Phase 8 provides real assets -->
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+
+    <!--
+      Dark-mode bootstrap script — runs before first paint to prevent FOUC.
+      Priority order: localStorage > OS prefers-color-scheme > default (light).
+      Sets .theme-dark or .theme-light on <html> so tokens.css overrides apply
+      before any CSS is painted. External file is CSP script-src 'self' compliant.
+    -->
+    <script is:inline src="/dark-mode-init.js"></script>
+  </head>
+  <body>
+    <slot />
+  </body>
+</html>

@@ -1,0 +1,68 @@
+name: CI
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches-ignore: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-test-validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm lint
+
+      - run: pnpm validate
+
+      - run: pnpm -r build
+
+      - run: pnpm test
+
+      - run: pnpm --filter @rfcn-space-handbook/widgets size-limit
+
+      - name: Broken-link check
+        uses: lycheeverse/lychee-action@v2
+        with:
+          args: --no-progress --max-concurrency 2 './content/**/*.mdx' './README.md'
+          fail: false
+
+  lighthouse:
+    needs: build-test-validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm --filter @rfcn-space-handbook/web build
+
+      - name: Run Lighthouse CI
+        run: |
+          pnpm --filter @rfcn-space-handbook/web exec astro preview --port 4321 &
+          sleep 5
+          pnpm dlx @lhci/cli@0.14 autorun --config=./lighthouserc.json || exit 1

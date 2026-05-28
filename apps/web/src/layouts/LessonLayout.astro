@@ -1,0 +1,83 @@
+---
+import type { CollectionEntry } from 'astro:content';
+import BaseLayout from './BaseLayout.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import LangSwitcher from '../components/LangSwitcher.astro';
+import { t } from '../lib/i18n';
+import { lessonPath } from '../lib/content-paths';
+import BibliographyCollector from '@rfcn-space-handbook/citations/bibliography.astro';
+import type { CitationsDB } from '@rfcn-space-handbook/citations';
+
+interface Props {
+  entry: CollectionEntry<'lessons'>;
+  /** URL of the sibling page in the opposite locale */
+  alternateUrl?: string;
+  /** Full citations database — pass from the page that uses <Cite> components */
+  citations?: CitationsDB;
+  /** Ordered list of citation IDs as they appeared in lesson content */
+  citedIds?: string[];
+}
+
+const { entry, alternateUrl, citations = [], citedIds = [] } = Astro.props;
+const { data } = entry;
+const lang = data.lang;
+
+const canonicalUrl = new URL(
+  lessonPath(lang, data.domain, data.slug),
+  Astro.site ?? Astro.url.origin,
+).href;
+
+const githubIssueUrl = `https://github.com/rfcn-space/handbook/issues/new?title=Error+in+${encodeURIComponent(data.id)}&body=Lesson:+${encodeURIComponent(canonicalUrl)}`;
+---
+
+<BaseLayout
+  lang={lang}
+  title={data.title}
+  description={data.description}
+  canonicalUrl={canonicalUrl}
+  alternateUrl={alternateUrl}
+>
+  <header class="lesson-header">
+    <Breadcrumbs lang={lang} domain={data.domain} track={data.track} unit={data.unit} title={data.title} />
+    <LangSwitcher lang={lang} parityId={data.parityId} parityException={data.parityException} />
+  </header>
+
+  <main class="lesson-main" id="main-content">
+    <!-- Standards baseline banner (FR-11) -->
+    {data.standards && data.standards.length > 0 && (
+      <aside class="standards-banner" aria-label="Standards baseline">
+        <strong>{t(lang, 'standardsBaselinePrefix')}</strong>{' '}
+        {data.standards.map((s) => s.id).join(', ')}
+      </aside>
+    )}
+
+    <!-- Research frontier badge -->
+    {data.researchFrontier && (
+      <aside class="frontier-badge" aria-label="Research frontier content">
+        Research frontier
+      </aside>
+    )}
+
+    <!-- Lesson metadata -->
+    <div class="lesson-meta">
+      <span class="lesson-level">{data.level}</span>
+      <span class="lesson-time">{data.estimatedReadingMinutes} min read</span>
+    </div>
+
+    <h1>{data.title}</h1>
+    {data.subtitle && <p class="lesson-subtitle">{data.subtitle}</p>}
+
+    <!-- Main MDX content via slot — section components wrap the MDX regions -->
+    <slot />
+
+    <!-- References section — populated when lesson page passes citations + citedIds -->
+    <BibliographyCollector citations={citations} citedIds={citedIds} />
+
+    <!-- "Found an error" footer (FR-12) -->
+    <footer class="lesson-footer">
+      <a href={githubIssueUrl} target="_blank" rel="noopener noreferrer">
+        {t(lang, 'foundErrorLabel')}
+      </a>
+    </footer>
+  </main>
+</BaseLayout>

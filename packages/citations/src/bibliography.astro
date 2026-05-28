@@ -1,0 +1,66 @@
+---
+/**
+ * BibliographyCollector — server-renders the References section at lesson end.
+ * Pass the full citations DB and the ordered list of cited IDs for this page.
+ *
+ * Usage in LessonLayout.astro:
+ *   import BibliographyCollector from '@rfcn-space-handbook/citations/bibliography.astro';
+ *   <BibliographyCollector citations={citationsDB} citedIds={page.citedIds} />
+ */
+import type { Citation, CitationsDB } from './schema';
+
+interface Props {
+  /** Full citations database loaded from data/citations.json */
+  citations: CitationsDB;
+  /** Ordered list of cited IDs as they appeared in lesson content */
+  citedIds: string[];
+}
+
+const { citations, citedIds } = Astro.props;
+
+// Build a lookup map for O(1) access
+const byId = new Map<string, Citation>(citations.map((c) => [c.id, c]));
+
+// Resolve in order of appearance, skip unknown IDs gracefully
+const resolved = citedIds
+  .map((id, i) => ({ n: i + 1, id, citation: byId.get(id) }))
+  .filter((item): item is { n: number; id: string; citation: Citation } => item.citation != null);
+
+function formatCitation(c: Citation): string {
+  switch (c.type) {
+    case 'standard':
+      return `${c.issuer}, "${c.title}", ${c.version}.`;
+    case 'textbook':
+      return `${c.authors.join(', ')}, "${c.title}"${c.edition ? `, ${c.edition} ed.` : ''}, ${c.publisher}, ${c.year}.`;
+    case 'paper':
+      return `${c.authors.join(', ')}, "${c.title}", ${c.venue}, ${c.year}.`;
+    case 'rfc':
+      return `${c.authors.join(', ')}, "${c.title}", RFC ${c.number}, ${c.date}.`;
+  }
+}
+
+function citationUrl(c: Citation): string | undefined {
+  if ('url' in c) return c.url;
+  return undefined;
+}
+---
+
+{resolved.length > 0 && (
+  <section class="lesson-references" aria-label="References">
+    <h2>References</h2>
+    <ol class="bibliography-list">
+      {resolved.map(({ n, id, citation }) => (
+        <li id={`cite-${id}`}>
+          <span class="cite-number">[{n}]</span>{' '}
+          {citationUrl(citation) ? (
+            <a href={citationUrl(citation)} target="_blank" rel="noopener noreferrer">
+              {formatCitation(citation)}
+            </a>
+          ) : (
+            <span>{formatCitation(citation)}</span>
+          )}
+        </li>
+      ))}
+    </ol>
+  </section>
+)}

@@ -1,0 +1,67 @@
+---
+/**
+ * GlossaryTerm — renders a defined term with a CSS-only hover/focus popover.
+ * No JavaScript required: uses :hover + :focus-within on the wrapper element.
+ *
+ * Usage in MDX: <GlossaryTerm name="OFDM">OFDM</GlossaryTerm>
+ * The remark plugin injects the name prop automatically for first occurrences.
+ */
+interface Props {
+  /** The glossary term key (matches GlossaryEntry.en) */
+  name: string;
+  /** Definition text — passed by the remark plugin or explicitly */
+  definition?: string;
+}
+
+const { name, definition } = Astro.props;
+---
+
+<span class="glossary-term" data-term={name}>
+  <dfn title={definition ?? name}><slot /></dfn>
+  {definition && (
+    <aside class="glossary-popover" role="note" aria-label={`Definition: ${name}`}>
+      {definition}
+    </aside>
+  )}
+</span>
+
+<style>
+  .glossary-term {
+    position: relative;
+    display: inline;
+  }
+
+  dfn {
+    font-style: normal;
+    border-bottom: 1px dotted currentColor;
+    cursor: help;
+    text-decoration-skip-ink: all;
+  }
+
+  .glossary-popover {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 0.5rem);
+    left: 50%;
+    transform: translateX(-50%);
+    min-width: 16rem;
+    max-width: 24rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--color-surface, #fff);
+    border: 1px solid var(--color-border, #ccc);
+    border-radius: 0.375rem;
+    box-shadow: 0 4px 12px rgb(0 0 0 / 0.12);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    z-index: 100;
+    /* Prevent text from inheriting dfn styles */
+    font-style: normal;
+    border-bottom: none;
+  }
+
+  /* Show on hover or keyboard focus anywhere inside the wrapper */
+  .glossary-term:hover .glossary-popover,
+  .glossary-term:focus-within .glossary-popover {
+    display: block;
+  }
+</style>

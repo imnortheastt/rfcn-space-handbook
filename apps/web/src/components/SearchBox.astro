@@ -1,0 +1,35 @@
+---
+/**
+ * SearchBox — Pagefind UI mount point (FR-04).
+ * Pagefind scripts are available at /pagefind/ after `astro build && pagefind --site dist`.
+ * In dev mode the /pagefind/ assets don't exist yet; the component renders a
+ * disabled search box gracefully.
+ */
+import { t } from '../lib/i18n';
+
+interface Props {
+  lang: 'en' | 'vi';
+}
+
+const { lang } = Astro.props;
+---
+
+<div class="search-box" data-lang={lang}>
+  <div id="pagefind-search"></div>
+</div>
+
+<link href="/pagefind/pagefind-ui.css" rel="stylesheet" />
+<script src="/pagefind/pagefind-ui.js" is:inline></script>
+<script define:vars={{ lang, placeholder: t(lang, 'searchPlaceholder') }}>
+  // Pagefind UI is only available after `astro build && pagefind --site dist`.
+  // In dev, PagefindUI is undefined; skip gracefully.
+  if (typeof window !== 'undefined' && typeof window.PagefindUI !== 'undefined') {
+    new window.PagefindUI({
+      element: '#pagefind-search',
+      showImages: false,
+      translations: {
+        placeholder: placeholder,
+      },
+    });
+  }
+</script>

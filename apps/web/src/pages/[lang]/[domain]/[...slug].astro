@@ -1,0 +1,82 @@
+---
+import { getCollection, render } from 'astro:content';
+import LessonLayout from '../../../layouts/LessonLayout.astro';
+import GlossaryTerm from '@rfcn-space-handbook/glossary/glossary-term.astro';
+import { getOppositeLang } from '../../../lib/i18n';
+import { getParitySibling, lessonPath } from '../../../lib/content-paths';
+import type { Locale } from '../../../lib/i18n';
+import { citationsSchema } from '@rfcn-space-handbook/citations';
+import type { CitationsDB } from '@rfcn-space-handbook/citations';
+import { makeCiteComponent } from '../../../components/cite-page-component';
+import citationsRaw from '../../../../../../data/citations.json';
+
+// ---------------------------------------------------------------------------
+// Load and validate citations DB at build time
+// ---------------------------------------------------------------------------
+
+let citationsDB: CitationsDB = [];
+const parsed = citationsSchema.safeParse(citationsRaw);
+if (parsed.success) {
+  citationsDB = parsed.data;
+} else {
+  console.warn('[slug.astro] citations.json failed validation — bibliography will be empty:', parsed.error.flatten());
+}
+
+
+export async function getStaticPaths() {
+  const lessons = await getCollection('lessons');
+
+  return lessons.map((entry) => ({
+    params: {
+      lang: entry.data.lang,
+      domain: entry.data.domain,
+      slug: entry.data.slug,
+    },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { data } = entry;
+
+// Resolve parity sibling for the alternate hreflang URL
+const targetLang = getOppositeLang(data.lang as Locale);
+const sibling = data.parityException
+  ? undefined
+  : await getParitySibling(data.parityId, targetLang);
+
+const alternateUrl = sibling
+  ? new URL(lessonPath(targetLang, sibling.data.domain, sibling.data.slug), Astro.site ?? Astro.url.origin).href
+  : undefined;
+
+// ---------------------------------------------------------------------------
+// Extract cited IDs from the lesson body in order of first appearance.
+// Matches both <Cite id="foo" /> and <Cite id={"foo"} /> patterns.
+// This build-time scan avoids any runtime React context or client-side JS.
+// ---------------------------------------------------------------------------
+
+const citedIds: string[] = [];
+const citedIdSet = new Set<string>();
+const CITE_PATTERN = /<Cite\s+id=(?:"([^"]+)"|{(?:"([^"]+)"|'([^']+)')}\s*)(?:\s*\/)?\s*>/g;
+
+let match: RegExpExecArray | null;
+while ((match = CITE_PATTERN.exec(entry.body ?? '')) !== null) {
+  const id = match[1] ?? match[2] ?? match[3];
+  if (id && !citedIdSet.has(id)) {
+    citedIdSet.add(id);
+    citedIds.push(id);
+  }
+}
+
+// Build a map of id → 1-based citation index for this page
+const citeIndexMap = new Map<string, number>(citedIds.map((id, i) => [id, i + 1]));
+
+// Pure SSR Cite replacement: resolves id → [n] at build time, no context needed.
+const CitePage = makeCiteComponent(citeIndexMap);
+
+const { Content } = await render(entry);
+---
+
+<LessonLayout entry={entry} alternateUrl={alternateUrl} citations={citationsDB} citedIds={citedIds}>
+  <Content components={{ GlossaryTerm, Cite: CitePage }} />
+</LessonLayout>

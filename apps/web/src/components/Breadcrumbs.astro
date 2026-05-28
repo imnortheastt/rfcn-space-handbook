@@ -1,0 +1,53 @@
+---
+/**
+ * Breadcrumbs — "you are here" navigation per FR-02.
+ * Renders BreadcrumbList structured data for SEO.
+ */
+import { t } from '../lib/i18n';
+
+interface Props {
+  lang: 'en' | 'vi';
+  domain: string;
+  track: string;
+  unit: string;
+  title: string;
+}
+
+const { lang, domain, track, unit, title } = Astro.props;
+
+const crumbs = [
+  { label: t(lang, 'breadcrumbHome'), href: `/${lang}/` },
+  { label: domain, href: `/${lang}/${domain}/` },
+  { label: track, href: `/${lang}/${domain}/#${track}` },
+  { label: unit, href: `/${lang}/${domain}/#${unit}` },
+  { label: title, href: null },
+];
+
+const origin = Astro.site?.origin ?? Astro.url.origin;
+
+const structuredData = {
+  '@context': 'https://schema.org',
+  '@type': 'BreadcrumbList',
+  itemListElement: crumbs.map((c, i) => ({
+    '@type': 'ListItem',
+    position: i + 1,
+    name: c.label,
+    ...(c.href ? { item: `${origin}${c.href}` } : {}),
+  })),
+};
+---
+
+<nav aria-label="Breadcrumb" class="breadcrumbs">
+  <script type="application/ld+json" set:html={JSON.stringify(structuredData)} />
+  <ol class="breadcrumbs__list">
+    {crumbs.map((crumb, i) => (
+      <li class="breadcrumbs__item">
+        {i > 0 && <span class="breadcrumbs__sep" aria-hidden="true">/</span>}
+        {crumb.href
+          ? <a class="breadcrumbs__link" href={crumb.href}>{crumb.label}</a>
+          : <span class="breadcrumbs__current" aria-current="page">{crumb.label}</span>
+        }
+      </li>
+    ))}
+  </ol>
+</nav>
