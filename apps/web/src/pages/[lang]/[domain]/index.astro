@@ -1,0 +1,81 @@
+---
+import BaseLayout from '../../../layouts/BaseLayout.astro';
+import RoadmapSvg from '../../../components/roadmap-svg.astro';
+import { computeLayout } from '../../../lib/roadmap-layout';
+import type { Locale } from '../../../lib/i18n';
+import curriculumRaw from '../../../../../../data/curriculum.json';
+
+const DOMAINS = ['rf', 'core-network', 'space'] as const;
+type Domain = typeof DOMAINS[number];
+
+export function getStaticPaths() {
+  const locales = ['en', 'vi'] as const;
+  const domains = ['rf', 'core-network', 'space'] as const;
+  return locales.flatMap((lang) =>
+    domains.map((domain) => ({ params: { lang, domain } }))
+  );
+}
+
+const { lang, domain } = Astro.params as { lang: Locale; domain: Domain };
+
+const domainData = (curriculumRaw as any).domains[domain];
+const tracks = domainData?.tracks ?? [];
+const layout = computeLayout(tracks, lang, domain);
+
+const domainTitles: Record<Domain, Record<Locale, string>> = {
+  'rf':           { en: 'RF Engineering Roadmap',      vi: 'Lộ trình Kỹ thuật RF' },
+  'core-network': { en: 'Core Network Roadmap',        vi: 'Lộ trình Mạng lõi' },
+  'space':        { en: 'Space Engineering Roadmap',   vi: 'Lộ trình Kỹ thuật Vũ trụ' },
+};
+
+const pageTitle = domainTitles[domain][lang];
+const oppositeLang = lang === 'en' ? 'vi' : 'en';
+const alternateUrl = new URL(`/${oppositeLang}/${domain}/`, Astro.site ?? Astro.url.origin).href;
+---
+
+<BaseLayout lang={lang} title={pageTitle} alternateUrl={alternateUrl}>
+  <main>
+    <nav aria-label="Breadcrumb">
+      <a href={`/${lang}/`}>{lang === 'en' ? 'Home' : 'Trang chủ'}</a>
+      {' › '}
+      <span>{pageTitle}</span>
+    </nav>
+
+    <h1>{pageTitle}</h1>
+    <p>
+      {lang === 'en'
+        ? `${tracks.length} tracks · scroll horizontally to explore all units and lessons.`
+        : `${tracks.length} nhóm chủ đề · cuộn ngang để xem toàn bộ đơn vị và bài học.`}
+    </p>
+
+    <RoadmapSvg layout={layout} lang={lang} />
+  </main>
+</BaseLayout>
+
+<style>
+  main {
+    padding: 1.5rem;
+    max-width: 100%;
+  }
+  h1 {
+    font-size: var(--font-size-2xl, 1.5rem);
+    font-weight: 700;
+    color: var(--color-fg, #0e1414);
+    margin: 0.5rem 0 0.25rem;
+  }
+  p {
+    color: var(--color-muted, #5b6766);
+    font-size: var(--font-size-sm, 0.875rem);
+    margin-bottom: 1rem;
+  }
+  nav {
+    font-size: var(--font-size-sm, 0.875rem);
+    color: var(--color-muted, #5b6766);
+    margin-bottom: 0.5rem;
+  }
+  nav a {
+    color: var(--color-accent-500, #0b5351);
+    text-decoration: none;
+  }
+  nav a:hover { text-decoration: underline; }
+</style>

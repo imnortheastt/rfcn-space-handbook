@@ -1,0 +1,121 @@
+---
+// roadmap-svg.astro — renders a static inline SVG roadmap from pre-computed layout.
+// Zero client JS. CSS-only styling using design tokens from tokens.css.
+// All lessons are "draft" style (grey) — no published lessons exist in this DAG yet.
+import type { RoadmapLayout } from '../lib/roadmap-layout';
+import { levelIndex } from '../lib/roadmap-layout';
+
+interface Props {
+  layout: RoadmapLayout;
+  lang: 'en' | 'vi';
+}
+
+const { layout } = Astro.props;
+const { width, height, nodes, trackLabels } = layout;
+
+const LABEL_W = 160;
+const SVG_PAD_X = 12;
+
+// Truncate text to fit within lesson box (≈12 chars for 80px width at ~6.5px/char)
+function truncate(s: string, max = 11): string {
+  return s.length > max ? s.slice(0, max - 1) + '…' : s;
+}
+---
+
+<div class="roadmap-scroll">
+  <svg
+    viewBox={`0 0 ${width} ${height}`}
+    width={width}
+    height={height}
+    aria-label="Domain roadmap"
+    role="img"
+    xmlns="http://www.w3.org/2000/svg"
+    class="roadmap-svg"
+  >
+    <style>{`
+      .roadmap-svg { font-family: var(--font-sans, system-ui, sans-serif); }
+      .track-band { fill: var(--color-surface, #f7f8f8); stroke: var(--color-border, #d4d9d9); stroke-width: 1; rx: 4; }
+      .track-band-shell { fill: var(--color-surface, #f7f8f8); stroke: var(--color-border, #d4d9d9); stroke-width: 1; stroke-dasharray: 4 3; }
+      .track-label { font-size: 11px; font-weight: 600; fill: var(--color-muted, #5b6766); }
+      .lesson-box { stroke: var(--color-border, #d4d9d9); stroke-width: 1; rx: 2; }
+      .lesson-box-draft { fill: var(--color-surface, #f7f8f8); }
+      .lesson-text { font-size: 9px; fill: var(--color-muted, #5b6766); pointer-events: none; }
+      .shell-label { font-size: 11px; fill: var(--color-muted, #5b6766); font-style: italic; }
+    `}</style>
+
+    {/* Track bands */}
+    {trackLabels.map((tl) => (
+      <g>
+        <rect
+          x={SVG_PAD_X}
+          y={tl.y}
+          width={width - SVG_PAD_X * 2}
+          height={tl.height}
+          rx={4}
+          class={tl.hasUnits ? 'track-band' : 'track-band-shell'}
+        />
+        {tl.hasUnits ? (
+          <text
+            x={SVG_PAD_X + 8}
+            y={tl.y + tl.height / 2}
+            dominant-baseline="middle"
+            class="track-label"
+          >
+            {truncate(tl.title, 20)}
+          </text>
+        ) : (
+          <text
+            x={SVG_PAD_X + LABEL_W / 2}
+            y={tl.y + tl.height / 2}
+            dominant-baseline="middle"
+            text-anchor="middle"
+            class="shell-label"
+          >
+            {truncate(tl.title, 28)}
+          </text>
+        )}
+      </g>
+    ))}
+
+    {/* Lesson nodes */}
+    {nodes.map((node) => {
+      // Level-based opacity: L0=0.30 → L5=0.80, step 0.10
+      const opacity = (0.30 + levelIndex(node.level) * 0.10).toFixed(2);
+      return (
+        <g opacity={opacity}>
+          <rect
+            x={node.x}
+            y={node.y}
+            width={node.w}
+            height={node.h}
+            rx={2}
+            class="lesson-box lesson-box-draft"
+          >
+            <title>{node.title}</title>
+          </rect>
+          <text
+            x={node.x + node.w / 2}
+            y={node.y + node.h / 2}
+            dominant-baseline="middle"
+            text-anchor="middle"
+            class="lesson-text"
+          >
+            {truncate(node.title, 11)}
+          </text>
+        </g>
+      );
+    })}
+  </svg>
+</div>
+
+<style>
+  .roadmap-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+    border: 1px solid var(--color-border, #d4d9d9);
+    border-radius: 6px;
+    padding: 0.5rem;
+    background: var(--color-bg, #fff);
+  }
+</style>
