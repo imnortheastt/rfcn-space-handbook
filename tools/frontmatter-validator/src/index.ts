@@ -58,6 +58,9 @@ const lessonFrontmatterSchema = z.object({
   // ── License ───────────────────────────────────────────────────────────
   license: z.literal('CC-BY-SA-4.0'),
 
+  // ── Publication status ────────────────────────────────────────────────
+  status: z.enum(['draft', 'published', 'review']).default('draft'),
+
   // ── i18n exception ────────────────────────────────────────────────────
   parityException: z.literal('vi-only').optional(),
 });

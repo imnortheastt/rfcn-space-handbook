@@ -63,6 +63,9 @@ const lessons = defineCollection({
     // ── License ───────────────────────────────────────────────────────────
     license: z.literal('CC-BY-SA-4.0'),
 
+    // ── Publication status ────────────────────────────────────────────────
+    status: z.enum(['draft', 'published', 'review']).default('draft'),
+
     // ── i18n exception ────────────────────────────────────────────────────
     // 'vi-only': lesson ships without an English pair
     // 'en-only': lesson ships without a Vietnamese pair (e.g. EN-only research notes)

@@ -1,5 +1,5 @@
 ---
-import { getCollection, render } from 'astro:content';
+import { getCollection, render, type CollectionEntry } from 'astro:content';
 import LessonLayout from '../../../layouts/LessonLayout.astro';
 import GlossaryTerm from '@rfcn-space-handbook/glossary/glossary-term.astro';
 import { getOppositeLang } from '../../../lib/i18n';
@@ -24,9 +24,11 @@ if (parsed.success) {
 
 
 export async function getStaticPaths() {
-  const lessons = await getCollection('lessons');
+  const lessons = (await getCollection('lessons')).filter(
+    (entry: CollectionEntry<'lessons'>) => entry.data.status === 'published'
+  );
 
-  return lessons.map((entry) => ({
+  return lessons.map((entry: CollectionEntry<'lessons'>) => ({
     params: {
       lang: entry.data.lang,
       domain: entry.data.domain,
