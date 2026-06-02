@@ -31,11 +31,9 @@ Progress: 92/92 RF lessons published (100%)
 - [x] B3: From spectrum to service (EN+VI) — ITU framework, auctions, interference, economics
 
 **Glossary expansion:**
-- [x] Expanded to 224 bilingual terms (from 52)
-- [ ] Final expansion to ~300 terms
+- [x] Expanded to 300 bilingual terms (from 52) — Phase 1 target reached
 
 Remaining for Phase 1:
-- [ ] Glossary expansion to ~300 terms (currently 224, 75% complete)
 - [ ] Widget implementation (4 scaffolds need full implementation)
 - [ ] Core Network & Space lessons (~100 remaining)
 - [ ] Public launch

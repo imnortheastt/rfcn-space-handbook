@@ -64,7 +64,7 @@ Multi-year roadmap for RF·CN·Space from Phase 0 (foundation) through Phase 4 (
 - [x] 4 flagship widget scaffolds (commit 9a5264f)
   - LinkBudget, ModulationVisualizer, FiveGCallFlow, OrbitVisualizer
   - Placeholder math, experimental flag, smoke tests pass
-- [x] Glossary expanded to 224 bilingual terms (52 → 224)
+- [x] Glossary expanded to 300 bilingual terms (Phase 1 target reached)
 - [x] Citations expanded to 20 verified standards/textbooks (commit 4d44c4b)
 
 ### Phase 1.1+ Content Authoring (RF COMPLETE — 100%)
