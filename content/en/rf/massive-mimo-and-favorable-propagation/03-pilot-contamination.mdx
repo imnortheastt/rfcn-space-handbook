@@ -9,16 +9,175 @@ unit: massive-mimo-and-favorable-propagation
 order: 3
 level: L5
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r5-massive-mimo-and-favorable-propagation-02-massive-mimo-uplink"]
+spiralRevisits: []
 title: "Pilot contamination"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The fundamental limit of multi-cell massive MIMO and mitigation strategies."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["pilot-contamination", "massive-mimo", "multi-cell", "channel-estimation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Pilot contamination
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why pilot contamination?
+
+Massive MIMO promises unlimited capacity as antennas grow — but there's a catch. When neighboring cells reuse the same pilot sequences, their channels get mixed into your estimates. This "pilot contamination" creates an interference floor that doesn't vanish with more antennas. It's the fundamental limit of multi-cell massive MIMO.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+To beamform to a user, the base station must know the channel. It learns this from pilot signals the user transmits. But pilots are finite — only τ_p orthogonal pilots fit in a coherence interval. With many cells, pilots must be reused. When user A in cell 1 sends pilot p, user B in cell 2 using the same pilot corrupts cell 1's estimate of user A's channel.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Coherence interval constraint
+
+Coherence interval: $\tau_c = T_c \times B_c$ symbols
+
+Available for pilots: $\tau_p \leq \tau_c$
+
+Maximum orthogonal pilots per cell: $\tau_p$
+
+With K users per cell and L cells:
+- If $L \times K > \tau_p$: pilot reuse required
+- Reuse factor: $\alpha = \frac{\tau_p}{K}$ cells
+
+### Channel estimation with contamination
+
+Cell j estimates channel to its user k:
+
+$$\hat{\mathbf{h}}_{jk} = \mathbf{h}_{jk} + \sum_{l \neq j} \mathbf{h}_{lk'} + \text{noise}$$
+
+where user k' in cell l uses the same pilot as user k.
+
+The estimate contains the desired channel plus interfering channels.
+
+### SINR with pilot contamination
+
+For downlink precoding based on contaminated estimate:
+
+$$\text{SINR}_k = \frac{M \beta_{jk}^2}{\sum_{l \neq j} M \beta_{lk'}^2 + \text{other terms}}$$
+
+The interference term $\sum M \beta_{lk'}^2$ scales with M!
+
+As M → ∞:
+$$\text{SINR}_k \to \frac{\beta_{jk}^2}{\sum_{l \neq j} \beta_{lk'}^2}$$
+
+**Finite ceiling** — adding antennas beyond a point gives no benefit.
+
+### Capacity ceiling
+
+$$R_k \leq \log_2\left(1 + \frac{\beta_{jk}^2}{\sum_{l \neq j} \beta_{lk'}^2}\right)$$
+
+With equal path loss to all interferers ($\beta_{lk'} = \beta$):
+
+$$R_k \leq \log_2\left(1 + \frac{1}{L-1}\right) \approx \log_2(L/(L-1))$$
+
+For L = 7 cells: max 2.8 bits/s/Hz per user.
+
+### Pilot contamination factor
+
+Define contamination ratio:
+$$\gamma = \frac{\sum_{l \neq j} \beta_{lk'}^2}{\beta_{jk}^2}$$
+
+- $\gamma < 0.1$: Contamination negligible
+- $\gamma \approx 1$: Contamination equals signal
+- $\gamma > 1$: Contamination dominates
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 7-cell network**
+
+Hexagonal layout, users at cell edge.
+
+Path loss to own BS: $\beta_0$ = 1 (normalized).
+Path loss to 6 interfering BSs: $\beta_l$ ≈ 0.3 each (3× distance).
+
+Contamination ratio:
+$$\gamma = 6 \times 0.3^2 / 1 = 0.54$$
+
+SINR ceiling:
+$$\text{SINR}_{max} = 1/0.54 = 1.85 \quad (2.7 \text{ dB})$$
+
+Rate ceiling: $\log_2(1 + 1.85) = 1.5$ bits/s/Hz
+
+This is why pilot allocation matters!
+
+**Example: Pilot allocation strategies**
+
+τ_c = 200 symbols, K = 10 users/cell, 7 cells.
+
+Option A: Reuse pilots in all cells.
+- Each cell uses τ_p = 10 pilots.
+- 6 interfering users per pilot.
+- Severe contamination.
+
+Option B: Pilot reuse factor 7.
+- Each cell uses τ_p = 70 pilots (10 per cell × 7 cells).
+- Zero contamination.
+- Data portion: 200 - 70 = 130 symbols (35% overhead).
+
+Trade-off: contamination vs. pilot overhead.
+
+**Example: Soft pilot reuse**
+
+Cell-center users (strong $\beta_0$): tolerate contamination, reuse pilots.
+Cell-edge users (weak $\beta_0$): need protection, unique pilots.
+
+Improves average SINR without full pilot orthogonalization.
+
+**Example: When contamination is negligible**
+
+User very close to own BS: $\beta_0$ = 1.
+Interferers far away: $\beta_l$ = 0.01.
+
+$$\gamma = 6 \times 0.01^2 = 0.0006$$
+
+SINR ceiling: 1/0.0006 = 1667 (32 dB) — effectively unlimited.
+
+Cell-center users don't suffer from pilot contamination.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring pilot contamination in analysis.** Single-cell results don't apply to multi-cell. Always model contamination.
+
+2. **Assuming unlimited pilot space.** Coherence time limits pilots. High-mobility users have short coherence → fewer pilots.
+
+3. **Equal pilot power.** Cell-edge users with weak channels need more pilot power to overcome noise, but this increases contamination to neighbors.
+
+4. **Forgetting mitigation techniques.** Contamination isn't inevitable — pilot allocation, power control, and coordination help.
+
+5. **Applying to TDD only.** FDD massive MIMO has different (worse) pilot problems — downlink pilots don't benefit from reciprocity.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Marzetta, "Noncooperative Cellular Wireless with Unlimited Numbers of Base Station Antennas," IEEE TWC, 2010.
+- Jose, Ashikhmin, Marzetta, Vishwanath, "Pilot Contamination and Precoding in Multi-Cell TDD Systems," IEEE TWC, 2011.
+- Björnson, Hoydis, Sanguinetti, *Massive MIMO Networks*, Cambridge, 2017.
+
+</section>

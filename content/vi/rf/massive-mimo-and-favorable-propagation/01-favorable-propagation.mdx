@@ -9,16 +9,172 @@ unit: massive-mimo-and-favorable-propagation
 order: 1
 level: L4
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r4-mimo-capacity-01-channel-matrix"]
+spiralRevisits: []
 title: "Lan truyền thuận lợi và cứng kênh"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Cách mảng ăng-ten lớn tạo kênh xác định từ fading ngẫu nhiên."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["massive-mimo", "favorable-propagation", "channel-hardening", "asymptotic"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Lan truyền thuận lợi và cứng kênh
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao lan truyền thuận lợi?
+
+Với 64 hoặc 128 ăng-ten, điều đáng chú ý xảy ra: kênh fading ngẫu nhiên trở nên gần như xác định. Kênh người dùng trở nên gần như trực giao. Nhiễu biến mất. Đây không phải phép thuật — đó là định luật số lớn áp dụng cho không dây. Hiểu các tính chất tiệm cận này mở khóa thiết kế hệ thống massive MIMO.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Mỗi ăng-ten thấy kênh fading độc lập đến mỗi người dùng. Với M ăng-ten, đầu ra matched-filter tổng M số hạng ngẫu nhiên. Theo định luật số lớn, tổng này hội tụ về trung bình khi M tăng. Sự ngẫu nhiên trung bình hóa; kênh hiệu dụng trở nên xác định.
+
+Tương tự, nhiễu giữa người dùng trung bình về zero khi kênh của họ không tương quan và bạn có đủ ăng-ten.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Mô hình hệ thống
+
+Trạm gốc với M ăng-ten, K người dùng một ăng-ten.
+
+Ma trận kênh: $\mathbf{H} \in \mathbb{C}^{M \times K}$
+
+Cột k: $\mathbf{h}_k \in \mathbb{C}^{M}$ — kênh đến người dùng k.
+
+Giả sử i.i.d. Rayleigh: $h_{m,k} \sim \mathcal{CN}(0, \beta_k)$ trong đó $\beta_k$ = fading quy mô lớn.
+
+### Lan truyền thuận lợi
+
+**Định nghĩa:** Các kênh trở nên trực giao tiệm cận:
+
+$$\frac{\mathbf{h}_i^H \mathbf{h}_j}{M} \xrightarrow{M \to \infty} 0 \quad \text{cho } i \neq j$$
+
+**Điều kiện:** Đúng khi vector kênh độc lập và phân bố đẳng hướng.
+
+Cho i.i.d. Rayleigh:
+$$E\left[\frac{\mathbf{h}_i^H \mathbf{h}_j}{M}\right] = 0$$
+
+$$\text{Var}\left[\frac{\mathbf{h}_i^H \mathbf{h}_j}{M}\right] = \frac{\beta_i \beta_j}{M} \to 0$$
+
+### Cứng kênh
+
+**Định nghĩa:** Khuếch đại kênh hiệu dụng trở nên xác định:
+
+$$\frac{\|\mathbf{h}_k\|^2}{M} \xrightarrow{M \to \infty} \beta_k$$
+
+Đại lượng ngẫu nhiên $\|\mathbf{h}_k\|^2$ tập trung quanh $M\beta_k$.
+
+**Suy giảm phương sai:**
+$$\text{Var}\left[\frac{\|\mathbf{h}_k\|^2}{M}\right] = \frac{\beta_k^2}{M} \to 0$$
+
+### Xử lý matched filter
+
+Với matched filter (MRC), tín hiệu nhận cho người dùng k:
+
+$$\hat{s}_k = \mathbf{h}_k^H \mathbf{y} = \mathbf{h}_k^H \mathbf{h}_k s_k + \sum_{j \neq k} \mathbf{h}_k^H \mathbf{h}_j s_j + \mathbf{h}_k^H \mathbf{n}$$
+
+Khi M → ∞:
+- Tín hiệu: $\frac{\mathbf{h}_k^H \mathbf{h}_k}{M} \to \beta_k$ (xác định)
+- Nhiễu: $\frac{\mathbf{h}_k^H \mathbf{h}_j}{M} \to 0$ (biến mất)
+- Tạp âm: $\frac{\mathbf{h}_k^H \mathbf{n}}{M} \to 0$ (biến mất)
+
+### SINR tiệm cận
+
+Cho người dùng k với CSI hoàn hảo:
+
+$$\text{SINR}_k \xrightarrow{M \to \infty} \infty$$
+
+Với tổng công suất cố định P và M ăng-ten:
+
+$$\text{SINR}_k \approx M \cdot \frac{P \beta_k}{K}$$
+
+Tỷ lệ tuyến tính với M!
+
+### Tốc độ hội tụ
+
+Dao động suy giảm theo $1/\sqrt{M}$.
+
+Cho 64 ăng-ten: ~12% dao động tương đối.
+Cho 256 ăng-ten: ~6% dao động tương đối.
+
+Cứng kênh nhìn thấy với 64+ ăng-ten.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Trạm gốc 64 ăng-ten**
+
+K = 8 người dùng, kênh Rayleigh i.i.d.
+
+Sai số cứng kênh kỳ vọng:
+$$\sqrt{\text{Var}[\|\mathbf{h}_k\|^2/M]} / \beta_k = \frac{1}{\sqrt{64}} = 12.5\%$$
+
+Kênh hiệu dụng biến đổi ±12.5% quanh trung bình — ít hơn nhiều so với biến đổi 100%+ của Rayleigh.
+
+**Ví dụ: Triệt nhiễu**
+
+64 ăng-ten, 8 người dùng.
+
+Công suất nhiễu liên người dùng trung bình:
+$$E\left[|\mathbf{h}_i^H \mathbf{h}_j|^2\right] / M^2 = \frac{\beta_i \beta_j}{M} = \frac{1}{64}$$
+
+So với tín hiệu: nhiễu thấp hơn tín hiệu -18 dB.
+
+**Ví dụ: Độ tin cậy liên kết**
+
+MIMO 4×4 truyền thống: xác suất outage ~5% ở tốc độ mục tiêu (fading).
+
+Massive MIMO 64×8: xác suất outage <0.1% (kênh cứng).
+
+Truyền tốc độ cố định khả thi mà không cần điều chế thích ứng.
+
+**Ví dụ: Điều chỉnh công suất**
+
+Để duy trì SINR khi M tăng, có thể giảm công suất mỗi ăng-ten:
+
+$$P_{mỗi-ăng-ten} \propto \frac{1}{\sqrt{M}}$$
+
+64→256 ăng-ten: giảm công suất 3 dB trong khi duy trì SINR.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Giả định lan truyền thuận lợi hoàn hảo.** Kênh tương quan (LOS, tán xạ hạn chế) vi phạm giả định i.i.d. Hiệu suất giảm.
+
+2. **Bỏ qua hiệu ứng M hữu hạn.** Kết quả tiệm cận là hướng dẫn. Với 64 ăng-ten, nhiễu không biến mất — nó bị triệt ~18 dB.
+
+3. **Quên overhead CSI.** Lan truyền thuận lợi giả định CSI hoàn hảo. Overhead pilot tăng với K, giới hạn số người dùng thực tế.
+
+4. **Nhầm tỷ lệ M và K.** Lợi ích đúng khi M >> K. Nếu K tỷ lệ với M, nhiễu không biến mất.
+
+5. **Áp dụng cho kênh LOS.** LOS mạnh tạo kênh tương quan. Lan truyền thuận lợi yêu cầu tán xạ phong phú.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Marzetta, "Noncooperative Cellular Wireless with Unlimited Numbers of Base Station Antennas," IEEE TWC, 2010.
+- Ngo, Larsson, Marzetta, "Energy and Spectral Efficiency of Very Large Multiuser MIMO Systems," IEEE TCOM, 2013.
+- Björnson, Larsson, Marzetta, *Massive MIMO Networks*, Cambridge, 2017.
+
+</section>

@@ -9,16 +9,175 @@ unit: massive-mimo-and-favorable-propagation
 order: 2
 level: L4
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r5-massive-mimo-and-favorable-propagation-01-favorable-propagation"]
+spiralRevisits: []
 title: "Đường lên Massive MIMO"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Bộ thu tuyến tính đạt hiệu suất gần tối ưu với nhiều ăng-ten."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["massive-mimo", "uplink", "mrc", "zf", "mmse"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Đường lên Massive MIMO
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao đường lên massive MIMO?
+
+Đường lên (người dùng đến trạm gốc) là nơi massive MIMO tỏa sáng nhất. Trạm gốc có tất cả ăng-ten, tất cả sức mạnh xử lý, và — quan trọng — có thể ước lượng kênh từ pilot đường lên. Bộ thu tuyến tính đơn giản (MRC, ZF) tiến đến dung lượng khi số ăng-ten tăng. Không cần phát hiện lặp phức tạp.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Với M >> K, ma trận kênh trở nên "cao và gầy" — nhiều hàng (ăng-ten) hơn cột (người dùng). Hệ thống quá xác định này có nghiệm bình phương tối thiểu duy nhất. Nhiễu và tạp âm trung bình hóa qua mảng ăng-ten. Xử lý tuyến tính đơn giản đủ.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Mô hình hệ thống
+
+M ăng-ten, K người dùng, truyền đường lên.
+
+Tín hiệu nhận:
+$$\mathbf{y} = \sqrt{p_u} \mathbf{H} \mathbf{s} + \mathbf{n}$$
+
+- $\mathbf{y} \in \mathbb{C}^M$ — vector nhận
+- $\mathbf{H} \in \mathbb{C}^{M \times K}$ — ma trận kênh
+- $\mathbf{s} \in \mathbb{C}^K$ — ký hiệu phát ($E[|s_k|^2] = 1$)
+- $p_u$ — công suất phát đường lên
+- $\mathbf{n} \sim \mathcal{CN}(0, \sigma^2 \mathbf{I})$ — tạp âm
+
+### Maximum Ratio Combining (MRC)
+
+$$\hat{\mathbf{s}}_{MRC} = \mathbf{H}^H \mathbf{y}$$
+
+Cho người dùng k:
+$$\hat{s}_k = \mathbf{h}_k^H \mathbf{y} = \sqrt{p_u} \|\mathbf{h}_k\|^2 s_k + \sqrt{p_u} \sum_{j \neq k} \mathbf{h}_k^H \mathbf{h}_j s_j + \mathbf{h}_k^H \mathbf{n}$$
+
+**SINR:**
+$$\text{SINR}_k^{MRC} = \frac{p_u \|\mathbf{h}_k\|^4}{p_u \sum_{j \neq k} |\mathbf{h}_k^H \mathbf{h}_j|^2 + \sigma^2 \|\mathbf{h}_k\|^2}$$
+
+**Tiệm cận (M → ∞):**
+$$\text{SINR}_k^{MRC} \to \frac{p_u M \beta_k}{\sigma^2}$$
+
+Nhiễu biến mất; SINR tỷ lệ tuyến tính với M.
+
+### Zero-Forcing (ZF)
+
+$$\hat{\mathbf{s}}_{ZF} = (\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H \mathbf{y}$$
+
+Triệt hoàn toàn nhiễu (với chi phí khuếch đại tạp âm).
+
+**SINR:**
+$$\text{SINR}_k^{ZF} = \frac{p_u}{[(\mathbf{H}^H \mathbf{H})^{-1}]_{kk} \sigma^2}$$
+
+**Tiệm cận (M → ∞):**
+$$\text{SINR}_k^{ZF} \to \frac{p_u (M - K) \beta_k}{\sigma^2}$$
+
+Tỷ lệ (M - K), hơi tệ hơn MRC tiệm cận.
+
+### MMSE
+
+$$\hat{\mathbf{s}}_{MMSE} = \left(\mathbf{H}^H \mathbf{H} + \frac{\sigma^2}{p_u} \mathbf{I}\right)^{-1} \mathbf{H}^H \mathbf{y}$$
+
+Cân bằng triệt nhiễu và khuếch đại tạp âm.
+
+**Tiệm cận:** Khớp MRC và ZF khi M → ∞.
+
+### Tốc độ đạt được
+
+Tốc độ ergodic mỗi người dùng:
+
+$$R_k = E\left[\log_2(1 + \text{SINR}_k)\right]$$
+
+Với cứng kênh, tốc độ tiến đến:
+
+$$R_k \approx \log_2\left(1 + \frac{p_u M \beta_k}{\sigma^2}\right)$$
+
+### Hiệu suất phổ tổng
+
+$$SE = \sum_{k=1}^K R_k$$
+
+Tỷ lệ $K \log_2(M)$ cho K cố định, hoặc tiến đến $K \log_2(M/K)$ khi K tỷ lệ với M.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: So sánh MRC vs ZF**
+
+64 ăng-ten, 8 người dùng, SNR = 10 dB mỗi người dùng.
+
+SINR MRC: $\approx \frac{64 \times 10}{1 + 8 \times 10/64} = \frac{640}{2.25} = 284$ (24.5 dB)
+
+SINR ZF: $\approx (64 - 8) \times 10 = 560$ (27.5 dB)
+
+ZF tốt hơn 3 dB do triệt nhiễu.
+
+Ở M cao hơn, khoảng cách thu hẹp — nhiễu tự nhiên nhỏ với MRC.
+
+**Ví dụ: Điều chỉnh công suất**
+
+Tốc độ mục tiêu: 5 bits/s/Hz mỗi người dùng.
+Cần SINR ≈ 31 (15 dB).
+
+Với 64 ăng-ten: $p_u \times 64 / \sigma^2 = 31 \to p_u/\sigma^2 = 0.5$ (-3 dB mỗi người dùng)
+
+Với 256 ăng-ten: $p_u \times 256 / \sigma^2 = 31 \to p_u/\sigma^2 = 0.12$ (-9 dB mỗi người dùng)
+
+4× nhiều ăng-ten hơn cho phép giảm 6 dB công suất.
+
+**Ví dụ: Tốc độ tổng**
+
+64 ăng-ten, 8 người dùng, SNR trung bình = 10 dB.
+
+Tốc độ mỗi người dùng: $\log_2(1 + 640/8) = \log_2(81) = 6.3$ bits/s/Hz
+
+Tốc độ tổng: $8 \times 6.3 = 50$ bits/s/Hz
+
+Cải thiện 50× hiệu suất phổ so với một ăng-ten!
+
+**Ví dụ: Khi nào dùng ZF vs MRC**
+
+SNR cao (>15 dB): ZF tốt hơn — khuếch đại tạp âm chịu được.
+SNR thấp (<5 dB): MRC tốt hơn — không lãng phí công suất triệt.
+SNR vừa: MMSE tốt nhất — đánh đổi tự động.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Giả định CSI hoàn hảo.** Hệ thống thực ước lượng kênh từ pilot. CSI không hoàn hảo giảm hiệu suất MRC/ZF.
+
+2. **Bỏ qua overhead pilot.** Mỗi người dùng cần pilot trực giao. K người dùng cần K ký hiệu pilot mỗi khoảng coherence.
+
+3. **ZF với M ≈ K.** ZF yêu cầu M > K. Khi M = K, $(\mathbf{H}^H\mathbf{H})^{-1}$ khuếch đại tạp âm mạnh.
+
+4. **Quên fading quy mô lớn.** Hiệu ứng gần-xa: người dùng xa cần nhiều công suất hơn hoặc chịu SINR thấp hơn.
+
+5. **Giả định tốc độ bằng nhau.** Hệ thống thực làm lập lịch, điều khiển công suất, và thích ứng tốc độ mỗi người dùng.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Ngo, Larsson, Marzetta, "Energy and Spectral Efficiency of Very Large Multiuser MIMO Systems," IEEE TCOM, 2013.
+- Rusek et al., "Scaling Up MIMO: Opportunities and Challenges with Very Large Arrays," IEEE SPM, 2013.
+- Björnson, Larsson, Marzetta, *Massive MIMO Networks*, Cambridge, 2017.
+
+</section>

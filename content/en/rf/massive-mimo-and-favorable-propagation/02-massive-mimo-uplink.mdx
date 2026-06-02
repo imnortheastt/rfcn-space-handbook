@@ -9,16 +9,175 @@ unit: massive-mimo-and-favorable-propagation
 order: 2
 level: L4
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r5-massive-mimo-and-favorable-propagation-01-favorable-propagation"]
+spiralRevisits: []
 title: "Massive MIMO uplink"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Linear receivers achieve near-optimal performance with many antennas."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["massive-mimo", "uplink", "mrc", "zf", "mmse"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Massive MIMO uplink
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why massive MIMO uplink?
+
+The uplink (user to base station) is where massive MIMO shines brightest. The base station has all the antennas, all the processing power, and — critically — can estimate channels from uplink pilots. Simple linear receivers (MRC, ZF) approach capacity as antenna count grows. No complex iterative detection needed.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+With M >> K, the channel matrix becomes "tall and skinny" — many more rows (antennas) than columns (users). This overdetermined system has a unique least-squares solution. Noise and interference average out across the antenna array. Simple linear processing suffices.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### System model
+
+M antennas, K users, uplink transmission.
+
+Received signal:
+$$\mathbf{y} = \sqrt{p_u} \mathbf{H} \mathbf{s} + \mathbf{n}$$
+
+- $\mathbf{y} \in \mathbb{C}^M$ — received vector
+- $\mathbf{H} \in \mathbb{C}^{M \times K}$ — channel matrix
+- $\mathbf{s} \in \mathbb{C}^K$ — transmitted symbols ($E[|s_k|^2] = 1$)
+- $p_u$ — uplink transmit power
+- $\mathbf{n} \sim \mathcal{CN}(0, \sigma^2 \mathbf{I})$ — noise
+
+### Maximum Ratio Combining (MRC)
+
+$$\hat{\mathbf{s}}_{MRC} = \mathbf{H}^H \mathbf{y}$$
+
+For user k:
+$$\hat{s}_k = \mathbf{h}_k^H \mathbf{y} = \sqrt{p_u} \|\mathbf{h}_k\|^2 s_k + \sqrt{p_u} \sum_{j \neq k} \mathbf{h}_k^H \mathbf{h}_j s_j + \mathbf{h}_k^H \mathbf{n}$$
+
+**SINR:**
+$$\text{SINR}_k^{MRC} = \frac{p_u \|\mathbf{h}_k\|^4}{p_u \sum_{j \neq k} |\mathbf{h}_k^H \mathbf{h}_j|^2 + \sigma^2 \|\mathbf{h}_k\|^2}$$
+
+**Asymptotic (M → ∞):**
+$$\text{SINR}_k^{MRC} \to \frac{p_u M \beta_k}{\sigma^2}$$
+
+Interference vanishes; SINR scales linearly with M.
+
+### Zero-Forcing (ZF)
+
+$$\hat{\mathbf{s}}_{ZF} = (\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H \mathbf{y}$$
+
+Completely nulls interference (at cost of noise enhancement).
+
+**SINR:**
+$$\text{SINR}_k^{ZF} = \frac{p_u}{[(\mathbf{H}^H \mathbf{H})^{-1}]_{kk} \sigma^2}$$
+
+**Asymptotic (M → ∞):**
+$$\text{SINR}_k^{ZF} \to \frac{p_u (M - K) \beta_k}{\sigma^2}$$
+
+Scales as (M - K), slightly worse than MRC asymptotically.
+
+### MMSE
+
+$$\hat{\mathbf{s}}_{MMSE} = \left(\mathbf{H}^H \mathbf{H} + \frac{\sigma^2}{p_u} \mathbf{I}\right)^{-1} \mathbf{H}^H \mathbf{y}$$
+
+Balances interference nulling and noise enhancement.
+
+**Asymptotic:** Matches MRC and ZF as M → ∞.
+
+### Achievable rate
+
+Per-user ergodic rate:
+
+$$R_k = E\left[\log_2(1 + \text{SINR}_k)\right]$$
+
+With channel hardening, rate approaches:
+
+$$R_k \approx \log_2\left(1 + \frac{p_u M \beta_k}{\sigma^2}\right)$$
+
+### Sum spectral efficiency
+
+$$SE = \sum_{k=1}^K R_k$$
+
+Scales as $K \log_2(M)$ for fixed K, or approaches $K \log_2(M/K)$ when K scales with M.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: MRC vs ZF comparison**
+
+64 antennas, 8 users, SNR = 10 dB per user.
+
+MRC SINR: $\approx \frac{64 \times 10}{1 + 8 \times 10/64} = \frac{640}{2.25} = 284$ (24.5 dB)
+
+ZF SINR: $\approx (64 - 8) \times 10 = 560$ (27.5 dB)
+
+ZF is 3 dB better due to interference nulling.
+
+At higher M, gap shrinks — interference naturally small with MRC.
+
+**Example: Power scaling**
+
+Target rate: 5 bits/s/Hz per user.
+Need SINR ≈ 31 (15 dB).
+
+With 64 antennas: $p_u \times 64 / \sigma^2 = 31 \to p_u/\sigma^2 = 0.5$ (-3 dB per user)
+
+With 256 antennas: $p_u \times 256 / \sigma^2 = 31 \to p_u/\sigma^2 = 0.12$ (-9 dB per user)
+
+4× more antennas allows 6 dB power reduction.
+
+**Example: Sum rate**
+
+64 antennas, 8 users, average SNR = 10 dB.
+
+Per-user rate: $\log_2(1 + 640/8) = \log_2(81) = 6.3$ bits/s/Hz
+
+Sum rate: $8 \times 6.3 = 50$ bits/s/Hz
+
+50× spectral efficiency improvement over single-antenna!
+
+**Example: When to use ZF vs MRC**
+
+High SNR (>15 dB): ZF better — noise enhancement tolerable.
+Low SNR (<5 dB): MRC better — don't waste power nulling.
+Moderate SNR: MMSE best — automatic trade-off.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming perfect CSI.** Real systems estimate channels from pilots. Imperfect CSI degrades MRC/ZF performance.
+
+2. **Ignoring pilot overhead.** Each user needs orthogonal pilot. K users need K pilot symbols per coherence interval.
+
+3. **ZF with M ≈ K.** ZF requires M > K. When M = K, $(\mathbf{H}^H\mathbf{H})^{-1}$ amplifies noise dramatically.
+
+4. **Forgetting large-scale fading.** Near-far effect: distant users need more power or suffer lower SINR.
+
+5. **Assuming equal rates.** Real systems do scheduling, power control, and rate adaptation per user.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Ngo, Larsson, Marzetta, "Energy and Spectral Efficiency of Very Large Multiuser MIMO Systems," IEEE TCOM, 2013.
+- Rusek et al., "Scaling Up MIMO: Opportunities and Challenges with Very Large Arrays," IEEE SPM, 2013.
+- Björnson, Larsson, Marzetta, *Massive MIMO Networks*, Cambridge, 2017.
+
+</section>

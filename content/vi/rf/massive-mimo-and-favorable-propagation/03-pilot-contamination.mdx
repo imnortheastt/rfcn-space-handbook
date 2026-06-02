@@ -9,16 +9,175 @@ unit: massive-mimo-and-favorable-propagation
 order: 3
 level: L5
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r5-massive-mimo-and-favorable-propagation-02-massive-mimo-uplink"]
+spiralRevisits: []
 title: "Nhiễm pilot"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Giới hạn cơ bản của massive MIMO đa cell và chiến lược giảm thiểu."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["pilot-contamination", "massive-mimo", "multi-cell", "channel-estimation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Nhiễm pilot
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao nhiễm pilot?
+
+Massive MIMO hứa hẹn dung lượng vô hạn khi ăng-ten tăng — nhưng có một điểm mắc. Khi cell lân cận tái sử dụng cùng chuỗi pilot, kênh của họ bị trộn vào ước lượng của bạn. "Nhiễm pilot" này tạo sàn nhiễu không biến mất với nhiều ăng-ten hơn. Đó là giới hạn cơ bản của massive MIMO đa cell.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Để beamform đến người dùng, trạm gốc phải biết kênh. Nó học điều này từ tín hiệu pilot mà người dùng phát. Nhưng pilot hữu hạn — chỉ τ_p pilot trực giao phù hợp trong khoảng coherence. Với nhiều cell, pilot phải được tái sử dụng. Khi người dùng A trong cell 1 gửi pilot p, người dùng B trong cell 2 dùng cùng pilot làm hỏng ước lượng của cell 1 về kênh người dùng A.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Ràng buộc khoảng coherence
+
+Khoảng coherence: $\tau_c = T_c \times B_c$ ký hiệu
+
+Khả dụng cho pilot: $\tau_p \leq \tau_c$
+
+Pilot trực giao tối đa mỗi cell: $\tau_p$
+
+Với K người dùng mỗi cell và L cell:
+- Nếu $L \times K > \tau_p$: cần tái sử dụng pilot
+- Hệ số tái sử dụng: $\alpha = \frac{\tau_p}{K}$ cell
+
+### Ước lượng kênh với nhiễm
+
+Cell j ước lượng kênh đến người dùng k của nó:
+
+$$\hat{\mathbf{h}}_{jk} = \mathbf{h}_{jk} + \sum_{l \neq j} \mathbf{h}_{lk'} + \text{tạp âm}$$
+
+trong đó người dùng k' trong cell l dùng cùng pilot với người dùng k.
+
+Ước lượng chứa kênh mong muốn cộng kênh giao thoa.
+
+### SINR với nhiễm pilot
+
+Cho precoding đường xuống dựa trên ước lượng nhiễm:
+
+$$\text{SINR}_k = \frac{M \beta_{jk}^2}{\sum_{l \neq j} M \beta_{lk'}^2 + \text{số hạng khác}}$$
+
+Số hạng nhiễu $\sum M \beta_{lk'}^2$ tỷ lệ với M!
+
+Khi M → ∞:
+$$\text{SINR}_k \to \frac{\beta_{jk}^2}{\sum_{l \neq j} \beta_{lk'}^2}$$
+
+**Trần hữu hạn** — thêm ăng-ten vượt một điểm không có lợi.
+
+### Trần dung lượng
+
+$$R_k \leq \log_2\left(1 + \frac{\beta_{jk}^2}{\sum_{l \neq j} \beta_{lk'}^2}\right)$$
+
+Với path loss bằng nhau đến tất cả nguồn nhiễu ($\beta_{lk'} = \beta$):
+
+$$R_k \leq \log_2\left(1 + \frac{1}{L-1}\right) \approx \log_2(L/(L-1))$$
+
+Cho L = 7 cell: max 2.8 bits/s/Hz mỗi người dùng.
+
+### Hệ số nhiễm pilot
+
+Định nghĩa tỷ lệ nhiễm:
+$$\gamma = \frac{\sum_{l \neq j} \beta_{lk'}^2}{\beta_{jk}^2}$$
+
+- $\gamma < 0.1$: Nhiễm không đáng kể
+- $\gamma \approx 1$: Nhiễm bằng tín hiệu
+- $\gamma > 1$: Nhiễm chiếm ưu thế
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Mạng 7 cell**
+
+Bố cục lục giác, người dùng ở biên cell.
+
+Path loss đến BS riêng: $\beta_0$ = 1 (chuẩn hóa).
+Path loss đến 6 BS giao thoa: $\beta_l$ ≈ 0.3 mỗi cái (3× khoảng cách).
+
+Tỷ lệ nhiễm:
+$$\gamma = 6 \times 0.3^2 / 1 = 0.54$$
+
+Trần SINR:
+$$\text{SINR}_{max} = 1/0.54 = 1.85 \quad (2.7 \text{ dB})$$
+
+Trần tốc độ: $\log_2(1 + 1.85) = 1.5$ bits/s/Hz
+
+Đây là lý do phân bổ pilot quan trọng!
+
+**Ví dụ: Chiến lược phân bổ pilot**
+
+τ_c = 200 ký hiệu, K = 10 người dùng/cell, 7 cell.
+
+Lựa chọn A: Tái sử dụng pilot ở tất cả cell.
+- Mỗi cell dùng τ_p = 10 pilot.
+- 6 người dùng giao thoa mỗi pilot.
+- Nhiễm nghiêm trọng.
+
+Lựa chọn B: Hệ số tái sử dụng pilot 7.
+- Mỗi cell dùng τ_p = 70 pilot (10 mỗi cell × 7 cell).
+- Không nhiễm.
+- Phần dữ liệu: 200 - 70 = 130 ký hiệu (35% overhead).
+
+Đánh đổi: nhiễm vs. overhead pilot.
+
+**Ví dụ: Tái sử dụng pilot mềm**
+
+Người dùng trung tâm cell ($\beta_0$ mạnh): chịu nhiễm, tái sử dụng pilot.
+Người dùng biên cell ($\beta_0$ yếu): cần bảo vệ, pilot duy nhất.
+
+Cải thiện SINR trung bình mà không cần trực giao hóa pilot đầy đủ.
+
+**Ví dụ: Khi nhiễm không đáng kể**
+
+Người dùng rất gần BS riêng: $\beta_0$ = 1.
+Nguồn nhiễu xa: $\beta_l$ = 0.01.
+
+$$\gamma = 6 \times 0.01^2 = 0.0006$$
+
+Trần SINR: 1/0.0006 = 1667 (32 dB) — thực tế vô hạn.
+
+Người dùng trung tâm cell không chịu nhiễm pilot.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Bỏ qua nhiễm pilot trong phân tích.** Kết quả đơn cell không áp dụng cho đa cell. Luôn mô hình hóa nhiễm.
+
+2. **Giả định không gian pilot vô hạn.** Thời gian coherence giới hạn pilot. Người dùng di động cao có coherence ngắn → ít pilot hơn.
+
+3. **Công suất pilot bằng nhau.** Người dùng biên cell với kênh yếu cần nhiều công suất pilot để vượt tạp âm, nhưng điều này tăng nhiễm đến hàng xóm.
+
+4. **Quên kỹ thuật giảm thiểu.** Nhiễm không tránh khỏi — phân bổ pilot, điều khiển công suất, và phối hợp giúp ích.
+
+5. **Chỉ áp dụng TDD.** Massive MIMO FDD có vấn đề pilot khác (tệ hơn) — pilot đường xuống không hưởng lợi từ tính tương hỗ.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Marzetta, "Noncooperative Cellular Wireless with Unlimited Numbers of Base Station Antennas," IEEE TWC, 2010.
+- Jose, Ashikhmin, Marzetta, Vishwanath, "Pilot Contamination and Precoding in Multi-Cell TDD Systems," IEEE TWC, 2011.
+- Björnson, Hoydis, Sanguinetti, *Massive MIMO Networks*, Cambridge, 2017.
+
+</section>
