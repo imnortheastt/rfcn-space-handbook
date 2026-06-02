@@ -8,17 +8,195 @@ track: r2
 unit: practical-antenna-design
 order: 2
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r2-practical-antenna-design-01-dipole-2-4ghz"]
+spiralRevisits: []
 title: "Microstrip patch for 5 GHz"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Designing a planar patch antenna for Wi-Fi 5 GHz band."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["patch-antenna", "microstrip", "wifi", "5ghz"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Microstrip patch for 5 GHz
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why a 5 GHz patch antenna?
+
+Patch antennas are flat, low-profile, and PCB-integrated — perfect for laptops, access points, and embedded devices. At 5 GHz (Wi-Fi 5/6/6E), the patch is small enough (~15 mm) for tight integration while providing 6-8 dBi directional gain.
+
+This is the go-to antenna for any product that needs a planar radiator.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+A patch antenna is a resonant cavity between a metal patch and ground plane. The patch edges act as two radiating slots. When the patch length equals λ/2 (accounting for substrate), the slots radiate in phase, creating a broadside beam.
+
+It's like a flattened dipole sandwiched in a PCB.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Frequency and dimensions
+
+At 5.5 GHz (mid-band):
+
+$$\lambda_0 = \frac{c}{f} = \frac{3 \times 10^8}{5.5 \times 10^9} = 54.5 \text{ mm}$$
+
+For FR-4 (εr = 4.4, h = 1.6 mm):
+
+$$\epsilon_{eff} \approx \frac{\epsilon_r + 1}{2} + \frac{\epsilon_r - 1}{2} \left(1 + 12\frac{h}{W}\right)^{-0.5}$$
+
+For W ≈ 15 mm: $\epsilon_{eff} \approx 3.9$
+
+Patch length:
+
+$$L = \frac{c}{2f\sqrt{\epsilon_{eff}}} - 2\Delta L \approx \frac{54.5}{2\sqrt{3.9}} - 1.6 = 12.2 \text{ mm}$$
+
+### Patch width
+
+For efficient radiation:
+
+$$W = \frac{c}{2f} \sqrt{\frac{2}{\epsilon_r + 1}} \approx 16.6 \text{ mm}$$
+
+### Feed techniques
+
+**Inset feed (microstrip):**
+- Notch into patch edge for 50Ω match
+- Inset depth: $y_0 = \frac{L}{\pi}\cos^{-1}\sqrt{\frac{Z_0}{R_{in}}}$
+- Simple, but introduces cross-polarization
+
+**Coaxial probe feed:**
+- Pin through substrate connects to patch
+- Clean impedance control
+- Probe inductance limits bandwidth
+
+**Aperture coupling:**
+- Slot in ground plane couples energy
+- Separate feed and radiating layers
+- Best bandwidth, more complex
+
+**Proximity coupling:**
+- Feed line under patch, no contact
+- Good bandwidth
+- Requires multilayer PCB
+
+### Input impedance
+
+At patch center: $Z = 0$ (short circuit)
+At edge: $Z_{edge} \approx 150-300 \; \Omega$
+
+For 50Ω match, feed at intermediate point (~L/3 from edge).
+
+### Bandwidth
+
+Patch bandwidth is limited by substrate height:
+
+$$BW \approx 3.77 \frac{\epsilon_r - 1}{\epsilon_r^2} \frac{h}{\lambda_0} \frac{W}{L}$$
+
+For FR-4, h = 1.6 mm: BW ≈ 3-4%
+
+At 5.5 GHz: 165-220 MHz — covers single Wi-Fi channel, not full band.
+
+**Wideband techniques:**
+- Thicker substrate (h = 3.2 mm): BW → 6-8%
+- U-slot patch: BW → 20-30%
+- Stacked patches: BW → 15-25%
+
+### Radiation pattern
+
+- **Broadside beam**: Maximum normal to patch
+- **E-plane beamwidth**: ~80-90°
+- **H-plane beamwidth**: ~100-120°
+- **Gain**: 6-8 dBi
+
+### Polarization
+
+Linear polarization along the patch length.
+
+For circular polarization: truncate corners or use dual feed with 90° phase shift.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 5.5 GHz patch on FR-4**
+
+Substrate: FR-4, εr = 4.4, h = 1.6 mm, tan δ = 0.02
+
+Dimensions:
+- Length L = 12.2 mm
+- Width W = 16.6 mm
+- Inset depth y₀ = 3.5 mm
+- Inset width = 1 mm (50Ω line width)
+
+Expected:
+- Resonance: 5.5 GHz
+- Gain: 6 dBi
+- Bandwidth: ~180 MHz (VSWR < 2)
+
+**Example: Wi-Fi 5 GHz full-band coverage**
+
+Band: 5150-5850 MHz (700 MHz span, 13% BW)
+
+Single patch can't cover — use:
+- U-slot patch: 25% BW achievable
+- Or: two overlapping patches (5.2 GHz + 5.7 GHz)
+
+**Example: 2×2 patch array**
+
+For higher gain (12-14 dBi):
+
+Element spacing: λ₀/2 ≈ 27 mm
+Array size: ~60 × 60 mm
+
+Feed network: Wilkinson dividers or corporate feed.
+
+**Example: Low-loss substrate**
+
+Rogers RO4003C (εr = 3.55, tan δ = 0.0027):
+- Higher efficiency: 90% vs. 70% for FR-4
+- Larger patch: L ≈ 14.5 mm
+- Cost: ~10× FR-4
+
+Use for products where efficiency matters (battery-powered, high-power).
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using FR-4 for narrowband applications.** FR-4 loss tangent (0.02) limits efficiency to 70-80%. Okay for Wi-Fi, not for high-power or sensitive receivers.
+
+2. **Ignoring feed line radiation.** Microstrip feed lines radiate and can distort patterns. Keep feeds short or use stripline.
+
+3. **Forgetting ground plane size.** Finite ground plane affects resonance and pattern. Minimum 2λ × 2λ for predictable behavior.
+
+4. **Assuming ideal εr.** FR-4 has ±10% tolerance and varies with frequency. Prototype and tune.
+
+5. **Neglecting manufacturing tolerances.** PCB etching has ±0.1 mm tolerance. At 5 GHz, this shifts resonance by ~100 MHz.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Balanis, *Antenna Theory*, Chapter 14.
+- Garg et al., *Microstrip Antenna Design Handbook*, Chapters 2-4.
+- IEEE 802.11ac/ax specifications for 5 GHz band requirements.
+
+</section>

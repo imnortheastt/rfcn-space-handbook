@@ -8,17 +8,213 @@ track: r2
 unit: practical-antenna-design
 order: 3
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r2-practical-antenna-design-02-microstrip-patch-5ghz"]
+spiralRevisits: []
 title: "Helical antenna for circular-pol satcom"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Designing an axial-mode helix for satellite communication."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["helical-antenna", "circular-polarization", "satcom", "axial-mode"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Helical antenna for circular-pol satcom
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why a helical antenna for satcom?
+
+Satellite links use circular polarization — it eliminates Faraday rotation fading in the ionosphere and avoids polarization alignment issues as the satellite moves. The axial-mode helical antenna naturally produces circular polarization with high gain (10-15 dBi) and wide bandwidth (2:1). It's the classic choice for portable ground terminals.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+A helix is a coiled wire. In axial mode, the circumference equals roughly one wavelength, so the current makes one full rotation per turn. This rotating current radiates a circularly polarized wave along the axis — like a corkscrew of electromagnetic field.
+
+More turns = more gain = narrower beam.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Operating modes
+
+**Normal mode (C < λ/2):**
+- Omnidirectional like short dipole
+- Low gain
+- Not used for satcom
+
+**Axial mode (C ≈ λ):**
+- Endfire radiation along helix axis
+- Circular polarization
+- High gain, directive beam
+
+### Design parameters
+
+**Circumference:**
+$$C = \pi D \approx \lambda$$
+
+Optimal: $C = 0.75\lambda$ to $1.33\lambda$
+
+**Pitch angle:**
+$$\alpha = \tan^{-1}\left(\frac{S}{\pi D}\right)$$
+
+Optimal: $12° < \alpha < 14°$ (typically 13°)
+
+**Turn spacing:**
+$$S = C \tan(\alpha) \approx 0.23\lambda$$
+
+**Number of turns:**
+$$N = \frac{L_{helix}}{S}$$
+
+More turns → higher gain, narrower beamwidth
+
+### Gain
+
+Empirical formula (Kraus):
+
+$$G \approx 15 \cdot N \cdot C^2 \cdot S / \lambda^3 \; \text{(dimensionless)}$$
+
+Or approximately:
+
+$$G_{dBi} \approx 10.8 + 10\log_{10}(N C^2 S / \lambda^3)$$
+
+For N = 10, C = λ, S = 0.25λ: G ≈ 14 dBi
+
+### Input impedance
+
+At helix input (over ground plane):
+
+$$Z_{in} \approx 140 \cdot (C/\lambda) \; \Omega$$
+
+For C = λ: $Z_{in} \approx 140 \; \Omega$
+
+**Matching to 50Ω:**
+- λ/4 transformer: $Z_1 = \sqrt{50 \times 140} = 84 \; \Omega$
+- Tapered line matching
+- External matching network
+
+### Axial ratio
+
+Measures circularity (1.0 = perfect CP):
+
+$$AR \approx \frac{2N + 1}{2N}$$
+
+For N = 10: AR ≈ 1.05 (0.4 dB)
+
+For N = 5: AR ≈ 1.1 (0.8 dB)
+
+### Beamwidth
+
+Half-power beamwidth:
+
+$$\theta_{HP} \approx \frac{52°}{\sqrt{N S/\lambda} \cdot (C/\lambda)}$$
+
+For N = 10, C = λ, S = 0.25λ: $\theta_{HP} \appro$ 33°
+
+### Polarization sense
+
+- Right-hand wound helix → RHCP
+- Left-hand wound helix → LHCP
+
+Match satellite: most LEO/GEO downlinks use RHCP.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: L-band satcom terminal (1.6 GHz)**
+
+Frequency: 1.6 GHz (Iridium, Inmarsat)
+λ = 187.5 mm
+
+Design:
+- Diameter D = λ/π = 60 mm
+- Pitch S = 0.25λ = 47 mm
+- Turns N = 8
+- Total length = 8 × 47 = 376 mm
+
+Expected:
+- Gain: ~13 dBi
+- Beamwidth: ~38°
+- Axial ratio: 1.06
+
+**Example: S-band cubesat ground station (2.2 GHz)**
+
+Frequency: 2.2 GHz
+λ = 136 mm
+
+Design:
+- D = 43 mm
+- S = 34 mm
+- N = 12
+- Length = 408 mm
+
+Expected:
+- Gain: ~15 dBi
+- Beamwidth: ~28°
+- Suitable for LEO tracking with motorized mount
+
+**Example: Quadrifilar helix antenna (QHA)**
+
+Four interwound helices, fed in quadrature:
+- Cardioid pattern (hemispherical coverage)
+- Lower gain (~3 dBi) but wide beamwidth
+- Used for GPS, Iridium handhelds
+
+Design trade-off: higher gain (long helix) vs. portability.
+
+**Example: Ground plane design**
+
+Minimum ground plane: 0.5λ diameter (reflector cup)
+
+Larger (1λ) reduces backlobes.
+
+Cup depth: 0.15λ improves pattern.
+
+**Example: Matching network**
+
+For 140Ω to 50Ω at 1.6 GHz:
+
+λ/4 transformer:
+- Z₁ = 84Ω
+- Microstrip: W ≈ 2 mm on FR-4 (εr = 4.4, h = 1.6 mm)
+- Length: λ/4 ÷ √εeff ≈ 23 mm
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Wrong polarization sense.** Winding direction matters. RHCP satellite needs RHCP ground antenna. Cross-polarization gives 3 dB loss.
+
+2. **Insufficient ground plane.** Too small or absent ground plane causes pattern distortion and impedance mismatch.
+
+3. **Operating outside axial mode.** If C < 0.7λ or C > 1.4λ, you get normal mode or higher-order modes with degraded performance.
+
+4. **Ignoring feed region.** The first turn must be shaped carefully to launch the traveling wave. Abrupt transitions cause reflections.
+
+5. **Forgetting mechanical stability.** Long helices need support structures. Wind loading can be significant for portable terminals.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Kraus, *Antennas*, Chapter 7.
+- Balanis, *Antenna Theory*, Chapter 10.
+- CCSDS 401.0-B, "Radio Frequency and Modulation Systems."
+
+</section>

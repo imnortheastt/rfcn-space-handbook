@@ -8,17 +8,176 @@ track: r2
 unit: practical-antenna-design
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r2-antenna-fundamentals-01-gain"]
+spiralRevisits: []
 title: "Dipole for 2.4 GHz"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Designing a half-wave dipole for Wi-Fi and Bluetooth."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["dipole", "antenna-design", "wifi", "2.4ghz"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Dipole for 2.4 GHz
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why a 2.4 GHz dipole?
+
+The half-wave dipole is the workhorse antenna — simple, omnidirectional in azimuth, and well-understood. At 2.4 GHz (Wi-Fi, Bluetooth, ZigBee), the dipole is compact (~6 cm total length) and easy to build. Every RF engineer should be able to design one from scratch.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+A dipole is two wires fed from the center. Current flows out, reaches the ends, and reflects back. At resonance, the antenna is λ/2 long — current distribution is sinusoidal with maximum at the center, zero at the ends.
+
+The radiation pattern looks like a donut around the antenna axis.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Frequency and wavelength
+
+At 2.4 GHz:
+
+$$\lambda = \frac{c}{f} = \frac{3 \times 10^8}{2.4 \times 10^9} = 125 \text{ mm}$$
+
+Half wavelength: $\lambda/2 = 62.5$ mm
+
+### Physical length adjustment
+
+Due to end effects and finite wire diameter, actual resonant length is shorter:
+
+$$L_{physical} \approx 0.95 \times \frac{\lambda}{2} = 0.95 \times 62.5 = 59.4 \text{ mm}$$
+
+Each arm: ~30 mm
+
+### Wire diameter effect
+
+Thicker wire → lower resonant length (more end capacitance)
+Thinner wire → higher Q, narrower bandwidth
+
+For 2.4 GHz with 1 mm diameter wire: factor ≈ 0.95
+
+### Input impedance
+
+At resonance, dipole impedance:
+- Free space: $Z_{in} \approx 73 + j0 \; \Omega$
+- Above ground plane (h = λ/4): varies with height
+
+### Matching to 50Ω
+
+Options:
+1. **Folded dipole**: $Z_{in} \approx 292 \; \Omega$, use 4:1 balun
+2. **Gamma match**: shunt capacitor + series inductor
+3. **Direct feed**: accept ~1.5:1 VSWR (73Ω to 50Ω)
+4. **Sleeve balun**: coax with outer sleeve
+
+### Bandwidth
+
+Q ≈ 10-15 for thin wire dipole
+
+Bandwidth (VSWR < 2): 
+$$BW \approx \frac{f_0}{Q} \approx \frac{2400}{12} = 200 \text{ MHz}$$
+
+Covers full ISM band (2400-2483.5 MHz).
+
+### Radiation pattern
+
+- **E-plane (vertical)**: Figure-8 pattern, nulls at axis
+- **H-plane (horizontal)**: Omnidirectional
+- **Gain**: 2.15 dBi
+
+### Polarization
+
+Linear polarization aligned with dipole axis.
+
+Mount vertically for vertical polarization (standard for omnidirectional coverage).
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: PCB dipole design**
+
+FR-4 substrate (εr = 4.4), 2.4 GHz.
+
+Effective wavelength: $\lambda_{eff} = \lambda_0 / \sqrt{\epsilon_{eff}}$
+
+For edge traces: $\epsilon_{eff} \approx 2.5$, so $\lambda_{eff} \approx 79$ mm
+
+Half-wave: 39.5 mm total, 19.7 mm each arm
+
+**Example: Whip antenna**
+
+Flexible rubber antenna on 2.4 GHz radio module.
+
+Internal helix loading shortens physical length to ~35 mm while maintaining electrical λ/2.
+
+Trade-off: lower efficiency (75% vs. 95% for full-size).
+
+**Example: Coax sleeve dipole**
+
+Materials:
+- RG-58 coax, 30 mm exposed center conductor
+- 30 mm sleeve over outer conductor
+
+Total length: 60 mm center-to-center.
+
+Sleeve acts as balun, preventing common-mode current.
+
+**Example: S11 measurement**
+
+Connect to VNA, sweep 2-3 GHz.
+
+Target: S11 < -10 dB at 2.44 GHz (center of band).
+
+If resonance is high: lengthen arms.
+If resonance is low: shorten arms.
+
+**Example: Radiation pattern measurement**
+
+Anechoic chamber or outdoor range.
+
+Rotate antenna, measure received power every 5°.
+
+Expected: -3 dB beamwidth ≈ 78° in E-plane.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Forgetting the balun.** Coax is unbalanced; dipole is balanced. Without a balun, common-mode currents radiate from the feedline, distorting the pattern.
+
+2. **Ignoring mounting effects.** Nearby metal (phone case, ground plane, mounting bracket) shifts resonance. Always tune in the final environment.
+
+3. **Using wrong velocity factor.** Air dipole vs. PCB dipole vs. helix-loaded all have different effective lengths.
+
+4. **Confusing dBi and dBd.** Dipole gain is 0 dBd = 2.15 dBi. Specs often mix these up.
+
+5. **Over-engineering for simple applications.** A bent wire dipole achieves 90% of theoretical performance. Perfection isn't always needed.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Balanis, *Antenna Theory*, Chapter 4.
+- ARRL Antenna Book, Chapter 2.
+- IEEE 802.11 specification for ISM band requirements.
+
+</section>

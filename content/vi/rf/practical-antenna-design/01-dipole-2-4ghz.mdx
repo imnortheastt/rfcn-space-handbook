@@ -8,17 +8,176 @@ track: r2
 unit: practical-antenna-design
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "Anten lưỡng cực 2.4 GHz"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r2-antenna-fundamentals-01-gain"]
+spiralRevisits: []
+title: "Anten lưỡng cực cho 2.4 GHz"
+description: "Thiết kế anten lưỡng cực nửa sóng cho Wi-Fi và Bluetooth."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["dipole", "antenna-design", "wifi", "2.4ghz"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Anten lưỡng cực 2.4 GHz
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao anten lưỡng cực 2.4 GHz?
+
+Anten lưỡng cực nửa sóng là anten chủ lực — đơn giản, vô hướng trong mặt phẳng ngang, và được hiểu rõ. Ở 2.4 GHz (Wi-Fi, Bluetooth, ZigBee), lưỡng cực nhỏ gọn (~6 cm tổng chiều dài) và dễ chế tạo. Mọi kỹ sư RF nên có khả năng thiết kế một cái từ đầu.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Lưỡng cực là hai dây được cấp nguồn từ trung tâm. Dòng điện chảy ra, đến đầu cuối, và phản xạ lại. Ở cộng hưởng, anten dài λ/2 — phân bố dòng điện hình sin với cực đại ở trung tâm, bằng không ở đầu cuối.
+
+Pattern bức xạ trông như bánh donut quanh trục anten.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Tần số và bước sóng
+
+Ở 2.4 GHz:
+
+$$\lambda = \frac{c}{f} = \frac{3 \times 10^8}{2.4 \times 10^9} = 125 \text{ mm}$$
+
+Nửa bước sóng: $\lambda/2 = 62.5$ mm
+
+### Điều chỉnh chiều dài vật lý
+
+Do hiệu ứng đầu cuối và đường kính dây hữu hạn, chiều dài cộng hưởng thực tế ngắn hơn:
+
+$$L_{physical} \approx 0.95 \times \frac{\lambda}{2} = 0.95 \times 62.5 = 59.4 \text{ mm}$$
+
+Mỗi cánh: ~30 mm
+
+### Hiệu ứng đường kính dây
+
+Dây dày hơn → chiều dài cộng hưởng thấp hơn (nhiều điện dung đầu cuối)
+Dây mỏng hơn → Q cao hơn, băng thông hẹp hơn
+
+Cho 2.4 GHz với dây đường kính 1 mm: hệ số ≈ 0.95
+
+### Trở kháng đầu vào
+
+Ở cộng hưởng, trở kháng lưỡng cực:
+- Không gian tự do: $Z_{in} \approx 73 + j0 \; \Omega$
+- Trên mặt phẳng đất (h = λ/4): thay đổi theo độ cao
+
+### Phối hợp với 50Ω
+
+Các lựa chọn:
+1. **Lưỡng cực gấp**: $Z_{in} \approx 292 \; \Omega$, dùng balun 4:1
+2. **Gamma match**: tụ shunt + cuộn cảm nối tiếp
+3. **Cấp nguồn trực tiếp**: chấp nhận VSWR ~1.5:1 (73Ω đến 50Ω)
+4. **Balun sleeve**: coax với sleeve ngoài
+
+### Băng thông
+
+Q ≈ 10-15 cho lưỡng cực dây mỏng
+
+Băng thông (VSWR < 2): 
+$$BW \approx \frac{f_0}{Q} \approx \frac{2400}{12} = 200 \text{ MHz}$$
+
+Bao phủ toàn bộ băng ISM (2400-2483.5 MHz).
+
+### Pattern bức xạ
+
+- **Mặt phẳng E (thẳng đứng)**: Pattern hình số 8, null ở trục
+- **Mặt phẳng H (nằm ngang)**: Vô hướng
+- **Độ lợi**: 2.15 dBi
+
+### Phân cực
+
+Phân cực tuyến tính thẳng hàng với trục lưỡng cực.
+
+Lắp đặt thẳng đứng cho phân cực thẳng đứng (tiêu chuẩn cho coverage vô hướng).
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Thiết kế lưỡng cực PCB**
+
+Substrate FR-4 (εr = 4.4), 2.4 GHz.
+
+Bước sóng hiệu dụng: $\lambda_{eff} = \lambda_0 / \sqrt{\epsilon_{eff}}$
+
+Cho trace cạnh: $\epsilon_{eff} \approx 2.5$, nên $\lambda_{eff} \approx 79$ mm
+
+Nửa sóng: 39.5 mm tổng, 19.7 mm mỗi cánh
+
+**Ví dụ: Anten whip**
+
+Anten cao su linh hoạt trên module radio 2.4 GHz.
+
+Helix loading nội bộ rút ngắn chiều dài vật lý xuống ~35 mm trong khi duy trì λ/2 điện.
+
+Đánh đổi: hiệu suất thấp hơn (75% vs. 95% cho kích thước đầy đủ).
+
+**Ví dụ: Lưỡng cực coax sleeve**
+
+Vật liệu:
+- Coax RG-58, 30 mm dây dẫn trung tâm lộ
+- Sleeve 30 mm trên dây dẫn ngoài
+
+Tổng chiều dài: 60 mm từ tâm đến tâm.
+
+Sleeve hoạt động như balun, ngăn dòng common-mode.
+
+**Ví dụ: Đo S11**
+
+Kết nối với VNA, quét 2-3 GHz.
+
+Mục tiêu: S11 < -10 dB ở 2.44 GHz (tâm băng).
+
+Nếu cộng hưởng cao: kéo dài cánh.
+Nếu cộng hưởng thấp: rút ngắn cánh.
+
+**Ví dụ: Đo pattern bức xạ**
+
+Buồng anechoic hoặc range ngoài trời.
+
+Xoay anten, đo công suất nhận mỗi 5°.
+
+Dự kiến: beamwidth -3 dB ≈ 78° trong mặt phẳng E.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Quên balun.** Coax không cân bằng; lưỡng cực cân bằng. Không có balun, dòng common-mode bức xạ từ đường cấp nguồn, làm méo pattern.
+
+2. **Bỏ qua hiệu ứng lắp đặt.** Kim loại gần (vỏ điện thoại, mặt phẳng đất, giá đỡ) dịch cộng hưởng. Luôn chỉnh trong môi trường cuối cùng.
+
+3. **Dùng sai hệ số vận tốc.** Lưỡng cực không khí vs. lưỡng cực PCB vs. helix-loaded đều có chiều dài hiệu dụng khác nhau.
+
+4. **Nhầm dBi và dBd.** Độ lợi lưỡng cực là 0 dBd = 2.15 dBi. Spec thường nhầm lẫn những cái này.
+
+5. **Thiết kế quá mức cho ứng dụng đơn giản.** Lưỡng cực dây uốn đạt 90% hiệu năng lý thuyết. Hoàn hảo không phải lúc nào cũng cần.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Balanis, *Antenna Theory*, Chapter 4.
+- ARRL Antenna Book, Chapter 2.
+- IEEE 802.11 specification for ISM band requirements.
+
+</section>
