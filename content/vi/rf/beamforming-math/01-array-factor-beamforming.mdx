@@ -8,17 +8,170 @@ track: r5
 unit: beamforming-math
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 8
+prerequisites: ["rf-r2-arrays-03-array-factor", "rf-r2-arrays-05-beam-steering"]
+spiralRevisits: []
 title: "Hệ số mảng trong beamforming"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Kết nối hệ số mảng anten với beamforming xử lý tín hiệu."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["array-factor", "beamforming", "steering-vector", "spatial-filter", "signal-processing"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Hệ số mảng trong beamforming
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao xem lại hệ số mảng?
+
+Trong lý thuyết anten, hệ số mảng mô tả pattern bức xạ. Trong xử lý tín hiệu, chúng ta gọi là **beamforming**. Cùng toán học, góc nhìn khác — một nghĩ về bức xạ, cái kia nghĩ về nhận và lọc tín hiệu theo không gian.
+
+Bài này kết nối hai góc nhìn: kỹ sư anten nói về pattern và lái; kỹ sư xử lý tín hiệu nói về trọng số và bộ lọc không gian. Hiểu cả hai từ vựng mở khóa toàn bộ sức mạnh xử lý mảng.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hệ số mảng là bộ lọc không gian. Giống như bộ lọc miền thời gian định hình đáp ứng tần số, trọng số mảng định hình đáp ứng không gian — tăng tín hiệu từ hướng mong muốn và triệt nhiễu từ hướng không mong muốn.
+
+Mỗi vector trọng số định nghĩa một pattern. Thay đổi trọng số, thay đổi pattern. Đây là cốt lõi của beamforming thích ứng: tính toán trọng số tối ưu hóa tiêu chí nào đó (tối đa SNR, triệt nhiễu, tối thiểu lỗi).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Ký hiệu anten vs. xử lý tín hiệu
+
+| Lý thuyết anten | Xử lý tín hiệu |
+|-----------------|----------------|
+| Kích thích phần tử $a_n$ | Trọng số $w_n$ |
+| Hệ số mảng $AF(\theta)$ | Beampattern $B(\theta)$ |
+| Pha tiến dần $\beta$ | Vector lái $\mathbf{a}(\theta)$ |
+| Nhân pattern | Bộ lọc phối hợp không gian |
+
+### Vector lái
+
+Với ULA có khoảng cách $d$, vector lái theo hướng $\theta$:
+
+$$\mathbf{a}(\theta) = \begin{bmatrix} 1 \\ e^{j\frac{2\pi d}{\lambda}\sin\theta} \\ e^{j\frac{4\pi d}{\lambda}\sin\theta} \\ \vdots \\ e^{j\frac{2\pi(N-1)d}{\lambda}\sin\theta} \end{bmatrix}$$
+
+Đây là profile pha của sóng phẳng đến từ $\theta$.
+
+### Đầu ra beamformer
+
+Cho vector tín hiệu nhận $\mathbf{x}$ và vector trọng số $\mathbf{w}$:
+
+$$y = \mathbf{w}^H \mathbf{x}$$
+
+Beampattern (đáp ứng không gian):
+
+$$B(\theta) = \mathbf{w}^H \mathbf{a}(\theta)$$
+
+Điều này bằng hệ số mảng khi $\mathbf{w}$ khớp với kích thích anten.
+
+### Beamformer thông thường
+
+Chỉ chùm về hướng $\theta_0$ bằng cách đặt trọng số = vector lái:
+
+$$\mathbf{w} = \mathbf{a}(\theta_0)$$
+
+Đầu ra: $y = \mathbf{a}^H(\theta_0) \mathbf{x}$
+
+Điều này tối đa tăng ích về $\theta_0$ (bộ lọc phối hợp không gian).
+
+### Ma trận đáp ứng mảng
+
+Với nhiều tín hiệu từ các hướng $\{\theta_1, \theta_2, \ldots, \theta_K\}$:
+
+$$\mathbf{A} = [\mathbf{a}(\theta_1), \mathbf{a}(\theta_2), \ldots, \mathbf{a}(\theta_K)]$$
+
+Mô hình tín hiệu nhận:
+
+$$\mathbf{x} = \mathbf{A}\mathbf{s} + \mathbf{n}$$
+
+trong đó $\mathbf{s}$ = tín hiệu nguồn, $\mathbf{n}$ = nhiễu.
+
+### Tăng ích beamformer
+
+Tăng ích mảng về $\theta_0$:
+
+$$G = \frac{|\mathbf{w}^H\mathbf{a}(\theta_0)|^2}{\|\mathbf{w}\|^2}$$
+
+Với beamformer thông thường với $\mathbf{w} = \mathbf{a}(\theta_0)$:
+
+$$G = N \quad \text{(tối đa có thể)}$$
+
+### Từ dB sang tuyến tính
+
+Đỉnh hệ số mảng là $N$ (tuyến tính) hoặc $20\log_{10}(N)$ dB.
+
+Mảng 8 phần tử: đỉnh 18 dB.
+Mảng 64 phần tử: đỉnh 36 dB.
+
+Mức thùy phụ vẫn tương đối với đỉnh này (ví dụ: thùy phụ đầu −13 dB).
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Tính vector lái**
+
+ULA 4 phần tử, $d = \lambda/2$, lái đến $\theta = 30°$.
+
+$$\mathbf{a}(30°) = \begin{bmatrix} 1 \\ e^{j\pi\sin(30°)} \\ e^{j2\pi\sin(30°)} \\ e^{j3\pi\sin(30°)} \end{bmatrix} = \begin{bmatrix} 1 \\ e^{j\pi/2} \\ e^{j\pi} \\ e^{j3\pi/2} \end{bmatrix} = \begin{bmatrix} 1 \\ j \\ -1 \\ -j \end{bmatrix}$$
+
+**Ví dụ: Đầu ra beamformer**
+
+Tín hiệu nhận: $\mathbf{x} = s \cdot \mathbf{a}(30°) + \mathbf{n}$ trong đó $s = 1$.
+
+Với trọng số $\mathbf{w} = \mathbf{a}(30°)$:
+
+$$y = \mathbf{w}^H\mathbf{x} = \mathbf{a}^H(30°) \cdot \mathbf{a}(30°) \cdot s + \mathbf{a}^H(30°)\mathbf{n} = 4s + \tilde{n}$$
+
+Tăng ích mảng = 4 (6 dB) so với phần tử đơn.
+
+**Ví dụ: Kịch bản hai tín hiệu**
+
+Tín hiệu mong muốn ở 30°, nhiễu ở 60°.
+
+Đáp ứng beamformer thông thường ở nhiễu:
+$$B(60°) = \mathbf{a}^H(30°)\mathbf{a}(60°) \neq 0$$
+
+Nhiễu không bị triệt hoàn toàn — thúc đẩy beamforming thích ứng (MVDR, LCMV).
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Nhầm lẫn liên hợp.** Tài liệu anten dùng $e^{+j\phi}$ cho bức xạ; xử lý tín hiệu dùng $e^{-j\phi}$ cho thu. Chú ý quy ước dấu.
+
+2. **Chuẩn hóa.** Một số định nghĩa $\mathbf{w}$ chuẩn hóa ($\|\mathbf{w}\|=1$), số khác không. Ảnh hưởng tính toán tăng ích.
+
+3. **Quy ước góc.** Lý thuyết anten: $\theta$ từ broadside (0° = vuông góc). Một số xử lý tín hiệu: $\theta$ từ endfire. Luôn xác minh.
+
+4. **Giả định băng hẹp.** Vector lái giả định tần số đơn. Tín hiệu băng rộng cần xử lý phụ thuộc tần số hoặc trễ thời gian thực.
+
+5. **Chỉ trường xa.** Suy dẫn vector lái giả định sóng phẳng trường xa. Nguồn trường gần cần mô hình sóng cầu.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Van Trees, *Optimum Array Processing* — góc nhìn xử lý tín hiệu.
+- Balanis, *Antenna Theory* — góc nhìn anten.
+- Monzingo & Miller, *Introduction to Adaptive Arrays* — kết nối cả hai.
+
+</section>

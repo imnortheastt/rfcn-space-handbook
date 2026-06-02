@@ -8,17 +8,183 @@ track: r5
 unit: beamforming-math
 order: 2
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r5-beamforming-math-01-array-factor-beamforming", "rf-r2-arrays-05-beam-steering"]
+spiralRevisits: ["rf-r5-hybrid-beamforming-01-hybrid-architecture"]
 title: "Beamforming analog"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Beamforming dựa trên bộ dịch pha cho truyền đơn luồng."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["analog-beamforming", "phase-shifter", "single-stream", "mmwave", "5g-nr"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Beamforming analog
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao beamforming analog?
+
+Beamforming số yêu cầu một ADC/DAC mỗi phần tử anten — đắt và tiêu thụ điện ở tần số mmWave với hàng trăm phần tử. Beamforming analog dùng bộ dịch pha RF để lái chùm, chỉ cần một chuỗi RF cho toàn bộ mảng.
+
+Đánh đổi: beamforming analog chỉ có thể tạo một chùm mỗi chuỗi RF. Nhưng với liên kết điểm-điểm và truy cập ban đầu, một chùm tăng ích cao chính xác là những gì bạn cần.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Beamforming analog là lái chùm điện — giống như mảng pha cổ điển. Mỗi phần tử nhận bản sao dịch pha của cùng tín hiệu. Tất cả dịch pha xảy ra ở RF, trước xử lý số.
+
+Hãy nghĩ như thấu kính hội tụ năng lượng RF. Bạn có thể chỉ tiêu điểm bất cứ đâu trong trường nhìn bằng cách điều chỉnh bộ dịch pha. Nhưng bạn chỉ có một tiêu điểm mỗi lúc.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Kiến trúc
+
+```
+Tín hiệu → DAC → Chuỗi RF → ┬─[φ₁]─→ Ant 1
+                            ├─[φ₂]─→ Ant 2
+                            ├─[φ₃]─→ Ant 3
+                            └─[φₙ]─→ Ant N
+```
+
+Một chuỗi RF cấp tất cả phần tử qua bộ dịch pha.
+
+### Ràng buộc vector trọng số
+
+Trọng số analog có **biên độ không đổi** (chỉ pha):
+
+$$w_n = e^{j\phi_n}, \quad |w_n| = 1$$
+
+Vector trọng số:
+
+$$\mathbf{f} = \frac{1}{\sqrt{N}} \begin{bmatrix} e^{j\phi_1} \\ e^{j\phi_2} \\ \vdots \\ e^{j\phi_N} \end{bmatrix}$$
+
+Chuẩn hóa sao cho $\|\mathbf{f}\|^2 = 1$.
+
+### Lái theo hướng
+
+Để lái chùm về $\theta_0$, đặt pha liên hợp với vector lái:
+
+$$\phi_n = -\frac{2\pi(n-1)d}{\lambda}\sin\theta_0$$
+
+Đây là bộ lọc phối hợp cho hướng $\theta_0$.
+
+### Tăng ích mảng
+
+Với lái phối hợp:
+
+$$G = |\mathbf{f}^H\mathbf{a}(\theta_0)|^2 = N$$
+
+Đạt tăng ích mảng đầy đủ dù chỉ điều khiển pha.
+
+### Beampattern
+
+$$B(\theta) = \mathbf{f}^H\mathbf{a}(\theta) = \frac{1}{\sqrt{N}} \sum_{n=1}^{N} e^{j(n-1)\frac{2\pi d}{\lambda}(\sin\theta - \sin\theta_0)}$$
+
+Giống hệ số mảng thông thường — pattern dạng sinc.
+
+### Giới hạn
+
+1. **Chùm đơn:** Một chùm mỗi chuỗi RF. Không thể phục vụ nhiều người dùng đồng thời.
+
+2. **Biên độ không đổi:** Không điều khiển biên độ → không thể thực hiện độ dốc thùy phụ tùy ý (dù độ dốc pha lượng tử hóa xấp xỉ được).
+
+3. **Lượng tử hóa pha:** Bộ dịch pha 3–6 bit gây thùy lượng tử hóa.
+
+4. **Lệch băng rộng:** Bộ dịch pha là băng hẹp. Tín hiệu băng rộng bị lệch chùm.
+
+### Cân nhắc thực hiện
+
+| Thông số | Phạm vi điển hình |
+|----------|-------------------|
+| Độ phân giải pha | 3–6 bit |
+| Tổn hao xen | 2–6 dB |
+| Thời gian chuyển mạch | 10–100 ns |
+| Công suất mỗi phần tử | 10–50 mW |
+
+Ở 28 GHz với 256 phần tử: ~10 W chỉ cho bộ dịch pha.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Quét chùm 5G NR**
+
+Trạm gốc với 64 phần tử, beamforming analog.
+
+Trong truy cập ban đầu, quét qua codebook 64 chùm để tìm UE.
+
+Khoảng cách chùm: $\Delta\theta \approx 102°/64 \approx 1.6°$ (phủ ±50°).
+
+Mỗi chùm: tăng ích 18 dB, HPBW 1.6°.
+
+**Ví dụ: Backhaul điểm-điểm**
+
+Liên kết backhaul 28 GHz, 256 phần tử mỗi phía.
+
+Tăng ích mảng: $10\log_{10}(256) = 24$ dB mỗi phía.
+
+Tổng tăng ích liên kết từ mảng: 48 dB.
+
+Chùm đơn ổn — liên kết cố định.
+
+**Ví dụ: Tổn hao lượng tử hóa pha**
+
+Bộ dịch pha 3-bit (bước 45°).
+
+Tổn hao lượng tử hóa: ~0.3 dB.
+
+Thùy phụ lượng tử hóa: ~20 dB dưới đỉnh.
+
+6-bit (bước 5.6°): tổn hao <0.1 dB, thùy phụ <35 dB.
+
+**Ví dụ: Lệch chùm ở băng thông 400 MHz**
+
+Tần số trung tâm 28 GHz, BW 400 MHz (1.4% băng thông phân số).
+
+Chùm lái đến 30°:
+- Ở 28.2 GHz: chùm chỉ đến 29.6°
+- Ở 27.8 GHz: chùm chỉ đến 30.4°
+
+Lệch: ~0.8° tổng — ít hơn độ rộng chùm 1.6°, chấp nhận được.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Nhầm với số.** Beamforming analog không thể làm SDMA hoặc ghép kênh không gian. Một chùm = một luồng.
+
+2. **Bỏ qua tổn hao xen.** Tổn hao bộ dịch pha 4 dB triệt tiêu tăng ích của 2–3 phần tử. Lập ngân sách cẩn thận.
+
+3. **Giả định độ phân giải vô hạn.** Bộ dịch pha thực tế có 3–6 bit. Lượng tử hóa ảnh hưởng pattern.
+
+4. **Quên hiệu ứng băng rộng.** Ở >5% băng thông phân số, lệch chùm trở nên vấn đề.
+
+5. **Hiệu chuẩn.** Bộ dịch pha có sai lệch giữa các đơn vị. Cần hiệu chuẩn cho chỉ hướng chùm chính xác.
+
+6. **Trôi nhiệt độ.** Đặc tính bộ dịch pha trôi theo nhiệt độ. Cần hiệu chuẩn hoặc bù chủ động.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Heath & Lozano, *Foundations of MIMO Communication*, Chương 7.
+- 3GPP TS 38.214 — quản lý chùm NR.
+- Rappaport et al., "Millimeter wave mobile communications for 5G."
+
+</section>

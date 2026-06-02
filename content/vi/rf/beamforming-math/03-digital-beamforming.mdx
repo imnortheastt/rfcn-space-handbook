@@ -8,17 +8,200 @@ track: r5
 unit: beamforming-math
 order: 3
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r5-beamforming-math-01-array-factor-beamforming"]
+spiralRevisits: ["rf-r5-massive-mimo-and-favorable-propagation-01-massive-mimo-intro"]
 title: "Beamforming số"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Điều khiển số đầy đủ với một chuỗi RF mỗi phần tử."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["digital-beamforming", "full-digital", "mimo", "precoding", "spatial-multiplexing"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Beamforming số
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao beamforming số?
+
+Beamforming analog chỉ có thể tạo một chùm mỗi chuỗi RF. Beamforming số đặt ADC/DAC trên mỗi phần tử, cho điều khiển hoàn toàn cả biên độ và pha. Điều này cho phép nhiều chùm đồng thời, ghép kênh không gian, và lái null — không thể với analog đơn thuần.
+
+Chi phí là độ phức tạp: N phần tử nghĩa N chuỗi RF, N ADC, N DAC. Nhưng ở sub-6 GHz với kích thước mảng vừa phải, số thường là lựa chọn đúng.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Beamforming số nghĩa tất cả kết hợp tín hiệu xảy ra trong miền số. Mỗi phần tử anten được số hóa độc lập, cho bạn N luồng dữ liệu song song để làm việc.
+
+Giống như có N anten riêng biệt mà tín hiệu bạn có thể kết hợp theo bất kỳ cách nào — trong phần mềm, sau đó. Bạn có thể tạo nhiều chùm đồng thời, lái null đến nhiễu, hoặc truyền dữ liệu khác đến các hướng khác cùng lúc.
+
+Sự linh hoạt hoàn toàn. Ràng buộc là chi phí phần cứng và điện.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Kiến trúc (thu)
+
+```
+Ant 1 → LNA → ↓ → ADC → ┐
+Ant 2 → LNA → ↓ → ADC → ├─→ Xử lý số → y₁, y₂, ...
+Ant 3 → LNA → ↓ → ADC → │
+  ⋮                      │
+Ant N → LNA → ↓ → ADC → ┘
+```
+
+N chuỗi RF song song, mỗi chuỗi có hạ biến và số hóa đầy đủ.
+
+### Mô hình tín hiệu
+
+Vector tín hiệu nhận:
+
+$$\mathbf{x} = \mathbf{H}\mathbf{s} + \mathbf{n}$$
+
+- $\mathbf{x}$: tín hiệu nhận N × 1
+- $\mathbf{H}$: ma trận kênh N × K
+- $\mathbf{s}$: ký hiệu truyền K × 1
+- $\mathbf{n}$: nhiễu N × 1
+
+### Kết hợp số
+
+Đầu ra cho người dùng k:
+
+$$y_k = \mathbf{w}_k^H \mathbf{x}$$
+
+Nhiều người dùng được phục vụ đồng thời với ma trận trọng số $\mathbf{W} = [\mathbf{w}_1, \ldots, \mathbf{w}_K]$:
+
+$$\mathbf{y} = \mathbf{W}^H \mathbf{x}$$
+
+### Precoding (truyền)
+
+Tín hiệu truyền:
+
+$$\mathbf{x} = \mathbf{F}\mathbf{s}$$
+
+trong đó $\mathbf{F}$ là ma trận precoding N × K.
+
+Mỗi cột của $\mathbf{F}$ tạo một chùm về một người dùng.
+
+### Beamforming zero-forcing
+
+Buộc không nhiễu giữa người dùng:
+
+$$\mathbf{F}_{ZF} = \mathbf{H}^H(\mathbf{H}\mathbf{H}^H)^{-1}$$
+
+Người dùng k chỉ thấy tín hiệu của họ: $\mathbf{h}_k^H \mathbf{f}_j = \delta_{kj}$.
+
+### Beamforming MMSE
+
+Cân bằng triệt nhiễu với khuếch đại nhiễu:
+
+$$\mathbf{F}_{MMSE} = \mathbf{H}^H(\mathbf{H}\mathbf{H}^H + \sigma^2\mathbf{I})^{-1}$$
+
+Tốt hơn ZF ở SNR thấp.
+
+### Truyền tỷ lệ cực đại (MRT)
+
+Tối đa công suất về mỗi người dùng (bỏ qua nhiễu):
+
+$$\mathbf{f}_k = \frac{\mathbf{h}_k}{\|\mathbf{h}_k\|}$$
+
+Tối ưu cho trường hợp người dùng đơn. Không tối ưu cho đa người dùng.
+
+### Bậc tự do
+
+Với N anten:
+- Có thể tạo đến N chùm độc lập
+- Có thể phục vụ đến N người dùng đồng thời (nếu kênh độc lập)
+- Có thể đặt đến N-1 null
+
+Bậc tự do không gian: $\min(N, K)$ trong đó K = người dùng.
+
+### Tải tính toán
+
+Mỗi ký hiệu:
+- Kết hợp thu: $O(NK)$ phép nhân
+- Precoding ZF: $O(N^2K + K^3)$ cho nghịch đảo ma trận
+
+Thời gian thực ở băng thông 100 MHz với 64 phần tử = ~640 tỷ phép/giây.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: MU-MIMO 4×2**
+
+4 anten, 2 người dùng một anten.
+
+Kênh: $\mathbf{h}_1 = [1, j, -1, -j]^T$, $\mathbf{h}_2 = [1, 1, 1, 1]^T$.
+
+Precoder ZF:
+$$\mathbf{H} = [\mathbf{h}_1, \mathbf{h}_2]^H, \quad \mathbf{F} = \mathbf{H}^H(\mathbf{H}\mathbf{H}^H)^{-1}$$
+
+Chuẩn hóa cột, ta có hai chùm trực giao — một mỗi người dùng.
+
+**Ví dụ: Lái null**
+
+Người dùng mong muốn ở 30°, nhiễu ở −20°.
+
+Vector lái: $\mathbf{a}(30°)$, $\mathbf{a}(-20°)$.
+
+Trọng số LCMV: tối đa tăng ích về 30° trong khi buộc $\mathbf{w}^H\mathbf{a}(-20°) = 0$.
+
+Kết quả: chùm về người dùng, null về nhiễu.
+
+**Ví dụ: Tốc độ tổng**
+
+4 anten, 2 người dùng, SNR 10 dB.
+
+Người dùng đơn: $R_{SU} = \log_2(1 + 10 \cdot 4) = 5.4$ bits/s/Hz.
+
+Đa người dùng với ZF: $R_{MU} \approx 2 \times 3.5 = 7$ bits/s/Hz (chia sẻ tăng ích mảng).
+
+Đa người dùng thắng dù mất tăng ích mỗi người dùng.
+
+**Ví dụ: 5G sub-6 GHz**
+
+32 phần tử anten, 16 người dùng.
+
+Số đầy đủ cho phép: MU-MIMO 16 lớp, lái null thích ứng, precoding dựa trên thuận nghịch (TDD).
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Chi phí ở quy mô.** 256 chuỗi RF ở mmWave đắt cấm. Số hoạt động ở sub-6 GHz với mảng vừa phải.
+
+2. **Tiêu thụ điện.** Mỗi ADC/DAC tiêu thụ điện. 64 ADC tốc độ cao = ngân sách điện đáng kể.
+
+3. **Khuếch đại nhiễu ZF.** ZF nghịch đảo kênh → khuếch đại nhiễu khi kênh tương quan. Dùng MMSE thay thế.
+
+4. **Hiệu chuẩn.** Tất cả chuỗi RF phải được hiệu chuẩn tương đối với nhau. Hiệu chuẩn thuận nghịch thiết yếu cho TDD.
+
+5. **Yêu cầu CSI.** Beamforming số cần thông tin trạng thái kênh. Overhead thu CSI có thể đáng kể.
+
+6. **Quy mô độ phức tạp.** Tải tính toán tăng với $N^2$ hoặc hơn. Xử lý thời gian thực thách thức cho mảng lớn.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Chương 10.
+- Heath & Lozano, *Foundations of MIMO Communication*.
+- Spencer et al., "Zero-forcing methods for downlink spatial multiplexing."
+
+</section>

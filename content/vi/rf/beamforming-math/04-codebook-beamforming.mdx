@@ -8,17 +8,192 @@ track: r5
 unit: beamforming-math
 order: 4
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r5-beamforming-math-02-analog-beamforming"]
+spiralRevisits: []
 title: "Beamforming dựa trên codebook"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Chọn chùm rời rạc từ codebook định trước."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["codebook", "beam-management", "dft-codebook", "type-i-csi", "5g-nr"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Beamforming dựa trên codebook
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao beamforming codebook?
+
+Beamforming tối ưu yêu cầu kiến thức kênh đầy đủ — đắt để thu. Beamforming codebook cung cấp giải pháp thực tế: chọn chùm tốt nhất từ tập định trước. UE đánh giá ứng viên và báo cáo chỉ số. Không cần phản hồi CSI phức tạp, chỉ vài bit.
+
+5G NR dùng codebook rộng rãi cho hệ thống FDD nơi thuận nghịch kênh không có sẵn. Codebook ràng buộc không gian chùm nhưng giảm đáng kể overhead phản hồi.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Codebook là menu các chùm. Thay vì trạm gốc tính chùm hoàn hảo, nó cung cấp N lựa chọn. UE đo cái nào hoạt động tốt nhất và báo cáo lựa chọn.
+
+Hãy nghĩ về đặt món: nấu tùy chỉnh mất mãi, nhưng menu cố định với lựa chọn tốt phục vụ hầu hết khách nhanh chóng. Cùng đánh đổi: codebook mất chút tối ưu cho tốc độ và đơn giản thực tế.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Định nghĩa codebook
+
+Codebook $\mathcal{C}$ chứa $M$ vector beamforming định trước:
+
+$$\mathcal{C} = \{\mathbf{c}_0, \mathbf{c}_1, \ldots, \mathbf{c}_{M-1}\}$$
+
+Mỗi $\mathbf{c}_i$ là vector trọng số N × 1.
+
+### Codebook DFT
+
+Lựa chọn kinh điển — chùm cách đều từ ma trận DFT:
+
+$$\mathbf{c}_m = \frac{1}{\sqrt{N}} \begin{bmatrix} 1 \\ e^{j\frac{2\pi m}{M}} \\ e^{j\frac{4\pi m}{M}} \\ \vdots \\ e^{j\frac{2\pi(N-1)m}{M}} \end{bmatrix}$$
+
+Mỗi cột chỉ về hướng:
+
+$$\sin\theta_m = \frac{\lambda}{d} \cdot \frac{m}{M}$$
+
+Với $M = N$ và $d = \lambda/2$: chùm ở $\theta = 0°, 7.2°, 14.5°, \ldots$ (với N = 8).
+
+### Codebook lấy mẫu quá
+
+Dùng $M > N$ chùm cho độ phân giải góc mịn hơn:
+
+$$\mathbf{c}_m = \frac{1}{\sqrt{N}} \begin{bmatrix} 1 \\ e^{j\frac{2\pi m}{ON}} \\ \vdots \\ e^{j\frac{2\pi(N-1)m}{ON}} \end{bmatrix}$$
+
+trong đó O = hệ số lấy mẫu quá (thường 2 hoặc 4).
+
+### Chọn chùm
+
+UE đo RSRP hoặc SINR cho mỗi chùm:
+
+$$\text{PMI} = \arg\max_m |\mathbf{h}^H \mathbf{c}_m|^2$$
+
+Báo cáo PMI (chỉ báo ma trận precoding) cho trạm gốc.
+
+### CSI Type I 5G NR
+
+**Codebook panel đơn:**
+- Mảng phân cực kép $N_1 \times N_2$
+- Hai chỉ số: $i_1$ (hướng chùm băng rộng), $i_2$ (đồng pha giữa phân cực)
+- Chùm DFT với lấy mẫu quá $O_1, O_2$
+
+**Bit phản hồi:**
+- $i_1$: $\lceil\log_2(N_1 O_1 N_2 O_2)\rceil$ bit (băng rộng)
+- $i_2$: 2 bit mỗi subband (đồng pha QPSK)
+
+### Tổn hao lượng tử hóa
+
+Chùm codebook tốt nhất vs. bộ lọc phối hợp tối ưu:
+
+$$\text{Tổn hao} = 10\log_{10}\left(\frac{|\mathbf{h}^H\mathbf{c}_{PMI}|^2}{|\mathbf{h}^H\mathbf{h}|}\right)$$
+
+Tổn hao trung bình với M chùm phủ ±60°:
+- M = 8: ~1.2 dB
+- M = 16: ~0.6 dB
+- M = 32: ~0.3 dB
+
+### Codebook phân cấp
+
+Tìm kiếm hiệu quả với đa độ phân giải:
+
+1. **Chùm rộng** (cấp 1): Phủ toàn sector, xác định hướng sơ bộ
+2. **Chùm hẹp** (cấp 2): Tinh chỉnh trong chùm rộng thắng
+3. **Chùm tinh** (cấp 3): Căn chỉnh chính xác cuối cùng
+
+5G NR: SSB dùng chùm rộng (8–64), CSI-RS dùng chùm tinh chỉnh hẹp.
+
+### Rank codebook
+
+Truyền đa lớp dùng ma trận codebook:
+
+- Rank 1: Vector chùm đơn
+- Rank 2: Hai vector chùm trực giao (ghép kênh không gian)
+- Rank 4+: Tổ hợp từ cấu trúc codebook
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Codebook DFT 8 chùm**
+
+8 phần tử, $d = \lambda/2$, codebook DFT 8 chùm.
+
+Hướng chùm: $\theta = \arcsin(m/8)$ với m = 0, 1, ..., 7.
+
+θ = [0°, 7.2°, 14.5°, 22.0°, 30°, 38.7°, 48.6°, 90°] (endfire).
+
+**Ví dụ: Chọn PMI**
+
+Kênh: $\mathbf{h} = \mathbf{a}(25°)$ (tín hiệu từ 25°).
+
+Công suất codebook:
+- $|\mathbf{h}^H\mathbf{c}_3|^2$ (22°): 7.8
+- $|\mathbf{h}^H\mathbf{c}_4|^2$ (30°): 7.6
+- Khác: thấp hơn
+
+PMI = 3 được chọn. Tổn hao vs. bộ lọc phối hợp: ~0.3 dB.
+
+**Ví dụ: Phản hồi 5G NR**
+
+Mảng phân cực kép 16 × 2, O = 4 lấy mẫu quá.
+
+Chỉ số chùm băng rộng: $\log_2(16 \times 4 \times 2) = 7$ bit.
+
+Đồng pha mỗi subband: 2 bit × 20 subband = 40 bit.
+
+Tổng: 47 bit mỗi báo cáo (so với CSI đầy đủ: hàng nghìn bit).
+
+**Ví dụ: Bám chùm**
+
+UE di chuyển 30 km/h ở 28 GHz.
+
+Thời gian coherence chùm: ~10 ms.
+
+Tìm kiếm phân cấp: cấp 1 (8 rộng) mỗi 20 ms, cấp 2 (tinh chỉnh) mỗi 5 ms.
+
+Overhead: ~5% tài nguyên cho quản lý chùm.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Sai lệch codebook.** Codebook DFT giả định ULA. Mảng thực có ghép nối, hỏng hóc, lỗi hiệu chuẩn.
+
+2. **Lượng tử hóa góc.** Codebook phủ góc rời rạc. Tín hiệu giữa các chùm thấy ~3 dB tổn hao ở điểm nửa công suất.
+
+3. **Sai lệch rank.** Rank codebook nên khớp rank kênh. Over-ranking suy giảm SINR; under-ranking lãng phí dung lượng.
+
+4. **Kênh đa đường.** Chùm DFT giả định đường chủ đạo đơn. Tán xạ phong phú trải năng lượng qua các chùm.
+
+5. **Phản hồi lỗi thời.** Khi phản hồi đến BS, kênh có thể đã thay đổi. Fading nhanh cần báo cáo nhanh hơn.
+
+6. **Không nhận biết nhiễu.** Chọn codebook tối đa tín hiệu, không phải SINR. Không triệt nhiễu tối ưu.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- 3GPP TS 38.214 — báo cáo CSI NR (cấu trúc codebook).
+- Love, Heath, Strohmer, "What is the value of limited feedback?"
+- 3GPP R1-1612319 — thiết kế codebook CSI Type I/II.
+
+</section>

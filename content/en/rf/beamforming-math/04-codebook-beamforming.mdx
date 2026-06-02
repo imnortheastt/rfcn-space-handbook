@@ -8,17 +8,192 @@ track: r5
 unit: beamforming-math
 order: 4
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r5-beamforming-math-02-analog-beamforming"]
+spiralRevisits: []
 title: "Codebook-based beamforming"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Discrete beam selection from predefined codebooks."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["codebook", "beam-management", "dft-codebook", "type-i-csi", "5g-nr"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Codebook-based beamforming
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why codebook beamforming?
+
+Optimal beamforming requires full channel knowledge — expensive to acquire. Codebook beamforming offers a practical alternative: pick the best beam from a predefined set. The UE evaluates candidates and reports an index. No complex CSI feedback, just a few bits.
+
+5G NR uses codebooks extensively for FDD systems where channel reciprocity isn't available. The codebook constrains the beam space but dramatically reduces feedback overhead.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+A codebook is a menu of beams. Instead of the base station computing the perfect beam, it offers N options. The UE measures which works best and reports the selection.
+
+Think of restaurant ordering: custom cooking takes forever, but a fixed menu with good options serves most customers quickly. Same trade-off: codebook loses some optimality for practical speed and simplicity.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Codebook definition
+
+A codebook $\mathcal{C}$ contains $M$ predefined beamforming vectors:
+
+$$\mathcal{C} = \{\mathbf{c}_0, \mathbf{c}_1, \ldots, \mathbf{c}_{M-1}\}$$
+
+Each $\mathbf{c}_i$ is an N × 1 weight vector.
+
+### DFT codebook
+
+The canonical choice — uniformly spaced beams from the DFT matrix:
+
+$$\mathbf{c}_m = \frac{1}{\sqrt{N}} \begin{bmatrix} 1 \\ e^{j\frac{2\pi m}{M}} \\ e^{j\frac{4\pi m}{M}} \\ \vdots \\ e^{j\frac{2\pi(N-1)m}{M}} \end{bmatrix}$$
+
+Each column points to direction:
+
+$$\sin\theta_m = \frac{\lambda}{d} \cdot \frac{m}{M}$$
+
+With $M = N$ and $d = \lambda/2$: beams at $\theta = 0°, 7.2°, 14.5°, \ldots$ (for N = 8).
+
+### Oversampled codebook
+
+Use $M > N$ beams for finer angular resolution:
+
+$$\mathbf{c}_m = \frac{1}{\sqrt{N}} \begin{bmatrix} 1 \\ e^{j\frac{2\pi m}{ON}} \\ \vdots \\ e^{j\frac{2\pi(N-1)m}{ON}} \end{bmatrix}$$
+
+where O = oversampling factor (typically 2 or 4).
+
+### Beam selection
+
+UE measures RSRP or SINR for each beam:
+
+$$\text{PMI} = \arg\max_m |\mathbf{h}^H \mathbf{c}_m|^2$$
+
+Report PMI (precoding matrix indicator) to base station.
+
+### 5G NR Type I CSI
+
+**Single-panel codebook:**
+- $N_1 \times N_2$ dual-polarized array
+- Two indices: $i_1$ (wideband beam direction), $i_2$ (co-phasing between polarizations)
+- DFT beams with oversampling $O_1, O_2$
+
+**Feedback bits:**
+- $i_1$: $\lceil\log_2(N_1 O_1 N_2 O_2)\rceil$ bits (wideband)
+- $i_2$: 2 bits per subband (QPSK co-phasing)
+
+### Quantization loss
+
+Best codebook beam vs. optimal matched filter:
+
+$$\text{Loss} = 10\log_{10}\left(\frac{|\mathbf{h}^H\mathbf{c}_{PMI}|^2}{|\mathbf{h}^H\mathbf{h}|}\right)$$
+
+Average loss with M beams covering ±60°:
+- M = 8: ~1.2 dB
+- M = 16: ~0.6 dB
+- M = 32: ~0.3 dB
+
+### Hierarchical codebooks
+
+Search efficiently with multi-resolution:
+
+1. **Wide beams** (level 1): Cover full sector, identify rough direction
+2. **Narrow beams** (level 2): Refine within the winning wide beam
+3. **Fine beams** (level 3): Final precise alignment
+
+5G NR: SSB uses wide beams (8–64), CSI-RS uses narrow refinement beams.
+
+### Codebook rank
+
+Multi-layer transmission uses codebook matrices:
+
+- Rank 1: Single beam vector
+- Rank 2: Two orthogonal beam vectors (spatial multiplexing)
+- Rank 4+: Combinations from codebook structure
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 8-beam DFT codebook**
+
+8 elements, $d = \lambda/2$, 8-beam DFT codebook.
+
+Beam directions: $\theta = \arcsin(m/8)$ for m = 0, 1, ..., 7.
+
+θ = [0°, 7.2°, 14.5°, 22.0°, 30°, 38.7°, 48.6°, 90°] (endfire).
+
+**Example: PMI selection**
+
+Channel: $\mathbf{h} = \mathbf{a}(25°)$ (signal from 25°).
+
+Codebook powers:
+- $|\mathbf{h}^H\mathbf{c}_3|^2$ (22°): 7.8
+- $|\mathbf{h}^H\mathbf{c}_4|^2$ (30°): 7.6
+- Others: lower
+
+PMI = 3 selected. Loss vs. matched filter: ~0.3 dB.
+
+**Example: 5G NR feedback**
+
+16 × 2 dual-pol array, O = 4 oversampling.
+
+Wideband beam index: $\log_2(16 \times 4 \times 2) = 7$ bits.
+
+Co-phasing per subband: 2 bits × 20 subbands = 40 bits.
+
+Total: 47 bits per report (vs. full CSI: thousands of bits).
+
+**Example: Beam tracking**
+
+UE moving at 30 km/h at 28 GHz.
+
+Beam coherence time: ~10 ms.
+
+Hierarchical search: level 1 (8 wide) every 20 ms, level 2 (refinement) every 5 ms.
+
+Overhead: ~5% of resources for beam management.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Codebook mismatch.** DFT codebook assumes ULA. Real arrays have coupling, failures, calibration errors.
+
+2. **Angular quantization.** Codebook covers discrete angles. Signal between beams sees ~3 dB loss at half-power points.
+
+3. **Rank mismatch.** Codebook rank should match channel rank. Over-ranking degrades SINR; under-ranking wastes capacity.
+
+4. **Multi-path channels.** DFT beams assume single dominant path. Rich scattering spreads energy across beams.
+
+5. **Outdated feedback.** By the time feedback reaches BS, channel may have changed. Fast fading needs faster reports.
+
+6. **Interference unawareness.** Codebook selection maximizes signal, not SINR. Doesn't null interference optimally.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 38.214 — NR CSI reporting (codebook structures).
+- Love, Heath, Strohmer, "What is the value of limited feedback?"
+- 3GPP R1-1612319 — Type I/II CSI codebook design.
+
+</section>

@@ -8,17 +8,200 @@ track: r5
 unit: beamforming-math
 order: 3
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r5-beamforming-math-01-array-factor-beamforming"]
+spiralRevisits: ["rf-r5-massive-mimo-and-favorable-propagation-01-massive-mimo-intro"]
 title: "Digital beamforming"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Full digital control with one RF chain per element."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["digital-beamforming", "full-digital", "mimo", "precoding", "spatial-multiplexing"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Digital beamforming
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why digital beamforming?
+
+Analog beamforming can only form one beam per RF chain. Digital beamforming puts an ADC/DAC on every element, giving complete control over both amplitude and phase. This enables simultaneous multiple beams, spatial multiplexing, and null steering — impossible with analog alone.
+
+The cost is complexity: N elements means N RF chains, N ADCs, N DACs. But at sub-6 GHz with moderate array sizes, digital is often the right choice.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Digital beamforming means all signal combining happens in the digital domain. Each antenna element is digitized independently, giving you N parallel data streams to work with.
+
+This is like having N separate antennas whose signals you can combine in any way you want — in software, after the fact. You can form multiple simultaneous beams, steer nulls to interference, or transmit different data to different directions at once.
+
+The flexibility is complete. The constraint is hardware cost and power.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Architecture (receive)
+
+```
+Ant 1 → LNA → ↓ → ADC → ┐
+Ant 2 → LNA → ↓ → ADC → ├─→ Digital Processing → y₁, y₂, ...
+Ant 3 → LNA → ↓ → ADC → │
+  ⋮                      │
+Ant N → LNA → ↓ → ADC → ┘
+```
+
+N parallel RF chains, each with full down-conversion and digitization.
+
+### Signal model
+
+Received signal vector:
+
+$$\mathbf{x} = \mathbf{H}\mathbf{s} + \mathbf{n}$$
+
+- $\mathbf{x}$: N × 1 received signal
+- $\mathbf{H}$: N × K channel matrix
+- $\mathbf{s}$: K × 1 transmitted symbols
+- $\mathbf{n}$: N × 1 noise
+
+### Digital combining
+
+Output for user k:
+
+$$y_k = \mathbf{w}_k^H \mathbf{x}$$
+
+Multiple users served simultaneously with weight matrix $\mathbf{W} = [\mathbf{w}_1, \ldots, \mathbf{w}_K]$:
+
+$$\mathbf{y} = \mathbf{W}^H \mathbf{x}$$
+
+### Precoding (transmit)
+
+Transmit signal:
+
+$$\mathbf{x} = \mathbf{F}\mathbf{s}$$
+
+where $\mathbf{F}$ is the N × K precoding matrix.
+
+Each column of $\mathbf{F}$ creates a beam toward one user.
+
+### Zero-forcing beamforming
+
+Force zero interference between users:
+
+$$\mathbf{F}_{ZF} = \mathbf{H}^H(\mathbf{H}\mathbf{H}^H)^{-1}$$
+
+User k sees only their own signal: $\mathbf{h}_k^H \mathbf{f}_j = \delta_{kj}$.
+
+### MMSE beamforming
+
+Balance interference nulling with noise enhancement:
+
+$$\mathbf{F}_{MMSE} = \mathbf{H}^H(\mathbf{H}\mathbf{H}^H + \sigma^2\mathbf{I})^{-1}$$
+
+Better than ZF at low SNR.
+
+### Maximum ratio transmission (MRT)
+
+Maximize power toward each user (ignore interference):
+
+$$\mathbf{f}_k = \frac{\mathbf{h}_k}{\|\mathbf{h}_k\|}$$
+
+Optimal for single-user case. Suboptimal for multi-user.
+
+### Degrees of freedom
+
+With N antennas:
+- Can form up to N independent beams
+- Can serve up to N users simultaneously (if channels are independent)
+- Can place up to N-1 nulls
+
+Spatial degrees of freedom: $\min(N, K)$ where K = users.
+
+### Computational load
+
+Per symbol:
+- Receive combining: $O(NK)$ multiplications
+- ZF precoding: $O(N^2K + K^3)$ for matrix inversion
+
+Real-time at 100 MHz bandwidth with 64 elements = ~640 billion ops/sec.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 4×2 MU-MIMO**
+
+4 antennas, 2 single-antenna users.
+
+Channels: $\mathbf{h}_1 = [1, j, -1, -j]^T$, $\mathbf{h}_2 = [1, 1, 1, 1]^T$.
+
+ZF precoder:
+$$\mathbf{H} = [\mathbf{h}_1, \mathbf{h}_2]^H, \quad \mathbf{F} = \mathbf{H}^H(\mathbf{H}\mathbf{H}^H)^{-1}$$
+
+Normalizing columns, we get two orthogonal beams — one per user.
+
+**Example: Null steering**
+
+Desired user at 30°, interferer at −20°.
+
+Steering vectors: $\mathbf{a}(30°)$, $\mathbf{a}(-20°)$.
+
+LCMV weights: maximize gain toward 30° while forcing $\mathbf{w}^H\mathbf{a}(-20°) = 0$.
+
+Result: beam toward user, null toward interferer.
+
+**Example: Sum rate**
+
+4 antennas, 2 users, 10 dB SNR.
+
+Single-user: $R_{SU} = \log_2(1 + 10 \cdot 4) = 5.4$ bits/s/Hz.
+
+Multi-user with ZF: $R_{MU} \approx 2 \times 3.5 = 7$ bits/s/Hz (shared array gain).
+
+Multi-user wins despite per-user gain loss.
+
+**Example: 5G sub-6 GHz**
+
+32 antenna elements, 16 users.
+
+Full digital enables: 16-layer MU-MIMO, adaptive null steering, reciprocity-based precoding (TDD).
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Cost at scale.** 256 RF chains at mmWave is prohibitively expensive. Digital works at sub-6 GHz with moderate arrays.
+
+2. **Power consumption.** Each ADC/DAC consumes power. 64 high-speed ADCs = significant power budget.
+
+3. **ZF noise enhancement.** ZF inverts channel → amplifies noise when channels are correlated. Use MMSE instead.
+
+4. **Calibration.** All RF chains must be calibrated relative to each other. Reciprocity calibration is essential for TDD.
+
+5. **CSI requirement.** Digital beamforming needs channel state information. CSI acquisition overhead can be substantial.
+
+6. **Complexity scaling.** Computational load grows with $N^2$ or worse. Real-time processing is challenging for large arrays.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Chapter 10.
+- Heath & Lozano, *Foundations of MIMO Communication*.
+- Spencer et al., "Zero-forcing methods for downlink spatial multiplexing."
+
+</section>

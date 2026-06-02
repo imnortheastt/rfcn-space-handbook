@@ -8,17 +8,183 @@ track: r5
 unit: beamforming-math
 order: 2
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r5-beamforming-math-01-array-factor-beamforming", "rf-r2-arrays-05-beam-steering"]
+spiralRevisits: ["rf-r5-hybrid-beamforming-01-hybrid-architecture"]
 title: "Analog beamforming"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Phase shifter-based beamforming for single-stream transmission."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["analog-beamforming", "phase-shifter", "single-stream", "mmwave", "5g-nr"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Analog beamforming
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why analog beamforming?
+
+Digital beamforming requires one ADC/DAC per antenna element — expensive and power-hungry at mmWave frequencies with hundreds of elements. Analog beamforming uses RF phase shifters to steer beams, needing only one RF chain for the entire array.
+
+The tradeoff: analog beamforming can only form one beam per RF chain. But for point-to-point links and initial access, one high-gain beam is exactly what you need.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Analog beamforming is electrical beam steering — same as classic phased arrays. Each element gets a phase-shifted copy of the same signal. All phase shifts happen at RF, before any digital processing.
+
+Think of it as a lens that focuses RF energy. You can point the focus anywhere in the field of view by adjusting the phase shifters. But you only get one focal point at a time.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Architecture
+
+```
+Signal → DAC → RF Chain → ┬─[φ₁]─→ Ant 1
+                          ├─[φ₂]─→ Ant 2
+                          ├─[φ₃]─→ Ant 3
+                          └─[φₙ]─→ Ant N
+```
+
+Single RF chain feeds all elements through phase shifters.
+
+### Weight vector constraint
+
+Analog weights are **constant modulus** (phase-only):
+
+$$w_n = e^{j\phi_n}, \quad |w_n| = 1$$
+
+The weight vector:
+
+$$\mathbf{f} = \frac{1}{\sqrt{N}} \begin{bmatrix} e^{j\phi_1} \\ e^{j\phi_2} \\ \vdots \\ e^{j\phi_N} \end{bmatrix}$$
+
+Normalized so $\|\mathbf{f}\|^2 = 1$.
+
+### Steering to direction
+
+To steer beam toward $\theta_0$, set phases conjugate to steering vector:
+
+$$\phi_n = -\frac{2\pi(n-1)d}{\lambda}\sin\theta_0$$
+
+This is the matched filter for direction $\theta_0$.
+
+### Array gain
+
+With matched steering:
+
+$$G = |\mathbf{f}^H\mathbf{a}(\theta_0)|^2 = N$$
+
+Full array gain achieved despite phase-only control.
+
+### Beampattern
+
+$$B(\theta) = \mathbf{f}^H\mathbf{a}(\theta) = \frac{1}{\sqrt{N}} \sum_{n=1}^{N} e^{j(n-1)\frac{2\pi d}{\lambda}(\sin\theta - \sin\theta_0)}$$
+
+Same as conventional array factor — sinc-like pattern.
+
+### Limitations
+
+1. **Single beam:** One beam per RF chain. Cannot serve multiple users simultaneously.
+
+2. **Constant modulus:** No amplitude control → cannot implement arbitrary sidelobe tapers (though quantized phase tapers approximate).
+
+3. **Phase quantization:** 3–6 bit phase shifters introduce quantization lobes.
+
+4. **Wideband squint:** Phase shifters are narrowband. Wideband signals suffer beam squint.
+
+### Implementation considerations
+
+| Parameter | Typical Range |
+|-----------|---------------|
+| Phase resolution | 3–6 bits |
+| Insertion loss | 2–6 dB |
+| Switching time | 10–100 ns |
+| Power per element | 10–50 mW |
+
+At 28 GHz with 256 elements: ~10 W just for phase shifters.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 5G NR beam sweeping**
+
+Base station with 64 elements, analog beamforming.
+
+During initial access, sweep through codebook of 64 beams to find UE.
+
+Beam spacing: $\Delta\theta \approx 102°/64 \approx 1.6°$ (±50° coverage).
+
+Each beam: 18 dB gain, 1.6° HPBW.
+
+**Example: Point-to-point backhaul**
+
+28 GHz backhaul link, 256 elements per side.
+
+Array gain: $10\log_{10}(256) = 24$ dB per side.
+
+Total link gain from arrays: 48 dB.
+
+Single beam is fine — link is stationary.
+
+**Example: Phase quantization loss**
+
+3-bit phase shifters (45° steps).
+
+Quantization loss: ~0.3 dB.
+
+Quantization sidelobes: ~20 dB below peak.
+
+6-bit (5.6° steps): <0.1 dB loss, sidelobes <35 dB.
+
+**Example: Beam squint at 400 MHz bandwidth**
+
+Center frequency 28 GHz, 400 MHz BW (1.4% fractional BW).
+
+Beam steered to 30°:
+- At 28.2 GHz: beam points to 29.6°
+- At 27.8 GHz: beam points to 30.4°
+
+Squint: ~0.8° total — less than 1.6° beamwidth, acceptable.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing with digital.** Analog beamforming cannot do SDMA or spatial multiplexing. One beam = one stream.
+
+2. **Ignoring insertion loss.** 4 dB phase shifter loss negates 2–3 elements worth of array gain. Budget carefully.
+
+3. **Assuming infinite resolution.** Practical phase shifters have 3–6 bits. Quantization affects patterns.
+
+4. **Forgetting wideband effects.** At >5% fractional bandwidth, beam squint becomes problematic.
+
+5. **Calibration.** Phase shifters have unit-to-unit variations. Calibration is required for precision beam pointing.
+
+6. **Temperature drift.** Phase shifter characteristics drift with temperature. Active calibration or compensation needed.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Heath & Lozano, *Foundations of MIMO Communication*, Chapter 7.
+- 3GPP TS 38.214 — NR beam management.
+- Rappaport et al., "Millimeter wave mobile communications for 5G."
+
+</section>

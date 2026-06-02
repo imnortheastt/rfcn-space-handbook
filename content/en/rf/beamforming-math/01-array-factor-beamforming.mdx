@@ -8,17 +8,170 @@ track: r5
 unit: beamforming-math
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 8
+prerequisites: ["rf-r2-arrays-03-array-factor", "rf-r2-arrays-05-beam-steering"]
+spiralRevisits: []
 title: "Array factor revisited for beamforming"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Connecting antenna array factor to signal processing beamforming."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["array-factor", "beamforming", "steering-vector", "spatial-filter", "signal-processing"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Array factor revisited for beamforming
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why revisit array factor?
+
+In antenna theory, array factor describes radiation pattern. In signal processing, we call it **beamforming**. Same math, different perspective — one thinks about radiating, the other about receiving and filtering signals spatially.
+
+This lesson bridges the two views: antenna engineers speak of patterns and steering; signal processing engineers speak of weights and spatial filters. Understanding both vocabularies unlocks the full power of array processing.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Array factor is a spatial filter. Just as a time-domain filter shapes frequency response, array weights shape spatial response — boosting signals from desired directions and nulling interference from unwanted ones.
+
+Every weight vector defines a pattern. Change the weights, change the pattern. This is the core of adaptive beamforming: compute weights that optimize some criterion (maximize SNR, null interferer, minimize error).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Antenna vs. signal processing notation
+
+| Antenna Theory | Signal Processing |
+|----------------|-------------------|
+| Element excitation $a_n$ | Weight $w_n$ |
+| Array factor $AF(\theta)$ | Beampattern $B(\theta)$ |
+| Progressive phase $\beta$ | Steering vector $\mathbf{a}(\theta)$ |
+| Pattern multiplication | Spatial matched filter |
+
+### Steering vector
+
+For ULA with spacing $d$, the steering vector toward direction $\theta$:
+
+$$\mathbf{a}(\theta) = \begin{bmatrix} 1 \\ e^{j\frac{2\pi d}{\lambda}\sin\theta} \\ e^{j\frac{4\pi d}{\lambda}\sin\theta} \\ \vdots \\ e^{j\frac{2\pi(N-1)d}{\lambda}\sin\theta} \end{bmatrix}$$
+
+This is the phase profile of a plane wave arriving from $\theta$.
+
+### Beamformer output
+
+Given received signal vector $\mathbf{x}$ and weight vector $\mathbf{w}$:
+
+$$y = \mathbf{w}^H \mathbf{x}$$
+
+The beampattern (spatial response):
+
+$$B(\theta) = \mathbf{w}^H \mathbf{a}(\theta)$$
+
+This equals the array factor when $\mathbf{w}$ matches the antenna excitation.
+
+### Conventional beamformer
+
+Point beam toward direction $\theta_0$ by setting weights = steering vector:
+
+$$\mathbf{w} = \mathbf{a}(\theta_0)$$
+
+Output: $y = \mathbf{a}^H(\theta_0) \mathbf{x}$
+
+This maximizes gain toward $\theta_0$ (spatial matched filter).
+
+### Array response matrix
+
+For multiple signals from directions $\{\theta_1, \theta_2, \ldots, \theta_K\}$:
+
+$$\mathbf{A} = [\mathbf{a}(\theta_1), \mathbf{a}(\theta_2), \ldots, \mathbf{a}(\theta_K)]$$
+
+Received signal model:
+
+$$\mathbf{x} = \mathbf{A}\mathbf{s} + \mathbf{n}$$
+
+where $\mathbf{s}$ = source signals, $\mathbf{n}$ = noise.
+
+### Beamformer gain
+
+Array gain toward $\theta_0$:
+
+$$G = \frac{|\mathbf{w}^H\mathbf{a}(\theta_0)|^2}{\|\mathbf{w}\|^2}$$
+
+For conventional beamformer with $\mathbf{w} = \mathbf{a}(\theta_0)$:
+
+$$G = N \quad \text{(maximum possible)}$$
+
+### From dB to linear
+
+Array factor peak is $N$ (linear) or $20\log_{10}(N)$ dB.
+
+8-element array: 18 dB peak.
+64-element array: 36 dB peak.
+
+Sidelobe levels remain relative to this peak (e.g., −13 dB first sidelobe).
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Steering vector calculation**
+
+4-element ULA, $d = \lambda/2$, steer to $\theta = 30°$.
+
+$$\mathbf{a}(30°) = \begin{bmatrix} 1 \\ e^{j\pi\sin(30°)} \\ e^{j2\pi\sin(30°)} \\ e^{j3\pi\sin(30°)} \end{bmatrix} = \begin{bmatrix} 1 \\ e^{j\pi/2} \\ e^{j\pi} \\ e^{j3\pi/2} \end{bmatrix} = \begin{bmatrix} 1 \\ j \\ -1 \\ -j \end{bmatrix}$$
+
+**Example: Beamformer output**
+
+Received signal: $\mathbf{x} = s \cdot \mathbf{a}(30°) + \mathbf{n}$ where $s = 1$.
+
+With weights $\mathbf{w} = \mathbf{a}(30°)$:
+
+$$y = \mathbf{w}^H\mathbf{x} = \mathbf{a}^H(30°) \cdot \mathbf{a}(30°) \cdot s + \mathbf{a}^H(30°)\mathbf{n} = 4s + \tilde{n}$$
+
+Array gain = 4 (6 dB) over single element.
+
+**Example: Two-signal scenario**
+
+Desired signal at 30°, interferer at 60°.
+
+Conventional beamformer response at interferer:
+$$B(60°) = \mathbf{a}^H(30°)\mathbf{a}(60°) \neq 0$$
+
+Interferer is not completely nulled — motivates adaptive beamforming (MVDR, LCMV).
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Conjugate confusion.** Antenna literature uses $e^{+j\phi}$ for radiation; signal processing uses $e^{-j\phi}$ for reception. Watch the sign convention.
+
+2. **Normalization.** Some define $\mathbf{w}$ normalized ($\|\mathbf{w}\|=1$), others don't. Affects gain calculations.
+
+3. **Angle conventions.** Antenna theory: $\theta$ from broadside (0° = perpendicular). Some signal processing: $\theta$ from endfire. Always verify.
+
+4. **Narrowband assumption.** Steering vector assumes single frequency. Wideband signals need frequency-dependent processing or true time delay.
+
+5. **Far-field only.** Steering vector derivation assumes far-field plane waves. Near-field sources need spherical wave models.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Van Trees, *Optimum Array Processing* — signal processing perspective.
+- Balanis, *Antenna Theory* — antenna perspective.
+- Monzingo & Miller, *Introduction to Adaptive Arrays* — bridging both.
+
+</section>
