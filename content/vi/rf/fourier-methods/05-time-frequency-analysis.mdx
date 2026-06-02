@@ -8,17 +8,170 @@ track: r0
 unit: fourier-methods
 order: 5
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["rf-r0-fourier-methods-04-windowing"]
+spiralRevisits: []
 title: "Phân tích thời gian-tần số"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Xem nội dung tần số tiến triển theo thời gian như thế nào."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["stft", "spectrogram", "wavelet", "time-frequency", "chirp"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Phân tích thời gian-tần số
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần phân tích thời gian-tần số?
+
+FFT chuẩn cho biết tần số nào có mặt — nhưng không cho biết khi nào. Với chirp (quét tần số), bùng nổ nhiễu, hoặc bất kỳ tín hiệu nào có phổ thay đổi theo thời gian, bạn cần cả hai.
+
+Phân tích thời gian-tần số cho thấy nội dung tần số tiến triển như thế nào. Nó thiết yếu cho radar, truyền thông, xử lý tiếng nói, và chẩn đoán các vấn đề RF thoáng qua.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy tưởng tượng một bản nhạc. Trục ngang là thời gian; trục dọc là cao độ (tần số). Mỗi nốt xuất hiện tại thời điểm và tần số của nó. Spectrogram là bản nhạc của kỹ sư RF — nó vẽ năng lượng như hàm của cả thời gian và tần số.
+
+Đánh đổi cơ bản: bạn không thể biết chính xác tần số nào có mặt tại chính xác thời điểm nào. Thu hẹp cửa sổ thời gian mở rộng độ bất định tần số, và ngược lại. Đây là nguyên lý bất định thời gian-tần số, và nó không thể tránh.
+
+Câu hỏi trở thành: đánh đổi độ phân giải nào phục vụ phân tích của bạn?
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Biến đổi Fourier thời gian ngắn (STFT)
+
+STFT trượt cửa sổ qua tín hiệu và tính FFT tại mỗi vị trí:
+
+$$X(t, f) = \int_{-\infty}^{\infty} x(\tau) \cdot w(\tau - t) \cdot e^{-j2\pi f\tau}\, d\tau$$
+
+Dạng rời rạc:
+
+$$X[m, k] = \sum_{n=0}^{N-1} x[n + mH] \cdot w[n] \cdot e^{-j2\pi kn/N}$$
+
+trong đó:
+- $m$ = chỉ số khung (thời gian)
+- $k$ = bin tần số
+- $N$ = chiều dài cửa sổ
+- $H$ = kích thước nhảy (mẫu giữa các khung)
+
+### Spectrogram
+
+Spectrogram là $|X(t, f)|^2$ — bình phương biên độ STFT, vẽ như ảnh 2D với thời gian trên trục x, tần số trên trục y, và màu đại diện công suất.
+
+### Đánh đổi độ phân giải
+
+| Tham số | Độ phân giải thời gian | Độ phân giải tần số |
+|---------|------------------------|---------------------|
+| Cửa sổ ngắn | Tốt | Kém |
+| Cửa sổ dài | Kém | Tốt |
+
+**Độ phân giải thời gian:** $\Delta t \approx N/f_s$
+**Độ phân giải tần số:** $\Delta f \approx f_s/N$
+
+Tích: $\Delta t \cdot \Delta f \approx 1$ (nguyên lý bất định)
+
+### Chồng lấp và kích thước nhảy
+
+Chồng lấp điển hình: 50–75% (kích thước nhảy $H = N/4$ cho chồng lấp 75%)
+
+Chồng lấp nhiều hơn cho trục thời gian mượt hơn nhưng tốn tính toán. Chồng lấp ít hơn bỏ lỡ chuyển tiếp nhanh.
+
+### Chọn cửa sổ cho STFT
+
+- **Hann:** Mục đích chung, suy giảm mượt
+- **Gaussian:** Tối thiểu tích bất định (tối ưu theo nghĩa Heisenberg)
+- **Chữ nhật:** Độ phân giải tối đa ở cả hai nhưng rò rỉ cao
+
+### Wavelet (giới thiệu ngắn)
+
+Wavelet cung cấp độ phân giải thay đổi: cửa sổ ngắn ở tần số cao, cửa sổ dài ở tần số thấp. Điều này khớp với cách nhiều tín hiệu hoạt động (chuyển tiếp nhanh ở tần số cao, biến đổi chậm ở tần số thấp).
+
+Biến đổi wavelet:
+
+$$W(a, b) = \frac{1}{\sqrt{a}} \int x(t) \cdot \psi^*\left(\frac{t-b}{a}\right) dt$$
+
+trong đó $a$ = tỉ lệ (nghịch đảo với tần số), $b$ = dịch chuyển (thời gian), $\psi$ = wavelet mẹ.
+
+Wavelet phổ biến: Morlet (tốt cho RF), Daubechies, Mexican hat.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Phân tích chirp radar**
+
+Chirp điều chế tần số tuyến tính (LFM) quét từ 1 GHz đến 2 GHz trong 10 µs.
+
+Spectrogram cho thấy đường chéo: tần số tăng tuyến tính theo thời gian. Bất kỳ độ lệch nào khỏi đường thẳng chỉ ra méo.
+
+Chọn cửa sổ: cửa sổ ngắn (~1 µs) cho đường chéo sạch; cửa sổ dài làm mờ theo chiều dọc.
+
+**Ví dụ: Tìm nhiễu**
+
+Nhiễu gián đoạn phá vỡ kết nối không dây. FFT chuẩn cho thấy tần số nhiễu nhưng không cho biết khi nào nó xuất hiện.
+
+Spectrogram tiết lộ: nhiễu xảy ra mỗi 16.7 ms trong 2 ms — chuyển đổi thoáng qua liên quan đường điện.
+
+**Ví dụ: Nhận dạng nhảy tần**
+
+Tín hiệu trải phổ nhảy tần (FHSS) nhảy giữa các kênh.
+
+Spectrogram cho thấy các dải ngang ở tần số khác nhau, tiết lộ mẫu nhảy, thời gian dừng, và tốc độ nhảy.
+
+**Ví dụ: Xử lý tiếng nói**
+
+Tín hiệu giọng nói có nội dung tần số thay đổi theo thời gian. Spectrogram cho thấy formant (tần số cộng hưởng) phân biệt nguyên âm và đặc trưng người nói.
+
+Cửa sổ: 20–30 ms bắt chu kỳ cao độ trong khi phân giải tần số formant.
+
+**Ví dụ: Chọn chiều dài cửa sổ**
+
+Bạn cần phát hiện bùng nổ tông 1 kHz trong tín hiệu lấy mẫu 10 MHz. Bùng nổ kéo dài 100 µs.
+
+Cho độ phân giải thời gian: cần cửa sổ < 100 µs → $N < 100\text{ µs} \times 10\text{ MHz} = 1000$ mẫu.
+
+Cho độ phân giải tần số: với $N = 512$, $\Delta f = 10\text{ MHz}/512 = 19.5$ kHz — rộng hơn nhiều so với tông, nhưng đủ để nhận dạng nó.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Độ phân giải cố định.** STFT dùng cùng cửa sổ ở mọi nơi. Nếu tín hiệu của bạn có chuyển tiếp nhanh ở một thời điểm và đặc điểm băng hẹp ở thời điểm khác, không cửa sổ đơn nào phục vụ cả hai tốt. Cân nhắc wavelet hoặc phương pháp thích ứng.
+
+2. **Hiệu ứng mép.** Tại biên tín hiệu, cửa sổ mở rộng quá dữ liệu. Đệm không hoặc phản xạ mở rộng tín hiệu nhân tạo. Cẩn thận khi diễn giải các mép.
+
+3. **Tỉ lệ hiển thị.** Spectrogram thường dùng thang dB cho màu. Thang tuyến tính giấu tín hiệu yếu; thang dB có thể quá nhấn mạnh nhiễu. Khớp thang với mục tiêu phân tích.
+
+4. **Tần số âm.** Với tín hiệu thực, spectrogram đối xứng. Chỉ vẽ tần số dương (0 đến $f_s/2$) để tránh dư thừa.
+
+5. **Phương pháp tái gán.** STFT chuẩn làm nhòe năng lượng trên mặt phẳng thời gian-tần số. Phương pháp tái gán làm sắc nét hiển thị bằng cách di chuyển năng lượng đến "trọng tâm" của nó. Hữu ích cho đồ thị chất lượng xuất bản.
+
+6. **Chi phí tính toán.** Spectrogram độ phân giải cao tốn kém: $O(N \cdot L / H)$ trong đó $L$ = chiều dài tín hiệu. Cho bản ghi dài, dùng độ phân giải thô hơn hoặc chỉ tính vùng quan tâm.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Cohen, *Time-Frequency Analysis* — trình bày toàn diện STFT, wavelet, và phương pháp nâng cao.
+- Oppenheim & Schafer, *Discrete-Time Signal Processing*, Mục 10.7 — phân tích Fourier thời gian ngắn.
+- Flandrin, *Time-Frequency/Time-Scale Analysis* — nền tảng lý thuyết.
+- Mallat, *A Wavelet Tour of Signal Processing* — wavelet cho kỹ sư.
+
+</section>

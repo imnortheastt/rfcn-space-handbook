@@ -8,17 +8,154 @@ track: r0
 unit: fourier-methods
 order: 3
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r0-fourier-methods-02-fourier-transform"]
+spiralRevisits: []
 title: "FFT (Biến đổi Fourier nhanh)"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Thuật toán nhanh làm phân tích phổ trở nên thực tế."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["fft", "dft", "radix-2", "spectrum-analyzer", "computational-complexity"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# FFT (Biến đổi Fourier nhanh)
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần FFT?
+
+Biến đổi Fourier rời rạc (DFT) tính phổ của dữ liệu lấy mẫu. Nhưng DFT trực tiếp của $N$ điểm cần $N^2$ phép nhân phức. Với $N = 1024$, đó là hơn một triệu phép tính — quá chậm cho phân tích phổ thời gian thực.
+
+Biến đổi Fourier nhanh (FFT) tính cùng kết quả trong $N \log_2 N$ phép tính. Với $N = 1024$, đó là khoảng 10,000 phép tính — tăng tốc 100×. Điều này làm phân tích phổ thời gian thực trở nên khả thi trong máy hiện sóng, máy phân tích phổ, radio định nghĩa bằng phần mềm, và mọi hệ thống xử lý tín hiệu bạn sẽ gặp.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+FFT khai thác tính đối xứng. DFT có các tính toán dư thừa — nhiều tích trung gian được tính nhiều lần. Thuật toán Cooley-Tukey (FFT phổ biến nhất) chia bài toán đệ quy:
+
+1. Tách mẫu chỉ số chẵn và lẻ
+2. Tính DFT nhỏ hơn trên mỗi nửa
+3. Kết hợp kết quả bằng phép "bướm"
+
+Mỗi lần chia giảm nửa kích thước bài toán, cho $\log_2 N$ mức. Mỗi mức thực hiện $N$ phép tính. Tổng: $N \log_2 N$.
+
+Mẹo: cùng các hệ số mũ (hệ số xoay) xuất hiện lặp lại, nên bạn tính một lần và tái sử dụng.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Biến đổi Fourier rời rạc
+
+Cho $N$ mẫu $x[0], x[1], \ldots, x[N-1]$, DFT là:
+
+$$X[k] = \sum_{n=0}^{N-1} x[n] \cdot W_N^{nk}, \quad k = 0, 1, \ldots, N-1$$
+
+trong đó $W_N = e^{-j2\pi/N}$ là căn bậc $N$ nguyên thủy của đơn vị.
+
+### Thuật toán FFT (radix-2)
+
+Với $N = 2^m$, tách thành chẵn và lẻ:
+
+$$X[k] = \sum_{r=0}^{N/2-1} x[2r] W_N^{2rk} + \sum_{r=0}^{N/2-1} x[2r+1] W_N^{(2r+1)k}$$
+
+$$X[k] = E[k] + W_N^k \cdot O[k]$$
+
+trong đó $E[k]$ là DFT của mẫu chẵn và $O[k]$ là DFT của mẫu lẻ.
+
+Phép bướm kết hợp hai DFT $N/2$ điểm thành một DFT $N$ điểm.
+
+### Độ phân giải tần số
+
+Với tần số lấy mẫu $f_s$ và $N$ điểm:
+
+- **Độ phân giải tần số:** $\Delta f = f_s / N$
+- **Bin tần số:** $f_k = k \cdot f_s / N$ với $k = 0, 1, \ldots, N-1$
+- **Nyquist:** Bin $0$ đến $N/2$ bao phủ DC đến $f_s/2$; bin $N/2+1$ đến $N-1$ là tần số âm (aliased)
+
+### Diễn giải đầu ra FFT
+
+| Bin | Tần số | Dùng thường |
+|-----|--------|-------------|
+| 0 | DC (0 Hz) | Giá trị trung bình |
+| 1 đến N/2−1 | Tần số dương | Phổ chính |
+| N/2 | Nyquist ($f_s/2$) | Điểm gập |
+| N/2+1 đến N−1 | Tần số âm | Gương của dương (với đầu vào thực) |
+
+Với đầu vào thực, $X[N-k] = X^*[k]$. Bạn chỉ cần bin 0 đến N/2.
+
+### Chi phí tính toán
+
+| Thuật toán | Phép nhân | Phép cộng |
+|------------|-----------|-----------|
+| DFT trực tiếp | $N^2$ | $N^2$ |
+| FFT Radix-2 | $(N/2) \log_2 N$ | $N \log_2 N$ |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Cài đặt máy phân tích phổ**
+
+Bạn muốn độ phân giải 1 Hz tại tần số lấy mẫu 1 MHz.
+
+Độ phân giải: $\Delta f = f_s / N = 1$ Hz
+Cần $N = f_s / \Delta f = 1,000,000$ điểm
+
+Thời gian FFT: ở 1 MHz, thu thập 1M mẫu mất 1 giây. Phổ của bạn cập nhật mỗi giây một lần.
+
+Đánh đổi: độ phân giải cao hơn cần nhiều mẫu hơn và thời gian thu thập dài hơn.
+
+**Ví dụ: Nhận dạng tín hiệu**
+
+SDR nhận băng 10 MHz tại 20 Msps. Bạn chạy FFT 4096 điểm.
+
+Độ phân giải tần số: $20\text{ MHz} / 4096 = 4.88$ kHz mỗi bin.
+
+Sóng mang ở 7.5 MHz trên tần số trung tâm xuất hiện tại bin $k = 7.5 \text{ MHz} / 4.88 \text{ kHz} = 1536$ (xấp xỉ).
+
+**Ví dụ: Đệm không**
+
+Bạn có 256 mẫu nhưng muốn hiển thị phổ mượt hơn. Đệm không đến 1024 điểm trước FFT.
+
+Điều này không cải thiện độ phân giải (bạn không có thêm dữ liệu), nhưng nội suy giữa các bin cho đồ thị mượt hơn. Độ phân giải thực vẫn là $f_s / 256$.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Chiều dài lũy thừa 2.** FFT radix-2 cổ điển cần $N = 2^m$. FFT mixed-radix và prime-factor xử lý chiều dài khác, nhưng lũy thừa 2 nhanh nhất. Đệm không nếu cần.
+
+2. **Rò rỉ.** FFT giả định tín hiệu lặp lại. Nếu không, bạn có rò rỉ phổ — năng lượng lan ra các bin. Cửa sổ (bài tiếp theo) giảm điều này.
+
+3. **Aliasing.** Tần số trên $f_s/2$ gập lại. Luôn lọc thông thấp trước lấy mẫu.
+
+4. **Tỉ lệ.** Thư viện FFT khác nhau về chuẩn hóa. Một số chia $1/N$, một số $1/\sqrt{N}$, một số không chia. Kiểm tra quy ước thư viện của bạn.
+
+5. **Trục tần số.** Bin 0 là DC, không phải tần số âm thấp nhất. Nhiều công cụ vẽ mong bạn `fftshift` đầu ra để DC ở giữa.
+
+6. **Đầu vào thực vs. phức.** Đầu vào thực tạo đầu ra đối xứng liên hợp. Dùng `rfft` cho dữ liệu thực — nó chỉ trả các bin không dư thừa và chạy nhanh hơn.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Cooley & Tukey, "An Algorithm for the Machine Calculation of Complex Fourier Series," 1965 — bài báo FFT gốc.
+- Oppenheim & Schafer, *Discrete-Time Signal Processing*, Chương 9 — trình bày DFT/FFT toàn diện.
+- Tài liệu NumPy/SciPy FFT — cách dùng và quy ước thực tế.
+
+</section>

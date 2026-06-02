@@ -8,17 +8,170 @@ track: r0
 unit: fourier-methods
 order: 5
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["rf-r0-fourier-methods-04-windowing"]
+spiralRevisits: []
 title: "Time-frequency analysis"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Seeing how frequency content evolves over time."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["stft", "spectrogram", "wavelet", "time-frequency", "chirp"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Time-frequency analysis
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why time-frequency analysis?
+
+A standard FFT tells you what frequencies are present — but not when. For a chirp (frequency sweep), interference burst, or any signal whose spectrum changes over time, you need both.
+
+Time-frequency analysis shows how frequency content evolves. It's essential for radar, communications, speech processing, and diagnosing transient RF problems.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Imagine a musical score. The horizontal axis is time; the vertical axis is pitch (frequency). Each note appears at its moment in time and its frequency. A spectrogram is the RF engineer's musical score — it plots energy as a function of both time and frequency.
+
+The fundamental trade-off: you can't know exactly which frequency is present at exactly which instant. Narrowing the time window widens the frequency uncertainty, and vice versa. This is the time-frequency uncertainty principle, and it's unavoidable.
+
+The question becomes: what resolution trade-off serves your analysis?
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Short-Time Fourier Transform (STFT)
+
+The STFT slides a window across the signal and computes an FFT at each position:
+
+$$X(t, f) = \int_{-\infty}^{\infty} x(\tau) \cdot w(\tau - t) \cdot e^{-j2\pi f\tau}\, d\tau$$
+
+In discrete form:
+
+$$X[m, k] = \sum_{n=0}^{N-1} x[n + mH] \cdot w[n] \cdot e^{-j2\pi kn/N}$$
+
+where:
+- $m$ = frame index (time)
+- $k$ = frequency bin
+- $N$ = window length
+- $H$ = hop size (samples between frames)
+
+### Spectrogram
+
+The spectrogram is $|X(t, f)|^2$ — the magnitude-squared STFT, plotted as a 2D image with time on the x-axis, frequency on the y-axis, and color representing power.
+
+### Resolution trade-offs
+
+| Parameter | Time resolution | Frequency resolution |
+|-----------|-----------------|---------------------|
+| Short window | Good | Poor |
+| Long window | Poor | Good |
+
+**Time resolution:** $\Delta t \approx N/f_s$
+**Frequency resolution:** $\Delta f \approx f_s/N$
+
+Product: $\Delta t \cdot \Delta f \approx 1$ (uncertainty principle)
+
+### Overlap and hop size
+
+Typical overlap: 50–75% (hop size $H = N/4$ for 75% overlap)
+
+More overlap gives smoother time axis but costs computation. Less overlap misses rapid transitions.
+
+### Window choice for STFT
+
+- **Hann:** General purpose, smooth falloff
+- **Gaussian:** Minimizes uncertainty product (optimal in Heisenberg sense)
+- **Rectangular:** Maximum resolution in both but high leakage
+
+### Wavelets (brief introduction)
+
+Wavelets offer variable resolution: short windows at high frequencies, long windows at low frequencies. This matches how many signals behave (fast transients at high frequencies, slow variations at low frequencies).
+
+The wavelet transform:
+
+$$W(a, b) = \frac{1}{\sqrt{a}} \int x(t) \cdot \psi^*\left(\frac{t-b}{a}\right) dt$$
+
+where $a$ = scale (inversely related to frequency), $b$ = translation (time), $\psi$ = mother wavelet.
+
+Common wavelets: Morlet (good for RF), Daubechies, Mexican hat.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Radar chirp analysis**
+
+A linear frequency-modulated (LFM) chirp sweeps from 1 GHz to 2 GHz over 10 µs.
+
+Spectrogram shows a diagonal line: frequency increases linearly with time. Any deviation from the straight line indicates distortion.
+
+Window choice: short window (~1 µs) shows clean diagonal; long window blurs it vertically.
+
+**Example: Interference hunting**
+
+Intermittent interference disrupts a wireless link. A standard FFT shows the interferer's frequency but not when it appears.
+
+Spectrogram reveals: interference occurs every 16.7 ms for 2 ms duration — a power line-related switching transient.
+
+**Example: Frequency hopping identification**
+
+A frequency-hopping spread spectrum (FHSS) signal jumps between channels.
+
+Spectrogram shows horizontal bands at different frequencies, revealing the hopping pattern, dwell time, and hopping rate.
+
+**Example: Speech processing**
+
+Voice signals have time-varying frequency content. Spectrograms show formants (resonant frequencies) that distinguish vowels and characterize speakers.
+
+Window: 20–30 ms captures pitch periods while resolving formant frequencies.
+
+**Example: Choosing window length**
+
+You need to detect 1 kHz tone bursts in a 10 MHz sampled signal. Bursts last 100 µs.
+
+For time resolution: need window < 100 µs → $N < 100\text{ µs} \times 10\text{ MHz} = 1000$ samples.
+
+For frequency resolution: with $N = 512$, $\Delta f = 10\text{ MHz}/512 = 19.5$ kHz — much wider than the tone, but sufficient to identify it.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Fixed resolution.** STFT uses the same window everywhere. If your signal has fast transients at one time and narrowband features at another, no single window serves both well. Consider wavelets or adaptive methods.
+
+2. **Edge effects.** At signal boundaries, the window extends past the data. Zero-padding or reflection extends the signal artificially. Be cautious interpreting edges.
+
+3. **Display scaling.** Spectrograms often use dB scale for color. Linear scale hides weak signals; dB scale can overemphasize noise. Match scale to analysis goal.
+
+4. **Negative frequencies.** For real signals, the spectrogram is symmetric. Plot only positive frequencies (0 to $f_s/2$) to avoid redundancy.
+
+5. **Reassignment methods.** Standard STFT smears energy across the time-frequency plane. Reassignment methods sharpen the display by moving energy to its "center of gravity." Useful for publication-quality plots.
+
+6. **Computational cost.** High-resolution spectrograms are expensive: $O(N \cdot L / H)$ where $L$ = signal length. For long recordings, use coarser resolution or compute only regions of interest.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Cohen, *Time-Frequency Analysis* — comprehensive treatment of STFT, wavelets, and advanced methods.
+- Oppenheim & Schafer, *Discrete-Time Signal Processing*, Section 10.7 — short-time Fourier analysis.
+- Flandrin, *Time-Frequency/Time-Scale Analysis* — theoretical foundations.
+- Mallat, *A Wavelet Tour of Signal Processing* — wavelets for engineers.
+
+</section>

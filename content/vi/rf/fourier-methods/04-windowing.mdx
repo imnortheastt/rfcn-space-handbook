@@ -8,17 +8,163 @@ track: r0
 unit: fourier-methods
 order: 4
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r0-fourier-methods-03-fft"]
+spiralRevisits: []
 title: "Cửa sổ tín hiệu"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Kiểm soát rò rỉ phổ bằng hàm cửa sổ."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["windowing", "spectral-leakage", "sidelobe", "mainlobe", "hann", "hamming", "blackman"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Cửa sổ tín hiệu
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần cửa sổ?
+
+Chạy FFT trên sóng sin thuần không vừa khít với cửa sổ mẫu của bạn, và bạn sẽ thấy năng lượng lan ra nhiều bin thay vì một đỉnh sắc nét. Đây là **rò rỉ phổ** — hiện tượng do xử lý đoạn hữu hạn như thể nó lặp lại.
+
+Cửa sổ làm mờ tín hiệu ở các mép để giảm rò rỉ này. Đánh đổi: bạn mất độ phân giải tần số. Chọn đúng cửa sổ là kỹ năng cơ bản trong phân tích phổ.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+FFT giả định khối dữ liệu của bạn lặp lại mãi mãi. Nếu mẫu đầu và cuối không khớp, điểm gián đoạn tạo nội dung tần số cao giả tạo.
+
+Hàm cửa sổ nhân tín hiệu của bạn, làm mờ nó mượt về không ở cả hai đầu. Không gián đoạn nghĩa là ít rò rỉ hơn. Nhưng làm mờ giảm chiều dài hiệu dụng của dữ liệu, mở rộng thùy chính và giảm độ phân giải.
+
+Các cửa sổ khác nhau đánh đổi khác nhau:
+- **Thùy chính hẹp** → tốt hơn cho phân tách tần số gần nhau
+- **Thùy phụ thấp** → tốt hơn cho phát hiện tín hiệu yếu gần tín hiệu mạnh
+
+Bạn không thể có cả hai. Chọn dựa trên mục tiêu phân tích.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Vấn đề rò rỉ
+
+Với sóng sin lấy mẫu ở tần số $f_0$:
+
+- Nếu $f_0$ rơi chính xác tâm bin → đỉnh đơn, không rò rỉ
+- Nếu $f_0$ rơi giữa các bin → năng lượng lan ra bin lân cận
+
+Cửa sổ hình chữ nhật (không dùng cửa sổ) có đáp ứng tần số dạng sinc với thùy phụ cao (−13 dB dưới đỉnh).
+
+### Các hàm cửa sổ
+
+Tất cả cửa sổ đều đối xứng và giảm về không (hoặc gần không) ở các mép.
+
+| Cửa sổ | Độ rộng thùy chính | Thùy phụ cao nhất | Trường hợp dùng |
+|--------|---------------------|-------------------|-----------------|
+| Chữ nhật | Hẹp nhất | −13 dB | Khi tần số tín hiệu = tâm bin |
+| Hann (Hanning) | 1.5× rect | −32 dB | Mục đích chung |
+| Hamming | 1.4× rect | −43 dB | Triệt thùy phụ tốt hơn |
+| Blackman | 1.7× rect | −58 dB | Tín hiệu yếu gần mạnh |
+| Flat-top | 3.8× rect | −93 dB | Độ chính xác biên độ |
+| Kaiser | Điều chỉnh được | Điều chỉnh được | Đánh đổi có thể điều chỉnh |
+
+### Dạng toán học
+
+**Cửa sổ Hann:**
+$$w[n] = 0.5 \left(1 - \cos\left(\frac{2\pi n}{N-1}\right)\right)$$
+
+**Cửa sổ Hamming:**
+$$w[n] = 0.54 - 0.46 \cos\left(\frac{2\pi n}{N-1}\right)$$
+
+**Cửa sổ Blackman:**
+$$w[n] = 0.42 - 0.5 \cos\left(\frac{2\pi n}{N-1}\right) + 0.08 \cos\left(\frac{4\pi n}{N-1}\right)$$
+
+### Áp dụng cửa sổ
+
+Nhân từng phần tử trước FFT:
+
+$$y[n] = x[n] \cdot w[n]$$
+
+Sau đó tính $Y[k] = \text{FFT}(y)$.
+
+### Băng thông nhiễu tương đương
+
+Cửa sổ giảm số mẫu hiệu dụng. **Băng thông nhiễu tương đương (ENBW)** đo điều này:
+
+| Cửa sổ | ENBW (bin) |
+|--------|------------|
+| Chữ nhật | 1.00 |
+| Hann | 1.50 |
+| Hamming | 1.36 |
+| Blackman | 1.73 |
+
+ENBW rộng hơn nghĩa là nhiều nhiễu hơn trong mỗi phép đo bin.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Chọn cửa sổ cho kiểm tra hai tông**
+
+Kiểm tra bộ khuếch đại với hai tông ở 1.000 MHz và 1.002 MHz. Bạn cần thấy rõ cả hai.
+
+Khoảng cách tần số: 2 kHz. Độ phân giải FFT của bạn nên tốt hơn 2 kHz.
+
+Dùng cửa sổ Hann cho triệt thùy phụ tốt với độ phân giải chấp nhận được. Chữ nhật sẽ cho đỉnh sắc hơn nhưng thùy phụ của tông mạnh có thể che tông yếu.
+
+**Ví dụ: Đo biên độ tín hiệu**
+
+Bạn cần đo biên độ chính xác của một tông đơn.
+
+Dùng cửa sổ flat-top. Nó có thùy chính rộng nhất nhưng đỉnh phẳng nhất — sai số biên độ thường <0.01 dB.
+
+**Ví dụ: Tìm tín hiệu giả yếu**
+
+Tìm tín hiệu giả ở −80 dBc gần sóng mang.
+
+Dùng Blackman hoặc Kaiser với triệt thùy phụ cao. Thùy phụ cửa sổ chữ nhật ở −13 dB sẽ chôn vùi tín hiệu giả. Blackman ở −58 dB cho biên ~20 dB.
+
+**Ví dụ: Lấy mẫu kết hợp**
+
+Nếu bạn kiểm soát được máy phát tín hiệu và đồng hồ lấy mẫu, làm cho tần số tín hiệu chính xác bằng $k \cdot f_s / N$ với $k$ nguyên. Tín hiệu rơi chính xác tâm bin — không rò rỉ dù với cửa sổ chữ nhật.
+
+Đây là lấy mẫu kết hợp. Dùng khi có thể; nó tốt hơn bất kỳ cửa sổ nào.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Cửa sổ giảm biên độ.** Tín hiệu được đặt cửa sổ có đỉnh thấp hơn bản gốc. Bù bằng cách chia cho độ khuếch đại kết hợp của cửa sổ (tổng giá trị cửa sổ ÷ N).
+
+2. **Phổ công suất.** Cho phép đo công suất, dùng độ khuếch đại không kết hợp (tổng bình phương giá trị cửa sổ). Điều này sửa ENBW.
+
+3. **Chồng lấp.** Cho STFT (spectrogram), chồng lấp cửa sổ 50–75% để phục hồi thông tin mất ở mép làm mờ. Cửa sổ Hann với chồng lấp 50% cộng thành đơn vị.
+
+4. **Sàn nhiễu.** Thùy chính rộng hơn thu nhiều nhiễu hơn mỗi bin. Cho phép đo sàn nhiễu, chữ nhật có thể tốt hơn Blackman dù thùy phụ cao hơn.
+
+5. **Đối xứng vs. tuần hoàn.** NumPy/MATLAB cung cấp cả hai. Cho FFT, dùng biến thể "periodic" (bỏ điểm cuối) để tránh dư thừa.
+
+6. **Không sửa aliasing.** Cửa sổ giảm rò rỉ, không phải aliasing. Nếu bạn lấy mẫu thiếu, cửa sổ không giúp được.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Harris, F.J., "On the Use of Windows for Harmonic Analysis with the Discrete Fourier Transform," Proc. IEEE, 1978 — bài báo so sánh cửa sổ cổ điển.
+- Oppenheim & Schafer, *Discrete-Time Signal Processing*, Chương 10 — lý thuyết thiết kế cửa sổ.
+- Heinzel et al., "Spectrum and spectral density estimation by the DFT," 2002 — hướng dẫn thực tế cho phổ công suất.
+
+</section>

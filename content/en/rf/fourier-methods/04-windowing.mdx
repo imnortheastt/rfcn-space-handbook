@@ -8,17 +8,163 @@ track: r0
 unit: fourier-methods
 order: 4
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r0-fourier-methods-03-fft"]
+spiralRevisits: []
 title: "Windowing"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Controlling spectral leakage with window functions."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["windowing", "spectral-leakage", "sidelobe", "mainlobe", "hann", "hamming", "blackman"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Windowing
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why windowing?
+
+Run an FFT on a pure sine wave that doesn't fit exactly into your sample window, and you'll see energy spread across many bins instead of one sharp spike. This is **spectral leakage** — an artifact of treating a finite segment as if it repeats.
+
+Windowing tapers the signal at its edges to reduce this leakage. The trade-off: you lose frequency resolution. Choosing the right window is a fundamental skill in spectral analysis.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+The FFT assumes your data block repeats forever. If the first and last samples don't match, the discontinuity creates artificial high-frequency content.
+
+A window function multiplies your signal, tapering it smoothly to zero at both ends. No discontinuity means less leakage. But tapering reduces the effective length of your data, widening the main lobe and reducing resolution.
+
+Different windows make different trade-offs:
+- **Narrow main lobe** → better at separating nearby frequencies
+- **Low sidelobes** → better at detecting weak signals near strong ones
+
+You can't have both. Pick based on your analysis goal.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### The leakage problem
+
+For a sampled sinusoid at frequency $f_0$:
+
+- If $f_0$ lands exactly on a bin center → single spike, no leakage
+- If $f_0$ falls between bins → energy spreads to neighboring bins
+
+The rectangular window (no windowing) has a sinc-shaped frequency response with high sidelobes (−13 dB below peak).
+
+### Window functions
+
+All windows are symmetric and taper to zero (or near-zero) at the edges.
+
+| Window | Main lobe width | Highest sidelobe | Use case |
+|--------|-----------------|------------------|----------|
+| Rectangular | Narrowest | −13 dB | When signal frequency = bin center |
+| Hann (Hanning) | 1.5× rect | −32 dB | General purpose |
+| Hamming | 1.4× rect | −43 dB | Better sidelobe suppression |
+| Blackman | 1.7× rect | −58 dB | Weak signals near strong ones |
+| Flat-top | 3.8× rect | −93 dB | Amplitude accuracy |
+| Kaiser | Adjustable | Adjustable | Tunable trade-off |
+
+### Mathematical forms
+
+**Hann window:**
+$$w[n] = 0.5 \left(1 - \cos\left(\frac{2\pi n}{N-1}\right)\right)$$
+
+**Hamming window:**
+$$w[n] = 0.54 - 0.46 \cos\left(\frac{2\pi n}{N-1}\right)$$
+
+**Blackman window:**
+$$w[n] = 0.42 - 0.5 \cos\left(\frac{2\pi n}{N-1}\right) + 0.08 \cos\left(\frac{4\pi n}{N-1}\right)$$
+
+### Applying a window
+
+Multiply element-wise before FFT:
+
+$$y[n] = x[n] \cdot w[n]$$
+
+Then compute $Y[k] = \text{FFT}(y)$.
+
+### Equivalent noise bandwidth
+
+Windows reduce the effective number of samples. The **equivalent noise bandwidth (ENBW)** measures this:
+
+| Window | ENBW (bins) |
+|--------|-------------|
+| Rectangular | 1.00 |
+| Hann | 1.50 |
+| Hamming | 1.36 |
+| Blackman | 1.73 |
+
+Wider ENBW means more noise in each bin measurement.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Choosing a window for two-tone test**
+
+Testing an amplifier with two tones at 1.000 MHz and 1.002 MHz. You need to see both clearly.
+
+Frequency separation: 2 kHz. Your FFT resolution should be better than 2 kHz.
+
+Use Hann window for good sidelobe suppression with acceptable resolution. Rectangular would give sharper peaks but the sidelobes of the strong tone might mask the weak one.
+
+**Example: Measuring signal amplitude**
+
+You need accurate amplitude measurement of a single tone.
+
+Use flat-top window. It has the widest main lobe but the flattest top — amplitude error is typically <0.01 dB.
+
+**Example: Finding weak spurious signals**
+
+Searching for spurious at −80 dBc near a carrier.
+
+Use Blackman or Kaiser with high sidelobe rejection. Rectangular window sidelobes at −13 dB would bury the spurious. Blackman at −58 dB gives ~20 dB margin.
+
+**Example: Coherent sampling**
+
+If you can control the signal generator and sample clock, make the signal frequency exactly $k \cdot f_s / N$ for integer $k$. The signal lands exactly on a bin center — no leakage even with rectangular window.
+
+This is coherent sampling. Use it when possible; it's better than any window.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Window reduces amplitude.** A windowed signal has lower peak than the original. Compensate by dividing by the window's coherent gain (sum of window values ÷ N).
+
+2. **Power spectra.** For power measurements, use the incoherent gain (sum of squared window values). This corrects ENBW.
+
+3. **Overlapping.** For STFT (spectrogram), overlap windows 50–75% to recover information lost at tapered edges. Hann windows with 50% overlap sum to unity.
+
+4. **Noise floor.** Wider main lobe collects more noise per bin. For noise floor measurements, rectangular may be better than Blackman despite higher sidelobes.
+
+5. **Symmetric vs. periodic.** NumPy/MATLAB offer both. For FFT, use the "periodic" variant (omits last point) to avoid redundancy.
+
+6. **Not a fix for aliasing.** Windowing reduces leakage, not aliasing. If you're undersampled, windowing won't help.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Harris, F.J., "On the Use of Windows for Harmonic Analysis with the Discrete Fourier Transform," Proc. IEEE, 1978 — the classic window comparison paper.
+- Oppenheim & Schafer, *Discrete-Time Signal Processing*, Chapter 10 — window design theory.
+- Heinzel et al., "Spectrum and spectral density estimation by the DFT," 2002 — practical guidance for power spectra.
+
+</section>

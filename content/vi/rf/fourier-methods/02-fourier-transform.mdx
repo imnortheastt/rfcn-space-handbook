@@ -8,17 +8,153 @@ track: r0
 unit: fourier-methods
 order: 2
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["rf-r0-fourier-methods-01-fourier-series"]
+spiralRevisits: []
 title: "Biến đổi Fourier"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Mở rộng phân tích tần số cho tín hiệu không tuần hoàn."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["fourier-transform", "spectrum", "frequency-domain", "continuous-time"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Biến đổi Fourier
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần biến đổi Fourier?
+
+Tín hiệu thực không tuần hoàn. Đoạn giọng nói, xung radar, bùng nổ nhiễu — không có cái nào lặp lại mãi mãi. Chuỗi Fourier không xử lý trực tiếp được chúng.
+
+Biến đổi Fourier mở rộng phân tích tần số cho **bất kỳ** tín hiệu nào bằng cách xem nó là giới hạn của tín hiệu tuần hoàn với chu kỳ vô hạn. Thay vì các hài rời rạc, bạn có phổ liên tục. Đây là nền tảng của phân tích phổ, thiết kế bộ lọc, và lý thuyết điều chế trong kỹ thuật RF.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Chuỗi Fourier cho biết các hài nào tạo nên tín hiệu tuần hoàn. Biến đổi Fourier cho biết tần số nào tạo nên *bất kỳ* tín hiệu nào — và bao nhiêu của mỗi tần số, liên tục trên toàn trục tần số.
+
+Hãy nghĩ như trải năng lượng tín hiệu dọc theo trục tần số. Xung ngắn có năng lượng trải trên nhiều tần số (băng thông rộng). Âm dài tập trung năng lượng quanh một tần số (băng thông hẹp). Biến đổi làm điều này hiện rõ.
+
+Hiểu biết chính: **thời gian và tần số là đối ngẫu**. Hẹp trong thời gian nghĩa là rộng trong tần số. Rộng trong thời gian nghĩa là hẹp trong tần số. Quan hệ bất định này xuất hiện khắp nơi trong RF.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Định nghĩa
+
+Biến đổi Fourier của tín hiệu thời gian liên tục $x(t)$:
+
+$$X(f) = \int_{-\infty}^{\infty} x(t) e^{-j2\pi ft}\, dt$$
+
+Biến đổi Fourier ngược khôi phục tín hiệu:
+
+$$x(t) = \int_{-\infty}^{\infty} X(f) e^{j2\pi ft}\, df$$
+
+$X(f)$ nói chung là phức: biên độ $|X(f)|$ cho biên độ phổ, pha $\angle X(f)$ cho thông tin thời gian.
+
+### Dạng tần số góc
+
+Dùng $\omega = 2\pi f$:
+
+$$X(\omega) = \int_{-\infty}^{\infty} x(t) e^{-j\omega t}\, dt$$
+
+$$x(t) = \frac{1}{2\pi} \int_{-\infty}^{\infty} X(\omega) e^{j\omega t}\, d\omega$$
+
+Chú ý hệ số $1/2\pi$ chuyển sang biến đổi ngược.
+
+### Các cặp biến đổi
+
+| Miền thời gian | Miền tần số | Tính chất |
+|----------------|-------------|-----------|
+| $\delta(t)$ (xung) | $1$ | Xung chứa tất cả tần số |
+| $1$ (DC) | $\delta(f)$ | DC ánh xạ đến tần số không |
+| $e^{j2\pi f_0 t}$ | $\delta(f - f_0)$ | Hàm mũ phức → đỉnh |
+| $\cos(2\pi f_0 t)$ | $\frac{1}{2}[\delta(f-f_0) + \delta(f+f_0)]$ | Cosin → hai đỉnh |
+| $\text{rect}(t/T)$ | $T\,\text{sinc}(fT)$ | Xung → sinc |
+| $e^{-at}u(t)$ | $\frac{1}{a + j2\pi f}$ | Suy giảm hàm mũ |
+| Gaussian | Gaussian | Tự tương tự |
+
+### Tính chất chính
+
+**Tuyến tính:** $\mathcal{F}\{ax(t) + by(t)\} = aX(f) + bY(f)$
+
+**Dịch thời gian:** $\mathcal{F}\{x(t-t_0)\} = X(f)e^{-j2\pi f t_0}$ (dịch thời gian = quay pha)
+
+**Dịch tần số:** $\mathcal{F}\{x(t)e^{j2\pi f_0 t}\} = X(f - f_0)$ (điều chế dịch phổ)
+
+**Co giãn:** $\mathcal{F}\{x(at)\} = \frac{1}{|a|}X(f/a)$ (nén thời gian = mở rộng tần số)
+
+**Tích chập:** $\mathcal{F}\{x*y\} = X(f) \cdot Y(f)$ (tích chập thời gian = nhân tần số)
+
+**Định lý Parseval:** $\int |x(t)|^2\, dt = \int |X(f)|^2\, df$ (năng lượng bảo toàn)
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Phổ xung chữ nhật**
+
+Xung rộng $T$ tâm tại $t=0$:
+
+$$x(t) = \text{rect}(t/T) = \begin{cases} 1 & |t| < T/2 \\ 0 & \text{ngược lại} \end{cases}$$
+
+$$X(f) = T\,\text{sinc}(\pi fT) = T\frac{\sin(\pi fT)}{\pi fT}$$
+
+Điểm không đầu tiên tại $f = 1/T$. Xung 1 µs có điểm không đầu tiên tại 1 MHz. Băng thông 3 dB xấp xỉ $0.88/T$.
+
+**Ví dụ: Điều chế**
+
+Nhân tín hiệu băng gốc $m(t)$ với sóng mang $\cos(2\pi f_c t)$ dịch phổ của nó đến $f_c$:
+
+$$\mathcal{F}\{m(t)\cos(2\pi f_c t)\} = \frac{1}{2}[M(f-f_c) + M(f+f_c)]$$
+
+Đây là điều chế AM. Phổ băng gốc xuất hiện tâm tại $\pm f_c$.
+
+**Ví dụ: Đáp ứng bộ lọc**
+
+Bộ lọc có đáp ứng xung $h(t)$. Đáp ứng tần số là $H(f) = \mathcal{F}\{h(t)\}$.
+
+Đầu vào $x(t)$ với phổ $X(f)$ tạo đầu ra:
+
+$$Y(f) = H(f) \cdot X(f)$$
+
+Bộ lọc nhân phổ đầu vào — cho qua một số tần số, suy giảm những tần số khác.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Tồn tại.** Tích phân phải hội tụ. Không phải tất cả tín hiệu có biến đổi Fourier theo nghĩa cổ điển. Lý thuyết phân bố (hàm tổng quát) xử lý xung, tín hiệu tuần hoàn, và các trường hợp bệnh lý khác.
+
+2. **Phổ thực vs. phức.** Tín hiệu thực có phổ đối xứng liên hợp: $X(-f) = X^*(f)$. Điều này nghĩa là tần số âm không mang thông tin mới — nhưng chúng cần thiết về mặt toán học.
+
+3. **Một phía vs. hai phía.** Kỹ sư RF thường chỉ hiển thị tần số dương (phổ một phía) với biên độ gấp đôi. Rõ ràng về quy ước bạn đang dùng.
+
+4. **Đơn vị.** Nếu $x(t)$ tính bằng volt, $X(f)$ tính bằng volt-giây (V/Hz). Mật độ phổ $|X(f)|^2$ tính bằng V²/Hz.
+
+5. **Bất định.** Bạn không thể có tín hiệu đồng thời hẹp trong thời gian và hẹp trong tần số. Tích thời gian-băng thông có cận dưới: $\Delta t \cdot \Delta f \geq 1/(4\pi)$ cho tín hiệu Gaussian.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Oppenheim & Willsky, *Signals and Systems*, Chương 4 — trình bày chặt chẽ biến đổi Fourier.
+- Proakis & Manolakis, *Digital Signal Processing*, Chương 4 — tính chất và cặp biến đổi.
+- Haykin, *Communication Systems*, Chương 2 — biến đổi Fourier trong ngữ cảnh truyền thông.
+
+</section>

@@ -8,17 +8,154 @@ track: r0
 unit: fourier-methods
 order: 3
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r0-fourier-methods-02-fourier-transform"]
+spiralRevisits: []
 title: "FFT"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The fast algorithm that makes spectral analysis practical."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["fft", "dft", "radix-2", "spectrum-analyzer", "computational-complexity"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# FFT
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why the FFT?
+
+The Discrete Fourier Transform (DFT) computes the spectrum of sampled data. But a direct DFT of $N$ points requires $N^2$ complex multiplications. For $N = 1024$, that's over a million operations — too slow for real-time spectrum analysis.
+
+The Fast Fourier Transform (FFT) computes the same result in $N \log_2 N$ operations. For $N = 1024$, that's about 10,000 operations — a 100× speedup. This makes real-time spectral analysis possible in oscilloscopes, spectrum analyzers, software-defined radios, and every signal processing system you'll encounter.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+The FFT exploits symmetry. The DFT has redundant calculations — many intermediate products get computed multiple times. The Cooley-Tukey algorithm (the most common FFT) splits the problem recursively:
+
+1. Separate even-indexed and odd-indexed samples
+2. Compute smaller DFTs on each half
+3. Combine results using "butterfly" operations
+
+Each split halves the problem size, giving $\log_2 N$ levels. Each level does $N$ operations. Total: $N \log_2 N$.
+
+The trick: the same exponential factors (twiddle factors) appear repeatedly, so you compute them once and reuse them.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Discrete Fourier Transform
+
+Given $N$ samples $x[0], x[1], \ldots, x[N-1]$, the DFT is:
+
+$$X[k] = \sum_{n=0}^{N-1} x[n] \cdot W_N^{nk}, \quad k = 0, 1, \ldots, N-1$$
+
+where $W_N = e^{-j2\pi/N}$ is the primitive $N$th root of unity.
+
+### FFT algorithm (radix-2)
+
+For $N = 2^m$, split into even and odd:
+
+$$X[k] = \sum_{r=0}^{N/2-1} x[2r] W_N^{2rk} + \sum_{r=0}^{N/2-1} x[2r+1] W_N^{(2r+1)k}$$
+
+$$X[k] = E[k] + W_N^k \cdot O[k]$$
+
+where $E[k]$ is the DFT of even samples and $O[k]$ is the DFT of odd samples.
+
+The butterfly operation combines two $N/2$-point DFTs into one $N$-point DFT.
+
+### Frequency resolution
+
+For sample rate $f_s$ and $N$ points:
+
+- **Frequency resolution:** $\Delta f = f_s / N$
+- **Frequency bins:** $f_k = k \cdot f_s / N$ for $k = 0, 1, \ldots, N-1$
+- **Nyquist:** Bins $0$ to $N/2$ cover DC to $f_s/2$; bins $N/2+1$ to $N-1$ are negative frequencies (aliased)
+
+### FFT output interpretation
+
+| Bin | Frequency | Typical use |
+|-----|-----------|-------------|
+| 0 | DC (0 Hz) | Average value |
+| 1 to N/2−1 | Positive frequencies | Main spectrum |
+| N/2 | Nyquist ($f_s/2$) | Folding point |
+| N/2+1 to N−1 | Negative frequencies | Mirror of positive (for real input) |
+
+For real input, $X[N-k] = X^*[k]$. You only need bins 0 through N/2.
+
+### Computational cost
+
+| Algorithm | Multiplications | Additions |
+|-----------|-----------------|-----------|
+| Direct DFT | $N^2$ | $N^2$ |
+| Radix-2 FFT | $(N/2) \log_2 N$ | $N \log_2 N$ |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Spectrum analyzer settings**
+
+You want 1 Hz frequency resolution at a 1 MHz sample rate.
+
+Resolution: $\Delta f = f_s / N = 1$ Hz
+Required $N = f_s / \Delta f = 1,000,000$ points
+
+FFT time: at 1 MHz, collecting 1M samples takes 1 second. Your spectrum updates once per second.
+
+Trade-off: higher resolution requires more samples and longer acquisition time.
+
+**Example: Identifying a signal**
+
+An SDR receives a 10 MHz band at 20 Msps. You run a 4096-point FFT.
+
+Frequency resolution: $20\text{ MHz} / 4096 = 4.88$ kHz per bin.
+
+A carrier at 7.5 MHz above the center frequency appears at bin $k = 7.5 \text{ MHz} / 4.88 \text{ kHz} = 1536$ (approximately).
+
+**Example: Zero-padding**
+
+You have 256 samples but want smoother spectral display. Zero-pad to 1024 points before FFT.
+
+This doesn't improve resolution (you don't have more data), but it interpolates between bins for a smoother plot. True resolution is still $f_s / 256$.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Power-of-two lengths.** Classic radix-2 FFT requires $N = 2^m$. Mixed-radix and prime-factor FFTs handle other lengths, but power-of-two is fastest. Pad with zeros if needed.
+
+2. **Leakage.** The FFT assumes the signal repeats. If it doesn't, you get spectral leakage — energy smears across bins. Windowing (next lesson) reduces this.
+
+3. **Aliasing.** Frequencies above $f_s/2$ fold back. Always lowpass filter before sampling.
+
+4. **Scaling.** FFT libraries differ in normalization. Some scale by $1/N$, some by $1/\sqrt{N}$, some don't scale. Check your library's convention.
+
+5. **Frequency axis.** Bin 0 is DC, not the lowest negative frequency. Many plotting tools expect you to `fftshift` the output to center DC.
+
+6. **Real vs. complex input.** Real input produces conjugate-symmetric output. Use `rfft` for real data — it returns only the non-redundant bins and runs faster.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Cooley & Tukey, "An Algorithm for the Machine Calculation of Complex Fourier Series," 1965 — the original FFT paper.
+- Oppenheim & Schafer, *Discrete-Time Signal Processing*, Chapter 9 — comprehensive DFT/FFT treatment.
+- NumPy/SciPy FFT documentation — practical usage and conventions.
+
+</section>

@@ -8,17 +8,153 @@ track: r0
 unit: fourier-methods
 order: 2
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["rf-r0-fourier-methods-01-fourier-series"]
+spiralRevisits: []
 title: "Fourier transform"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Extending frequency analysis to non-periodic signals."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["fourier-transform", "spectrum", "frequency-domain", "continuous-time"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Fourier transform
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why the Fourier transform?
+
+Real signals aren't periodic. A voice clip, a radar pulse, a burst of noise — none of these repeat forever. The Fourier series can't handle them directly.
+
+The Fourier transform extends frequency analysis to **any** signal by treating it as the limit of a periodic signal with infinite period. Instead of discrete harmonics, you get a continuous spectrum. This is the foundation of spectral analysis, filter design, and modulation theory in RF engineering.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+The Fourier series tells you which harmonics make up a periodic signal. The Fourier transform tells you which frequencies make up *any* signal — and how much of each, continuously across all frequencies.
+
+Think of it as spreading the signal's energy across a frequency axis. A short pulse has energy spread across many frequencies (wide bandwidth). A long tone concentrates energy around one frequency (narrow bandwidth). The transform makes this visible.
+
+The key insight: **time and frequency are duals**. Narrow in time means wide in frequency. Wide in time means narrow in frequency. This uncertainty relationship appears everywhere in RF.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Definition
+
+The Fourier transform of a continuous-time signal $x(t)$:
+
+$$X(f) = \int_{-\infty}^{\infty} x(t) e^{-j2\pi ft}\, dt$$
+
+The inverse Fourier transform recovers the signal:
+
+$$x(t) = \int_{-\infty}^{\infty} X(f) e^{j2\pi ft}\, df$$
+
+$X(f)$ is generally complex: magnitude $|X(f)|$ gives spectral amplitude, phase $\angle X(f)$ gives timing information.
+
+### Angular frequency form
+
+Using $\omega = 2\pi f$:
+
+$$X(\omega) = \int_{-\infty}^{\infty} x(t) e^{-j\omega t}\, dt$$
+
+$$x(t) = \frac{1}{2\pi} \int_{-\infty}^{\infty} X(\omega) e^{j\omega t}\, d\omega$$
+
+Note the $1/2\pi$ factor moves to the inverse.
+
+### Transform pairs
+
+| Time domain | Frequency domain | Property |
+|-------------|------------------|----------|
+| $\delta(t)$ (impulse) | $1$ | Impulse contains all frequencies |
+| $1$ (DC) | $\delta(f)$ | DC maps to zero frequency |
+| $e^{j2\pi f_0 t}$ | $\delta(f - f_0)$ | Complex exponential → spike |
+| $\cos(2\pi f_0 t)$ | $\frac{1}{2}[\delta(f-f_0) + \delta(f+f_0)]$ | Cosine → two spikes |
+| $\text{rect}(t/T)$ | $T\,\text{sinc}(fT)$ | Pulse → sinc |
+| $e^{-at}u(t)$ | $\frac{1}{a + j2\pi f}$ | Exponential decay |
+| Gaussian | Gaussian | Self-similar |
+
+### Key properties
+
+**Linearity:** $\mathcal{F}\{ax(t) + by(t)\} = aX(f) + bY(f)$
+
+**Time shift:** $\mathcal{F}\{x(t-t_0)\} = X(f)e^{-j2\pi f t_0}$ (shift in time = phase rotation)
+
+**Frequency shift:** $\mathcal{F}\{x(t)e^{j2\pi f_0 t}\} = X(f - f_0)$ (modulation shifts spectrum)
+
+**Scaling:** $\mathcal{F}\{x(at)\} = \frac{1}{|a|}X(f/a)$ (compress time = expand frequency)
+
+**Convolution:** $\mathcal{F}\{x*y\} = X(f) \cdot Y(f)$ (convolution in time = multiplication in frequency)
+
+**Parseval's theorem:** $\int |x(t)|^2\, dt = \int |X(f)|^2\, df$ (energy is conserved)
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Rectangular pulse spectrum**
+
+A pulse of width $T$ centered at $t=0$:
+
+$$x(t) = \text{rect}(t/T) = \begin{cases} 1 & |t| < T/2 \\ 0 & \text{otherwise} \end{cases}$$
+
+$$X(f) = T\,\text{sinc}(\pi fT) = T\frac{\sin(\pi fT)}{\pi fT}$$
+
+First null at $f = 1/T$. A 1 µs pulse has first null at 1 MHz. The 3 dB bandwidth is approximately $0.88/T$.
+
+**Example: Modulation**
+
+Multiplying a baseband signal $m(t)$ by a carrier $\cos(2\pi f_c t)$ shifts its spectrum to $f_c$:
+
+$$\mathcal{F}\{m(t)\cos(2\pi f_c t)\} = \frac{1}{2}[M(f-f_c) + M(f+f_c)]$$
+
+This is AM modulation. The baseband spectrum appears centered at $\pm f_c$.
+
+**Example: Filter response**
+
+A filter has impulse response $h(t)$. Its frequency response is $H(f) = \mathcal{F}\{h(t)\}$.
+
+Input $x(t)$ with spectrum $X(f)$ produces output:
+
+$$Y(f) = H(f) \cdot X(f)$$
+
+The filter multiplies the input spectrum — passing some frequencies, attenuating others.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Existence.** The integral must converge. Not all signals have Fourier transforms in the classical sense. Distribution theory (generalized functions) handles impulses, periodic signals, and other pathological cases.
+
+2. **Real vs. complex spectrum.** Real signals have conjugate-symmetric spectra: $X(-f) = X^*(f)$. This means negative frequencies carry no new information — but they're mathematically necessary.
+
+3. **One-sided vs. two-sided.** RF engineers often show only positive frequencies (one-sided spectrum) with doubled amplitude. Be clear which convention you're using.
+
+4. **Units.** If $x(t)$ is in volts, $X(f)$ is in volt-seconds (V/Hz). Spectral density $|X(f)|^2$ is in V²/Hz.
+
+5. **Uncertainty.** You can't have a signal that's simultaneously narrow in time and narrow in frequency. The time-bandwidth product has a lower bound: $\Delta t \cdot \Delta f \geq 1/(4\pi)$ for Gaussian signals.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Oppenheim & Willsky, *Signals and Systems*, Chapter 4 — rigorous Fourier transform treatment.
+- Proakis & Manolakis, *Digital Signal Processing*, Chapter 4 — transform properties and pairs.
+- Haykin, *Communication Systems*, Chapter 2 — Fourier transform in communications context.
+
+</section>
