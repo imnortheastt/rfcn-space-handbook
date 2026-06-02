@@ -8,17 +8,189 @@ track: r2
 unit: fundamental-parameters
 order: 5
 level: L2
-estimatedReadingMinutes: 5
-title: "Efficiency"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 8
+prerequisites: ["rf-r2-fundamental-parameters-01-gain", "rf-r2-fundamental-parameters-02-directivity"]
+spiralRevisits: []
+title: "Antenna efficiency"
+description: "How much input power actually gets radiated."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["efficiency", "radiation-efficiency", "aperture-efficiency", "mismatch-loss", "ohmic-loss"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Efficiency
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why antenna efficiency?
+
+Directivity measures the antenna's focusing ability. But not all power delivered to the antenna gets radiated — some is lost to heat, reflections, and mismatch.
+
+**Efficiency** quantifies these losses. It's the bridge between directivity (theoretical maximum) and gain (what you actually get). Understanding efficiency is essential for system design and antenna selection.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Imagine a garden hose with a spray nozzle. The nozzle pattern is directivity — how focused the spray is. But if the hose has leaks or the nozzle is partially blocked, less water comes out than goes in.
+
+Efficiency measures how much of what you put in actually comes out where you want it. A 50% efficient antenna radiates only half the power you feed it; the rest becomes heat.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Total efficiency
+
+Total antenna efficiency $\eta_0$ combines all loss mechanisms:
+
+$$\eta_0 = \eta_{refl} \times \eta_{cond} \times \eta_{diel}$$
+
+or equivalently:
+
+$$\eta_0 = (1 - |\Gamma|^2) \times \eta_{rad}$$
+
+where:
+- $\eta_{refl} = (1 - |\Gamma|^2)$ = reflection (mismatch) efficiency
+- $\eta_{cond}$ = conduction efficiency (ohmic losses)
+- $\eta_{diel}$ = dielectric efficiency (dielectric losses)
+- $\eta_{rad} = \eta_{cond} \times \eta_{diel}$ = radiation efficiency
+- $\Gamma$ = reflection coefficient at the feed
+
+### Radiation efficiency
+
+Radiation efficiency considers only ohmic and dielectric losses:
+
+$$\eta_{rad} = \frac{P_{rad}}{P_{accepted}} = \frac{R_{rad}}{R_{rad} + R_{loss}}$$
+
+where:
+- $R_{rad}$ = radiation resistance
+- $R_{loss}$ = loss resistance (conductor + dielectric)
+
+For wire antennas:
+
+$$R_{loss} \propto \sqrt{f} \quad \text{(skin effect)}$$
+
+Higher frequency → higher loss resistance → lower efficiency.
+
+### Aperture efficiency
+
+For aperture antennas (horns, reflectors):
+
+$$\eta_{ap} = \frac{G}{G_{max}} = \frac{G}{\frac{4\pi A}{\lambda^2}}$$
+
+This combines:
+- Illumination efficiency (tapered vs. uniform)
+- Spillover efficiency (feed pattern vs. reflector size)
+- Surface errors
+- Blockage (feed, struts)
+
+Typical values:
+- Horn antenna: 50–80%
+- Parabolic reflector: 55–75%
+- Phased array: 60–80%
+
+### Gain and efficiency
+
+The fundamental relationship:
+
+$$G = \eta_0 \times D$$
+
+or in dB:
+
+$$G_{dB} = D_{dB} + 10\log_{10}(\eta_0)$$
+
+A 90% efficient antenna loses 0.46 dB from directivity to gain. A 50% efficient antenna loses 3 dB.
+
+### Electrically small antennas
+
+For antennas much smaller than a wavelength:
+
+$$\eta_{rad} \approx \frac{(ka)^2}{(ka)^2 + \text{loss terms}}$$
+
+where $a$ is the antenna size and $k = 2\pi/\lambda$.
+
+Small antennas → low radiation resistance → efficiency dominated by loss resistance.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Dipole efficiency**
+
+Half-wave dipole with $R_{rad} = 73\ \Omega$ and $R_{loss} = 2\ \Omega$:
+
+$$\eta_{rad} = \frac{73}{73 + 2} = 97.3\% = -0.12 \text{ dB}$$
+
+With VSWR = 2.0 ($|\Gamma| = 0.33$):
+
+$$\eta_{refl} = 1 - 0.33^2 = 0.89 = -0.5 \text{ dB}$$
+
+Total efficiency: $0.973 \times 0.89 = 86.6\%$
+
+**Example: Chip antenna**
+
+A 2.4 GHz chip antenna in a phone might have:
+- Radiation efficiency: 30%
+- Mismatch loss: 1 dB (80%)
+
+Total efficiency: $0.30 \times 0.80 = 24\%$ = −6.2 dB
+
+This is why phones struggle with weak signals despite sophisticated modulation.
+
+**Example: Large reflector**
+
+4 m dish at 12 GHz, 65% aperture efficiency:
+
+$$G = 0.65 \times \frac{4\pi \times 4^2 \times \pi}{0.025^2} = 0.65 \times 1,006,000 = 654,000 = 58.2 \text{ dBi}$$
+
+Without efficiency factor: 60 dBi (theoretical max).
+
+**Example: Phased array element efficiency**
+
+64-element array with per-element efficiency 80% and array efficiency 70% (feed network losses):
+
+System efficiency: $0.80 \times 0.70 = 56\%$
+
+Array gain = $56\% \times 64 \times D_{element}$
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Radiation vs. total efficiency.** Datasheets sometimes quote radiation efficiency without mismatch loss. Total efficiency is lower.
+
+2. **Frequency dependence.** Efficiency varies with frequency — often worse at band edges where mismatch increases.
+
+3. **Measurement difficulty.** Efficiency requires comparing radiated power to input power. Wheeler cap or reverberation chamber methods have uncertainties.
+
+4. **Gain includes efficiency.** When someone says "antenna gain," efficiency is already baked in. Don't double-count losses.
+
+5. **Small antenna tradeoffs.** Electrically small antennas trade efficiency for bandwidth and size. A −6 dB efficient antenna may be acceptable if the alternative is no antenna at all.
+
+6. **Environmental effects.** Nearby objects (human body, metal enclosure) can dramatically change efficiency. Free-space specs don't apply in installed conditions.
+
+7. **Aperture efficiency vs. radiation efficiency.** Different concepts. An aperture antenna can have 60% aperture efficiency (illumination) and 95% radiation efficiency (ohmic loss).
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Balanis, *Antenna Theory*, Chapter 2 — efficiency definitions.
+- IEEE Std 145 — standard efficiency terms.
+- Fujimoto, *Small Antennas* — electrically small antenna efficiency.
+
+</section>
