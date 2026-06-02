@@ -8,17 +8,178 @@ track: r0
 unit: maxwells-equations-engineers-view
 order: 4
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 7
+prerequisites: ["rf-r0-maxwells-equations-engineers-view-03-ampere-law"]
+spiralRevisits: []
 title: "Wave equation"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Deriving electromagnetic wave propagation."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["wave-equation", "propagation", "phase-velocity", "helmholtz"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Wave equation
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why the wave equation?
+
+Maxwell's equations predict that electromagnetic disturbances propagate through space at the speed of light. The wave equation is the mathematical consequence — it governs every RF signal from DC to daylight.
+
+Understanding this equation connects antenna radiation, transmission line behavior, and free-space propagation.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Faraday: changing B creates E. Ampere-Maxwell: changing E creates B. Together: a disturbance in E creates B, which creates E, which creates B... The disturbance propagates outward as a wave.
+
+The speed comes from $\epsilon$ and $\mu$ — the electric and magnetic "stiffness" of space.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Derivation in source-free region
+
+Start with Maxwell's equations ($\mathbf{J} = 0$, $\rho = 0$):
+
+$$\nabla \times \mathbf{E} = -\mu \frac{\partial \mathbf{H}}{\partial t}$$
+$$\nabla \times \mathbf{H} = \epsilon \frac{\partial \mathbf{E}}{\partial t}$$
+
+Take curl of first equation:
+$$\nabla \times \nabla \times \mathbf{E} = -\mu \frac{\partial}{\partial t}(\nabla \times \mathbf{H})$$
+
+Substitute second equation:
+$$\nabla \times \nabla \times \mathbf{E} = -\mu \epsilon \frac{\partial^2 \mathbf{E}}{\partial t^2}$$
+
+Use vector identity $\nabla \times \nabla \times \mathbf{E} = \nabla(\nabla \cdot \mathbf{E}) - \nabla^2 \mathbf{E}$:
+
+Since $\nabla \cdot \mathbf{E} = 0$ in source-free region:
+
+$$\nabla^2 \mathbf{E} = \mu \epsilon \frac{\partial^2 \mathbf{E}}{\partial t^2}$$
+
+### Wave equation
+
+$$\nabla^2 \mathbf{E} - \frac{1}{v^2} \frac{\partial^2 \mathbf{E}}{\partial t^2} = 0$$
+
+where phase velocity:
+
+$$v = \frac{1}{\sqrt{\mu \epsilon}}$$
+
+In free space: $v = c = 3 \times 10^8$ m/s.
+
+### Plane wave solution
+
+For wave traveling in +z direction:
+
+$$\mathbf{E} = E_0 e^{j(\omega t - kz)} \hat{x}$$
+
+where:
+- $k = \omega/v = \omega\sqrt{\mu\epsilon}$ (wave number)
+- $\lambda = 2\pi/k = v/f$ (wavelength)
+
+### Helmholtz equation
+
+For sinusoidal steady state ($e^{j\omega t}$ assumed):
+
+$$\nabla^2 \mathbf{E} + k^2 \mathbf{E} = 0$$
+
+This is the frequency-domain wave equation.
+
+### Wave impedance
+
+$$\eta = \frac{E}{H} = \sqrt{\frac{\mu}{\epsilon}}$$
+
+In free space: $\eta_0 = 377\ \Omega$.
+
+### Relationship between E and H
+
+For a plane wave:
+- E and H are perpendicular
+- E and H are in phase
+- $|\mathbf{E}| = \eta |\mathbf{H}|$
+- Both perpendicular to propagation direction
+
+### Power flow
+
+Poynting vector:
+$$\mathbf{S} = \mathbf{E} \times \mathbf{H}$$
+
+Average power density:
+$$\langle S \rangle = \frac{1}{2} \text{Re}(\mathbf{E} \times \mathbf{H}^*) = \frac{|E|^2}{2\eta}$$
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Wavelength calculation**
+
+Frequency: 2.4 GHz.
+
+In free space: $\lambda = c/f = 3 \times 10^8 / 2.4 \times 10^9 = 0.125$ m = 12.5 cm.
+
+In dielectric ($\epsilon_r = 4$): $\lambda = 12.5 / \sqrt{4} = 6.25$ cm.
+
+**Example: Power density**
+
+Electric field: 1 V/m RMS in free space.
+
+Power density: $S = E^2/(2 \times 377) = 1/(754) = 1.33$ mW/m².
+
+**Example: Propagation in lossy medium**
+
+For lossy dielectric with conductivity σ:
+
+$$k = \omega\sqrt{\mu\epsilon}\sqrt{1 - j\sigma/(\omega\epsilon)}$$
+
+The imaginary part gives attenuation.
+
+At 1 GHz in seawater (σ = 4 S/m):
+
+Skin depth: ~8 cm. Submarine communication requires very low frequencies.
+
+**Example: Velocity in transmission line**
+
+Coax with $\epsilon_r = 2.3$ (polyethylene).
+
+$v = c/\sqrt{2.3} = 0.66c$.
+
+Signal takes 50% longer to traverse same length vs. free space.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing phase and group velocity.** In dispersive media, $v_p = \omega/k$ differs from $v_g = d\omega/dk$. Energy travels at group velocity.
+
+2. **Forgetting medium effects.** $\epsilon_r$ and $\mu_r$ change wavelength and impedance. Always specify the medium.
+
+3. **Using wrong impedance.** Wave impedance $\eta$ differs from transmission line characteristic impedance $Z_0$. Related but not equal.
+
+4. **Ignoring losses.** Real materials have loss tangent. At high frequencies, even small losses cause significant attenuation.
+
+5. **Assuming plane waves everywhere.** Near sources, fields don't look like plane waves. The wave equation still holds, but solutions are more complex.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Griffiths, *Introduction to Electrodynamics*, Chapter 9.
+- Pozar, *Microwave Engineering*, Chapter 1.
+- Cheng, *Field and Wave Electromagnetics*, Chapter 8.
+
+</section>
