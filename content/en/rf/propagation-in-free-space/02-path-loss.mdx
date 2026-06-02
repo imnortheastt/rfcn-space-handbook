@@ -8,17 +8,172 @@ track: r2
 unit: propagation-in-free-space
 order: 2
 level: L2
-estimatedReadingMinutes: 5
-title: "Path loss"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r2-propagation-in-free-space-01-friis-equation"]
+spiralRevisits: []
+title: "Path loss models"
+description: "Predicting signal attenuation beyond free space."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["path-loss", "propagation-model", "log-distance", "two-ray", "link-budget"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Path loss
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why path loss models?
+
+Free-space path loss (FSPL) assumes a perfect vacuum with no obstacles. Real environments have ground reflections, buildings, foliage, and atmospheric effects. These add loss beyond FSPL and change how loss scales with distance.
+
+Path loss models capture these effects empirically or semi-analytically. They're essential for coverage planning, interference analysis, and link budget calculations in real deployments.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+In free space, power falls off as $1/d^2$ (20 dB per decade of distance). But over real terrain:
+
+- **Ground reflection** creates interference patterns that can make loss worse than free space
+- **Obstructions** add diffraction and absorption losses
+- **Multipath** causes fading that varies with position
+
+Path loss models approximate these effects with a **path loss exponent** $n$ that modifies the distance dependency:
+
+$$L \propto d^n$$
+
+Free space has $n = 2$. Urban environments typically have $n = 3$ to $4$. Indoors can exceed $n = 4$.
+
+The key insight: real environments are "lossier" than free space, and the loss grows faster with distance.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Log-distance path loss model
+
+$$L(d) = L(d_0) + 10n \log_{10}\left(\frac{d}{d_0}\right) + X_\sigma$$
+
+where:
+- $L(d_0)$ = path loss at reference distance $d_0$ (often 1 m or 100 m)
+- $n$ = path loss exponent
+- $X_\sigma$ = shadow fading (log-normal, standard deviation $\sigma$)
+
+| Environment | Typical $n$ | Typical $\sigma$ (dB) |
+|-------------|-------------|----------------------|
+| Free space | 2.0 | 0 |
+| Urban LOS | 2.0–2.5 | 3–6 |
+| Urban NLOS | 3.0–4.0 | 6–10 |
+| Suburban | 2.5–3.5 | 4–8 |
+| Indoor LOS | 1.6–2.0 | 3–6 |
+| Indoor NLOS | 3.0–5.0 | 6–12 |
+
+### Two-ray ground reflection model
+
+For transmitter height $h_t$ and receiver height $h_r$ over a flat, reflective ground:
+
+$$P_r = P_t G_t G_r \frac{h_t^2 h_r^2}{d^4}$$
+
+At long distances ($d \gg \sqrt{h_t h_r}$), the direct and reflected paths nearly cancel, giving $n = 4$ instead of $n = 2$.
+
+**Breakpoint distance:** $d_b = \frac{4 h_t h_r}{\lambda}$
+
+Below $d_b$: loss follows free-space ($n \approx 2$). Above $d_b$: loss increases to $n \approx 4$.
+
+### Reference path loss
+
+Common convention for $L(d_0)$ at $d_0 = 1$ m:
+
+$$L(1\text{ m}) = 20\log_{10}\left(\frac{4\pi}{\lambda}\right) = 20\log_{10}\left(\frac{4\pi f}{c}\right)$$
+
+At 2.4 GHz: $L(1\text{ m}) \approx 40$ dB
+At 28 GHz: $L(1\text{ m}) \approx 62$ dB
+
+### Adding margins
+
+Real link budgets include additional losses:
+
+$$L_{total} = L_{path} + L_{shadow} + L_{body} + L_{penetration} + L_{rain} + \ldots$$
+
+| Loss type | Typical value |
+|-----------|---------------|
+| Body loss (handheld) | 3–6 dB |
+| Building penetration | 10–25 dB |
+| Vehicle penetration | 3–10 dB |
+| Foliage (per m) | 0.2–1 dB |
+| Rain (at 28 GHz, heavy) | 5–15 dB/km |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Outdoor cellular coverage**
+
+2 GHz, 46 dBm base station, 18 dBi antenna, urban NLOS ($n = 3.5$, $\sigma = 8$ dB).
+
+$L(1\text{ m}) = 38$ dB
+At 500 m: $L = 38 + 35 \times \log_{10}(500) = 38 + 94.5 = 132.5$ dB
+
+$P_r = 46 + 18 - 132.5 = -68.5$ dBm (median)
+
+For 90% coverage reliability (shadowing margin = 1.28σ): add 10 dB margin.
+Edge-of-cell receive power: −78.5 dBm
+
+**Example: Indoor Wi-Fi**
+
+5 GHz, 20 dBm AP, 0 dBi antennas, indoor NLOS ($n = 3.5$).
+
+$L(1\text{ m}) = 47$ dB
+At 30 m: $L = 47 + 35 \times \log_{10}(30) = 47 + 51.7 = 98.7$ dB
+
+$P_r = 20 + 0 + 0 - 98.7 = -78.7$ dBm
+
+This is marginal for high-throughput operation (typically needs > −70 dBm for good rates).
+
+**Example: Two-ray breakpoint**
+
+28 GHz mmWave, $h_t = 10$ m, $h_r = 1.5$ m.
+
+$d_b = \frac{4 \times 10 \times 1.5}{0.0107} = 5607$ m
+
+Below 5.6 km: $n \approx 2$. Above: $n \approx 4$. For urban deployments under 200 m, free-space model is reasonable for LOS.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Model validity range.** Models are calibrated for specific environments and frequencies. Don't extrapolate a 2 GHz urban model to 60 GHz.
+
+2. **LOS vs. NLOS.** Most models assume one or the other. Real environments mix both. Separate calculations may be needed.
+
+3. **Shadow fading.** $X_\sigma$ is random per location but correlated over distance (typically 10–50 m correlation). Don't treat it as independent at every point.
+
+4. **Antenna height.** Two-ray and many empirical models are sensitive to antenna height. Ground-level measurements don't apply to rooftop deployments.
+
+5. **Frequency dependence.** Some models include frequency terms; others require recalibration. Check model documentation.
+
+6. **Indoor complexity.** Indoor propagation depends heavily on construction materials, layout, and furniture. Generic models may be off by 10+ dB.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Rappaport, *Wireless Communications*, Chapter 4 — path loss models.
+- 3GPP TR 38.901 — 5G channel models (comprehensive, frequency-dependent).
+- ITU-R P.1411 — propagation data for short-range outdoor systems.
+- COST 231 models — European empirical models for cellular.
+
+</section>

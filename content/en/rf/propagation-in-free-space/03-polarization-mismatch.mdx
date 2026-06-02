@@ -8,17 +8,173 @@ track: r2
 unit: propagation-in-free-space
 order: 3
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r2-propagation-in-free-space-01-friis-equation"]
+spiralRevisits: []
 title: "Polarization mismatch"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Signal loss from misaligned antenna polarizations."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["polarization", "circular-polarization", "linear-polarization", "axial-ratio", "cross-pol"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Polarization mismatch
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why polarization matters?
+
+A vertical antenna transmitting to a horizontal antenna loses nearly all its signal — not because of distance, but because of **polarization mismatch**. The electric field oscillates in one plane; the receiving antenna responds to a different plane.
+
+Polarization is often overlooked in link budgets, but it can cause 3 dB loss (circular to linear) or near-total loss (orthogonal linear). Understanding it prevents mysterious link failures.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Electromagnetic waves have electric fields that oscillate in a specific direction. Think of polarization as the "orientation" of the wave:
+
+- **Linear vertical:** E-field oscillates up and down
+- **Linear horizontal:** E-field oscillates side to side
+- **Circular:** E-field rotates as the wave travels
+
+A receiving antenna extracts energy most efficiently when its polarization matches the incoming wave. Misalignment causes loss.
+
+The extreme case: a vertical antenna receives nothing from a horizontally polarized wave (in theory — in practice, scattering and imperfect antennas create some coupling).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Polarization loss factor
+
+The polarization efficiency (or polarization loss factor) is:
+
+$$\eta_p = |\hat{p}_t \cdot \hat{p}_r^*|^2$$
+
+where $\hat{p}_t$ and $\hat{p}_r$ are the unit polarization vectors of transmit and receive antennas.
+
+For linear polarizations at angle $\theta$:
+
+$$\eta_p = \cos^2(\theta)$$
+
+| Mismatch | $\theta$ | Loss (dB) |
+|----------|----------|-----------|
+| Aligned | 0° | 0 |
+| 45° tilt | 45° | 3 |
+| Orthogonal | 90° | ∞ (theory) |
+
+### Circular polarization
+
+Circular polarization (CP) comes in two senses:
+- **Right-hand circular (RHCP):** E-field rotates clockwise (looking into the wave)
+- **Left-hand circular (LHCP):** E-field rotates counter-clockwise
+
+Matching circular polarizations: $\eta_p = 1$ (0 dB loss)
+Opposite circular polarizations: $\eta_p = 0$ (total loss)
+
+### Circular to linear
+
+A circularly polarized wave received by a linear antenna:
+
+$$\eta_p = 0.5 \quad (-3\text{ dB})$$
+
+Half the power is in the orthogonal component and is lost. This is why satellite links use circular polarization but lose 3 dB to handheld devices with linear (whip) antennas.
+
+### Axial ratio
+
+Real circularly polarized antennas aren't perfect. The **axial ratio (AR)** measures ellipticity:
+
+$$\text{AR} = \frac{E_{max}}{E_{min}}$$
+
+Perfect circular: AR = 1 (0 dB)
+Linear: AR = ∞
+
+For AR in dB:
+$$\text{AR}_\text{dB} = 20\log_{10}(\text{AR})$$
+
+Typical CP antennas achieve AR < 3 dB. Degraded AR increases polarization loss.
+
+### Modified Friis equation
+
+Including polarization loss:
+
+$$P_r = P_t G_t G_r \eta_p \left(\frac{\lambda}{4\pi d}\right)^2$$
+
+In dB:
+
+$$P_r = P_t + G_t + G_r + L_p - L_{fs}$$
+
+where $L_p = -10\log_{10}(\eta_p)$ is polarization loss.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Satellite to handheld**
+
+GPS satellite transmits RHCP. Handheld receiver has a linear whip antenna.
+
+Polarization loss: 3 dB
+
+This is budgeted into GPS link calculations. High-precision receivers use CP antennas to recover this 3 dB.
+
+**Example: Misaligned dipoles**
+
+Two vertical dipoles, but one is tilted 30° from vertical.
+
+$\eta_p = \cos^2(30°) = 0.75$
+Loss: $-10\log_{10}(0.75) = 1.25$ dB
+
+**Example: Cross-pol interference**
+
+A dual-polarized antenna uses vertical and horizontal channels. Ideally, they're isolated. But imperfect antennas have **cross-polarization discrimination (XPD)**:
+
+$$\text{XPD} = 10\log_{10}\left(\frac{P_{co-pol}}{P_{cross-pol}}\right)$$
+
+Typical values: 20–30 dB. Lower XPD means more interference between polarization channels.
+
+**Example: Faraday rotation**
+
+Signals passing through the ionosphere experience Faraday rotation — the polarization plane rotates. For a linearly polarized wave, this causes time-varying loss as the rotation changes.
+
+Solution: use circular polarization (immune to rotation) or dual-pol receivers that combine both orientations.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Scattering saves you.** In multipath environments, reflections depolarize the signal. A "mismatched" antenna may still receive scattered energy. Don't assume 90° mismatch means zero signal indoors.
+
+2. **Axial ratio off-axis.** CP antennas have good AR only over limited angles. Pointing errors degrade AR and increase loss.
+
+3. **Sense matters.** RHCP and LHCP are orthogonal. Using the wrong sense is as bad as linear orthogonal. Verify polarization sense in system design.
+
+4. **Antenna orientation.** A nominally vertical mobile antenna isn't always vertical — users hold phones at various angles. Budget 3–6 dB margin for handheld orientation uncertainty.
+
+5. **Cross-pol isolation.** In dual-pol MIMO systems, poor XPD reduces capacity by creating inter-stream interference. Aim for XPD > 20 dB.
+
+6. **Measurement conventions.** Polarization definitions vary (IEEE vs. classical optics). Confirm the convention when reading specifications.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Balanis, *Antenna Theory*, Chapter 2 — polarization fundamentals.
+- IEEE Std 145 — standard definitions for antenna terms including polarization.
+- Stutzman & Thiele, *Antenna Theory and Design*, Chapter 2 — polarization vectors and efficiency.
+
+</section>

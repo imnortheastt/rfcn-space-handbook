@@ -8,17 +8,152 @@ track: r2
 unit: propagation-in-free-space
 order: 1
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r0-decibels-and-units-01-decibels"]
+spiralRevisits: []
 title: "Phương trình truyền dẫn Friis"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Phương trình ngân sách liên kết cơ bản cho radio tầm nhìn thẳng."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["friis", "link-budget", "path-loss", "antenna-gain", "free-space"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Phương trình truyền dẫn Friis
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần phương trình Friis?
+
+Bạn có máy phát với công suất và độ lợi anten đã biết. Máy thu ở một khoảng cách nào đó với anten riêng. Bao nhiêu công suất đến được máy thu?
+
+Phương trình truyền dẫn Friis trả lời câu hỏi này cho truyền lan không gian tự do — trường hợp lý tưởng không có vật cản, không mặt đất, không khí quyển. Đây là điểm khởi đầu cho mọi ngân sách liên kết, tính toán truyền thông vệ tinh, và thiết kế hệ thống không dây.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Anten phát bức xạ công suất ra ngoài. Ở khoảng cách $d$, công suất đó trải trên mặt cầu diện tích $4\pi d^2$. Càng xa, tín hiệu càng loãng.
+
+Anten thu bắt một phần năng lượng đang lan tỏa này. Anten lớn hơn, độ lợi cao hơn bắt được nhiều hơn. Phương trình Friis kết hợp các yếu tố: công suất phát, độ lợi anten phát, tổn hao lan tỏa, và diện tích hiệu dụng anten thu.
+
+Hiểu biết chính: tổn hao không gian tự do tăng theo **bình phương** khoảng cách. Gấp đôi khoảng cách, mất 6 dB (hệ số 4 về công suất). Đây thuần túy là lan tỏa hình học, không phải hấp thụ.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Phương trình Friis
+
+$$P_r = P_t \cdot G_t \cdot G_r \cdot \left(\frac{\lambda}{4\pi d}\right)^2$$
+
+trong đó:
+- $P_r$ = công suất thu (W)
+- $P_t$ = công suất phát (W)
+- $G_t$ = độ lợi anten phát (tuyến tính, không phải dB)
+- $G_r$ = độ lợi anten thu (tuyến tính)
+- $\lambda$ = bước sóng (m)
+- $d$ = khoảng cách (m)
+
+### Dạng decibel
+
+$$P_r[\text{dBm}] = P_t[\text{dBm}] + G_t[\text{dBi}] + G_r[\text{dBi}] - L_{fs}[\text{dB}]$$
+
+trong đó tổn hao đường truyền không gian tự do (FSPL) là:
+
+$$L_{fs} = 20\log_{10}\left(\frac{4\pi d}{\lambda}\right) = 20\log_{10}(d) + 20\log_{10}(f) + 20\log_{10}\left(\frac{4\pi}{c}\right)$$
+
+### Công thức FSPL thực tế
+
+Với $d$ tính bằng km và $f$ tính bằng MHz:
+$$L_{fs}[\text{dB}] = 32.45 + 20\log_{10}(d_\text{km}) + 20\log_{10}(f_\text{MHz})$$
+
+Với $d$ tính bằng mét và $f$ tính bằng GHz:
+$$L_{fs}[\text{dB}] = 92.45 + 20\log_{10}(d_\text{m}) + 20\log_{10}(f_\text{GHz})$$
+
+### Quan hệ khẩu độ hiệu dụng
+
+Độ lợi anten liên hệ với khẩu độ hiệu dụng:
+
+$$G = \frac{4\pi A_e}{\lambda^2}$$
+
+Điều này giải thích $\lambda^2$ trong Friis: tần số cao hơn nghĩa là khẩu độ hiệu dụng nhỏ hơn cho cùng độ lợi, do đó tổn hao nhiều hơn.
+
+### Giá trị tham chiếu
+
+| Tần số | FSPL 1 km | FSPL 10 km |
+|--------|-----------|------------|
+| 100 MHz | 72 dB | 92 dB |
+| 1 GHz | 92 dB | 112 dB |
+| 10 GHz | 112 dB | 132 dB |
+| 28 GHz | 121 dB | 141 dB |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Liên kết Wi-Fi**
+
+2.4 GHz, máy phát 100 mW (20 dBm), anten 3 dBi, khoảng cách 100 m.
+
+FSPL = 92.45 + 20log₁₀(100) + 20log₁₀(2.4) = 92.45 + 40 + 7.6 = 80 dB
+
+$P_r$ = 20 + 3 + 3 − 80 = −54 dBm
+
+Điều này cao hơn nhiều so với độ nhạy máy thu Wi-Fi điển hình (−70 đến −90 dBm).
+
+**Ví dụ: Liên kết vệ tinh ở GEO**
+
+Đường xuống 12 GHz, vệ tinh ở 36,000 km, 50 W EIRP (47 dBW), chảo 1 m (41 dBi ở 12 GHz).
+
+FSPL = 32.45 + 20log₁₀(36000) + 20log₁₀(12000) = 32.45 + 91.1 + 81.6 = 205.2 dB
+
+$P_r$ = 47 + 41 − 205.2 = −117.2 dBW = −87.2 dBm
+
+**Ví dụ: 5G mmWave ở 28 GHz**
+
+28 GHz, máy phát 30 dBm, anten 18 dBi cả hai đầu, khoảng cách 200 m.
+
+FSPL = 92.45 + 20log₁₀(200) + 20log₁₀(28) = 92.45 + 46 + 28.9 = 118.4 dB
+
+$P_r$ = 30 + 18 + 18 − 118.4 = −52.4 dBm
+
+Anten độ lợi cao bù đắp cho tổn hao đường truyền cao hơn ở mmWave.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Chỉ không gian tự do.** Friis giả định không có vật cản, phản xạ, hoặc hiệu ứng khí quyển. Liên kết thực có tổn hao bổ sung và đa đường. Dùng Friis làm đường cơ sở, sau đó thêm biên.
+
+2. **Tham chiếu độ lợi anten.** Độ lợi phải tương đối với đẳng hướng (dBi). Nếu thông số cho dBd (tương đối với dipole), cộng thêm 2.15 dB để chuyển đổi.
+
+3. **Trường gần không hợp lệ.** Friis áp dụng trong trường xa ($d > 2D^2/\lambda$ với kích thước khẩu độ $D$). Trong trường gần, quy luật lan tỏa khác.
+
+4. **"Tổn hao" tần số.** Tần số cao hơn không tổn hao nhiều công suất hơn một cách cố hữu — nó chỉ nghĩa là khẩu độ hiệu dụng nhỏ hơn cho cùng độ lợi. Anten độ lợi cao hơn ở tần số cao hơn có thể có tổn hao đường truyền bằng hoặc thấp hơn.
+
+5. **Tuyến tính vs. dB.** Phương trình nhân độ lợi tuyến tính nhưng cộng độ lợi dB. Trộn quy ước gây sai số. Chuyển đổi nhất quán.
+
+6. **Nhầm lẫn EIRP.** EIRP = $P_t \cdot G_t$. Nếu được cho EIRP trực tiếp, không cộng $G_t$ lại.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Friis, H.T., "A Note on a Simple Transmission Formula," Proc. IRE, 1946 — bài báo gốc.
+- Balanis, *Antenna Theory*, Chương 2 — suy dẫn từ nguyên lý anten.
+- ITU-R P.525 — tiêu chuẩn tính toán truyền lan không gian tự do.
+
+</section>

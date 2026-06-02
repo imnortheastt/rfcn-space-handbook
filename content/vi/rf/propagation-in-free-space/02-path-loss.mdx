@@ -8,17 +8,172 @@ track: r2
 unit: propagation-in-free-space
 order: 2
 level: L2
-estimatedReadingMinutes: 5
-title: "Suy hao đường truyền"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r2-propagation-in-free-space-01-friis-equation"]
+spiralRevisits: []
+title: "Các mô hình suy hao đường truyền"
+description: "Dự đoán suy giảm tín hiệu ngoài không gian tự do."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["path-loss", "propagation-model", "log-distance", "two-ray", "link-budget"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Suy hao đường truyền
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần mô hình suy hao đường truyền?
+
+Suy hao đường truyền không gian tự do (FSPL) giả định chân không hoàn hảo không có vật cản. Môi trường thực có phản xạ mặt đất, tòa nhà, cây cối, và hiệu ứng khí quyển. Chúng thêm tổn hao ngoài FSPL và thay đổi cách tổn hao tỉ lệ với khoảng cách.
+
+Mô hình suy hao đường truyền nắm bắt các hiệu ứng này theo thực nghiệm hoặc bán giải tích. Chúng thiết yếu cho quy hoạch vùng phủ, phân tích nhiễu, và tính toán ngân sách liên kết trong triển khai thực tế.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Trong không gian tự do, công suất giảm theo $1/d^2$ (20 dB mỗi thập kỷ khoảng cách). Nhưng trên địa hình thực:
+
+- **Phản xạ mặt đất** tạo mẫu giao thoa có thể làm tổn hao tệ hơn không gian tự do
+- **Vật cản** thêm tổn hao nhiễu xạ và hấp thụ
+- **Đa đường** gây fading thay đổi theo vị trí
+
+Mô hình suy hao đường truyền xấp xỉ các hiệu ứng này với **số mũ suy hao đường truyền** $n$ sửa đổi phụ thuộc khoảng cách:
+
+$$L \propto d^n$$
+
+Không gian tự do có $n = 2$. Môi trường đô thị thường có $n = 3$ đến $4$. Trong nhà có thể vượt $n = 4$.
+
+Hiểu biết chính: môi trường thực "tổn hao hơn" không gian tự do, và tổn hao tăng nhanh hơn theo khoảng cách.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Mô hình suy hao đường truyền log-distance
+
+$$L(d) = L(d_0) + 10n \log_{10}\left(\frac{d}{d_0}\right) + X_\sigma$$
+
+trong đó:
+- $L(d_0)$ = suy hao đường truyền tại khoảng cách tham chiếu $d_0$ (thường 1 m hoặc 100 m)
+- $n$ = số mũ suy hao đường truyền
+- $X_\sigma$ = fading che khuất (log-chuẩn, độ lệch chuẩn $\sigma$)
+
+| Môi trường | $n$ điển hình | $\sigma$ điển hình (dB) |
+|------------|---------------|------------------------|
+| Không gian tự do | 2.0 | 0 |
+| Đô thị LOS | 2.0–2.5 | 3–6 |
+| Đô thị NLOS | 3.0–4.0 | 6–10 |
+| Ngoại ô | 2.5–3.5 | 4–8 |
+| Trong nhà LOS | 1.6–2.0 | 3–6 |
+| Trong nhà NLOS | 3.0–5.0 | 6–12 |
+
+### Mô hình phản xạ mặt đất hai tia
+
+Với độ cao máy phát $h_t$ và độ cao máy thu $h_r$ trên mặt đất phẳng, phản xạ:
+
+$$P_r = P_t G_t G_r \frac{h_t^2 h_r^2}{d^4}$$
+
+Ở khoảng cách xa ($d \gg \sqrt{h_t h_r}$), đường trực tiếp và đường phản xạ gần như triệt tiêu, cho $n = 4$ thay vì $n = 2$.
+
+**Khoảng cách điểm gãy:** $d_b = \frac{4 h_t h_r}{\lambda}$
+
+Dưới $d_b$: tổn hao theo không gian tự do ($n \approx 2$). Trên: tổn hao tăng đến $n \approx 4$.
+
+### Suy hao đường truyền tham chiếu
+
+Quy ước phổ biến cho $L(d_0)$ tại $d_0 = 1$ m:
+
+$$L(1\text{ m}) = 20\log_{10}\left(\frac{4\pi}{\lambda}\right) = 20\log_{10}\left(\frac{4\pi f}{c}\right)$$
+
+Ở 2.4 GHz: $L(1\text{ m}) \approx 40$ dB
+Ở 28 GHz: $L(1\text{ m}) \approx 62$ dB
+
+### Thêm biên
+
+Ngân sách liên kết thực bao gồm tổn hao bổ sung:
+
+$$L_{total} = L_{path} + L_{shadow} + L_{body} + L_{penetration} + L_{rain} + \ldots$$
+
+| Loại tổn hao | Giá trị điển hình |
+|--------------|-------------------|
+| Tổn hao cơ thể (cầm tay) | 3–6 dB |
+| Xuyên tòa nhà | 10–25 dB |
+| Xuyên xe | 3–10 dB |
+| Cây cối (mỗi m) | 0.2–1 dB |
+| Mưa (ở 28 GHz, nặng) | 5–15 dB/km |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Vùng phủ di động ngoài trời**
+
+2 GHz, trạm gốc 46 dBm, anten 18 dBi, đô thị NLOS ($n = 3.5$, $\sigma = 8$ dB).
+
+$L(1\text{ m}) = 38$ dB
+Ở 500 m: $L = 38 + 35 \times \log_{10}(500) = 38 + 94.5 = 132.5$ dB
+
+$P_r = 46 + 18 - 132.5 = -68.5$ dBm (trung vị)
+
+Cho độ tin cậy vùng phủ 90% (biên che khuất = 1.28σ): thêm biên 10 dB.
+Công suất thu biên ô: −78.5 dBm
+
+**Ví dụ: Wi-Fi trong nhà**
+
+5 GHz, AP 20 dBm, anten 0 dBi, trong nhà NLOS ($n = 3.5$).
+
+$L(1\text{ m}) = 47$ dB
+Ở 30 m: $L = 47 + 35 \times \log_{10}(30) = 47 + 51.7 = 98.7$ dB
+
+$P_r = 20 + 0 + 0 - 98.7 = -78.7$ dBm
+
+Điều này là biên cho hoạt động thông lượng cao (thường cần > −70 dBm cho tốc độ tốt).
+
+**Ví dụ: Điểm gãy hai tia**
+
+28 GHz mmWave, $h_t = 10$ m, $h_r = 1.5$ m.
+
+$d_b = \frac{4 \times 10 \times 1.5}{0.0107} = 5607$ m
+
+Dưới 5.6 km: $n \approx 2$. Trên: $n \approx 4$. Cho triển khai đô thị dưới 200 m, mô hình không gian tự do hợp lý cho LOS.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Phạm vi hiệu lực mô hình.** Mô hình được hiệu chuẩn cho môi trường và tần số cụ thể. Không ngoại suy mô hình đô thị 2 GHz sang 60 GHz.
+
+2. **LOS vs. NLOS.** Hầu hết mô hình giả định một trong hai. Môi trường thực trộn cả hai. Có thể cần tính toán riêng.
+
+3. **Fading che khuất.** $X_\sigma$ ngẫu nhiên theo vị trí nhưng tương quan theo khoảng cách (thường tương quan 10–50 m). Không xử lý như độc lập tại mọi điểm.
+
+4. **Độ cao anten.** Hai tia và nhiều mô hình thực nghiệm nhạy cảm với độ cao anten. Phép đo mức mặt đất không áp dụng cho triển khai trên mái.
+
+5. **Phụ thuộc tần số.** Một số mô hình bao gồm số hạng tần số; số khác cần hiệu chuẩn lại. Kiểm tra tài liệu mô hình.
+
+6. **Phức tạp trong nhà.** Truyền lan trong nhà phụ thuộc nhiều vào vật liệu xây dựng, bố trí, và đồ đạc. Mô hình chung có thể sai 10+ dB.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Rappaport, *Wireless Communications*, Chương 4 — mô hình suy hao đường truyền.
+- 3GPP TR 38.901 — mô hình kênh 5G (toàn diện, phụ thuộc tần số).
+- ITU-R P.1411 — dữ liệu truyền lan cho hệ thống ngoài trời tầm ngắn.
+- Mô hình COST 231 — mô hình thực nghiệm châu Âu cho di động.
+
+</section>
