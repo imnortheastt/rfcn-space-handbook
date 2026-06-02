@@ -8,17 +8,174 @@ track: r2
 unit: measurement
 order: 2
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r2-measurement-01-anechoic-chambers"]
+spiralRevisits: []
 title: "Kiểm tra OTA"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Kiểm tra qua không khí cho hiệu năng thiết bị không dây."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["CTIA OTA", "3GPP TS 38.521-2"]
+tags: ["ota-testing", "tis", "trp", "mimo-ota"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Kiểm tra OTA
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao kiểm tra OTA?
+
+Đo dẫn (nối cáp) bỏ sót anten. Kiểm tra OTA đo thiết bị hoàn chỉnh — radio + anten + vỏ — khi hoạt động trong điều kiện thực. Cho thiết bị với anten tích hợp (smartphone, IoT, radio 5G), kiểm tra OTA là cách duy nhất biết hiệu năng bức xạ thực.
+
+Chứng nhận pháp quy yêu cầu kết quả kiểm tra OTA.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Kiểm tra cáp giống đo loa bằng cách nối trực tiếp với dao động ký. Kiểm tra OTA giống đặt loa trong phòng và đo những gì bạn thực sự nghe. Phòng (buồng), vị trí của bạn (góc đo), và phương pháp đo đều ảnh hưởng kết quả.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Các metric OTA chính
+
+**TRP (Tổng công suất bức xạ)**
+$$\text{TRP} = \frac{1}{4\pi} \int_0^{2\pi} \int_0^{\pi} [P_\theta(\theta,\phi) + P_\phi(\theta,\phi)] \sin\theta \, d\theta \, d\phi$$
+
+Công suất bức xạ tích phân trên toàn mặt cầu. Đơn vị: dBm.
+
+**TIS (Tổng độ nhạy đẳng hướng)**
+$$\text{TIS} = \frac{4\pi}{\int_0^{2\pi} \int_0^{\pi} \frac{\sin\theta}{S(\theta,\phi)} d\theta \, d\phi}$$
+
+Độ nhạy trung bình trên toàn mặt cầu. Thấp hơn tốt hơn.
+
+**EIRP (Công suất bức xạ đẳng hướng tương đương)**
+$$\text{EIRP}(\theta,\phi) = P_t \cdot G(\theta,\phi)$$
+
+Công suất bức xạ đỉnh trong một hướng. TRP = EIRP trung bình trên mặt cầu.
+
+### Phương pháp đo
+
+**Trường xa trực tiếp:**
+- DUT xoay trên positioner
+- Anten đo ở khoảng cách trường xa
+- Lấy mẫu 3D đầy đủ: bước 2° hoặc 5°
+- Thời gian: 30-60 phút mỗi tần số
+
+**Biến đổi trường gần sang trường xa:**
+- Đầu dò quét bề mặt cầu quanh DUT
+- Biến đổi toán học sang giản đồ trường xa
+- Nhanh hơn cho anten lớn điện
+- Cần đo biên độ và pha
+
+**Hộp cộng hưởng đa đầu dò:**
+- Nhiều anten đầu dò bao quanh DUT
+- Trung bình thống kê trên các mode khuấy
+- Rất nhanh: giây mỗi phép đo
+- Độ chính xác thấp hơn phương pháp trực tiếp
+
+### Đặc thù MIMO OTA 5G NR
+
+**Metric dựa beam:**
+- EIRP mỗi beam
+- Tương ứng beam (căn chỉnh TX/RX)
+- Thời gian chuyển beam
+
+**Kiểm tra dựa throughput:**
+- Đo tốc độ dữ liệu thực
+- Bộ mô phỏng kênh tạo fading
+- Điều kiện đa đường, Doppler, MIMO
+
+### Hệ thống positioner
+
+| Loại | Mô tả | Trường hợp sử dụng |
+|------|-------|-------------------|
+| 2-trục | Xoay φ, θ | TRP/TIS chuẩn |
+| 3-trục | Thêm phantom đầu/tay | Hiệu ứng cơ thể |
+| Đa trục | Cánh tay robot 6-DOF | Hướng phức tạp |
+
+### Tiêu chuẩn và đặc tả
+
+| Tiêu chuẩn | Ứng dụng |
+|------------|----------|
+| CTIA OTA | Thiết bị di động Mỹ |
+| 3GPP TS 38.521-2 | Phù hợp 5G NR |
+| ETSI EN 301 908 | Di động EU |
+| IEEE 145 | Tham số anten |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Đo TRP**
+
+Smartphone ở 2.4 GHz, công suất dẫn 23 dBm.
+
+Đo công suất bức xạ ở bước 5°:
+- 72 bước φ × 36 bước θ = 2592 điểm
+- Ở mỗi điểm: đo Pθ và Pφ
+
+Tích phân dùng phương pháp mặt cắt nón:
+
+$$\text{TRP} = \sum_{i,j} \frac{(P_{\theta,ij} + P_{\phi,ij}) \cdot \sin\theta_j \cdot \Delta\theta \cdot \Delta\phi}{4\pi}$$
+
+Kết quả: TRP = 19.5 dBm
+
+Hiệu suất anten: 19.5 - 23 = -3.5 dB (45%)
+
+**Ví dụ: Đo TIS**
+
+Cho mỗi điểm góc, tìm công suất tối thiểu cho BER mục tiêu (0.1% cho thoại, 10% cho dữ liệu).
+
+Nếu S(θ,φ) biến thiên từ -95 đến -105 dBm:
+
+$$\text{TIS} = \frac{4\pi}{\sum_{i,j} \frac{\sin\theta_j \Delta\theta \Delta\phi}{10^{S_{ij}/10}}}$$
+
+**Ví dụ: EIRP mmWave 5G**
+
+Mảng pha 28 GHz, 64 phần tử.
+
+Công suất mỗi phần tử: 10 dBm
+Khuếch đại mảng: 18 dBi
+EIRP = 10 + 18 = 28 dBm (ở đỉnh beam)
+
+Giới hạn pháp quy: 43 dBm EIRP (FCC)
+Dư: 15 dB — dưới giới hạn nhiều.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Quên phân cực.** TRP cần cả phân cực θ và φ. Đo đơn phân cực bỏ lỡ một nửa công suất.
+
+2. **Lấy mẫu góc không đủ.** Lấy mẫu thiếu bỏ lỡ null và đỉnh. Dùng tốc độ Nyquist cho kích thước điện anten.
+
+3. **Bỏ qua hiệu ứng cơ thể.** Gần tay/đầu thay đổi giản đồ đáng kể. Kiểm tra với phantom chuẩn hóa theo CTIA.
+
+4. **Mức tham chiếu sai.** TRP là tổng bức xạ. EIRP là hướng. Không nhầm trong link budget.
+
+5. **Hiệu ứng nhiệt độ.** Hiệu suất PA và phối hợp anten thay đổi theo nhiệt độ. Điều hòa DUT trước khi kiểm tra.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- CTIA, "Test Plan for Wireless Device Over-the-Air Performance."
+- 3GPP TS 38.521-2, "NR User Equipment Radio Transmission and Reception."
+- IEEE Std 145, "Definitions of Terms for Antennas."
+
+</section>

@@ -8,17 +8,212 @@ track: r2
 unit: measurement
 order: 4
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r2-measurement-03-pattern-measurement"]
+spiralRevisits: []
 title: "Calibration"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Ensuring accurate and traceable RF measurements."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["ISO 17025", "IEEE 1720"]
+tags: ["calibration", "uncertainty", "traceability", "standards"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Calibration
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why calibration?
+
+Every measurement has uncertainty. Calibration quantifies and minimizes this uncertainty by comparing your instrument to a known standard. Without calibration, you don't know if your -20 dB is really -20 dB or could be anywhere from -18 to -22 dB.
+
+Regulatory compliance and customer acceptance require traceable calibration.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Calibration is like setting your watch to atomic time. Your watch might run fast or slow, but once you know the error, you can correct it. Regular re-calibration catches drift before it causes problems.
+
+The calibration chain connects your measurement to national/international standards — traceability.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Calibration chain
+
+```
+BIPM (International)
+       ↓
+National Metrology Institute (NIST, NPL, PTB)
+       ↓
+Accredited Calibration Lab
+       ↓
+Working Standards
+       ↓
+Your Instrument
+```
+
+Each step adds uncertainty. Total uncertainty is root-sum-square of all contributions.
+
+### VNA calibration
+
+**SOLT (Short-Open-Load-Thru):**
+- 4 known standards
+- Corrects for 12-term error model
+- Most common for coaxial
+
+**TRL (Thru-Reflect-Line):**
+- 3 standards: thru, reflect (any), line
+- Self-calibrating for line impedance
+- Best for non-coaxial (waveguide, probes)
+
+**Error terms corrected:**
+- Directivity
+- Source match
+- Reflection tracking
+- Load match
+- Transmission tracking
+- Cross-talk
+
+### Power meter calibration
+
+**Reference:** Calibrated power sensor (NIST-traceable)
+
+**Process:**
+1. Apply known power from calibrated source
+2. Record meter reading
+3. Calculate correction factor
+
+**Typical uncertainty:** ±0.2 dB (k=2)
+
+### Antenna gain calibration
+
+**Standard gain horns:**
+- Calculated gain from dimensions
+- Uncertainty: ±0.15 dB
+- Frequency: 1-40 GHz per horn
+
+**Three-antenna method:**
+- No standard antenna needed
+- Three pairs of measurements
+- Solve simultaneous equations
+- Uncertainty: ±0.3 dB typical
+
+### Spectrum analyzer calibration
+
+**Frequency accuracy:**
+- Compare to frequency standard (GPS-disciplined oscillator)
+- Spec: ±1 ppm typical
+
+**Amplitude accuracy:**
+- Compare to calibrated signal generator
+- Spec: ±0.5 dB typical
+
+**Noise floor:**
+- Verify with 50Ω termination
+- DANL (Displayed Average Noise Level)
+
+### Uncertainty budget
+
+| Source | Uncertainty (k=1) |
+|--------|-------------------|
+| VNA calibration | 0.05 dB |
+| Cable loss | 0.02 dB |
+| Connector repeatability | 0.03 dB |
+| Mismatch | 0.1 dB |
+| Drift | 0.05 dB |
+| **Combined (RSS)** | **0.13 dB** |
+| **Expanded (k=2)** | **0.26 dB** |
+
+### Calibration intervals
+
+| Equipment | Typical interval |
+|-----------|-----------------|
+| VNA | 12 months |
+| Power meter | 12 months |
+| Signal generator | 12 months |
+| Spectrum analyzer | 12 months |
+| Calibration standards | 12-24 months |
+| Reference antenna | 24-36 months |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: VNA measurement uncertainty**
+
+Measuring S21 = -30 dB through test fixture.
+
+Uncertainty sources:
+- VNA spec at -30 dB: ±0.3 dB
+- Cable pair: ±0.1 dB (calibrated)
+- Connector repeatability: ±0.05 dB (3 reconnects)
+- Temperature: ±0.02 dB/°C × 2°C = ±0.04 dB
+
+Combined: $\sqrt{0.3^2 + 0.1^2 + 0.05^2 + 0.04^2} = 0.32$ dB
+
+Expanded (k=2): ±0.64 dB
+
+Report: S21 = -30.0 ± 0.6 dB
+
+**Example: Reference antenna gain verification**
+
+Standard gain horn marked 15.0 dBi at 10 GHz.
+
+Three-antenna measurement with horn A, B, C gives:
+- A+B = 28.5 dB path loss
+- A+C = 29.0 dB path loss
+- B+C = 28.0 dB path loss
+
+Solving: GA = 14.8 dBi, GB = 13.7 dBi, GC = 14.3 dBi
+
+Horn A is 0.2 dB low from marked value — within spec.
+
+**Example: Daily system check**
+
+Before antenna measurement session:
+1. Connect through cable to reference load
+2. Verify S11 < -50 dB
+3. Connect reference antenna
+4. Verify gain within ±0.3 dB of reference value
+5. Document results
+
+If check fails, recalibrate or investigate.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Expired calibration.** Out-of-calibration equipment invalidates measurements. Check cal dates before testing.
+
+2. **Wrong standards for frequency.** Calibration standards have limited bandwidth. Using SOLT standards outside their range adds error.
+
+3. **Ignoring environmental conditions.** Standards are characterized at specific temperature/humidity. Correct for lab conditions.
+
+4. **Forgetting connector care.** Worn connectors add uncertainty. Inspect, clean, and torque properly.
+
+5. **Misunderstanding expanded uncertainty.** k=2 means 95% confidence level. k=1 is one standard deviation (~68%). Reports should specify k factor.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ISO/IEC 17025, "General requirements for the competence of testing and calibration laboratories."
+- IEEE Std 1720, "IEEE Recommended Practices for VNA S-Parameter Measurements."
+- NIST Technical Note 1449, "Coaxial Microwave Power Standards."
+
+</section>

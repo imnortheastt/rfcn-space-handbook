@@ -8,17 +8,185 @@ track: r2
 unit: measurement
 order: 3
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r2-measurement-01-anechoic-chambers"]
+spiralRevisits: []
 title: "Đo giản đồ bức xạ"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Kỹ thuật đo giản đồ bức xạ anten."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["IEEE 149-2021"]
+tags: ["radiation-pattern", "antenna-measurement", "far-field", "near-field"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Đo giản đồ bức xạ
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao đo giản đồ?
+
+Mô phỏng dự đoán, đo xác nhận. Dù mô hình anten của bạn tốt đến đâu, anten vật lý có dung sai chế tạo, hiệu ứng feed, và tương tác môi trường. Đo giản đồ tiết lộ sự thật — nơi anten thực sự bức xạ công suất.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Đo giản đồ bức xạ giống chụp ảnh bóng đèn từ mọi góc. Bạn xoay quanh nguồn, ghi cường độ ở mỗi vị trí. Tập hợp giá trị cường độ tạo giản đồ 3D.
+
+Thách thức là đảm bảo bạn đủ xa để mặt sóng trông phẳng (trường xa), và phản xạ không làm hỏng phép đo.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Đo trường xa
+
+**Thiết lập:**
+- AUT (Anten dưới kiểm tra) trên positioner
+- Anten đo (horn hoặc OEWG) ở khoảng cách trường xa
+- VNA hoặc máy phát tín hiệu + máy thu
+- Hệ thống xoay θ-φ
+
+**Quy trình:**
+1. Căn chỉnh trục chính AUT và anten đo
+2. Đặt tần số
+3. Xoay AUT qua các góc θ, φ
+4. Ghi biên độ (và tùy chọn pha) ở mỗi góc
+5. Vẽ giản đồ cực hoặc Descartes
+
+**Khoảng cách trường xa:**
+$$R_{ff} \geq \frac{2D^2}{\lambda}$$
+
+trong đó D = chiều lớn nhất của AUT.
+
+### Đo trường gần
+
+**Tại sao dùng:** Khi $R_{ff}$ lớn không thực tế.
+
+**Các loại:**
+
+| Hình học | Chuyển động đầu dò | Tốt nhất cho |
+|----------|-------------------|--------------|
+| Phẳng | Quét XY | Anten tăng ích cao |
+| Trụ | Xoay φ + quét Z | Đẳng hướng |
+| Cầu | Xoay θ-φ | Đa dụng |
+
+**Quy trình:**
+1. Lấy mẫu biên độ và pha E-field trên bề mặt
+2. Áp dụng biến đổi Fourier để có giản đồ trường xa
+3. Cần anten tham chiếu cho tăng ích tuyệt đối
+
+**Mật độ lấy mẫu:** $\Delta < \lambda/2$ (tiêu chí Nyquist)
+
+### Tham số giản đồ cần trích xuất
+
+| Tham số | Định nghĩa |
+|---------|------------|
+| Hướng thùy chính | θ, φ của cực đại |
+| Độ rộng beam nửa công suất | Góc giữa các điểm -3 dB |
+| Mức thùy phụ đầu tiên | dB dưới thùy chính |
+| Tỷ số trước-sau | Thùy chính / 180° đối diện |
+| Độ sâu null | dB ở cực tiểu giản đồ |
+| Phân cực chéo | Mức thành phần vuông góc |
+
+### Hệ tọa độ
+
+**Ludwig-3 (phổ biến nhất):**
+- Co-pol: thành phần căn chỉnh với phân cực chính
+- Cross-pol: thành phần vuông góc
+- Tự nhiên cho phân cực tuyến tính
+
+**Cầu:**
+- Thành phần θ và φ
+- Tự nhiên cho hệ tọa độ, không phải phân cực
+
+### Phương pháp đo tăng ích
+
+**So sánh tăng ích:**
+$$G_{AUT} = G_{ref} + (P_{AUT} - P_{ref})$$
+
+trong đó $G_{ref}$ là tăng ích anten tham chiếu đã biết.
+
+**Phương pháp hai anten:**
+$$G = \sqrt{G_1 G_2} = \frac{4\pi R}{λ} \sqrt{\frac{P_r}{P_t}}$$
+
+Cần hai anten giống nhau.
+
+**Phương pháp ba anten:**
+Ba phép đo với ba anten khác nhau, giải 3 phương trình cho 3 ẩn số.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Giản đồ anten horn**
+
+Horn tăng ích chuẩn ở 10 GHz.
+Khẩu độ: 5λ × 4λ.
+
+Khoảng cách trường xa: R = 2 × (5 × 0.03)² / 0.03 = 1.5 m
+
+Ước lượng độ rộng beam: θ ≈ 65°/5 = 13° (E-plane), φ ≈ 65°/4 = 16° (H-plane)
+
+Lấy mẫu góc: bước 1° đủ (giản đồ biến thiên chậm cho horn)
+
+**Ví dụ: Biến đổi trường gần**
+
+Mảng pha 64 phần tử ở 28 GHz (λ = 10.7 mm).
+Khẩu độ mảng: 8λ × 8λ = 86 mm × 86 mm.
+
+Khoảng cách trường xa: R = 2 × 0.086² / 0.0107 = 1.4 m
+
+Có vẻ quản lý được, nhưng bao gồm radome và gắn: D → 200 mm.
+R mới = 2 × 0.2² / 0.0107 = 7.5 m
+
+Trường gần với quét phẳng ở 0.5 m thực tế hơn.
+
+Mặt phẳng quét: 300 mm × 300 mm (lớn hơn mảng cho hiệu ứng rìa)
+Khoảng cách lấy mẫu: 5 mm (< λ/2 = 5.35 mm)
+Điểm: 60 × 60 = 3600
+
+**Ví dụ: Đo phân cực chéo**
+
+Anten patch phân cực kép.
+
+Đo giản đồ H-pol với đầu dò H-pol → giản đồ co-pol
+Đo giản đồ H-pol với đầu dò V-pol → giản đồ cross-pol
+
+Nếu đỉnh cross-pol là -25 dB so với đỉnh co-pol, anten có phân biệt phân cực chéo 25 dB.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Đo trong trường gần phản ứng.** Cho R < λ/(2π), trường là phản ứng, không bức xạ. Biến đổi trường xa không hoạt động.
+
+2. **Aliasing trong quét trường gần.** Nếu Δ > λ/2, bạn sẽ bỏ lỡ nội dung không gian tần số cao. Thùy lưới xuất hiện như artifact.
+
+3. **Hiệu ứng cáp.** Cáp di chuyển thay đổi giản đồ. Dùng khớp xoay hoặc bố trí cáp nhất quán.
+
+4. **Phản xạ positioner.** Positioner kim loại phản xạ. Dùng đỡ phủ hấp thụ hoặc trừ hiệu chuẩn.
+
+5. **Trôi pha.** Đo trường gần cần pha ổn định. Nhiệt độ, rung, và trôi nguồn gây lỗi.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- IEEE Std 149-2021, "IEEE Recommended Practice for Antenna Measurements."
+- Yaghjian, "An Overview of Near-Field Antenna Measurements," IEEE TAP, 1986.
+- Balanis, *Antenna Theory*, Chapter 17.
+
+</section>

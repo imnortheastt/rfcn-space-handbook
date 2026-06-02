@@ -8,17 +8,174 @@ track: r2
 unit: measurement
 order: 2
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r2-measurement-01-anechoic-chambers"]
+spiralRevisits: []
 title: "OTA testing"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Over-the-air testing for wireless device performance."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["CTIA OTA", "3GPP TS 38.521-2"]
+tags: ["ota-testing", "tis", "trp", "mimo-ota"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# OTA testing
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why OTA testing?
+
+Conducted measurements (cable-connected) miss the antenna. OTA testing measures the complete device — radio + antenna + enclosure — as it operates in real conditions. For devices with integrated antennas (smartphones, IoT, 5G radios), OTA testing is the only way to know true radiated performance.
+
+Regulatory certification requires OTA test results.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Cable testing is like measuring a speaker by connecting directly to an oscilloscope. OTA testing is like putting the speaker in a room and measuring what you actually hear. The room (chamber), your position (measurement angles), and measurement method all affect the result.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Key OTA metrics
+
+**TRP (Total Radiated Power)**
+$$\text{TRP} = \frac{1}{4\pi} \int_0^{2\pi} \int_0^{\pi} [P_\theta(\theta,\phi) + P_\phi(\theta,\phi)] \sin\theta \, d\theta \, d\phi$$
+
+Integrated radiated power over full sphere. Units: dBm.
+
+**TIS (Total Isotropic Sensitivity)**
+$$\text{TIS} = \frac{4\pi}{\int_0^{2\pi} \int_0^{\pi} \frac{\sin\theta}{S(\theta,\phi)} d\theta \, d\phi}$$
+
+Average sensitivity over full sphere. Lower is better.
+
+**EIRP (Effective Isotropic Radiated Power)**
+$$\text{EIRP}(\theta,\phi) = P_t \cdot G(\theta,\phi)$$
+
+Peak radiated power in a direction. TRP = EIRP averaged over sphere.
+
+### Measurement methods
+
+**Direct far-field:**
+- DUT rotated on positioner
+- Measurement antenna at far-field distance
+- Full 3D sampling: 2° or 5° steps
+- Time: 30-60 minutes per frequency
+
+**Near-field to far-field transformation:**
+- Probe scans spherical surface around DUT
+- Mathematical transform to far-field pattern
+- Faster for electrically large antennas
+- Requires amplitude and phase measurement
+
+**Multi-probe reverberation:**
+- Multiple probe antennas surround DUT
+- Statistical averaging over stirred modes
+- Very fast: seconds per measurement
+- Lower accuracy than direct methods
+
+### 5G NR MIMO OTA specifics
+
+**Beam-based metrics:**
+- EIRP per beam
+- Beam correspondence (TX/RX alignment)
+- Beam switching time
+
+**Throughput-based testing:**
+- Measure actual data rate
+- Channel emulator creates fading
+- Multi-path, Doppler, MIMO conditions
+
+### Positioner systems
+
+| Type | Description | Use case |
+|------|-------------|----------|
+| 2-axis | φ, θ rotation | Standard TRP/TIS |
+| 3-axis | Add head/hand phantom | Body effects |
+| Multi-axis | 6-DOF robotic arm | Complex orientations |
+
+### Standards and specs
+
+| Standard | Application |
+|----------|-------------|
+| CTIA OTA | US cellular devices |
+| 3GPP TS 38.521-2 | 5G NR conformance |
+| ETSI EN 301 908 | EU cellular |
+| IEEE 145 | Antenna parameters |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: TRP measurement**
+
+Smartphone at 2.4 GHz, 23 dBm conducted power.
+
+Measure radiated power at 5° steps:
+- 72 φ steps × 36 θ steps = 2592 points
+- At each point: measure Pθ and Pφ
+
+Integrate using conical section method:
+
+$$\text{TRP} = \sum_{i,j} \frac{(P_{\theta,ij} + P_{\phi,ij}) \cdot \sin\theta_j \cdot \Delta\theta \cdot \Delta\phi}{4\pi}$$
+
+Result: TRP = 19.5 dBm
+
+Antenna efficiency: 19.5 - 23 = -3.5 dB (45%)
+
+**Example: TIS measurement**
+
+For each angular point, find minimum power for target BER (0.1% for voice, 10% for data).
+
+If S(θ,φ) varies from -95 to -105 dBm:
+
+$$\text{TIS} = \frac{4\pi}{\sum_{i,j} \frac{\sin\theta_j \Delta\theta \Delta\phi}{10^{S_{ij}/10}}}$$
+
+**Example: 5G mmWave EIRP**
+
+28 GHz phased array, 64 elements.
+
+Per-element power: 10 dBm
+Array gain: 18 dBi
+EIRP = 10 + 18 = 28 dBm (at beam peak)
+
+Regulatory limit: 43 dBm EIRP (FCC)
+Margin: 15 dB — well below limit.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Forgetting polarization.** TRP requires both θ and φ polarizations. Single-polarization measurement misses half the power.
+
+2. **Insufficient angular sampling.** Undersampling misses nulls and peaks. Use Nyquist rate for antenna electrical size.
+
+3. **Ignoring body effects.** Hand/head proximity changes pattern dramatically. Test with standardized phantoms per CTIA.
+
+4. **Wrong reference level.** TRP is total radiated. EIRP is directional. Don't confuse in link budgets.
+
+5. **Temperature effects.** PA efficiency and antenna match change with temperature. Condition DUT before testing.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- CTIA, "Test Plan for Wireless Device Over-the-Air Performance."
+- 3GPP TS 38.521-2, "NR User Equipment Radio Transmission and Reception."
+- IEEE Std 145, "Definitions of Terms for Antennas."
+
+</section>

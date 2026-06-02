@@ -8,17 +8,185 @@ track: r2
 unit: measurement
 order: 3
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r2-measurement-01-anechoic-chambers"]
+spiralRevisits: []
 title: "Pattern measurement"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Techniques for measuring antenna radiation patterns."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["IEEE 149-2021"]
+tags: ["radiation-pattern", "antenna-measurement", "far-field", "near-field"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Pattern measurement
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why pattern measurement?
+
+Simulation predicts, measurement confirms. No matter how good your antenna model is, the physical antenna has manufacturing tolerances, feed effects, and environmental interactions. Pattern measurement reveals the truth — where your antenna actually radiates power.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Measuring a radiation pattern is like photographing a light bulb from all angles. You rotate around the source, recording intensity at each position. The collection of intensity values forms the 3D pattern.
+
+The challenge is ensuring you're far enough away that the wavefront looks flat (far-field), and that reflections don't corrupt your measurement.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Far-field measurement
+
+**Setup:**
+- AUT (Antenna Under Test) on positioner
+- Measurement antenna (horn or OEWG) at far-field distance
+- VNA or signal generator + receiver
+- θ-φ rotation system
+
+**Procedure:**
+1. Align AUT and measurement antenna boresights
+2. Set frequency
+3. Rotate AUT through θ, φ angles
+4. Record amplitude (and optionally phase) at each angle
+5. Plot polar or Cartesian pattern
+
+**Far-field distance:**
+$$R_{ff} \geq \frac{2D^2}{\lambda}$$
+
+where D = largest dimension of AUT.
+
+### Near-field measurement
+
+**Why use it:** When $R_{ff}$ is impractically large.
+
+**Types:**
+
+| Geometry | Probe motion | Best for |
+|----------|--------------|----------|
+| Planar | XY scan | High-gain antennas |
+| Cylindrical | φ rotation + Z scan | Omnidirectional |
+| Spherical | θ-φ rotation | General purpose |
+
+**Process:**
+1. Sample E-field amplitude and phase on surface
+2. Apply Fourier transform to get far-field pattern
+3. Requires reference antenna for absolute gain
+
+**Sampling density:** $\Delta < \lambda/2$ (Nyquist criterion)
+
+### Pattern parameters to extract
+
+| Parameter | Definition |
+|-----------|------------|
+| Main lobe direction | θ, φ of maximum |
+| Half-power beamwidth | Angle between -3 dB points |
+| First sidelobe level | dB below main lobe |
+| Front-to-back ratio | Main lobe / 180° opposite |
+| Null depth | dB at pattern minimum |
+| Cross-polarization | Orthogonal component level |
+
+### Coordinate systems
+
+**Ludwig-3 (most common):**
+- Co-pol: component aligned with principal polarization
+- Cross-pol: orthogonal component
+- Natural for linear polarization
+
+**Spherical:**
+- θ and φ components
+- Natural for coordinate system, not polarization
+
+### Gain measurement methods
+
+**Gain comparison:**
+$$G_{AUT} = G_{ref} + (P_{AUT} - P_{ref})$$
+
+where $G_{ref}$ is known reference antenna gain.
+
+**Two-antenna method:**
+$$G = \sqrt{G_1 G_2} = \frac{4\pi R}{λ} \sqrt{\frac{P_r}{P_t}}$$
+
+Requires two identical antennas.
+
+**Three-antenna method:**
+Three measurements with three different antennas, solve 3 equations for 3 unknowns.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Horn antenna pattern**
+
+Standard gain horn at 10 GHz.
+Aperture: 5λ × 4λ.
+
+Far-field distance: R = 2 × (5 × 0.03)² / 0.03 = 1.5 m
+
+Beamwidth estimate: θ ≈ 65°/5 = 13° (E-plane), φ ≈ 65°/4 = 16° (H-plane)
+
+Angular sampling: 1° steps adequate (pattern varies slowly for horn)
+
+**Example: Near-field transformation**
+
+64-element phased array at 28 GHz (λ = 10.7 mm).
+Array aperture: 8λ × 8λ = 86 mm × 86 mm.
+
+Far-field distance: R = 2 × 0.086² / 0.0107 = 1.4 m
+
+Seems manageable, but including radome and mounting: D → 200 mm.
+New R = 2 × 0.2² / 0.0107 = 7.5 m
+
+Near-field with planar scan at 0.5 m is more practical.
+
+Scan plane: 300 mm × 300 mm (larger than array for edge effects)
+Sample spacing: 5 mm (< λ/2 = 5.35 mm)
+Points: 60 × 60 = 3600
+
+**Example: Cross-polarization measurement**
+
+Dual-polarized patch antenna.
+
+Measure H-pol pattern with H-pol probe → co-pol pattern
+Measure H-pol pattern with V-pol probe → cross-pol pattern
+
+If cross-pol peak is -25 dB relative to co-pol peak, the antenna has 25 dB cross-polar discrimination.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Measuring in reactive near-field.** For R < λ/(2π), fields are reactive, not radiating. Far-field transform doesn't work.
+
+2. **Aliasing in near-field scan.** If Δ > λ/2, you'll miss high-frequency spatial content. Grating lobes appear as artifacts.
+
+3. **Cable effects.** Moving cables change pattern. Use rotary joints or dress cables consistently.
+
+4. **Positioner reflections.** Metal positioners reflect. Use absorber-covered supports or subtract calibration.
+
+5. **Phase drift.** Near-field measurements need stable phase. Temperature, vibration, and source drift cause errors.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- IEEE Std 149-2021, "IEEE Recommended Practice for Antenna Measurements."
+- Yaghjian, "An Overview of Near-Field Antenna Measurements," IEEE TAP, 1986.
+- Balanis, *Antenna Theory*, Chapter 17.
+
+</section>
