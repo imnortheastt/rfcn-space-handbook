@@ -1,0 +1,394 @@
+---
+id: bridges-b3-spectrum-to-service-vi
+slug: spectrum-to-service
+lang: vi
+parityId: bridges-b3-spectrum-to-service
+domain: bridges
+track: b3
+unit: spectrum-to-service
+order: 1
+level: L3
+estimatedReadingMinutes: 16
+prerequisites: ["bridges-b1-antenna-to-base-station", "bridges-b2-satellite-to-ue"]
+spiralRevisits: ["rf-r3-friis-and-link-budget-02-path-loss"]
+title: "Cầu nối B3: Từ phổ tần đến dịch vụ"
+description: "Cách phổ tần vô tuyến trở thành dịch vụ di động — phối hợp quy định, quản lý nhiễu, và kinh tế học RF."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["ITU-R Radio Regulations", "3GPP TS 38.104", "FCC Part 22/24/27"]
+tags: ["bridge", "cross-domain", "spectrum", "regulatory", "interference", "economics"]
+widgets: []
+license: CC-BY-SA-4.0
+status: published
+---
+
+<section class="lesson-hook">
+
+## Tại sao cầu nối này?
+
+Bạn đã thiết kế ăng-ten. Bạn đã xây trạm gốc. Bạn đã phóng vệ tinh. Giờ thì sao?
+
+Trước khi một bit nào đi qua link đó, ai đó đã trả hàng tỷ đô la cho giấy phép phổ tần. Trước khi giấy phép được cấp, nhiều năm phối hợp quốc tế đã diễn ra. Trước khi phối hợp bắt đầu, các nhà vật lý phát hiện ra rằng một số tần số lan truyền theo những cách nhất định.
+
+Cầu nối này kết nối vật lý RF với kinh tế học và quy định quyết định ai có thể sử dụng tần số nào, ở đâu, và như thế nào. Hiểu chuỗi này giải thích tại sao điện thoại 5G của bạn hoạt động ở 3.5 GHz ở một quốc gia và 2.5 GHz ở quốc gia khác.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+**Vật lý quyết định lan truyền:** Tần số thấp xuyên tường nhưng mang ít dữ liệu. Tần số cao mang nhiều dữ liệu nhưng chết nhanh hơn. Điều này không thể thương lượng.
+
+**Quy định phân bổ phổ tần:** Chính phủ quyết định ai được tần số nào. Các tổ chức quốc tế (ITU) phối hợp để điện thoại của bạn hoạt động qua biên giới. Cơ quan quản lý quốc gia (FCC, Ofcom, Cục Tần số) thực thi tại địa phương.
+
+**Kinh tế thúc đẩy triển khai:** Đấu giá phổ tần tốn hàng tỷ đô la. Nhà mạng triển khai nơi ROI hợp lý. Phủ sóng nông thôn thường cần trợ cấp. Dịch vụ bạn nhận được phụ thuộc vào business case, không chỉ công nghệ.
+
+**Nhiễu ràng buộc thiết kế:** Máy phát của bạn ảnh hưởng người khác. Máy phát của họ ảnh hưởng bạn. Quy tắc cùng tồn tại (giới hạn công suất, băng bảo vệ, vùng phối hợp) định hình những gì thực sự có thể xây dựng.
+
+Chuỗi: vật lý → phân bổ quốc tế → cấp phép quốc gia → đấu giá/phân bổ → triển khai → quản lý nhiễu → dịch vụ.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ bản về phân bổ phổ tần
+
+### Khung ITU
+
+Liên minh Viễn thông Quốc tế (ITU) chia thế giới thành ba khu vực:
+- **Khu vực 1:** Châu Âu, Châu Phi, Trung Đông, Nga
+- **Khu vực 2:** Châu Mỹ
+- **Khu vực 3:** Châu Á-Thái Bình Dương
+
+Mỗi khu vực có phân bổ tần số khác nhau. Quy định Vô tuyến (RR) định nghĩa dịch vụ nào có thể sử dụng băng nào:
+
+| Dịch vụ | Băng ví dụ | Sử dụng điển hình |
+|---------|------------|-------------------|
+| Di động | 700 MHz, 2.6 GHz, 3.5 GHz | 4G/5G di động |
+| Cố định | 6-42 GHz | Backhaul điểm-điểm |
+| Vệ tinh cố định | Ku, Ka-band | VSAT, DTH |
+| Vệ tinh di động | L-band, S-band | Iridium, Starlink direct-to-cell |
+| Dẫn đường vô tuyến | 1.2-1.6 GHz | GPS, GLONASS |
+| Nghiệp dư | 144-148 MHz, 430-440 MHz | Ham radio |
+
+### Phân bổ sơ cấp vs. thứ cấp
+
+- **Sơ cấp:** Được bảo vệ đầy đủ. Có thể khiếu nại nhiễu từ người khác.
+- **Thứ cấp:** Không được gây nhiễu cho sơ cấp. Không thể đòi bảo vệ.
+
+Điều này quan trọng: NTN (vệ tinh đến điện thoại) ở S-band thường là thứ cấp so với di động mặt đất. Nhà khai thác vệ tinh phải phối hợp với hoặc nhường cho nhà khai thác mặt đất.
+
+### Triển khai quốc gia
+
+Phân bổ ITU là khung. Cơ quan quản lý quốc gia:
+- Chọn dịch vụ nào được ITU phân bổ để kích hoạt
+- Đặt điều kiện kỹ thuật cụ thể (giới hạn EIRP, phát xạ ngoài băng)
+- Quyết định cơ chế cấp phép (đấu giá, beauty contest, miễn phép)
+- Thực thi tuân thủ
+
+**Ví dụ:** Băng 3.5 GHz
+- ITU phân bổ cho Di động, Vệ tinh cố định (thứ cấp)
+- Mỹ: đấu giá là C-band (CBRS một phần miễn phép)
+- EU: đấu giá là băng tiên phong 5G
+- Trung Quốc: phân bổ cho nhà mạng không đấu giá
+
+## Vòng đời cấp phép
+
+### Cơ chế đấu giá
+
+Phổ tần giá trị nhất được đấu giá:
+
+| Loại đấu giá | Cách hoạt động | Ưu điểm | Nhược điểm |
+|--------------|----------------|---------|------------|
+| SMRA | Đồng thời nhiều vòng tăng giá | Phát hiện giá, minh bạch | Chậm, đắt |
+| CCA | Đấu giá đồng hồ kết hợp | Đấu thầu gói | Phức tạp |
+| Bịt kín giá đầu tiên | Một lần đấu thầu kín | Nhanh | Winner's curse |
+| Beauty contest | Đề xuất được đánh giá theo công | Đạt mục tiêu chính sách | Rủi ro tham nhũng |
+
+**Ví dụ gần đây:**
+- C-band Mỹ (2021): tổng $81B
+- 5G Đức (2019): €6.5B
+- 5G Ấn Độ (2022): ₹1.5T (~$20B)
+
+### Điều kiện giấy phép
+
+Giấy phép phổ tần đi kèm nghĩa vụ:
+- **Yêu cầu phủ sóng:** "Phủ 90% dân số đến Năm 5"
+- **Hạn triển khai:** "Triển khai ở X thành phố đến Năm 3"
+- **Dùng hoặc mất:** "Nếu không triển khai, thu hồi giấy phép"
+- **Điều kiện kỹ thuật:** "EIRP ≤ 43 dBm/10 MHz"
+
+Không đáp ứng điều kiện → thu hồi giấy phép hoặc phạt.
+
+### Giao dịch thứ cấp
+
+Nhiều quốc gia cho phép giao dịch phổ tần:
+- Nhà mạng A có thể bán phổ tần không dùng cho Nhà mạng B
+- Tạo điều kiện tái phân bổ hiệu quả
+- Phải được cơ quan quản lý phê duyệt
+
+## Quản lý nhiễu
+
+### Vấn đề cùng tồn tại
+
+Mỗi máy phát tạo nhiễu. Quản lý nó:
+
+**Nhiễu trong băng:** Cùng tần số, nhà mạng khác nhau
+- Vùng phối hợp (tách biệt địa lý)
+- Phân chia thời gian (slot thời gian khác nhau)
+- Giới hạn công suất
+
+**Nhiễu băng lân cận:** Tần số gần nhau
+- Băng bảo vệ (phổ tần không dùng giữa các phân bổ)
+- Mặt nạ phát xạ (giới hạn công suất ngoài băng)
+- Yêu cầu bộ lọc
+
+**Nhiễu liên hệ thống:** Công nghệ khác nhau
+- Trạm gốc 5G vs. trạm mặt đất vệ tinh
+- Radar vs. WiFi (5 GHz)
+- LTE vs. GPS (L-band)
+
+### Ví dụ thực tế
+
+**5G C-band vs. máy đo độ cao máy bay:**
+Băng 5G 3.7-3.98 GHz nằm gần máy đo độ cao vô tuyến máy bay 4.2-4.4 GHz. Lo ngại: tín hiệu 5G có thể làm mất nhạy máy đo độ cao khi hạ cánh.
+
+Giải pháp:
+- Vùng cấm quanh sân bay
+- Giới hạn công suất gần đường băng
+- Nâng cấp máy đo độ cao
+- Nhiều năm phối hợp
+
+**12 GHz: Starlink vs. MVDDS vs. 5G**
+Nhiều dịch vụ tranh chấp băng 12 GHz. Phối hợp đang diễn ra giữa:
+- Starlink (đường xuống đến terminal người dùng)
+- MVDDS (không dây cố định)
+- Mở rộng 5G tiềm năng
+
+### Quy trình phối hợp
+
+Phối hợp xuyên biên giới theo quy trình ITU:
+1. **Công bố trước (API):** "Chúng tôi dự định triển khai thế này."
+2. **Yêu cầu phối hợp:** "Đây là kế hoạch chi tiết của chúng tôi."
+3. **Thỏa thuận:** Cả hai bên chấp nhận tham số.
+4. **Thông báo:** Đăng ký trong Sổ đăng ký Tần số Quốc tế Chính.
+
+Cho vệ tinh, quy trình này mất 7+ năm trước khi phóng.
+
+## Kinh tế phổ tần
+
+### Yếu tố giá trị
+
+Giá trị phổ tần phụ thuộc vào:
+
+| Yếu tố | Tác động |
+|--------|----------|
+| Lan truyền | Băng thấp phủ nhiều diện tích hơn → ít site hơn → CAPEX thấp hơn |
+| Băng thông | Nhiều MHz hơn → nhiều dung lượng hơn → nhiều doanh thu hơn |
+| Hệ sinh thái công nghệ | Có sẵn thiết bị, độ trưởng thành tiêu chuẩn |
+| Phân bổ hiện tại | Tái định vị người dùng hiện tại đắt |
+| Sự chắc chắn quy định | Quy tắc rõ ràng → rủi ro thấp hơn → giá trị cao hơn |
+
+### Tác động cấu trúc chi phí
+
+Lựa chọn phổ tần ảnh hưởng tổng chi phí mạng:
+
+**Băng thấp (600-900 MHz):**
+- Phủ sóng: bán kính cell ~20 km (nông thôn)
+- Sites cần: Ít
+- Dung lượng: Hạn chế (điển hình 10-20 MHz)
+- Use case: Lớp phủ sóng
+
+**Băng giữa (2-4 GHz):**
+- Phủ sóng: bán kính cell ~2-5 km
+- Sites cần: Vừa phải
+- Dung lượng: Đáng kể (100+ MHz có sẵn)
+- Use case: Dung lượng + phủ sóng
+
+**Băng cao (mmWave, 24+ GHz):**
+- Phủ sóng: ~200-500 m
+- Sites cần: Nhiều (chỉ đô thị dày đặc)
+- Dung lượng: Khổng lồ (400+ MHz)
+- Use case: Hotspot siêu dung lượng
+
+Nhà mạng cân bằng danh mục phổ tần qua các băng.
+
+### Phổ tần miễn phép
+
+Không phải tất cả phổ tần đều được cấp phép:
+- 2.4 GHz (WiFi, Bluetooth)
+- 5 GHz (WiFi)
+- 6 GHz (WiFi 6E, ở một số quốc gia)
+- 60 GHz (WiGig)
+
+**Đánh đổi:**
+- Miễn phí sử dụng
+- Không được bảo vệ nhiễu
+- Chia sẻ với tất cả
+- Giới hạn công suất thấp (thường)
+
+Nhà mạng di động dùng miễn phép qua LAA (LTE), NR-U (5G) như bổ sung dung lượng.
+
+## Từ phổ tần đến dịch vụ
+
+### Chuỗi triển khai
+
+1. **Phổ tần có được:** Nhà mạng thắng đấu giá hoặc giấy phép.
+2. **Quy hoạch mạng:** Phân tích phủ sóng, dung lượng, nhiễu.
+3. **Có site:** Bất động sản, giấy phép, nguồn điện, backhaul.
+4. **Triển khai thiết bị:** Ăng-ten, radio, mạng lõi.
+5. **Tối ưu hóa:** Drive test, điều chỉnh tham số.
+6. **Ra mắt thương mại:** Marketing, định giá, thu hút khách hàng.
+7. **Quản lý liên tục:** Giải quyết nhiễu, tái định vị phổ tần.
+
+### Điểm chạm quy định
+
+Ở mỗi giai đoạn, quy định áp dụng:
+
+| Giai đoạn | Yêu cầu quy định |
+|-----------|------------------|
+| Phổ tần | Giấy phép, điều kiện kỹ thuật |
+| Sites | Quy hoạch, giấy phép xây dựng, tuân thủ EMF |
+| Thiết bị | Phê duyệt loại, dấu phù hợp |
+| Phát xạ | Giới hạn EIRP, tuân thủ SAR |
+| Dịch vụ | Bảo vệ người tiêu dùng, trung lập mạng |
+| Roaming | Nghĩa vụ truy cập bán buôn |
+
+### Thực tế timeline
+
+Từ được phổ tần đến dịch vụ:
+- Triển khai đô thị: 12-18 tháng
+- Phủ sóng toàn quốc: 3-5 năm
+- Phủ sóng nông thôn: Thường không bao giờ (không có trợ cấp)
+
+Phổ tần bạn có được hôm qua không trở thành dịch vụ cho đến ngày mai.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Quyết định triển khai 5G băng giữa**
+
+Nhà mạng có 100 MHz phổ tần 3.5 GHz. Lên kế hoạch ra mắt 5G.
+
+**Cân nhắc RF:**
+- Suy hao đường truyền ở 3.5 GHz: FSPL + 10 dB/decade cao hơn 1.8 GHz
+- Xuyên tường: ~15 dB suy hao
+- SINR yêu cầu cho 256QAM: ~20 dB
+
+**Link budget:**
+- gNB EIRP: 64 dBm (200W + ăng-ten 18 dBi)
+- Suy hao đường (1 km, đô thị): 128 dB
+- Công suất nhận UE: -64 dBm (margin thoải mái)
+
+**Kinh tế:**
+- Chi phí giấy phép: $500M (100 MHz, toàn quốc)
+- Mật độ site cần: 3× mạng 1.8 GHz hiện tại
+- Capex mỗi site: $100K
+- Sites bổ sung: 10,000
+- Tổng capex mạng: $1B + $500M phổ tần = $1.5B
+
+**Business case:**
+- Doanh thu Năm 1: $100M bổ sung
+- Hoàn vốn: 10+ năm
+- Quyết định: Triển khai ở 50 thành phố hàng đầu trước, nông thôn sau (hoặc không bao giờ)
+
+**Ví dụ: Phối hợp nhiễu**
+
+gNB mới ở 3.5 GHz gần trạm mặt đất vệ tinh.
+
+**Vấn đề:** Phát xạ gNB làm mất nhạy LNA trạm mặt đất.
+
+**Phân tích:**
+- Trạm mặt đất hướng: góc ngẩng 20°
+- Khoảng cách gNB: 500 m
+- Ghép không gian tự do: -80 dB
+- Phân biệt ăng-ten trạm mặt đất: 30 dB (ngoài trục)
+- Ghép: EIRP gNB - 80 - 30 = EIRP - 110
+
+Nếu gNB EIRP = 64 dBm, nhiễu = -46 dBm.
+Sàn tạp âm trạm mặt đất: -100 dBm.
+Nhiễu 54 dB trên tạp âm = không dùng được.
+
+**Tùy chọn giải quyết:**
+1. Di chuyển gNB (thường không thực tế)
+2. Giảm công suất gNB (giết phủ sóng)
+3. Che chắn trạm mặt đất (đắt)
+4. Dùng tần số khác (không hiệu quả phổ tần)
+5. Phối hợp slot thời gian (phức tạp)
+
+Kết quả thực tế: vùng cấm quanh trạm mặt đất, triển khai gNB bị hạn chế.
+
+**Ví dụ: Tái định vị phổ tần**
+
+Nhà mạng muốn tái định vị 1800 MHz từ 2G sang 4G/5G.
+
+**Thách thức:** Khách hàng 2G di sản vẫn tồn tại.
+
+**Cách tiếp cận:**
+1. Đo lưu lượng 2G mỗi cell
+2. Xác định cell có <5% sử dụng 2G
+3. Chuyển đổi khách hàng 2G còn lại sang thiết bị 3G/4G (trợ cấp)
+4. Tắt 2G ở cell sử dụng thấp
+5. Tái định vị phổ tần được giải phóng sang LTE
+6. Lặp lại cho đến khi 2G hoàn toàn ngưng
+
+**Timeline:** 2-5 năm cho tái định vị hoàn toàn.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Giả định phổ tần chỉ là vật lý.** Khả năng kỹ thuật để phát là cần thiết nhưng không đủ. Không có giấy phép, bạn là hải tặc.
+
+2. **Bỏ qua timeline phối hợp.** Phối hợp vệ tinh mất 7+ năm. Phối hợp xuyên biên giới mặt đất có thể mất nhiều năm. Lên kế hoạch phù hợp.
+
+3. **Đánh giá thấp nhiễu.** Test phòng lab không dự đoán cùng tồn tại thực tế. Điều kiện thực địa làm mọi người ngạc nhiên.
+
+4. **Xem phổ tần là vô hạn.** Băng bảo vệ, vùng cấm, và ràng buộc phối hợp có nghĩa phổ tần hiệu quả luôn ít hơn được phân bổ.
+
+5. **Quên business case.** Công nghệ hoạt động nhưng không hoàn vốn không được triển khai. Lỗ hổng phủ sóng nông thôn tồn tại vì lý do kinh tế, không phải kỹ thuật.
+
+6. **Giả định đồng nhất toàn cầu.** Kế hoạch băng khác nhau theo quốc gia. Thiết bị 3.5 GHz của bạn có thể không hoạt động ở mọi nơi. Kiểm tra trước khi xuất hàng.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- ITU Radio Regulations (phiên bản 2020)
+- 3GPP TS 38.104, "NR Base Station Radio Transmission and Reception"
+- FCC 47 CFR Parts 22, 24, 27 (quy tắc cellular và PCS)
+- GSMA, "Spectrum for Mobile", 2023
+- Cave & Hatta, *Mobile Telecommunications: An Assessment of Digital Transformation*, Cambridge, 2021
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp ở đâu
+
+**Từ phía RF:**
+- [Mô hình suy hao đường truyền](/vi/rf/friis-and-link-budget/path-loss/) — vật lý đằng sau phủ sóng
+- [Môi trường lan truyền](/vi/rf/propagation-in-real-environments/) — hành vi RF thực tế
+
+**Từ phía Mạng:**
+- [Quy hoạch RAN](/vi/core-network/ran-planning/) — biến phổ tần thành phủ sóng
+- [Roaming](/vi/core-network/roaming/) — cung cấp dịch vụ xuyên biên giới
+
+**Từ phía Kinh tế:**
+- [Đấu giá phổ tần](/vi/business/spectrum-auctions/) — cách nhà mạng có phổ tần
+- [Kinh tế mạng](/vi/business/network-economics/) — kinh doanh kết nối
+
+**Xuyên miền:**
+- [Cầu nối B1: Ăng-ten đến trạm gốc](/vi/bridges/antenna-to-base-station/) — giao diện RF-mạng
+- [Cầu nối B2: Vệ tinh đến UE](/vi/bridges/satellite-to-ue/) — khi phổ tần ở trên quỹ đạo
+
+</section>
