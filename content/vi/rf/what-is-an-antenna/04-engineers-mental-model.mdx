@@ -9,16 +9,178 @@ unit: what-is-an-antenna
 order: 4
 level: L1
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r2-what-is-an-antenna-01-radiation", "rf-r2-what-is-an-antenna-03-reciprocity"]
+spiralRevisits: []
 title: "Mô hình tư duy của kỹ sư về anten"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Trừu tượng thực tế cho thiết kế và phân tích anten."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["antenna-model", "equivalent-circuit", "two-port"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Mô hình tư duy của kỹ sư về anten
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần mô hình tư duy?
+
+Phương trình Maxwell mô tả mọi thứ về anten — và thường không giải được. Kỹ sư cần mô hình đơn giản hơn nắm bắt hành vi thiết yếu mà không cần giải PDE.
+
+Bài này trình bày các mô hình tư duy kỹ sư RF thực sự dùng: anten như bộ chuyển đổi, như mạng hai cổng, và như bộ lọc không gian.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Anten là **bộ chuyển đổi** giữa sóng dẫn (đường truyền) và sóng bức xạ (không gian tự do). Nó chuyển đổi giữa hai miền:
+
+| Miền | Đại lượng | Trở kháng |
+|------|-----------|-----------|
+| Dẫn | Điện áp, dòng điện | Z₀ (50Ω) |
+| Bức xạ | Trường E, trường H | η₀ (377Ω) |
+
+Anten phối hợp các miền này và tạo hình pattern bức xạ.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Mô hình mạch tương đương
+
+Ở điểm cấp, anten trông như trở kháng tập trung:
+
+$$Z_A = R_A + jX_A = (R_{rad} + R_{loss}) + jX_A$$
+
+- $R_{rad}$ = điện trở bức xạ (công suất bức xạ)
+- $R_{loss}$ = điện trở tổn hao (công suất tiêu tán)
+- $X_A$ = điện kháng (lưu trữ năng lượng)
+
+Ở cộng hưởng, $X_A = 0$ và $Z_A$ thuần thực.
+
+### Hiệu suất
+
+$$\eta = \frac{R_{rad}}{R_{rad} + R_{loss}}$$
+
+Anten tốt: $\eta > 90\%$. Hầu hết công suất đi vào bức xạ, không phải nhiệt.
+
+### Độ lợi và directivity
+
+**Directivity:** công suất tập trung theo hướng đỉnh so với đẳng hướng nhiều bao nhiêu.
+
+$$D = \frac{4\pi}{\Omega_A}$$
+
+trong đó $\Omega_A$ là góc khối búp sóng.
+
+**Độ lợi:** directivity nhân hiệu suất.
+
+$$G = \eta D$$
+
+### Pattern như bộ lọc không gian
+
+Anten là **bộ lọc không gian**: nó khuếch đại tín hiệu từ một số hướng và loại bỏ những hướng khác.
+
+Hàm pattern $F(\theta, \phi)$: cường độ trường chuẩn hóa vs. góc.
+
+Pattern công suất: $|F(\theta, \phi)|^2$.
+
+### Khẩu độ hiệu dụng
+
+Bao nhiêu công suất anten bắt được từ sóng phẳng tới:
+
+$$P_{received} = S \cdot A_e$$
+
+trong đó $S$ = mật độ công suất (W/m²), $A_e$ = khẩu độ hiệu dụng (m²).
+
+Liên hệ với độ lợi: $A_e = G \lambda^2 / 4\pi$.
+
+### Mô hình mạng hai cổng
+
+Hệ thống anten như S-parameters:
+- $S_{11}$ = phản xạ ở cổng anten (không phối hợp)
+- Cổng 2 = "cổng không gian" (bức xạ)
+
+Phối hợp nghĩa là $|S_{11}| \rightarrow 0$ ở tần số thiết kế.
+
+### Băng thông
+
+Dải nơi $|S_{11}| < -10$ dB (hoặc VSWR < 2):
+
+$$BW = \frac{f_H - f_L}{f_0}$$
+
+Băng thông đánh đổi với kích thước và hiệu suất cho anten nhỏ.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Phân tích dipole**
+
+Dipole nửa sóng ở cộng hưởng:
+- $Z_A \approx 73 + j0\ \Omega$
+- $R_{rad} \approx 73\ \Omega$, $R_{loss} \approx 0$ (nếu đồng, không khí)
+- Hiệu suất ≈ 100%
+- Directivity = 1.64 (2.15 dBi)
+
+Phối hợp với đường 50Ω: không phối hợp nhẹ ($S_{11} \approx -14$ dB).
+
+**Ví dụ: Ngân sách anten patch**
+
+Patch với $G = 6$ dBi ở 2.4 GHz.
+
+Khẩu độ hiệu dụng: $A_e = 4 \times 0.125^2 / 4\pi = 0.005$ m² ≈ 50 cm².
+
+Mật độ công suất tới: 1 μW/m².
+
+Công suất nhận: $10^{-6} \times 0.005 = 5$ nW = −53 dBm.
+
+**Ví dụ: Giới hạn anten nhỏ**
+
+Anten nhỏ hơn nhiều so với λ có:
+- $R_{rad}$ thấp (khó bức xạ hiệu quả)
+- $X_A$ cao (phản kháng, khó phối hợp)
+- Băng thông hẹp
+
+Giới hạn cơ bản: $Q \propto 1/(ka)^3$ trong đó $a$ = bán kính anten.
+
+**Ví dụ: Lọc không gian MIMO**
+
+Mỗi anten trong mảng MIMO có pattern. Pattern kết hợp của mảng phụ thuộc khoảng cách phần tử và trọng số. Anten không chỉ là bộ chuyển đổi — nó là bộ ghép kênh không gian.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Bỏ qua tổn hao.** Độ lợi ≠ directivity cho anten tổn hao. Anten nhỏ đặc biệt có thể có hiệu suất thấp.
+
+2. **Nhạy cảm tần số.** Mô hình mạch tương đương phụ thuộc tần số. $Z_A$ thay đổi đáng kể ngoài cộng hưởng.
+
+3. **Phức tạp trường gần.** Mô hình trở kháng đơn giản áp dụng ở điểm cấp. Tương tác trường gần (với mặt đất, vỏ) ảnh hưởng hệ thống đầy đủ.
+
+4. **Lý tưởng hóa pattern.** Pattern thực có null, sidelobe, và cross-polarization. Mô hình búp chính chỉ là xấp xỉ.
+
+5. **Nhầm định nghĩa băng thông.** Băng thông trở kháng, băng thông pattern, và băng thông độ lợi có thể khác. Chỉ rõ cái nào.
+
+6. **Tin quá mô phỏng.** Bộ mô phỏng EM cho kết quả chính xác cho hình học xác định. Anten thực có dung sai chế tạo, hiệu ứng lắp đặt, và tương tác cáp.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Balanis, *Antenna Theory: Analysis and Design*, Chapter 2.
+- Stutzman & Thiele, *Antenna Theory and Design*, Chapter 2.
+- Pozar, *Microwave Engineering*, Chapter 14.
+
+</section>
