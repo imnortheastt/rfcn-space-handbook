@@ -8,17 +8,200 @@ track: r2
 unit: channel-models-cellular-satellite
 order: 4
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r2-channel-models-cellular-satellite-03-satellite-channel-models"]
+spiralRevisits: []
 title: "NTN-specific channel models"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "3GPP models for 5G non-terrestrial networks."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["ntn", "3gpp", "tr-38811", "leo", "5g-satellite"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# NTN-specific channel models
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why NTN-specific models?
+
+5G NR extends to non-terrestrial networks (NTN) — satellites and high-altitude platforms. 3GPP developed new channel models in TR 38.811 and TR 38.821 specifically for NTN, accounting for the unique propagation characteristics: long delays, high Doppler, and different fading statistics.
+
+These models are the official reference for 5G satellite system design, replacing or supplementing older ITU-R and academic models.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+NTN models adapt terrestrial 5G channel models for space. They keep the cluster/ray structure from TR 38.901 but modify parameters for satellite geometry: higher K-factors (more LOS), different delay spreads, and elevation-dependent behavior.
+
+Think of NTN models as "TR 38.901 for satellites" — same framework, different numbers.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### NTN scenarios
+
+3GPP defines four NTN deployment scenarios:
+
+| Scenario | Altitude | Round-trip delay |
+|----------|----------|------------------|
+| GEO | 35,786 km | 540 ms |
+| MEO | 7,000–20,000 km | 50–130 ms |
+| LEO | 600–1,500 km | 4–10 ms |
+| HAPS | 20 km | <1 ms |
+
+### TR 38.811 channel model
+
+Based on TR 38.901 structure:
+
+$$h(t, \tau) = \sum_{n=1}^{N} \sum_{m=1}^{M} a_{n,m} \cdot \delta(\tau - \tau_n) \cdot e^{j2\pi\nu_n t}$$
+
+- $N$ = number of clusters
+- $M$ = rays per cluster
+- $a_{n,m}$ = ray amplitude
+- $\tau_n$ = cluster delay
+- $\nu_n$ = Doppler frequency
+
+### Environment categories
+
+| Environment | Description | Typical elevation |
+|-------------|-------------|-------------------|
+| Dense urban | High-rise, NLOS dominant | All |
+| Urban | Mixed buildings | All |
+| Suburban | Low-density buildings | All |
+| Rural | Open terrain, scattered trees | All |
+
+### Elevation-dependent parameters
+
+K-factor increases with elevation:
+
+$$K(\theta) = K_{10} + K_{el} \cdot (\theta - 10°)$$
+
+For rural: $K_{10} = 7$ dB, $K_{el} = 0.15$ dB/degree.
+
+At 50° elevation: $K = 7 + 0.15 \times 40 = 13$ dB.
+
+### Delay spread
+
+Much smaller than terrestrial (no distant scatterers):
+
+| Environment | Delay spread (ns) |
+|-------------|-------------------|
+| Rural | 20–50 |
+| Suburban | 50–100 |
+| Urban | 100–200 |
+| Dense urban | 200–400 |
+
+Compare to terrestrial urban: 300–1000 ns.
+
+### Doppler characteristics
+
+LEO satellite at 600 km altitude:
+
+Maximum Doppler at horizon: ~40 kHz at S-band.
+
+At 30° elevation: ~25 kHz.
+
+Doppler rate: up to 500 Hz/s (must track continuously).
+
+### Clutter loss
+
+Additional loss from local environment:
+
+$$L_{clutter} = A_{clutter} \cdot (1 - e^{-B_{clutter} \cdot \theta})$$
+
+Parameters vary by environment and frequency.
+
+### Atmospheric effects
+
+Included in NTN models:
+- Tropospheric scintillation (amplitude fluctuation)
+- Faraday rotation (polarization rotation in ionosphere)
+- Ionospheric delay (GPS-like effects at low frequencies)
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: LEO S-band link budget**
+
+Frequency: 2 GHz, altitude: 600 km, elevation: 45°.
+
+Free-space loss: $L_{fs} = 170$ dB.
+
+Additional NTN model factors:
+- Clutter loss (suburban): 3 dB
+- Shadow fading margin (10%): 6 dB
+- Atmospheric loss: 0.5 dB
+
+Total: $170 + 3 + 6 + 0.5 = 179.5$ dB path loss.
+
+**Example: GEO Ka-band**
+
+Frequency: 20 GHz, elevation: 35°.
+
+K-factor (urban): $K = 5 + 0.1 \times 25 = 7.5$ dB.
+
+Rain fade at 99.9%: ~8 dB (location-dependent).
+
+System must handle both fading (fast) and rain (slow).
+
+**Example: Doppler compensation**
+
+LEO at 550 km, UE stationary, 2 GHz.
+
+Satellite passes overhead in 10 minutes.
+
+Doppler range: −40 kHz to +40 kHz.
+
+5G NR subcarrier spacing: 15 kHz → severe ICI without compensation.
+
+Required: pre-compensation at gNB based on ephemeris + UE location.
+
+**Example: Timing advance**
+
+GEO round-trip: 540 ms >> LTE max TA (667 μs).
+
+NTN extends TA range and adds GNSS-based timing.
+
+Residual timing error: <1 μs with GNSS assistance.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using terrestrial models.** TR 38.901 parameters don't apply directly. Use TR 38.811/38.821 for NTN.
+
+2. **Ignoring Doppler.** LEO Doppler exceeds terrestrial by 1000×. OFDM orthogonality breaks without compensation.
+
+3. **Forgetting timing.** NTN propagation delays require extended timing procedures. Standard RACH doesn't work.
+
+4. **Elevation as constant.** Elevation changes during pass (especially LEO). Channel statistics are time-varying.
+
+5. **Rain at Ka-band.** Atmospheric effects dominate at higher frequencies. Clear-sky assumptions break in tropical regions.
+
+6. **Frequency reuse.** Different satellites in constellation see different channel states. Coordination is harder than terrestrial.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TR 38.811 — "Study on New Radio to support non-terrestrial networks."
+- 3GPP TR 38.821 — "Solutions for NR to support non-terrestrial networks."
+- 3GPP TS 38.101-5 — NR user equipment radio requirements.
+
+</section>

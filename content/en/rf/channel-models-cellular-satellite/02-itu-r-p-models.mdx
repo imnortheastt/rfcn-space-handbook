@@ -8,17 +8,190 @@ track: r2
 unit: channel-models-cellular-satellite
 order: 2
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r2-channel-models-cellular-satellite-01-cost-231-model"]
+spiralRevisits: []
 title: "ITU-R P models"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "International standard propagation models for global coordination."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["itu-r", "p-series", "propagation-model", "atmospheric", "rain-attenuation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# ITU-R P models
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why ITU-R P models?
+
+The International Telecommunication Union Radiocommunication Sector (ITU-R) publishes standardized propagation models used worldwide for spectrum coordination, interference analysis, and link planning. These models are legally referenced in international frequency coordination — not optional if you're designing cross-border systems.
+
+ITU-R P-series recommendations cover everything from ionospheric propagation to rain attenuation, giving engineers consistent tools for global system design.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+ITU-R models are consensus standards. They represent agreed-upon methods for predicting propagation, allowing different operators and countries to use consistent assumptions when coordinating spectrum.
+
+Think of them as the "official" models — perhaps not always the most accurate for a specific location, but the accepted reference for regulatory purposes. When you file frequency coordination, ITU-R models are what regulators expect.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Key ITU-R P recommendations
+
+| Recommendation | Coverage |
+|----------------|----------|
+| P.452 | Interference between terrestrial stations |
+| P.530 | Terrestrial line-of-sight paths |
+| P.525 | Free-space attenuation |
+| P.526 | Diffraction |
+| P.618 | Earth-space propagation (rain, clouds) |
+| P.676 | Gaseous attenuation |
+| P.838 | Rain-specific attenuation |
+| P.837 | Rainfall rate statistics |
+| P.840 | Cloud attenuation |
+| P.1238 | Indoor propagation |
+
+### P.452: Interference prediction
+
+Combines multiple propagation mechanisms:
+
+$$L_{total} = \max(L_{los}, L_{diffraction}, L_{troposcatter}, L_{ducting})$$
+
+Considers:
+- Line-of-sight with multipath
+- Diffraction over terrain
+- Tropospheric scatter
+- Ducting and layer reflection
+
+Outputs: signal level exceeded for given percentage of time.
+
+### P.530: Point-to-point links
+
+For line-of-sight microwave links:
+
+$$L = L_{fs} + A_g + A_c + A_r$$
+
+- $L_{fs}$ = free-space loss
+- $A_g$ = gaseous attenuation
+- $A_c$ = cloud attenuation
+- $A_r$ = rain attenuation
+
+Rain attenuation (P.838):
+$$\gamma_R = k R^\alpha \quad \text{(dB/km)}$$
+
+where $R$ = rain rate (mm/h), $k$ and $\alpha$ from tables.
+
+### P.618: Earth-space paths
+
+For satellite links, total attenuation:
+
+$$A = A_g + A_c + A_r + A_s$$
+
+- $A_s$ = scintillation (amplitude fluctuation)
+
+Rain attenuation dominates above 10 GHz.
+
+Availability calculation: attenuation exceeded for p% of time.
+
+### P.676: Gaseous absorption
+
+Oxygen and water vapor absorption:
+
+$$\gamma = \gamma_o + \gamma_w \quad \text{(dB/km)}$$
+
+Peaks at:
+- O₂: 60 GHz (strong), 118 GHz
+- H₂O: 22 GHz, 183 GHz
+
+At sea level, 60 GHz: $\gamma \approx 15$ dB/km (severely limits range).
+
+### Climatic data
+
+ITU-R provides global climatic maps:
+- **P.837:** Rainfall rate maps (R₀.₀₁ for 0.01% of year)
+- **P.836:** Water vapor density
+- **P.1510:** Surface temperature
+
+Enables location-specific link budgets without local measurements.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Ku-band satellite link**
+
+Frequency: 12 GHz, elevation: 30°, location: tropical (R₀.₀₁ = 100 mm/h).
+
+Gaseous attenuation (P.676): $A_g \approx 0.1$ dB.
+
+Rain attenuation (P.618):
+- Specific attenuation: $\gamma_R = 0.0101 \times 100^{1.276} = 3.5$ dB/km.
+- Effective path length: $L_e \approx 5.2$ km (slant path through rain cell).
+- $A_r = 3.5 \times 5.2 = 18.2$ dB exceeded for 0.01% of year.
+
+For 99.9% availability: $A_r \approx 5$ dB (interpolated).
+
+**Example: Microwave backhaul**
+
+23 GHz link, 10 km, Rain zone K (R₀.₀₁ = 42 mm/h).
+
+P.838 coefficients: $k_H = 0.164$, $\alpha_H = 1.128$ (horizontal pol).
+
+$\gamma_R = 0.164 \times 42^{1.128} = 12.3$ dB/km.
+
+Effective path: $d_{eff} = d / (1 + d/d_0) \approx 5.5$ km.
+
+$A_{0.01\%} = 12.3 \times 5.5 = 68$ dB — link outage for 53 min/year.
+
+**Example: 60 GHz short-haul**
+
+Oxygen absorption: 15 dB/km.
+
+At 200 m: $A_g = 3$ dB — acceptable for short links.
+
+At 1 km: $A_g = 15$ dB — significant margin needed.
+
+Rain has less relative impact because gaseous loss already limits range.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Version updates.** ITU-R recommendations are updated regularly. Always use the latest version for regulatory filings.
+
+2. **Local climate.** ITU-R climate maps are global averages. Microclimate effects (urban heat islands, coastal fog) may differ.
+
+3. **Frequency extrapolation.** Models have specific frequency ranges. Don't extrapolate P.838 rain coefficients beyond published frequencies.
+
+4. **Percentage of time.** ITU-R models give statistical availability. A 99.9% link still has 8.8 hours/year outage.
+
+5. **Combining mechanisms.** Don't simply add attenuations — some mechanisms are correlated (rain reduces cloud attenuation).
+
+6. **Elevation angle.** Earth-space models assume elevation >5°. Low-elevation paths need specialized treatment.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU-R P.452 — "Prediction procedure for the evaluation of interference."
+- ITU-R P.618 — "Propagation data and prediction methods for earth-space."
+- ITU-R P.838 — "Specific attenuation model for rain."
+
+</section>

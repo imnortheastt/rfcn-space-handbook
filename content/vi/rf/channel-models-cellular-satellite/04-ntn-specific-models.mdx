@@ -8,17 +8,200 @@ track: r2
 unit: channel-models-cellular-satellite
 order: 4
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r2-channel-models-cellular-satellite-03-satellite-channel-models"]
+spiralRevisits: []
 title: "Mô hình kênh đặc thù NTN"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Mô hình 3GPP cho mạng không mặt đất 5G."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["ntn", "3gpp", "tr-38811", "leo", "5g-satellite"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Mô hình kênh đặc thù NTN
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao mô hình đặc thù NTN?
+
+5G NR mở rộng đến mạng không mặt đất (NTN) — vệ tinh và nền tảng tầng cao. 3GPP phát triển mô hình kênh mới trong TR 38.811 và TR 38.821 đặc biệt cho NTN, tính đến đặc tính lan truyền độc đáo: trễ dài, Doppler cao, và thống kê fading khác.
+
+Các mô hình này là tham chiếu chính thức cho thiết kế hệ thống vệ tinh 5G, thay thế hoặc bổ sung mô hình ITU-R và học thuật cũ.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Mô hình NTN điều chỉnh mô hình kênh 5G mặt đất cho không gian. Chúng giữ cấu trúc cluster/ray từ TR 38.901 nhưng sửa tham số cho hình học vệ tinh: K-factor cao hơn (nhiều LOS hơn), trải trễ khác, và hành vi phụ thuộc góc ngẩng.
+
+Hãy nghĩ mô hình NTN như "TR 38.901 cho vệ tinh" — cùng khung, số khác.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Kịch bản NTN
+
+3GPP định nghĩa bốn kịch bản triển khai NTN:
+
+| Kịch bản | Độ cao | Trễ khứ hồi |
+|----------|--------|-------------|
+| GEO | 35,786 km | 540 ms |
+| MEO | 7,000–20,000 km | 50–130 ms |
+| LEO | 600–1,500 km | 4–10 ms |
+| HAPS | 20 km | <1 ms |
+
+### Mô hình kênh TR 38.811
+
+Dựa trên cấu trúc TR 38.901:
+
+$$h(t, \tau) = \sum_{n=1}^{N} \sum_{m=1}^{M} a_{n,m} \cdot \delta(\tau - \tau_n) \cdot e^{j2\pi\nu_n t}$$
+
+- $N$ = số cluster
+- $M$ = ray mỗi cluster
+- $a_{n,m}$ = biên độ ray
+- $\tau_n$ = trễ cluster
+- $\nu_n$ = tần số Doppler
+
+### Loại môi trường
+
+| Môi trường | Mô tả | Góc ngẩng điển hình |
+|------------|-------|---------------------|
+| Đô thị dày đặc | Cao tầng, NLOS chiếm ưu thế | Tất cả |
+| Đô thị | Tòa nhà hỗn hợp | Tất cả |
+| Ngoại ô | Tòa nhà mật độ thấp | Tất cả |
+| Nông thôn | Địa hình mở, cây rải rác | Tất cả |
+
+### Tham số phụ thuộc góc ngẩng
+
+K-factor tăng theo góc ngẩng:
+
+$$K(\theta) = K_{10} + K_{el} \cdot (\theta - 10°)$$
+
+Cho nông thôn: $K_{10} = 7$ dB, $K_{el} = 0.15$ dB/độ.
+
+Ở góc ngẩng 50°: $K = 7 + 0.15 \times 40 = 13$ dB.
+
+### Trải trễ
+
+Nhỏ hơn nhiều so với mặt đất (không có tán xạ xa):
+
+| Môi trường | Trải trễ (ns) |
+|------------|---------------|
+| Nông thôn | 20–50 |
+| Ngoại ô | 50–100 |
+| Đô thị | 100–200 |
+| Đô thị dày đặc | 200–400 |
+
+So với đô thị mặt đất: 300–1000 ns.
+
+### Đặc tính Doppler
+
+Vệ tinh LEO ở độ cao 600 km:
+
+Doppler cực đại ở chân trời: ~40 kHz ở S-band.
+
+Ở góc ngẩng 30°: ~25 kHz.
+
+Tốc độ Doppler: đến 500 Hz/s (phải bám liên tục).
+
+### Suy hao vật cản
+
+Suy hao thêm từ môi trường địa phương:
+
+$$L_{clutter} = A_{clutter} \cdot (1 - e^{-B_{clutter} \cdot \theta})$$
+
+Tham số thay đổi theo môi trường và tần số.
+
+### Hiệu ứng khí quyển
+
+Bao gồm trong mô hình NTN:
+- Nhấp nháy tầng đối lưu (dao động biên độ)
+- Quay Faraday (quay phân cực trong tầng điện ly)
+- Trễ tầng điện ly (hiệu ứng giống GPS ở tần số thấp)
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Ngân sách liên kết LEO S-band**
+
+Tần số: 2 GHz, độ cao: 600 km, góc ngẩng: 45°.
+
+Suy hao không gian tự do: $L_{fs} = 170$ dB.
+
+Các yếu tố mô hình NTN thêm:
+- Suy hao vật cản (ngoại ô): 3 dB
+- Biên fading shadow (10%): 6 dB
+- Suy hao khí quyển: 0.5 dB
+
+Tổng: $170 + 3 + 6 + 0.5 = 179.5$ dB suy hao đường truyền.
+
+**Ví dụ: GEO Ka-band**
+
+Tần số: 20 GHz, góc ngẩng: 35°.
+
+K-factor (đô thị): $K = 5 + 0.1 \times 25 = 7.5$ dB.
+
+Fade mưa ở 99.9%: ~8 dB (phụ thuộc vị trí).
+
+Hệ thống phải xử lý cả fading (nhanh) và mưa (chậm).
+
+**Ví dụ: Bù Doppler**
+
+LEO ở 550 km, UE đứng yên, 2 GHz.
+
+Vệ tinh đi qua đỉnh trong 10 phút.
+
+Dải Doppler: −40 kHz đến +40 kHz.
+
+Khoảng cách sóng mang con 5G NR: 15 kHz → ICI nghiêm trọng không bù.
+
+Yêu cầu: bù trước ở gNB dựa trên ephemeris + vị trí UE.
+
+**Ví dụ: Timing advance**
+
+Khứ hồi GEO: 540 ms >> TA max LTE (667 μs).
+
+NTN mở rộng phạm vi TA và thêm timing dựa trên GNSS.
+
+Lỗi timing còn lại: <1 μs với hỗ trợ GNSS.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Dùng mô hình mặt đất.** Tham số TR 38.901 không áp dụng trực tiếp. Dùng TR 38.811/38.821 cho NTN.
+
+2. **Bỏ qua Doppler.** Doppler LEO vượt mặt đất 1000×. Trực giao OFDM hỏng không bù.
+
+3. **Quên timing.** Trễ lan truyền NTN yêu cầu thủ tục timing mở rộng. RACH tiêu chuẩn không hoạt động.
+
+4. **Góc ngẩng là hằng số.** Góc ngẩng thay đổi trong lượt (đặc biệt LEO). Thống kê kênh biến đổi theo thời gian.
+
+5. **Mưa ở Ka-band.** Hiệu ứng khí quyển chiếm ưu thế ở tần số cao hơn. Giả định trời quang hỏng ở vùng nhiệt đới.
+
+6. **Tái sử dụng tần số.** Các vệ tinh khác trong chòm thấy trạng thái kênh khác. Phối hợp khó hơn mặt đất.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- 3GPP TR 38.811 — "Study on New Radio to support non-terrestrial networks."
+- 3GPP TR 38.821 — "Solutions for NR to support non-terrestrial networks."
+- 3GPP TS 38.101-5 — yêu cầu vô tuyến thiết bị người dùng NR.
+
+</section>

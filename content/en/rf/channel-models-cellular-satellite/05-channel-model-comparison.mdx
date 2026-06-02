@@ -8,17 +8,199 @@ track: r2
 unit: channel-models-cellular-satellite
 order: 5
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 8
+prerequisites: ["rf-r2-channel-models-cellular-satellite-01-cost-231-model", "rf-r2-channel-models-cellular-satellite-04-ntn-specific-models"]
+spiralRevisits: []
 title: "Channel model comparison"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "When to use which channel model."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["channel-model", "comparison", "model-selection", "simulation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Channel model comparison
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why compare models?
+
+With dozens of channel models available — empirical, statistical, deterministic — choosing the right one matters. Use too simple a model and your simulation misses critical effects. Use too complex a model and computation explodes without improving accuracy.
+
+This lesson provides a decision framework: which model for which scenario, and what each model captures (or ignores).
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Models trade off complexity vs. accuracy. Empirical models (COST-231) are fast but location-blind. Statistical models (3GPP TR 38.901) capture fading dynamics but need parameter calibration. Deterministic models (ray tracing) are accurate but computationally expensive.
+
+Choose based on your question: link budget → empirical; BER simulation → statistical; interference analysis in specific building → deterministic.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Model taxonomy
+
+| Type | Examples | Captures | Ignores |
+|------|----------|----------|---------|
+| Empirical | COST-231, SUI | Median path loss | Fading, delay spread |
+| Statistical | 3GPP, WINNER | Fading statistics, spatial correlation | Site-specific geometry |
+| Deterministic | Ray tracing, FDTD | Exact multipath | Requires 3D environment |
+| Hybrid | 3GPP QuaDRiGa | Mixed approaches | Depends on configuration |
+
+### Decision matrix
+
+**For cellular planning:**
+
+| Frequency | Distance | Model |
+|-----------|----------|-------|
+| <2 GHz | >1 km | COST-231 Hata |
+| <2 GHz | <1 km | WINNER II |
+| 2–6 GHz | Any | 3GPP TR 38.901 UMa/UMi |
+| >6 GHz | Any | 3GPP TR 38.901 mmWave |
+
+**For satellite systems:**
+
+| Orbit | Scenario | Model |
+|-------|----------|-------|
+| GEO | Mobile | Loo, Corazza-Vatalaro |
+| GEO | Fixed | ITU-R P.618 + P.530 |
+| LEO | Any | 3GPP TR 38.811 |
+| HAPS | Any | 3GPP TR 38.811 (adapted) |
+
+### What each model captures
+
+**COST-231:**
+- ✓ Median path loss
+- ✓ Frequency/distance/height dependence
+- ✗ Shadow fading (add separately)
+- ✗ Fast fading
+- ✗ Delay spread
+
+**3GPP TR 38.901:**
+- ✓ Path loss + shadow fading
+- ✓ Fast fading (Rician/Rayleigh)
+- ✓ Delay spread, angle spread
+- ✓ Spatial consistency
+- ✗ Site-specific propagation
+
+**Ray tracing:**
+- ✓ Exact multipath structure
+- ✓ Site-specific
+- ✓ Diffraction, reflection, scattering
+- ✗ Fast (requires significant compute)
+- ✗ Material database accuracy
+
+### Frequency validity
+
+| Model | Frequency range |
+|-------|-----------------|
+| Okumura-Hata | 150–1500 MHz |
+| COST-231 | 1500–2000 MHz |
+| WINNER II | 2–6 GHz |
+| 3GPP TR 38.901 | 0.5–100 GHz |
+| ITU-R P.618 | 1–400 GHz |
+
+### Computational complexity
+
+| Model | Per link | Per simulation |
+|-------|----------|----------------|
+| Empirical | μs | Fast |
+| Statistical (stochastic) | ms | Medium |
+| Statistical (geometry-based) | 10 ms | Slow |
+| Ray tracing | seconds | Very slow |
+
+### Accuracy vs. measurements
+
+Typical model accuracy (standard deviation of prediction error):
+
+| Model type | σ (dB) |
+|------------|--------|
+| Empirical (general) | 8–12 |
+| Empirical (calibrated) | 6–8 |
+| Statistical | 4–8 |
+| Ray tracing | 2–5 |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: LTE coverage planning**
+
+Band 3 (1800 MHz), urban macro.
+
+Use: COST-231 for initial planning (fast, gets 90% right).
+
+Add: 8 dB shadow fade margin for 90% coverage probability.
+
+Verify: Drive test measurements, then calibrate model.
+
+**Example: 5G mmWave simulation**
+
+28 GHz, urban micro.
+
+Use: 3GPP TR 38.901 UMi-street canyon.
+
+Simulate: 10,000 drops, each with stochastic channel realization.
+
+Output: CDF of SINR, outage probability.
+
+**Example: Specific building interference**
+
+New base station, worried about interference to specific indoor locations.
+
+Use: Ray tracing with 3D building model.
+
+Calculate: SINR at each floor, with measured material properties.
+
+Decision: Accept or relocate antenna.
+
+**Example: LEO IoT link budget**
+
+S-band, handheld device, mobile in suburban.
+
+Use: 3GPP TR 38.811 with elevation-dependent parameters.
+
+Include: Doppler shift model, timing advance model.
+
+Output: Required EIRP, receiver sensitivity, outage statistics.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using wrong frequency range.** COST-231 above 2 GHz gives wrong answers. Always check model validity range.
+
+2. **Forgetting fading.** Empirical models give median. Real systems need margin for shadow and fast fading.
+
+3. **Over-trusting ray tracing.** Material databases and building models have errors. Ray tracing isn't ground truth.
+
+4. **Under-sampling.** Statistical models need many drops to converge. 100 drops is usually not enough.
+
+5. **Ignoring correlation.** Adjacent antenna elements see correlated channels. Use spatial consistency features in modern models.
+
+6. **Single model for everything.** Different questions need different models. Coverage uses empirical; BER uses statistical; interference uses deterministic.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TR 38.901 — "Study on channel model for frequencies from 0.5 to 100 GHz."
+- Rappaport, *Wireless Communications: Principles and Practice*.
+- ITU-R P-series recommendations — propagation standards.
+
+</section>

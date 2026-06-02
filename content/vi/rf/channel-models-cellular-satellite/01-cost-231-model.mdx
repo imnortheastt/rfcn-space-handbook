@@ -8,17 +8,162 @@ track: r2
 unit: channel-models-cellular-satellite
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 8
+prerequisites: ["rf-r2-propagation-in-free-space-02-path-loss"]
+spiralRevisits: []
 title: "Mô hình COST-231"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Mô hình suy hao đường truyền thực nghiệm cho hệ thống di động đô thị."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["cost-231", "hata-model", "okumura", "path-loss", "urban-propagation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Mô hình COST-231
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao COST-231?
+
+Suy hao không gian tự do cho bạn lan truyền trong chân không. Môi trường di động thực có tòa nhà, địa hình, và vật cản. Mô hình COST-231 mở rộng mô hình Okumura-Hata cổ điển đến tần số cao hơn (đến 2 GHz), làm nó trở thành công cụ chủ lực cho quy hoạch đô thị 2G/3G/4G.
+
+Hiểu COST-231 là thiết yếu cho ngân sách liên kết trong triển khai thực — nó nắm bắt hành vi thống kê của lan truyền phức tạp mà không cần ray tracing cho mỗi tòa nhà.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Mô hình thực nghiệm là khớp đường cong với các chiến dịch đo. Các kỹ sư lái xe quanh thành phố đo cường độ tín hiệu, sau đó khớp phương trình với dữ liệu. Kết quả: biểu thức dạng đóng nắm bắt hành vi trung bình qua nhiều môi trường.
+
+COST-231 nói: "Trong thành phố cỡ trung, ở 900 MHz, với trạm gốc 30 m, mong đợi khoảng X dB suy hao ở 1 km." Công thức mã hóa hàng nghìn phép đo thành vài tham số.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Mô hình COST-231 Hata
+
+Suy hao đường truyền theo dB:
+
+$$L = 46.3 + 33.9\log_{10}(f) - 13.82\log_{10}(h_b) - a(h_m) + (44.9 - 6.55\log_{10}(h_b))\log_{10}(d) + C_m$$
+
+trong đó:
+- $f$ = tần số (MHz), 1500–2000 MHz
+- $h_b$ = chiều cao trạm gốc (m), 30–200 m
+- $h_m$ = chiều cao di động (m), 1–10 m
+- $d$ = khoảng cách (km), 1–20 km
+- $C_m$ = 0 dB (thành phố trung bình), 3 dB (đô thị lớn)
+
+### Hiệu chỉnh anten di động
+
+Cho thành phố cỡ trung:
+$$a(h_m) = (1.1\log_{10}(f) - 0.7)h_m - (1.56\log_{10}(f) - 0.8)$$
+
+Cho thành phố lớn ($f \geq$ 400 MHz):
+$$a(h_m) = 3.2(\log_{10}(11.75h_m))^2 - 4.97$$
+
+### Phụ thuộc tần số và khoảng cách
+
+Quy mô chính:
+- **Tần số:** ~34 dB mỗi thập kỷ
+- **Khoảng cách:** 35–45 dB mỗi thập kỷ (phụ thuộc môi trường)
+- **Chiều cao BS:** ~14 dB mỗi thập kỷ cải thiện
+
+### Okumura-Hata (gốc)
+
+Hợp lệ cho 150–1500 MHz:
+
+$$L = 69.55 + 26.16\log_{10}(f) - 13.82\log_{10}(h_b) - a(h_m) + (44.9 - 6.55\log_{10}(h_b))\log_{10}(d)$$
+
+COST-231 mở rộng đến 2 GHz với hệ số điều chỉnh.
+
+### Hệ số môi trường
+
+| Môi trường | $C_m$ | Suy hao dư điển hình |
+|------------|-------|----------------------|
+| Mở/nông thôn | −40 đến −20 dB | Thấp hơn đô thị |
+| Ngoại ô | −10 đến 0 dB | Vật cản vừa phải |
+| Thành phố trung bình | 0 dB | Tham chiếu |
+| Đô thị dày đặc | +3 dB | Hẻm núi cao tầng |
+
+### Giới hạn mô hình
+
+- **Tần số:** 1500–2000 MHz (COST-231); 150–1500 MHz (Hata)
+- **Khoảng cách:** 1–20 km (không cho micro-cell)
+- **Chiều cao BS:** phải trên mái nhà
+- **Địa hình:** tương đối bằng (không mô hình đồi)
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: LTE đô thị ở 1800 MHz**
+
+Trạm gốc: $h_b = 30$ m, $f = 1800$ MHz, $d = 2$ km, di động $h_m = 1.5$ m.
+
+Hiệu chỉnh di động:
+$$a(h_m) = (1.1\log_{10}(1800) - 0.7)(1.5) - (1.56\log_{10}(1800) - 0.8) = 0.97$$
+
+Suy hao đường truyền:
+$$L = 46.3 + 33.9(3.26) - 13.82(1.48) - 0.97 + (44.9 - 6.55(1.48))(0.30) + 0$$
+$$L = 46.3 + 110.5 - 20.5 - 0.97 + 11.2 = 146.5\ \text{dB}$$
+
+So với không gian tự do ở 2 km, 1800 MHz: $L_{fs} = 107.6$ dB.
+
+Suy hao dư từ môi trường đô thị: ~39 dB.
+
+**Ví dụ: Tính bán kính phủ sóng**
+
+Yêu cầu: suy hao đường truyền tối đa 130 dB (ngân sách macro đô thị điển hình).
+
+Ở 900 MHz, $h_b = 40$ m:
+
+Giải cho $d$: $(44.9 - 6.55 \times 1.6)\log_{10}(d) = 130 - 136.7 + 19.8 + 1.0 = 14.1$
+
+$d \approx 1.1$ km bán kính phủ sóng.
+
+**Ví dụ: Lợi thế chiều cao**
+
+Gấp đôi chiều cao BS từ 30 m lên 60 m:
+
+Tăng ích: $13.82 \times \log_{10}(2) + 6.55 \times 0.3 \times \log_{10}(2) \approx 4.8$ dB
+
+Xấp xỉ 25% bán kính phủ sóng nhiều hơn cho cùng suy hao.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Dùng ngoài dải tần số.** COST-231 cho 1500–2000 MHz. Cho 5G ở 3.5 GHz, dùng mô hình 3GPP TR 38.901 thay thế.
+
+2. **Lạm dụng micro-cell.** COST-231 giả định hình học macro-cell (BS trên mái nhà). Không hoạt động cho small cell ở mức đường phố.
+
+3. **Bỏ qua địa hình.** Mô hình giả định địa hình tương đối bằng. Môi trường đồi cần hiệu chỉnh nhiễu xạ.
+
+4. **Median vs. edge.** COST-231 cho suy hao đường truyền median. Thêm 8–10 dB biên shadow cho độ tin cậy vị trí 90%.
+
+5. **Xuyên nhà.** Mô hình chỉ ngoài trời. Thêm 15–25 dB cho xuyên tòa nhà.
+
+6. **5G mmWave.** Các mô hình thực nghiệm này không áp dụng cho mmWave — vật lý khác (LOS-dominance, suy hao lá cây, v.v.).
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- COST 231 Final Report, "Digital Mobile Radio Towards Future Generation Systems."
+- Hata, "Empirical formula for propagation loss in land mobile radio services."
+- 3GPP TR 38.901 — mô hình kênh hiện đại cho NR.
+
+</section>

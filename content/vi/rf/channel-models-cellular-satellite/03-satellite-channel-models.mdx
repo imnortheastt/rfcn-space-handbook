@@ -8,17 +8,196 @@ track: r2
 unit: channel-models-cellular-satellite
 order: 3
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r2-channel-models-cellular-satellite-02-itu-r-p-models"]
+spiralRevisits: []
 title: "Mô hình kênh vệ tinh"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Mô hình thống kê cho truyền thông vệ tinh di động mặt đất."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["satellite-channel", "loo-model", "rician", "shadowing", "multipath"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Mô hình kênh vệ tinh
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần mô hình kênh vệ tinh?
+
+Liên kết vệ tinh khác với mặt đất. Đường trực tiếp (thường) thông thoáng, nhưng đầu cuối di động thấy che khuất từ tòa nhà, cây cối, và địa hình. Mô hình Rayleigh/Rician truyền thống không nắm bắt sự kết hợp che khuất chậm cộng fading nhanh đặc trưng của vệ tinh di động.
+
+Mô hình kênh vệ tinh chuyên biệt như Loo và Lutz nắm bắt hành vi kép thang thời gian này — thiết yếu cho thiết kế điện thoại vệ tinh, đầu cuối hàng hải, và thiết bị IoT.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hình dung điện thoại vệ tinh trong xe. Đôi khi bạn ở vùng thoáng — LOS mạnh đến vệ tinh, đa đường yếu. Đôi khi bạn dưới cây hoặc gần tòa nhà — LOS bị che, đa đường chiếm ưu thế. Kênh chuyển đổi giữa các trạng thái này khi bạn di chuyển.
+
+Mô hình kênh vệ tinh nắm bắt hành vi chuyển đổi trạng thái này. Chúng không chỉ về suy hao trung bình — chúng mô hình động lực của điều kiện kênh tốt/xấu.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Thành phần kênh
+
+Kênh di động vệ tinh có ba thành phần:
+
+1. **Trực tiếp (LOS):** Đường ổn định đến vệ tinh, có thể bị che
+2. **Đa đường khuếch tán:** Tán xạ từ xung quanh
+3. **Đa đường phản xạ:** Phản xạ mạnh (mặt đất, tòa nhà)
+
+### Hệ số Rician
+
+Trong điều kiện thoáng, tỷ số công suất LOS với khuếch tán:
+
+$$K = \frac{P_{LOS}}{P_{diffuse}}$$
+
+Giá trị điển hình:
+- Trời quang: $K = 10$–$20$ dB
+- Che nhẹ: $K = 0$–$5$ dB
+- Che nặng: $K < 0$ dB (NLOS chiếm ưu thế)
+
+### Mô hình Loo
+
+Mô hình vệ tinh di động mặt đất cổ điển:
+
+$$r(t) = A(t) e^{j\phi_0} + z(t)$$
+
+- $A(t)$ = biên độ LOS bị che theo lognormal
+- $z(t)$ = đa đường phân bố Rayleigh
+
+Biên độ LOS (dB) là Gaussian: $20\log_{10}(A) \sim \mathcal{N}(\mu, \sigma^2)$
+
+Ba tham số: $\mu$ (mức LOS trung bình), $\sigma$ (độ rộng che), $M_p$ (công suất đa đường).
+
+### Mô hình Lutz
+
+Mô hình Markov hai trạng thái:
+
+- **Trạng thái tốt:** Fading Rician (LOS mạnh)
+- **Trạng thái xấu:** Fading Rayleigh (bị che)
+
+Xác suất chuyển đổi định nghĩa thời gian trạng thái:
+- $P_{gg}$ = xác suất giữ trạng thái tốt
+- $P_{bb}$ = xác suất giữ trạng thái xấu
+
+Thời gian trạng thái theo phân bố hình học.
+
+### Mô hình Corazza-Vatalaro
+
+Kết hợp che kiểu Loo với chuyển đổi trạng thái:
+
+Biên độ nhận:
+$$r = S \cdot A \cdot e^{j\phi} + S \cdot z$$
+
+- $S$ = che chậm (lognormal)
+- $A$ = thành phần LOS
+- $z$ = đa đường
+
+Thống nhất Loo (trạng thái đơn) và Lutz (chuyển đổi trạng thái).
+
+### Phổ Doppler
+
+Hình học vệ tinh cho Doppler khác với mặt đất:
+
+$$f_d = \frac{v}{\lambda} \cos\alpha \cos\beta$$
+
+- $v$ = vận tốc di động
+- $\alpha$ = góc ngẩng vệ tinh
+- $\beta$ = hướng di động so với phương vị vệ tinh
+
+Vệ tinh góc ngẩng thấp → trải Doppler cao hơn.
+
+### Phân loại môi trường
+
+| Môi trường | $K$ (dB) | $\sigma$ (dB) | % trạng thái tốt |
+|------------|----------|---------------|------------------|
+| Nông thôn mở | 15–20 | 1–2 | 95% |
+| Ngoại ô | 5–10 | 3–5 | 70% |
+| Đô thị | 0–5 | 5–8 | 40% |
+| Trong nhà | −5 đến 0 | 8–12 | 10% |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Vệ tinh hàng hải**
+
+Tàu trên biển, góc ngẩng 40°, L-band (1.5 GHz).
+
+Môi trường: mở (không che), phản xạ bề mặt biển.
+
+Mô hình: Rician với $K \approx 15$ dB, phản xạ phương gây fading chọn lọc tần số.
+
+Suy giảm BER so với AWGN: ~0.5 dB ở $10^{-3}$.
+
+**Ví dụ: Ku-band xe cộ**
+
+Xe với anten gắn mái, môi trường đô thị.
+
+Tham số Loo: $\mu = -3$ dB, $\sigma = 4$ dB, $M_p = -10$ dB.
+
+Fade sâu (>10 dB dưới trung bình): ~5% thời gian.
+
+Yêu cầu: 3–5 dB biên thêm so với ngân sách liên kết trời quang.
+
+**Ví dụ: Tính thời gian trạng thái**
+
+Mô hình Lutz, ngoại ô, 50 km/h.
+
+Thời gian trạng thái "xấu" trung bình: 2 giây (tương quan với chặn tòa nhà).
+
+Thời gian trạng thái "tốt" trung bình: 8 giây.
+
+Phần thời gian ở trạng thái xấu: 2/(2+8) = 20%.
+
+Cho hệ thống ARQ: timeout truyền lại nên vượt thời gian trạng thái xấu điển hình.
+
+**Ví dụ: LEO vs. GEO**
+
+GEO ở góc ngẩng 35° vs. LEO ở góc ngẩng trung bình 70°.
+
+Góc ngẩng LEO cao hơn → ít che hơn, thời gian fade ngắn hơn.
+
+Nhưng Doppler LEO cao hơn nhiều: phải bám theo chuyển động vệ tinh.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Dùng mô hình mặt đất.** Rayleigh/Rician đơn thuần không nắm bắt động lực che. Dùng mô hình đặc thù vệ tinh.
+
+2. **Bỏ qua góc ngẩng.** Xác suất che phụ thuộc mạnh vào góc ngẩng. Góc ngẩng 20° có chặn gấp 3× so với 50°.
+
+3. **Tĩnh vs. động.** Mô hình cho thống kê tức thời. Sinh chuỗi thời gian cần lọc Doppler đúng.
+
+4. **Quy mô tần số.** Mô hình thường cho L/S-band. Ka-band có hành vi tán xạ khác.
+
+5. **Pattern anten.** Anten đầu cuối hẹp hơn giảm đa đường nhưng không loại trừ che.
+
+6. **Xuyên trong nhà.** Hầu hết mô hình vệ tinh giả định ngoài trời hoặc xe. Trong nhà cần suy hao xuyên thêm (10–25 dB).
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Loo, "A statistical model for a land mobile satellite link."
+- Lutz, Cygan, Dippold, "The land mobile satellite communication channel."
+- Corazza & Vatalaro, "A statistical model for land mobile satellite channels."
+
+</section>

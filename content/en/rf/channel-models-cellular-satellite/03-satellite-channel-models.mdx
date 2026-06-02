@@ -8,17 +8,196 @@ track: r2
 unit: channel-models-cellular-satellite
 order: 3
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r2-channel-models-cellular-satellite-02-itu-r-p-models"]
+spiralRevisits: []
 title: "Satellite channel models"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Statistical models for land-mobile satellite communications."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["satellite-channel", "loo-model", "rician", "shadowing", "multipath"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Satellite channel models
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why satellite channel models?
+
+Satellite links differ from terrestrial. The direct path is (usually) clear, but the mobile terminal sees shadowing from buildings, trees, and terrain. Traditional Rayleigh/Rician models don't capture the slow shadowing plus fast fading combination unique to satellite mobile.
+
+Specialized satellite channel models like Loo and Lutz capture this dual-timescale behavior — essential for designing satellite handsets, maritime terminals, and IoT devices.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Picture a satellite phone in a car. Sometimes you're in a clear area — strong LOS to the satellite, some weak multipath. Sometimes you're under trees or near buildings — the LOS is shadowed, multipath dominates. The channel switches between these states as you move.
+
+Satellite channel models capture this state-switching behavior. They're not just about average loss — they model the dynamics of good/bad channel conditions.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Channel components
+
+Satellite mobile channel has three components:
+
+1. **Direct (LOS):** Stable path to satellite, possibly shadowed
+2. **Diffuse multipath:** Scattering from surroundings
+3. **Specular multipath:** Strong reflections (ground, buildings)
+
+### Rician factor
+
+In clear conditions, ratio of LOS to diffuse power:
+
+$$K = \frac{P_{LOS}}{P_{diffuse}}$$
+
+Typical values:
+- Clear sky: $K = 10$–$20$ dB
+- Light shadowing: $K = 0$–$5$ dB
+- Heavy shadowing: $K < 0$ dB (NLOS dominates)
+
+### Loo model
+
+The classic land-mobile satellite model:
+
+$$r(t) = A(t) e^{j\phi_0} + z(t)$$
+
+- $A(t)$ = lognormally shadowed LOS amplitude
+- $z(t)$ = Rayleigh-distributed multipath
+
+LOS amplitude (dB) is Gaussian: $20\log_{10}(A) \sim \mathcal{N}(\mu, \sigma^2)$
+
+Three parameters: $\mu$ (mean LOS level), $\sigma$ (shadow spread), $M_p$ (multipath power).
+
+### Lutz model
+
+Two-state Markov model:
+
+- **Good state:** Rician fading (strong LOS)
+- **Bad state:** Rayleigh fading (shadowed)
+
+Transition probabilities define state duration:
+- $P_{gg}$ = probability of staying good
+- $P_{bb}$ = probability of staying bad
+
+State durations follow geometric distribution.
+
+### Corazza-Vatalaro model
+
+Combines Loo-type shadowing with state transitions:
+
+Received amplitude:
+$$r = S \cdot A \cdot e^{j\phi} + S \cdot z$$
+
+- $S$ = slow shadowing (lognormal)
+- $A$ = LOS component
+- $z$ = multipath
+
+Unifies Loo (single state) and Lutz (state switching).
+
+### Doppler spectrum
+
+Satellite geometry gives different Doppler than terrestrial:
+
+$$f_d = \frac{v}{\lambda} \cos\alpha \cos\beta$$
+
+- $v$ = mobile velocity
+- $\alpha$ = satellite elevation
+- $\beta$ = mobile direction relative to satellite azimuth
+
+Low elevation satellites → higher Doppler spread.
+
+### Environment classification
+
+| Environment | $K$ (dB) | $\sigma$ (dB) | Good state % |
+|-------------|----------|---------------|--------------|
+| Open rural | 15–20 | 1–2 | 95% |
+| Suburban | 5–10 | 3–5 | 70% |
+| Urban | 0–5 | 5–8 | 40% |
+| Indoor | −5 to 0 | 8–12 | 10% |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Maritime satellite**
+
+Ship at sea, 40° elevation, L-band (1.5 GHz).
+
+Environment: open (no shadowing), sea surface reflections.
+
+Model: Rician with $K \approx 15$ dB, specular reflection causing frequency-selective fading.
+
+BER degradation vs. AWGN: ~0.5 dB at $10^{-3}$.
+
+**Example: Vehicular Ku-band**
+
+Car with roof-mounted antenna, urban environment.
+
+Loo parameters: $\mu = -3$ dB, $\sigma = 4$ dB, $M_p = -10$ dB.
+
+Deep fades (>10 dB below mean): ~5% of time.
+
+Required: 3–5 dB extra margin vs. clear-sky link budget.
+
+**Example: State duration calculation**
+
+Lutz model, suburban, 50 km/h.
+
+Average "bad" state duration: 2 seconds (correlates with building blockage).
+
+Average "good" state duration: 8 seconds.
+
+Time fraction in bad state: 2/(2+8) = 20%.
+
+For ARQ system: retransmission timeout should exceed typical bad-state duration.
+
+**Example: LEO vs. GEO**
+
+GEO at 35° elevation vs. LEO at 70° average elevation.
+
+Higher LEO elevation → less shadowing, shorter fade durations.
+
+But LEO Doppler is much higher: must track satellite motion.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using terrestrial models.** Rayleigh/Rician alone don't capture shadowing dynamics. Use satellite-specific models.
+
+2. **Ignoring elevation.** Shadowing probability is strongly elevation-dependent. 20° elevation has 3× more blockage than 50°.
+
+3. **Static vs. dynamic.** Models give instantaneous statistics. Time-series generation needs proper Doppler filtering.
+
+4. **Frequency scaling.** Models are usually L/S-band. Ka-band has different scattering behavior.
+
+5. **Antenna pattern.** Narrower terminal antennas reduce multipath but don't eliminate shadowing.
+
+6. **Indoor penetration.** Most satellite models assume outdoor or vehicle. Indoor needs additional penetration loss (10–25 dB).
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Loo, "A statistical model for a land mobile satellite link."
+- Lutz, Cygan, Dippold, "The land mobile satellite communication channel."
+- Corazza & Vatalaro, "A statistical model for land mobile satellite channels."
+
+</section>

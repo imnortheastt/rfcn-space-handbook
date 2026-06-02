@@ -8,17 +8,199 @@ track: r2
 unit: channel-models-cellular-satellite
 order: 5
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 8
+prerequisites: ["rf-r2-channel-models-cellular-satellite-01-cost-231-model", "rf-r2-channel-models-cellular-satellite-04-ntn-specific-models"]
+spiralRevisits: []
 title: "So sánh các mô hình kênh"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Khi nào dùng mô hình kênh nào."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["channel-model", "comparison", "model-selection", "simulation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# So sánh các mô hình kênh
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao so sánh mô hình?
+
+Với hàng chục mô hình kênh có sẵn — thực nghiệm, thống kê, xác định — chọn đúng mô hình quan trọng. Dùng mô hình quá đơn giản và mô phỏng bỏ lỡ hiệu ứng quan trọng. Dùng mô hình quá phức tạp và tính toán bùng nổ mà không cải thiện độ chính xác.
+
+Bài này cung cấp khung quyết định: mô hình nào cho kịch bản nào, và mỗi mô hình nắm bắt (hoặc bỏ qua) gì.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Mô hình đánh đổi độ phức tạp vs. độ chính xác. Mô hình thực nghiệm (COST-231) nhanh nhưng mù vị trí. Mô hình thống kê (3GPP TR 38.901) nắm bắt động lực fading nhưng cần hiệu chuẩn tham số. Mô hình xác định (ray tracing) chính xác nhưng tốn tính toán.
+
+Chọn dựa trên câu hỏi: ngân sách liên kết → thực nghiệm; mô phỏng BER → thống kê; phân tích nhiễu trong tòa nhà cụ thể → xác định.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Phân loại mô hình
+
+| Loại | Ví dụ | Nắm bắt | Bỏ qua |
+|------|-------|---------|--------|
+| Thực nghiệm | COST-231, SUI | Suy hao median | Fading, trải trễ |
+| Thống kê | 3GPP, WINNER | Thống kê fading, tương quan không gian | Hình học địa điểm cụ thể |
+| Xác định | Ray tracing, FDTD | Đa đường chính xác | Yêu cầu môi trường 3D |
+| Lai | 3GPP QuaDRiGa | Tiếp cận hỗn hợp | Phụ thuộc cấu hình |
+
+### Ma trận quyết định
+
+**Cho quy hoạch di động:**
+
+| Tần số | Khoảng cách | Mô hình |
+|--------|-------------|---------|
+| <2 GHz | >1 km | COST-231 Hata |
+| <2 GHz | <1 km | WINNER II |
+| 2–6 GHz | Bất kỳ | 3GPP TR 38.901 UMa/UMi |
+| >6 GHz | Bất kỳ | 3GPP TR 38.901 mmWave |
+
+**Cho hệ thống vệ tinh:**
+
+| Quỹ đạo | Kịch bản | Mô hình |
+|---------|----------|---------|
+| GEO | Di động | Loo, Corazza-Vatalaro |
+| GEO | Cố định | ITU-R P.618 + P.530 |
+| LEO | Bất kỳ | 3GPP TR 38.811 |
+| HAPS | Bất kỳ | 3GPP TR 38.811 (điều chỉnh) |
+
+### Mỗi mô hình nắm bắt gì
+
+**COST-231:**
+- ✓ Suy hao đường truyền median
+- ✓ Phụ thuộc tần số/khoảng cách/chiều cao
+- ✗ Fading shadow (thêm riêng)
+- ✗ Fading nhanh
+- ✗ Trải trễ
+
+**3GPP TR 38.901:**
+- ✓ Suy hao + fading shadow
+- ✓ Fading nhanh (Rician/Rayleigh)
+- ✓ Trải trễ, trải góc
+- ✓ Nhất quán không gian
+- ✗ Lan truyền địa điểm cụ thể
+
+**Ray tracing:**
+- ✓ Cấu trúc đa đường chính xác
+- ✓ Địa điểm cụ thể
+- ✓ Nhiễu xạ, phản xạ, tán xạ
+- ✗ Nhanh (yêu cầu tính toán đáng kể)
+- ✗ Độ chính xác cơ sở dữ liệu vật liệu
+
+### Hiệu lực tần số
+
+| Mô hình | Dải tần số |
+|---------|------------|
+| Okumura-Hata | 150–1500 MHz |
+| COST-231 | 1500–2000 MHz |
+| WINNER II | 2–6 GHz |
+| 3GPP TR 38.901 | 0.5–100 GHz |
+| ITU-R P.618 | 1–400 GHz |
+
+### Độ phức tạp tính toán
+
+| Mô hình | Mỗi liên kết | Mỗi mô phỏng |
+|---------|--------------|--------------|
+| Thực nghiệm | μs | Nhanh |
+| Thống kê (ngẫu nhiên) | ms | Trung bình |
+| Thống kê (dựa hình học) | 10 ms | Chậm |
+| Ray tracing | giây | Rất chậm |
+
+### Độ chính xác vs. đo đạc
+
+Độ chính xác mô hình điển hình (độ lệch chuẩn của lỗi dự đoán):
+
+| Loại mô hình | σ (dB) |
+|--------------|--------|
+| Thực nghiệm (chung) | 8–12 |
+| Thực nghiệm (hiệu chuẩn) | 6–8 |
+| Thống kê | 4–8 |
+| Ray tracing | 2–5 |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Quy hoạch phủ sóng LTE**
+
+Band 3 (1800 MHz), macro đô thị.
+
+Dùng: COST-231 cho quy hoạch ban đầu (nhanh, đúng 90%).
+
+Thêm: 8 dB biên fade shadow cho 90% xác suất phủ sóng.
+
+Xác minh: Đo drive test, sau đó hiệu chuẩn mô hình.
+
+**Ví dụ: Mô phỏng 5G mmWave**
+
+28 GHz, micro đô thị.
+
+Dùng: 3GPP TR 38.901 UMi-street canyon.
+
+Mô phỏng: 10,000 drop, mỗi cái với thực hiện kênh ngẫu nhiên.
+
+Đầu ra: CDF của SINR, xác suất outage.
+
+**Ví dụ: Nhiễu tòa nhà cụ thể**
+
+Trạm gốc mới, lo nhiễu đến vị trí trong nhà cụ thể.
+
+Dùng: Ray tracing với mô hình tòa nhà 3D.
+
+Tính: SINR ở mỗi tầng, với thuộc tính vật liệu đo.
+
+Quyết định: Chấp nhận hoặc di chuyển anten.
+
+**Ví dụ: Ngân sách liên kết IoT LEO**
+
+S-band, thiết bị cầm tay, di động ở ngoại ô.
+
+Dùng: 3GPP TR 38.811 với tham số phụ thuộc góc ngẩng.
+
+Bao gồm: Mô hình dịch Doppler, mô hình timing advance.
+
+Đầu ra: EIRP yêu cầu, độ nhạy máy thu, thống kê outage.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Dùng sai dải tần số.** COST-231 trên 2 GHz cho kết quả sai. Luôn kiểm tra dải hiệu lực mô hình.
+
+2. **Quên fading.** Mô hình thực nghiệm cho median. Hệ thống thực cần biên cho shadow và fading nhanh.
+
+3. **Tin quá ray tracing.** Cơ sở dữ liệu vật liệu và mô hình tòa nhà có lỗi. Ray tracing không phải ground truth.
+
+4. **Lấy mẫu thiếu.** Mô hình thống kê cần nhiều drop để hội tụ. 100 drop thường không đủ.
+
+5. **Bỏ qua tương quan.** Các phần tử anten kề thấy kênh tương quan. Dùng tính năng nhất quán không gian trong mô hình hiện đại.
+
+6. **Một mô hình cho mọi thứ.** Câu hỏi khác cần mô hình khác. Phủ sóng dùng thực nghiệm; BER dùng thống kê; nhiễu dùng xác định.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- 3GPP TR 38.901 — "Study on channel model for frequencies from 0.5 to 100 GHz."
+- Rappaport, *Wireless Communications: Principles and Practice*.
+- ITU-R P-series recommendations — tiêu chuẩn lan truyền.
+
+</section>
