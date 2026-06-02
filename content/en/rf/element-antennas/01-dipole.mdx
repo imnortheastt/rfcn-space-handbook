@@ -8,17 +8,166 @@ track: r2
 unit: element-antennas
 order: 1
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r2-fundamental-parameters-01-gain"]
+spiralRevisits: []
 title: "Dipole antenna"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The fundamental radiating element for RF systems."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["dipole", "half-wave", "short-dipole", "hertzian", "radiation-pattern", "impedance"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Dipole antenna
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why dipole?
+
+The dipole is the most fundamental antenna — a length of conductor fed at its center. It appears in every RF textbook for a reason: its behavior is analytically tractable, and most other antennas can be understood as variations or arrays of dipoles.
+
+Understanding the dipole gives you a mental model for radiation resistance, impedance variation with length, and pattern formation.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+A dipole works by driving current oscillations along a conductor. The oscillating current creates oscillating electromagnetic fields that propagate outward as radiation.
+
+Picture it like this: you apply an alternating voltage at the center, current flows back and forth along the wire, and this accelerating charge radiates energy. The wire acts as a transformer between guided waves (transmission line) and free-space waves.
+
+The dipole radiates most strongly broadside (perpendicular to the wire) and not at all off the ends — a donut-shaped pattern.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Hertzian dipole (infinitesimal)
+
+An idealized dipole of length $\ell \ll \lambda$ with uniform current $I$. The far-field electric field:
+
+$$E_\theta = j\eta \frac{k I \ell}{4\pi r} \sin\theta \, e^{-jkr}$$
+
+where $\eta \approx 377\ \Omega$ is free-space impedance, $k = 2\pi/\lambda$.
+
+Key properties:
+- Radiation resistance: $R_{rad} = 80\pi^2 (\ell/\lambda)^2$
+- Directivity: 1.5 (1.76 dBi)
+- Pattern: $\sin^2\theta$ (donut-shaped)
+
+### Short dipole
+
+For dipoles shorter than $\lambda/10$, current distribution is approximately triangular (maximum at center, zero at ends):
+
+$$R_{rad} = 20\pi^2 (\ell/\lambda)^2$$
+
+The factor of 4 difference from Hertzian comes from the triangular vs. uniform current distribution.
+
+### Half-wave dipole
+
+Length $\ell = \lambda/2$. The most common dipole.
+
+Current distribution is sinusoidal:
+$$I(z) = I_0 \cos(kz)$$
+
+Properties:
+- Input impedance: $Z_{in} \approx 73 + j42\ \Omega$ (theoretical)
+- In practice: ~70 Ω after shortening for resonance
+- Directivity: 1.64 (2.15 dBi)
+- Radiation pattern: similar to Hertzian but slightly more directive
+
+### Impedance vs. length
+
+| Length | Impedance | Character |
+|--------|-----------|-----------|
+| $\ell \ll \lambda/2$ | Low R, high capacitive X | Hard to match |
+| $\ell = \lambda/2$ | ~73 Ω, small inductive X | Easy to match |
+| $\ell = \lambda$ | ~2000 Ω | High impedance |
+| $\ell = 3\lambda/2$ | ~105 Ω | Multi-lobe pattern |
+
+### Bandwidth
+
+A thicker dipole has lower Q and wider bandwidth. The bandwidth-thickness tradeoff:
+
+$$BW \propto \frac{a}{\lambda}$$
+
+where $a$ is wire radius. Fat dipoles (cage, bow-tie) achieve octave+ bandwidth.
+
+### Ground effects
+
+A dipole above ground experiences image effects:
+- At height $h = \lambda/4$: image reinforces, low-angle radiation enhanced
+- At height $h = \lambda/2$: image cancels at horizon, high-angle lobe appears
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: FM broadcast dipole**
+
+FM band: 88–108 MHz, center ~100 MHz ($\lambda = 3$ m).
+
+Half-wave dipole length: $\ell = 0.5 \times 3 = 1.5$ m.
+
+With velocity factor 0.95 for typical wire: $\ell_{actual} = 1.425$ m.
+
+**Example: 2.4 GHz dipole**
+
+$\lambda = 0.125$ m at 2.4 GHz.
+
+Half-wave: 62.5 mm electrical, ~59 mm physical.
+
+This is why Wi-Fi rubber duck antennas are about 6 cm long.
+
+**Example: Dipole radiation resistance**
+
+Short dipole with $\ell = \lambda/20$:
+
+$$R_{rad} = 20\pi^2 (0.05)^2 = 0.49\ \Omega$$
+
+This tiny radiation resistance means most power is lost in conductor resistance — why short dipoles are inefficient.
+
+Half-wave: $R_{rad} \approx 73\ \Omega$ — much easier to drive efficiently.
+
+**Example: Array element**
+
+Dipoles are common array elements. A Yagi-Uda uses one driven dipole with parasitic director/reflector elements. Log-periodic arrays use many dipoles of varying length.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Physical vs. electrical length.** A dipole resonates at $\ell < \lambda/2$ physical length due to end effects. Typical shortening: 2–5%.
+
+2. **Feed impedance variations.** The 73 Ω is theoretical at resonance. Actual impedance depends on wire diameter, nearby conductors, and exact frequency.
+
+3. **Balun requirement.** Dipoles are balanced; coax is unbalanced. Without a balun, current flows on the coax outer conductor, distorting the pattern.
+
+4. **Ground proximity.** A dipole near ground has modified impedance and pattern. The "free-space" values assume isolation.
+
+5. **Directivity vs. gain.** Dipole directivity is 2.15 dBi. Gain is lower due to ohmic losses, especially for thin wires.
+
+6. **Bandwidth assumptions.** A half-wave dipole has ~10% bandwidth for 2:1 VSWR. Wideband applications need fat dipoles or matching networks.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Balanis, *Antenna Theory*, Chapter 4 — dipole analysis.
+- Kraus & Marhefka, *Antennas*, Chapter 5 — practical dipole design.
+- ARRL Antenna Book — construction guidelines.
+
+</section>
