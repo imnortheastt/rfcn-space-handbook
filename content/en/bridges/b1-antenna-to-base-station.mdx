@@ -1,0 +1,261 @@
+---
+id: bridges-b1-antenna-to-base-station-en
+slug: antenna-to-base-station
+lang: en
+parityId: bridges-b1-antenna-to-base-station
+domain: bridges
+track: b1
+unit: antenna-to-base-station
+order: 1
+level: L3
+estimatedReadingMinutes: 12
+prerequisites: ["rf-r2-fundamental-parameters-01-gain", "rf-r3-friis-and-link-budget-01-friis-equation"]
+spiralRevisits: ["rf-r4-beamforming-fundamentals-01-array-factor-beamforming"]
+title: "Bridge B1: From antenna to base station"
+description: "How RF engineering connects to cellular network architecture — the gNB as seen by antenna engineers."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 38.104", "3GPP TS 38.401"]
+tags: ["bridge", "cross-domain", "gnb", "antenna", "fronthaul", "5g"]
+widgets: []
+license: CC-BY-SA-4.0
+status: published
+---
+
+<section class="lesson-hook">
+
+## Why this bridge?
+
+You've designed a 64-element phased array with 23 dBi gain, HPBW of 12°, and cross-pol isolation >25 dB. Beautiful RF work. But where does that antenna connect? What signals does it carry? Why does the network architect care about your beamwidth?
+
+This bridge connects RF antenna engineering to 5G network architecture. By the end, you'll see the gNB (5G base station) through both lenses — and understand why fronthaul option 7.2x looks the way it does.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+An antenna is the physical interface between guided waves (cables, waveguides) and radiated waves (free space). A gNB is the logical entity that terminates the radio protocol stack.
+
+They meet at the **radio unit (RU)** — where digital baseband signals become analog RF, and where your antenna pattern matters.
+
+The split between "RF stuff" and "network stuff" isn't a clean line. Beamforming decisions affect MAC scheduling. Antenna correlation affects MIMO rank. Interference patterns affect handover. Understanding both sides makes you dangerous (in a good way).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## The gNB architecture
+
+### Functional split
+
+3GPP defines the gNB as three logical components:
+
+```
+┌────────────────────────────────────────────────┐
+│                     gNB                         │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐   │
+│  │   CU     │   │   DU     │   │   RU     │   │
+│  │ (Central)│   │ (Distrib)│   │ (Radio)  │   │
+│  └────┬─────┘   └────┬─────┘   └────┬─────┘   │
+│       │              │              │         │
+│       └──────F1──────┘              │         │
+│                      └────Fronthaul─┘         │
+└────────────────────────────────────────────────┘
+                                      │
+                                   Antenna
+```
+
+**CU (Central Unit):** RRC, PDCP — control plane, user plane termination.
+
+**DU (Distributed Unit):** RLC, MAC, upper PHY — scheduling, HARQ.
+
+**RU (Radio Unit):** Lower PHY, RF front-end — beamforming, D/A conversion, amplification.
+
+### Where antennas live
+
+The antenna is physically part of (or connected to) the RU. Your antenna design directly affects:
+
+- **Beamforming weights** in the RU
+- **Antenna port mapping** visible to the DU
+- **CSI-RS patterns** that the UE measures
+- **Coverage footprint** that the CU's RRM uses for mobility
+
+### Option 7.2x: The RF-network boundary
+
+The most common fronthaul split in 5G RAN:
+
+| Split point | In DU | In RU |
+|-------------|-------|-------|
+| Upper PHY | Resource mapping, precoding | iFFT, cyclic prefix, RF |
+| Beamforming | Weights computed | Weights applied |
+| Data format | IQ samples (frequency domain) | IQ samples (time domain) → RF |
+
+**Why 7.2x?** It moves beamforming to the RU — where your antenna is. The RU applies beamforming weights without sending 64 antenna streams over fronthaul. Fronthaul carries layer-mapped streams (≤8), not antenna ports (≤64).
+
+This is where antenna design meets network architecture.
+
+## RF parameters that matter to the network
+
+### Antenna gain and coverage
+
+Your 23 dBi gain enters the link budget:
+
+$$\text{MAPL} = P_{tx} + G_{tx} + G_{rx} - L_{body} - L_{penetration} - M_{fade} - M_{interference}$$
+
+The CU uses coverage predictions to decide:
+- Cell radius (determines inter-site distance)
+- Handover thresholds (depends on overlap)
+- Load balancing (steers traffic to less loaded cells)
+
+### Beamwidth and beam management
+
+Your 12° HPBW determines:
+- Number of SSB beams to cover the sector
+- Beam sweeping periodicity
+- Beam failure detection threshold
+
+**Example:** 120° sector with 12° beams → 10-12 SSB beams. Each beam covers ~10° azimuth × ~10° elevation.
+
+The MAC scheduler uses beam correspondence to:
+- Schedule PDCCH in the correct beam
+- Trigger beam failure recovery
+- Handover between beams (L1 mobility) or cells (L3 mobility)
+
+### Polarization and MIMO rank
+
+Your cross-pol antenna enables:
+- Rank-2 transmission (dual-polarized MIMO)
+- Polarization diversity against fading
+- 4 or 8 antenna ports for SU-MIMO
+
+The DU's scheduler adapts rank based on channel conditions. If your antenna's cross-pol isolation is poor (<20 dB), rank-2 becomes unreliable.
+
+### Array correlation and channel capacity
+
+Dense antenna spacing (λ/2) → low correlation → high capacity.
+Wide antenna spacing (>λ) → beam steering range but correlation issues.
+
+The CU doesn't directly see this — but it shows up in throughput statistics and CQI reports.
+
+## The signal chain: RF → Network
+
+### Downlink (gNB → UE)
+
+1. **CU:** Receives IP packets, maps to DRBs, applies PDCP.
+2. **DU:** Segments into RLC PDUs, schedules on MAC, maps to resource elements, generates precoding weights.
+3. **RU:** Applies beamforming (from precoding matrix), performs iFFT, adds CP, upconverts to RF.
+4. **Antenna:** Radiates the signal with your designed pattern.
+5. **UE:** Receives, performs channel estimation, reports CSI back.
+
+### Uplink (UE → gNB)
+
+1. **UE:** Transmits using allocated resources, applies precoding.
+2. **Antenna:** Receives with pattern gain, feeds to RU.
+3. **RU:** Amplifies (LNA), downconverts, ADC, removes CP, FFT, applies combining weights.
+4. **DU:** Decodes, reassembles, delivers to CU.
+5. **CU:** Terminates PDCP, delivers to core.
+
+### Where your antenna design appears
+
+| Parameter | Appears in... |
+|-----------|---------------|
+| Gain | Link budget, coverage prediction |
+| Pattern | Beam correspondence, interference |
+| Polarization | MIMO rank, diversity |
+| Bandwidth | Supported bands, carrier aggregation |
+| EIRP | Regulatory compliance, cell planning |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Massive MIMO panel for TDD**
+
+64 elements (8H × 8V), dual-pol → 128 antenna elements.
+Beamforming in RU → 8 layer-mapped streams over fronthaul (not 128).
+
+Antenna engineer's view:
+- Design for 3.5 GHz band
+- λ/2 spacing (42.8 mm)
+- Per-element EIRP = +26 dBm
+- Array gain = 10log₁₀(64) = 18 dBi
+
+Network architect's view:
+- 8 SSB beams cover 120° sector
+- 64T64R capable of rank-8 SU-MIMO
+- Fronthaul capacity: ~25 Gbps (Option 7.2x)
+- Supports 100 MHz NR carrier
+
+**Example: Why fronthaul bandwidth matters**
+
+If RU sends raw time-domain samples:
+- 100 MHz × 30.72 Msps × 2 (I/Q) × 16 bits × 64 antennas = **196 Gbps**
+
+With Option 7.2x (frequency domain, after beamforming):
+- 8 layers × ~25 Gbps = **~25 Gbps**
+
+Your antenna design (64 elements) would be impractical without functional split.
+
+**Example: Antenna tilt and coverage**
+
+Mechanical downtilt: 6° (fixed).
+Electrical downtilt: 0-15° (configurable via RU).
+
+CU's RRM uses electrical tilt for:
+- Coverage optimization
+- Interference mitigation
+- Load balancing between cells
+
+Antenna engineer sets mechanical tilt at installation; network optimizes electrical tilt continuously.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Designing antennas without understanding the split.** Your antenna doesn't exist in isolation — it's part of a fronthaul-connected RU. Impedance, connectors, and timing matter.
+
+2. **Ignoring calibration.** Massive MIMO requires per-element calibration for coherent beamforming. The RU performs this, but antenna phase/amplitude stability is your responsibility.
+
+3. **Forgetting about interference.** Your beautiful beam still creates interference in neighboring cells. The CU's ICIC features depend on predictable patterns.
+
+4. **Treating beamforming as pure RF.** Beamforming weights come from the DU's CSI feedback processing. The RU applies them. The antenna shapes them. All three must align.
+
+5. **Ignoring thermal constraints.** 64 elements × 26 dBm each = serious heat. Power amplifier design affects both RF performance and network availability.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 38.401, "NG-RAN Architecture Description"
+- 3GPP TS 38.104, "NR Base Station Radio Transmission and Reception"
+- O-RAN Alliance WG4, "O-RAN Fronthaul Control, User and Synchronization Plane Specification"
+- Small Cell Forum, "Functional Splits in 5G"
+- Björnson et al., *Massive MIMO Networks*, Cambridge, 2017
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+**From RF side:**
+- [Beamforming fundamentals](/en/rf/beamforming-fundamentals/) — the weights the RU applies
+- [Link budget](/en/rf/friis-and-link-budget/) — the math behind coverage
+
+**From Network side:**
+- [5G RAN architecture](/en/core-network/5g-ran-architecture/) — CU/DU/RU in depth
+- [MAC scheduling](/en/core-network/mac-scheduling/) — how the DU uses your antenna
+
+**Cross-domain:**
+- [Bridge B2: From satellite to UE](/en/bridges/satellite-to-ue/) — when the base station is in orbit
+
+</section>

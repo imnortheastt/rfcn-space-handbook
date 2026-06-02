@@ -1,0 +1,262 @@
+---
+id: bridges-b1-antenna-to-base-station-vi
+slug: antenna-to-base-station
+lang: vi
+parityId: bridges-b1-antenna-to-base-station
+domain: bridges
+track: b1
+unit: antenna-to-base-station
+order: 1
+level: L3
+estimatedReadingMinutes: 12
+prerequisites: ["rf-r2-fundamental-parameters-01-gain", "rf-r3-friis-and-link-budget-01-friis-equation"]
+spiralRevisits: ["rf-r4-beamforming-fundamentals-01-array-factor-beamforming"]
+title: "Cầu nối B1: Từ ăng-ten đến trạm gốc"
+description: "Cách kỹ thuật RF kết nối với kiến trúc mạng di động — gNB qua góc nhìn kỹ sư ăng-ten."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 38.104", "3GPP TS 38.401"]
+tags: ["bridge", "cross-domain", "gnb", "antenna", "fronthaul", "5g"]
+widgets: []
+license: CC-BY-SA-4.0
+status: published
+---
+
+<section class="lesson-hook">
+
+## Tại sao cầu nối này?
+
+Bạn đã thiết kế mảng pha 64 phần tử với tăng ích 23 dBi, HPBW 12°, và cách ly cross-pol >25 dB. Công việc RF tuyệt vời. Nhưng ăng-ten đó kết nối ở đâu? Nó mang tín hiệu gì? Tại sao kiến trúc sư mạng quan tâm đến độ rộng búp của bạn?
+
+Cầu nối này kết nối kỹ thuật ăng-ten RF với kiến trúc mạng 5G. Cuối bài, bạn sẽ thấy gNB (trạm gốc 5G) qua cả hai góc nhìn — và hiểu tại sao fronthaul option 7.2x có dạng như vậy.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Ăng-ten là giao diện vật lý giữa sóng dẫn (cáp, ống dẫn sóng) và sóng bức xạ (không gian tự do). gNB là thực thể logic kết thúc ngăn xếp giao thức vô tuyến.
+
+Chúng gặp nhau tại **khối vô tuyến (RU)** — nơi tín hiệu băng gốc số trở thành RF tương tự, và nơi pattern ăng-ten của bạn quan trọng.
+
+Ranh giới giữa "RF stuff" và "network stuff" không phải đường kẻ sạch. Quyết định beamforming ảnh hưởng lập lịch MAC. Tương quan ăng-ten ảnh hưởng rank MIMO. Pattern nhiễu ảnh hưởng handover. Hiểu cả hai phía khiến bạn nguy hiểm (theo nghĩa tốt).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Kiến trúc gNB
+
+### Phân chia chức năng
+
+3GPP định nghĩa gNB gồm ba thành phần logic:
+
+```
+┌────────────────────────────────────────────────┐
+│                     gNB                         │
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐   │
+│  │   CU     │   │   DU     │   │   RU     │   │
+│  │ (Trung   │   │ (Phân    │   │ (Vô      │   │
+│  │  tâm)    │   │  tán)    │   │  tuyến)  │   │
+│  └────┬─────┘   └────┬─────┘   └────┬─────┘   │
+│       │              │              │         │
+│       └──────F1──────┘              │         │
+│                      └────Fronthaul─┘         │
+└────────────────────────────────────────────────┘
+                                      │
+                                   Ăng-ten
+```
+
+**CU (Central Unit):** RRC, PDCP — mặt phẳng điều khiển, kết thúc mặt phẳng người dùng.
+
+**DU (Distributed Unit):** RLC, MAC, PHY trên — lập lịch, HARQ.
+
+**RU (Radio Unit):** PHY dưới, front-end RF — beamforming, chuyển đổi D/A, khuếch đại.
+
+### Ăng-ten ở đâu
+
+Ăng-ten là phần vật lý của (hoặc kết nối với) RU. Thiết kế ăng-ten của bạn ảnh hưởng trực tiếp:
+
+- **Trọng số beamforming** trong RU
+- **Ánh xạ cổng ăng-ten** nhìn thấy bởi DU
+- **Pattern CSI-RS** mà UE đo
+- **Vùng phủ sóng** mà RRM của CU dùng cho di động
+
+### Option 7.2x: Ranh giới RF-mạng
+
+Phân chia fronthaul phổ biến nhất trong 5G RAN:
+
+| Điểm chia | Trong DU | Trong RU |
+|-----------|----------|----------|
+| PHY trên | Ánh xạ tài nguyên, precoding | iFFT, cyclic prefix, RF |
+| Beamforming | Tính trọng số | Áp dụng trọng số |
+| Định dạng dữ liệu | Mẫu IQ (miền tần số) | Mẫu IQ (miền thời gian) → RF |
+
+**Tại sao 7.2x?** Nó chuyển beamforming xuống RU — nơi ăng-ten của bạn. RU áp dụng trọng số beamforming mà không gửi 64 luồng ăng-ten qua fronthaul. Fronthaul mang luồng ánh xạ lớp (≤8), không phải cổng ăng-ten (≤64).
+
+Đây là nơi thiết kế ăng-ten gặp kiến trúc mạng.
+
+## Tham số RF quan trọng với mạng
+
+### Tăng ích ăng-ten và vùng phủ
+
+Tăng ích 23 dBi của bạn vào link budget:
+
+$$\text{MAPL} = P_{tx} + G_{tx} + G_{rx} - L_{body} - L_{penetration} - M_{fade} - M_{interference}$$
+
+CU dùng dự đoán vùng phủ để quyết định:
+- Bán kính cell (xác định khoảng cách liên trạm)
+- Ngưỡng handover (phụ thuộc vùng chồng lấp)
+- Cân bằng tải (chuyển lưu lượng sang cell ít tải)
+
+### Độ rộng búp và quản lý búp
+
+HPBW 12° của bạn xác định:
+- Số búp SSB để phủ sector
+- Chu kỳ quét búp
+- Ngưỡng phát hiện lỗi búp
+
+**Ví dụ:** Sector 120° với búp 12° → 10-12 búp SSB. Mỗi búp phủ ~10° phương vị × ~10° góc ngẩng.
+
+Bộ lập lịch MAC dùng tương ứng búp để:
+- Lập lịch PDCCH trong búp đúng
+- Kích hoạt phục hồi lỗi búp
+- Handover giữa búp (di động L1) hoặc cell (di động L3)
+
+### Phân cực và rank MIMO
+
+Ăng-ten cross-pol của bạn cho phép:
+- Truyền rank-2 (MIMO phân cực kép)
+- Đa dạng phân cực chống fading
+- 4 hoặc 8 cổng ăng-ten cho SU-MIMO
+
+Bộ lập lịch DU thích ứng rank dựa trên điều kiện kênh. Nếu cách ly cross-pol ăng-ten kém (<20 dB), rank-2 trở nên không tin cậy.
+
+### Tương quan mảng và dung lượng kênh
+
+Khoảng cách ăng-ten dày (λ/2) → tương quan thấp → dung lượng cao.
+Khoảng cách ăng-ten rộng (>λ) → phạm vi lái búp nhưng vấn đề tương quan.
+
+CU không thấy trực tiếp điều này — nhưng nó hiện trong thống kê thông lượng và báo cáo CQI.
+
+## Chuỗi tín hiệu: RF → Mạng
+
+### Đường xuống (gNB → UE)
+
+1. **CU:** Nhận gói IP, ánh xạ sang DRB, áp dụng PDCP.
+2. **DU:** Phân đoạn thành RLC PDU, lập lịch trên MAC, ánh xạ sang resource element, tạo trọng số precoding.
+3. **RU:** Áp dụng beamforming (từ ma trận precoding), thực hiện iFFT, thêm CP, upconvert sang RF.
+4. **Ăng-ten:** Bức xạ tín hiệu với pattern đã thiết kế.
+5. **UE:** Nhận, ước lượng kênh, báo cáo CSI lại.
+
+### Đường lên (UE → gNB)
+
+1. **UE:** Phát dùng tài nguyên được phân bổ, áp dụng precoding.
+2. **Ăng-ten:** Nhận với tăng ích pattern, đưa vào RU.
+3. **RU:** Khuếch đại (LNA), downconvert, ADC, loại CP, FFT, áp dụng trọng số kết hợp.
+4. **DU:** Giải mã, tái hợp, giao cho CU.
+5. **CU:** Kết thúc PDCP, giao cho core.
+
+### Thiết kế ăng-ten xuất hiện ở đâu
+
+| Tham số | Xuất hiện trong... |
+|---------|---------------------|
+| Tăng ích | Link budget, dự đoán vùng phủ |
+| Pattern | Tương ứng búp, nhiễu |
+| Phân cực | Rank MIMO, đa dạng |
+| Băng thông | Băng tần hỗ trợ, carrier aggregation |
+| EIRP | Tuân thủ quy định, quy hoạch cell |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Panel Massive MIMO cho TDD**
+
+64 phần tử (8H × 8V), phân cực kép → 128 phần tử ăng-ten.
+Beamforming trong RU → 8 luồng ánh xạ lớp qua fronthaul (không phải 128).
+
+Góc nhìn kỹ sư ăng-ten:
+- Thiết kế cho băng 3.5 GHz
+- Khoảng cách λ/2 (42.8 mm)
+- EIRP mỗi phần tử = +26 dBm
+- Tăng ích mảng = 10log₁₀(64) = 18 dBi
+
+Góc nhìn kiến trúc sư mạng:
+- 8 búp SSB phủ sector 120°
+- 64T64R hỗ trợ SU-MIMO rank-8
+- Dung lượng fronthaul: ~25 Gbps (Option 7.2x)
+- Hỗ trợ sóng mang NR 100 MHz
+
+**Ví dụ: Tại sao băng thông fronthaul quan trọng**
+
+Nếu RU gửi mẫu miền thời gian thô:
+- 100 MHz × 30.72 Msps × 2 (I/Q) × 16 bit × 64 ăng-ten = **196 Gbps**
+
+Với Option 7.2x (miền tần số, sau beamforming):
+- 8 lớp × ~25 Gbps = **~25 Gbps**
+
+Thiết kế ăng-ten của bạn (64 phần tử) sẽ không khả thi nếu không có phân chia chức năng.
+
+**Ví dụ: Nghiêng ăng-ten và vùng phủ**
+
+Nghiêng cơ học: 6° (cố định).
+Nghiêng điện: 0-15° (cấu hình qua RU).
+
+RRM của CU dùng nghiêng điện cho:
+- Tối ưu vùng phủ
+- Giảm thiểu nhiễu
+- Cân bằng tải giữa cell
+
+Kỹ sư ăng-ten đặt nghiêng cơ học khi lắp đặt; mạng tối ưu nghiêng điện liên tục.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Thiết kế ăng-ten không hiểu phân chia.** Ăng-ten không tồn tại cô lập — nó là phần của RU kết nối fronthaul. Trở kháng, đầu nối, và đồng bộ quan trọng.
+
+2. **Bỏ qua hiệu chuẩn.** Massive MIMO yêu cầu hiệu chuẩn mỗi phần tử cho beamforming kết hợp. RU thực hiện điều này, nhưng độ ổn định pha/biên độ ăng-ten là trách nhiệm của bạn.
+
+3. **Quên nhiễu.** Búp đẹp của bạn vẫn tạo nhiễu cho cell lân cận. Tính năng ICIC của CU phụ thuộc pattern có thể dự đoán.
+
+4. **Xem beamforming là RF thuần túy.** Trọng số beamforming đến từ xử lý phản hồi CSI của DU. RU áp dụng chúng. Ăng-ten định hình chúng. Cả ba phải khớp.
+
+5. **Bỏ qua ràng buộc nhiệt.** 64 phần tử × 26 dBm mỗi cái = nhiệt nghiêm trọng. Thiết kế khuếch đại công suất ảnh hưởng cả hiệu suất RF và khả dụng mạng.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- 3GPP TS 38.401, "NG-RAN Architecture Description"
+- 3GPP TS 38.104, "NR Base Station Radio Transmission and Reception"
+- O-RAN Alliance WG4, "O-RAN Fronthaul Control, User and Synchronization Plane Specification"
+- Small Cell Forum, "Functional Splits in 5G"
+- Björnson et al., *Massive MIMO Networks*, Cambridge, 2017
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp ở đâu
+
+**Từ phía RF:**
+- [Beamforming cơ bản](/vi/rf/beamforming-fundamentals/) — trọng số RU áp dụng
+- [Link budget](/vi/rf/friis-and-link-budget/) — toán đằng sau vùng phủ
+
+**Từ phía Mạng:**
+- [Kiến trúc RAN 5G](/vi/core-network/5g-ran-architecture/) — CU/DU/RU chi tiết
+- [Lập lịch MAC](/vi/core-network/mac-scheduling/) — cách DU dùng ăng-ten của bạn
+
+**Xuyên miền:**
+- [Cầu nối B2: Từ vệ tinh đến UE](/vi/bridges/satellite-to-ue/) — khi trạm gốc ở trên quỹ đạo
+
+</section>
