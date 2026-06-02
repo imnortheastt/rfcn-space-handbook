@@ -9,16 +9,183 @@ unit: the-diversity-intuition
 order: 3
 level: L3
 estimatedReadingMinutes: 5
-title: "Bậc phân tập"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: ["rf-r5-the-diversity-intuition-02-diversity-gain"]
+spiralRevisits: []
+title: "Bậc diversity"
+description: "Số mũ xác định scaling xác suất lỗi."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["diversity-order", "ber", "fading", "space-time-codes"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Bậc phân tập
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao bậc diversity?
+
+Bậc diversity là số mũ trong biểu thức xác suất lỗi: $P_e \propto \text{SNR}^{-d}$. Nó xác định lỗi biến mất nhanh như thế nào khi SNR tăng. Bậc 1 nghĩa là lỗi giảm tuyến tính; bậc 4 nghĩa là chúng giảm theo lũy thừa bốn. Số đơn này dự đoán hành vi độ tin cậy hệ thống.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy nghĩ bậc diversity như số fade độc lập mà tất cả phải đồng thời xấu để lỗi xảy ra. Với 4 nhánh độc lập, tất cả 4 phải fade cùng nhau — xác suất giảm theo lũy thừa bốn của SNR.
+
+Bậc cao hơn = giảm lỗi nhanh hơn = hệ thống đáng tin cậy hơn.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Định nghĩa
+
+Ở SNR cao, xác suất lỗi trung bình tuân theo:
+
+$$P_e = (G_c \cdot \text{SNR})^{-d} + o(\text{SNR}^{-d})$$
+
+- $d$ = bậc diversity
+- $G_c$ = khuếch đại mã hóa (dịch ngang đường cong lỗi)
+
+### Bậc đạt được tối đa
+
+Cho $N_t$ TX và $N_r$ anten RX:
+
+$$d_{max} = N_t \cdot N_r$$
+
+Đây là bậc diversity đầy đủ — đạt được bởi mã không-thời gian tối ưu.
+
+### Mã không-thời gian và bậc diversity
+
+| Mã | $N_t$ | $N_r$ | Tốc độ | Bậc diversity |
+|----|-------|-------|--------|---------------|
+| SISO | 1 | 1 | 1 | 1 |
+| MRC (1×L) | 1 | L | 1 | L |
+| MISO MRT (L×1) | L | 1 | 1 | L |
+| Alamouti | 2 | 1 | 1 | 2 |
+| Alamouti | 2 | 2 | 1 | 4 |
+| V-BLAST | N | N | N | 1 (mỗi luồng) |
+| D-BLAST | N | N | ~N | N (với mã hóa) |
+
+### Mã Alamouti
+
+Sơ đồ diversity phát chuẩn 2×1:
+
+$$\mathbf{X} = \begin{bmatrix} x_1 & -x_2^* \\ x_2 & x_1^* \end{bmatrix}$$
+
+Thời điểm 1: gửi $x_1, x_2$ từ anten 1, 2
+Thời điểm 2: gửi $-x_2^*, x_1^*$ từ anten 1, 2
+
+Tính chất:
+- Thiết kế trực giao: $\mathbf{X}\mathbf{X}^H = (|x_1|^2 + |x_2|^2)\mathbf{I}$
+- Đạt diversity đầy đủ d = 2
+- Tốc độ 1 (không mất tốc độ)
+- Giải mã ML là tuyến tính (máy thu đơn giản)
+
+### Đánh đổi diversity vs. ghép kênh
+
+Diversity đầy đủ yêu cầu lặp lại; tốc độ cao yêu cầu luồng độc lập.
+
+**Đánh đổi Zheng-Tse:**
+$$d(r) = (N_t - r)(N_r - r)$$
+
+- $r$ = khuếch đại ghép kênh
+- $d(r)$ = bậc diversity đạt được ở khuếch đại ghép kênh r
+
+Ở ghép kênh đầy đủ ($r = \min(N_t, N_r)$): $d = 0$
+Ở diversity đầy đủ ($r = 0$): $d = N_t N_r$
+
+### Diversity một phần
+
+Đôi khi diversity đầy đủ không đạt được:
+
+- V-BLAST: d = 1 mỗi luồng (giới hạn bởi nhiễu)
+- Selection combining: d = L (giống MRC)
+- Kênh tương quan: $d_{eff} < d_{ideal}$
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Alamouti 2×2**
+
+$N_t = 2$, $N_r = 2$, dùng mã Alamouti.
+
+Diversity đầy đủ: $d = 2 \times 2 = 4$
+
+Ở SNR = 20 dB: $P_e \propto (10^2)^{-4} = 10^{-8}$
+
+So với SISO ($d = 1$): $P_e \propto 10^{-2}$
+
+Cải thiện sáu bậc độ lớn!
+
+**Ví dụ: V-BLAST vs. Alamouti**
+
+Hệ thống 4×4 ở SNR 10 dB:
+
+V-BLAST (4 luồng, d = 1 mỗi):
+- Mỗi luồng: $P_e \approx 10^{-1}$
+- Thông lượng rất cao, độ tin cậy kém
+
+Alamouti (tốc độ 1, d = 8):
+- $P_e \approx 10^{-8}$
+- Thông lượng thấp, độ tin cậy xuất sắc
+
+Chọn dựa trên ứng dụng: truyền dữ liệu khối (V-BLAST) vs. báo hiệu điều khiển (Alamouti).
+
+**Ví dụ: 5G NR PDCCH**
+
+Kênh điều khiển dùng diversity phát (d = 2 hoặc 4):
+- Báo hiệu quan trọng phải siêu đáng tin cậy
+- Diversity đầy đủ biện minh cho mất tốc độ
+
+Kênh dữ liệu (PDSCH) dùng ghép kênh không gian:
+- Ưu tiên thông lượng
+- Diversity thấp hơn chấp nhận được
+
+**Ví dụ: Diversity hiệu dụng với tương quan**
+
+Hệ thống 2×2 với tương quan TX ρ = 0.7:
+
+Diversity đầy đủ: $d = 4$
+
+Diversity hiệu dụng: xấp xỉ $d_{eff} \approx 4 \times (1 - \rho^2) \approx 2$
+
+Một nửa bậc diversity lý tưởng do tương quan.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Giả định diversity đầy đủ tự động.** V-BLAST, máy thu ZF, và nhiều sơ đồ thực tế không đạt diversity đầy đủ. Kiểm tra bậc thực tế.
+
+2. **Nhầm bậc diversity với số nhánh.** 8 nhánh tương quan có thể cho d = 2. Bậc phụ thuộc độc lập hiệu dụng.
+
+3. **Bỏ qua khuếch đại mã hóa.** Hai sơ đồ cùng bậc diversity có thể khác 3-6 dB do khác biệt khuếch đại mã hóa.
+
+4. **Tối ưu sai metric.** Bậc diversity thấp không phải lúc nào cũng xấu — khuếch đại ghép kênh cao có thể có giá trị hơn.
+
+5. **Quên dải SNR thực tế.** Bậc diversity tiệm cận ít quan trọng hơn ở SNR vừa (0-20 dB) nơi hầu hết hệ thống hoạt động.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Alamouti, "A Simple Transmit Diversity Technique," IEEE JSAC, 1998.
+- Zheng and Tse, "Diversity and Multiplexing Tradeoff," IEEE Trans. IT, 2003.
+- Tarokh et al., "Space-Time Codes for High Data Rate Wireless Communication," IEEE Trans. IT, 1998.
+
+</section>

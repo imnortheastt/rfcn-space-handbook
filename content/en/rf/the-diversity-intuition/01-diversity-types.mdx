@@ -9,16 +9,162 @@ unit: the-diversity-intuition
 order: 1
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: []
+spiralRevisits: []
 title: "Types of diversity"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Exploiting independent fading paths for reliability."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["diversity", "fading", "mimo", "wireless"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Types of diversity
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why diversity?
+
+Fading causes deep signal nulls — moments when the channel gain drops by 20-40 dB. A single link fails during these nulls. Diversity provides multiple independent copies of the signal, so when one path fades, another likely doesn't.
+
+Diversity is the fundamental technique for reliable wireless communication.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Imagine betting on a single coin flip versus averaging ten independent flips. One flip can be unlucky; ten flips average out. Diversity does the same for fading channels — multiple independent "bets" on the channel smooth out the randomness.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Spatial diversity
+
+Use multiple antennas separated by λ/2 or more.
+
+**Receive diversity (SIMO):** Multiple RX antennas combine signals. Fading at one antenna is independent of fading at another if spacing ≥ λ/2.
+
+**Transmit diversity (MISO):** Multiple TX antennas send redundant copies. Space-time codes (Alamouti) achieve full diversity without channel knowledge at TX.
+
+**Full MIMO:** Both TX and RX have multiple antennas. Achieves both diversity and multiplexing gains.
+
+### Time diversity
+
+Transmit the same symbol at different times.
+
+**Requirement:** Time separation > coherence time $T_c$.
+
+**Implementation:** Interleaving + coding across time slots.
+
+**Limitation:** Introduces delay. Not suitable for real-time applications with slow fading.
+
+### Frequency diversity
+
+Transmit the same symbol on different frequencies.
+
+**Requirement:** Frequency separation > coherence bandwidth $B_c$.
+
+**Implementation:** OFDM with interleaving across subcarriers, frequency hopping.
+
+**Relationship:** $B_c \approx 1/(2\pi\tau_{rms})$ where $\tau_{rms}$ is delay spread.
+
+### Polarization diversity
+
+Use orthogonal polarizations (H/V or LHCP/RHCP).
+
+**Independence:** Cross-polar discrimination (XPD) typically 6-15 dB in urban environments.
+
+**Benefit:** Two independent paths without extra antenna spacing. Useful for compact devices.
+
+### Angle/pattern diversity
+
+Antennas with different radiation patterns see different multipath clusters.
+
+**Implementation:** Switching between directional antennas, or using antennas with orthogonal patterns.
+
+### Cooperative diversity
+
+Multiple users relay each other's signals.
+
+**Virtual MIMO:** Single-antenna devices form distributed antenna array.
+
+**Protocols:** Amplify-and-forward, decode-and-forward.
+
+### Comparison
+
+| Type | Independence requirement | Overhead | Typical use case |
+|------|--------------------------|----------|------------------|
+| Spatial | λ/2 spacing | Hardware | Base stations, flagship phones |
+| Time | > $T_c$ separation | Delay | Slow fading, FEC |
+| Frequency | > $B_c$ separation | Bandwidth | OFDM, frequency hopping |
+| Polarization | Orthogonal pol | Hardware | Compact devices, satellite |
+| Cooperative | Separate nodes | Coordination | IoT, relaying |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 5G NR antenna configuration**
+
+Smartphone with 4 antennas at 3.5 GHz (λ ≈ 86 mm):
+- λ/2 = 43 mm — achievable spacing in phone form factor
+- 2 antennas at each end of phone, cross-polarized
+- Combines spatial and polarization diversity
+
+**Example: Wi-Fi 6E**
+
+Operating at 6 GHz (λ = 50 mm):
+- Indoor $B_c$ ≈ 10-20 MHz (delay spread ~50 ns)
+- 160 MHz channel spans 8-16 coherence bandwidths
+- OFDM with LDPC coding across subcarriers provides frequency diversity
+
+**Example: Satellite communications**
+
+LEO satellite link:
+- Polarization diversity: LHCP/RHCP
+- Time diversity: interleaving over 100+ ms (handles Doppler variation)
+- No spatial diversity at handheld terminal (single antenna)
+
+**Example: LTE-M IoT**
+
+Narrowband (180 kHz channel):
+- No frequency diversity within channel
+- Relies on time diversity via repetitions
+- Up to 2048 repetitions for coverage enhancement
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming independence.** Diversity requires independent fading paths. Correlated paths (e.g., antennas too close, frequencies within $B_c$) provide reduced diversity gain.
+
+2. **Confusing diversity with multiplexing.** Diversity improves reliability (same data on multiple paths). Multiplexing improves rate (different data on multiple paths). They trade off.
+
+3. **Ignoring cost.** Each diversity branch costs hardware (spatial), bandwidth (frequency), or latency (time). Diminishing returns after 2-4 branches.
+
+4. **Over-engineering.** High-SNR scenarios don't need much diversity — errors are rare anyway. Diversity matters most at moderate SNR.
+
+5. **Forgetting combining method.** How branches combine matters. MRC requires channel knowledge; selection combining doesn't but is suboptimal.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 3.
+- Goldsmith, *Wireless Communications*, Chapter 7.
+- 3GPP TS 38.211, "NR Physical Channels and Modulation."
+
+</section>

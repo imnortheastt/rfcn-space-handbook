@@ -9,16 +9,183 @@ unit: the-diversity-intuition
 order: 2
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r5-the-diversity-intuition-01-diversity-types"]
+spiralRevisits: []
 title: "Diversity gain"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Quantifying the reliability improvement from diversity."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["diversity-gain", "combining", "fading", "ber"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Diversity gain
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why diversity gain?
+
+Adding antennas improves reliability — but by how much? Diversity gain quantifies this: it's the SNR reduction you can afford while maintaining the same error rate. A 10 dB diversity gain means you can operate at 10 dB lower SNR with the same BER.
+
+This metric drives antenna system design decisions.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+In Rayleigh fading, deep fades (where signal drops 20+ dB) occur with probability ~1%. With two independent branches, both fading simultaneously has probability ~(1%)² = 0.01%. The tail of the error probability shrinks dramatically.
+
+Diversity gain captures this tail compression.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Definition
+
+Diversity gain compares outage probability (or BER) curves:
+
+$$G_d = \lim_{\text{SNR} \to \infty} \frac{\log P_e^{(1)}}{\log P_e^{(L)}}$$
+
+For L-branch diversity with order-d diversity:
+
+$$P_e \propto \text{SNR}^{-d}$$
+
+Without diversity (d = 1): $P_e \propto 1/\text{SNR}$
+With L-branch MRC (d = L): $P_e \propto 1/\text{SNR}^L$
+
+### Combining techniques
+
+**Selection Combining (SC)**
+- Select branch with highest SNR
+- Simplest implementation
+- Diversity gain: L (same as MRC asymptotically)
+- 1-3 dB loss vs. MRC at finite SNR
+
+**Maximal Ratio Combining (MRC)**
+- Weight each branch by its channel coefficient
+- Optimal linear combiner
+- Output SNR = sum of branch SNRs
+- Requires channel knowledge
+
+**Equal Gain Combining (EGC)**
+- Co-phase branches, sum with equal weights
+- 1 dB loss vs. MRC
+- Simpler than MRC (no amplitude weighting)
+
+### SNR gain from combining
+
+For L i.i.d. Rayleigh branches with average SNR $\bar{\gamma}$:
+
+| Combining | Mean output SNR | Gain vs. no diversity |
+|-----------|-----------------|----------------------|
+| MRC | $L \bar{\gamma}$ | L (array gain) |
+| EGC | $\bar{\gamma}(1 + (L-1)\pi/4)$ | ~0.88L |
+| SC | $\bar{\gamma} \sum_{k=1}^{L} 1/k$ | ~$\ln L + 0.577$ |
+
+### BER improvement
+
+For BPSK over Rayleigh fading:
+
+No diversity: $P_b \approx \frac{1}{4\bar{\gamma}}$ (high SNR)
+
+L-branch MRC: $P_b \approx \binom{2L-1}{L} \frac{1}{(4\bar{\gamma})^L}$
+
+At $\bar{\gamma}$ = 20 dB:
+- No diversity: $P_b \approx 2.5 \times 10^{-3}$
+- 2-branch MRC: $P_b \approx 1.5 \times 10^{-5}$
+- 4-branch MRC: $P_b \approx 4 \times 10^{-9}$
+
+### Effective diversity gain
+
+Real systems achieve less than ideal diversity gain due to:
+- Correlation between branches
+- Imperfect channel estimation
+- Implementation losses
+
+Effective gain: $G_{eff} = G_{ideal} \times \rho_{corr} \times \rho_{CSI}$
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 2-branch receive diversity**
+
+Target BER: $10^{-4}$
+
+No diversity: requires SNR ≈ 17 dB
+2-branch MRC: requires SNR ≈ 8 dB
+
+Diversity gain: 17 - 8 = 9 dB
+
+This 9 dB can translate to:
+- 2.8× range extension (free space)
+- 9 dB lower TX power
+- Move from 90% to 99.9% coverage
+
+**Example: Wi-Fi MIMO receiver**
+
+2×2 MIMO at 5 GHz:
+- Spatial correlation: ρ = 0.3 (0.5λ spacing)
+- CSI accuracy: 0.9 (realistic estimation)
+- Ideal diversity gain: 3 dB (2 branches)
+- Effective gain: 3 × 0.85 × 0.9 ≈ 2.3 dB
+
+Still substantial improvement over SISO.
+
+**Example: Diminishing returns**
+
+Adding branches beyond 2-4:
+
+| Branches | BER at 10 dB SNR | Incremental gain |
+|----------|------------------|------------------|
+| 1 | $10^{-2}$ | baseline |
+| 2 | $10^{-4}$ | 2 orders |
+| 4 | $10^{-7}$ | 3 orders |
+| 8 | $10^{-12}$ | 5 orders |
+
+Doubling antennas beyond 4 adds ~1-2 dB. Cost usually not justified.
+
+**Example: Outage probability**
+
+For 1% outage (99% reliability):
+
+1 branch: requires 20 dB SNR margin
+2 branches: requires 10 dB SNR margin
+4 branches: requires 5 dB SNR margin
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing array gain with diversity gain.** Array gain is the increase in mean SNR. Diversity gain is the improvement in the SNR distribution tail. MRC provides both; selection combining provides only diversity gain.
+
+2. **Assuming high-SNR regime.** Diversity gain definitions use asymptotic expressions. At finite SNR (practical systems), the gains are smaller.
+
+3. **Ignoring correlation.** Correlated branches provide reduced effective diversity. Two antennas with ρ = 0.9 correlation behave almost like one antenna.
+
+4. **Forgetting implementation cost.** Each branch needs RF chain, ADC, and processing. 4→8 branches rarely worth the cost.
+
+5. **Using wrong combining.** SC is simple but leaves ~2-3 dB on the table vs. MRC. Choose based on hardware constraints.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 3.
+- Simon and Alouini, *Digital Communication over Fading Channels*, Chapter 9.
+- Proakis and Salehi, *Digital Communications*, Chapter 14.
+
+</section>

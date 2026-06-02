@@ -9,16 +9,162 @@ unit: the-diversity-intuition
 order: 1
 level: L3
 estimatedReadingMinutes: 5
-title: "Các loại phân tập"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "Các loại diversity"
+description: "Khai thác các đường fading độc lập cho độ tin cậy."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["diversity", "fading", "mimo", "wireless"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Các loại phân tập
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao diversity?
+
+Fading gây ra vùng null tín hiệu sâu — những khoảnh khắc khi độ lợi kênh giảm 20-40 dB. Một liên kết đơn thất bại trong những null này. Diversity cung cấp nhiều bản sao độc lập của tín hiệu, nên khi một đường fading, đường khác có thể không.
+
+Diversity là kỹ thuật cơ bản cho truyền thông không dây đáng tin cậy.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy tưởng tượng đặt cược vào một lần tung đồng xu so với trung bình mười lần tung độc lập. Một lần tung có thể xui; mười lần tung trung bình hóa. Diversity làm tương tự cho kênh fading — nhiều "cược" độc lập trên kênh làm mịn tính ngẫu nhiên.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Diversity không gian
+
+Dùng nhiều anten cách nhau λ/2 hoặc hơn.
+
+**Diversity thu (SIMO):** Nhiều anten RX kết hợp tín hiệu. Fading ở một anten độc lập với fading ở anten khác nếu khoảng cách ≥ λ/2.
+
+**Diversity phát (MISO):** Nhiều anten TX gửi bản sao dư thừa. Mã không-thời gian (Alamouti) đạt diversity đầy đủ mà không cần biết kênh ở TX.
+
+**MIMO đầy đủ:** Cả TX và RX có nhiều anten. Đạt cả khuếch đại diversity và ghép kênh.
+
+### Diversity thời gian
+
+Phát cùng ký hiệu ở các thời điểm khác nhau.
+
+**Yêu cầu:** Khoảng cách thời gian > thời gian coherence $T_c$.
+
+**Thực hiện:** Interleaving + mã hóa qua các khe thời gian.
+
+**Hạn chế:** Tạo trễ. Không phù hợp cho ứng dụng thời gian thực với fading chậm.
+
+### Diversity tần số
+
+Phát cùng ký hiệu trên các tần số khác nhau.
+
+**Yêu cầu:** Khoảng cách tần số > băng thông coherence $B_c$.
+
+**Thực hiện:** OFDM với interleaving qua các sóng mang con, nhảy tần.
+
+**Quan hệ:** $B_c \approx 1/(2\pi\tau_{rms})$ trong đó $\tau_{rms}$ là delay spread.
+
+### Diversity phân cực
+
+Dùng phân cực trực giao (H/V hoặc LHCP/RHCP).
+
+**Độc lập:** Phân biệt cross-polar (XPD) thường 6-15 dB trong môi trường đô thị.
+
+**Lợi ích:** Hai đường độc lập mà không cần khoảng cách anten thêm. Hữu ích cho thiết bị nhỏ gọn.
+
+### Diversity góc/pattern
+
+Các anten với pattern bức xạ khác nhau thấy các cụm multipath khác nhau.
+
+**Thực hiện:** Chuyển đổi giữa các anten hướng, hoặc dùng anten với pattern trực giao.
+
+### Diversity hợp tác
+
+Nhiều người dùng chuyển tiếp tín hiệu của nhau.
+
+**MIMO ảo:** Thiết bị anten đơn tạo mảng anten phân tán.
+
+**Giao thức:** Amplify-and-forward, decode-and-forward.
+
+### So sánh
+
+| Loại | Yêu cầu độc lập | Overhead | Trường hợp sử dụng điển hình |
+|------|-----------------|----------|------------------------------|
+| Không gian | Khoảng cách λ/2 | Phần cứng | Trạm gốc, điện thoại cao cấp |
+| Thời gian | Khoảng cách > $T_c$ | Trễ | Fading chậm, FEC |
+| Tần số | Khoảng cách > $B_c$ | Băng thông | OFDM, nhảy tần |
+| Phân cực | Pol trực giao | Phần cứng | Thiết bị nhỏ gọn, vệ tinh |
+| Hợp tác | Nút riêng biệt | Phối hợp | IoT, relay |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Cấu hình anten 5G NR**
+
+Smartphone với 4 anten ở 3.5 GHz (λ ≈ 86 mm):
+- λ/2 = 43 mm — khoảng cách khả thi trong form factor điện thoại
+- 2 anten ở mỗi đầu điện thoại, phân cực chéo
+- Kết hợp diversity không gian và phân cực
+
+**Ví dụ: Wi-Fi 6E**
+
+Hoạt động ở 6 GHz (λ = 50 mm):
+- Indoor $B_c$ ≈ 10-20 MHz (delay spread ~50 ns)
+- Kênh 160 MHz trải dài 8-16 băng thông coherence
+- OFDM với mã hóa LDPC qua các sóng mang con cung cấp diversity tần số
+
+**Ví dụ: Truyền thông vệ tinh**
+
+Liên kết vệ tinh LEO:
+- Diversity phân cực: LHCP/RHCP
+- Diversity thời gian: interleaving trên 100+ ms (xử lý biến thiên Doppler)
+- Không có diversity không gian ở terminal cầm tay (anten đơn)
+
+**Ví dụ: IoT LTE-M**
+
+Băng hẹp (kênh 180 kHz):
+- Không có diversity tần số trong kênh
+- Dựa vào diversity thời gian qua repetition
+- Tối đa 2048 repetition cho cải thiện coverage
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Giả định độc lập.** Diversity yêu cầu đường fading độc lập. Đường tương quan (ví dụ: anten quá gần, tần số trong $B_c$) cung cấp khuếch đại diversity giảm.
+
+2. **Nhầm diversity với ghép kênh.** Diversity cải thiện độ tin cậy (cùng dữ liệu trên nhiều đường). Ghép kênh cải thiện tốc độ (dữ liệu khác trên nhiều đường). Chúng đánh đổi.
+
+3. **Bỏ qua chi phí.** Mỗi nhánh diversity tốn phần cứng (không gian), băng thông (tần số), hoặc trễ (thời gian). Giảm lợi ích sau 2-4 nhánh.
+
+4. **Thiết kế quá mức.** Kịch bản SNR cao không cần nhiều diversity — lỗi hiếm dù sao. Diversity quan trọng nhất ở SNR vừa.
+
+5. **Quên phương pháp kết hợp.** Cách nhánh kết hợp quan trọng. MRC cần biết kênh; selection combining không nhưng không tối ưu.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 3.
+- Goldsmith, *Wireless Communications*, Chapter 7.
+- 3GPP TS 38.211, "NR Physical Channels and Modulation."
+
+</section>

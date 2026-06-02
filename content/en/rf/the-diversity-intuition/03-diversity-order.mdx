@@ -9,16 +9,183 @@ unit: the-diversity-intuition
 order: 3
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r5-the-diversity-intuition-02-diversity-gain"]
+spiralRevisits: []
 title: "Diversity order"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The exponent that determines error probability scaling."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["diversity-order", "ber", "fading", "space-time-codes"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Diversity order
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why diversity order?
+
+Diversity order is the exponent in the error probability expression: $P_e \propto \text{SNR}^{-d}$. It determines how fast errors vanish as SNR increases. Order 1 means errors drop linearly; order 4 means they drop as the fourth power. This single number predicts system reliability behavior.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Think of diversity order as the number of independent fades that must all be bad simultaneously for an error to occur. With 4 independent branches, all 4 must fade together — probability drops as the fourth power of SNR.
+
+Higher order = faster error decay = more reliable system.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Definition
+
+At high SNR, average error probability follows:
+
+$$P_e = (G_c \cdot \text{SNR})^{-d} + o(\text{SNR}^{-d})$$
+
+- $d$ = diversity order
+- $G_c$ = coding gain (horizontal shift of error curve)
+
+### Maximum achievable order
+
+For $N_t$ TX and $N_r$ RX antennas:
+
+$$d_{max} = N_t \cdot N_r$$
+
+This is the full diversity order — achieved by optimal space-time codes.
+
+### Space-time codes and diversity order
+
+| Code | $N_t$ | $N_r$ | Rate | Diversity order |
+|------|-------|-------|------|-----------------|
+| SISO | 1 | 1 | 1 | 1 |
+| MRC (1×L) | 1 | L | 1 | L |
+| MISO MRT (L×1) | L | 1 | 1 | L |
+| Alamouti | 2 | 1 | 1 | 2 |
+| Alamouti | 2 | 2 | 1 | 4 |
+| V-BLAST | N | N | N | 1 (per stream) |
+| D-BLAST | N | N | ~N | N (with coding) |
+
+### Alamouti code
+
+The canonical 2×1 transmit diversity scheme:
+
+$$\mathbf{X} = \begin{bmatrix} x_1 & -x_2^* \\ x_2 & x_1^* \end{bmatrix}$$
+
+Time 1: send $x_1, x_2$ from antennas 1, 2
+Time 2: send $-x_2^*, x_1^*$ from antennas 1, 2
+
+Properties:
+- Orthogonal design: $\mathbf{X}\mathbf{X}^H = (|x_1|^2 + |x_2|^2)\mathbf{I}$
+- Achieves full diversity d = 2
+- Rate 1 (no rate loss)
+- ML decoding is linear (simple receiver)
+
+### Diversity vs. multiplexing tradeoff
+
+Full diversity requires repetition; high rate requires independent streams.
+
+**Zheng-Tse tradeoff:**
+$$d(r) = (N_t - r)(N_r - r)$$
+
+- $r$ = multiplexing gain
+- $d(r)$ = achievable diversity order at multiplexing gain r
+
+At full multiplexing ($r = \min(N_t, N_r)$): $d = 0$
+At full diversity ($r = 0$): $d = N_t N_r$
+
+### Partial diversity
+
+Sometimes full diversity isn't achieved:
+
+- V-BLAST: d = 1 per stream (interference-limited)
+- Selection combining: d = L (same as MRC)
+- Correlated channels: $d_{eff} < d_{ideal}$
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 2×2 Alamouti**
+
+$N_t = 2$, $N_r = 2$, using Alamouti code.
+
+Full diversity: $d = 2 \times 2 = 4$
+
+At SNR = 20 dB: $P_e \propto (10^2)^{-4} = 10^{-8}$
+
+Compare to SISO ($d = 1$): $P_e \propto 10^{-2}$
+
+Six orders of magnitude improvement!
+
+**Example: V-BLAST vs. Alamouti**
+
+4×4 system at 10 dB SNR:
+
+V-BLAST (4 streams, d = 1 each):
+- Per-stream: $P_e \approx 10^{-1}$
+- Very high throughput, poor reliability
+
+Alamouti (rate 1, d = 8):
+- $P_e \approx 10^{-8}$
+- Low throughput, excellent reliability
+
+Choose based on application: bulk data transfer (V-BLAST) vs. control signaling (Alamouti).
+
+**Example: 5G NR PDCCH**
+
+Control channel uses transmit diversity (d = 2 or 4):
+- Critical signaling must be ultra-reliable
+- Full diversity justifies rate loss
+
+Data channel (PDSCH) uses spatial multiplexing:
+- Throughput prioritized
+- Lower diversity acceptable
+
+**Example: Effective diversity with correlation**
+
+2×2 system with TX correlation ρ = 0.7:
+
+Full diversity: $d = 4$
+
+Effective diversity: approximately $d_{eff} \approx 4 \times (1 - \rho^2) \approx 2$
+
+Half the ideal diversity order due to correlation.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming full diversity automatically.** V-BLAST, ZF receivers, and many practical schemes don't achieve full diversity. Check the actual order.
+
+2. **Confusing diversity order with branch count.** 8 correlated branches might give d = 2. Order depends on effective independence.
+
+3. **Ignoring coding gain.** Two schemes with same diversity order can differ by 3-6 dB due to coding gain differences.
+
+4. **Optimizing wrong metric.** Low diversity order isn't always bad — high multiplexing gain may be more valuable.
+
+5. **Forgetting practical SNR range.** Asymptotic diversity order matters less at moderate SNR (0-20 dB) where most systems operate.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Alamouti, "A Simple Transmit Diversity Technique," IEEE JSAC, 1998.
+- Zheng and Tse, "Diversity and Multiplexing Tradeoff," IEEE Trans. IT, 2003.
+- Tarokh et al., "Space-Time Codes for High Data Rate Wireless Communication," IEEE Trans. IT, 1998.
+
+</section>
