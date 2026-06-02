@@ -8,17 +8,200 @@ track: r0
 unit: decibels-and-units
 order: 1
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
 title: "dB, dBm, dBi, dBc"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Decibel notation and its RF-specific variants."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["decibels", "dBm", "dBi", "dBc", "units"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# dB, dBm, dBi, dBc
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why decibels?
+
+RF engineers deal with enormous dynamic ranges — signals vary from picowatts to kilowatts, antenna gains span factors of 1000+. Working in linear units means multiplying 10^12 numbers. Decibels convert multiplication to addition, making link budgets tractable.
+
+Understanding dB variants (dBm, dBi, dBc) is the first step to reading any RF datasheet or specification.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+A decibel is just a ratio expressed logarithmically:
+
+$$\text{dB} = 10 \log_{10}\left(\frac{P_1}{P_2}\right)$$
+
+- **+3 dB** ≈ double power
+- **+10 dB** = 10× power
+- **−3 dB** ≈ half power
+- **−10 dB** = 1/10 power
+
+The suffix tells you what the reference is:
+- **dBm** = relative to 1 milliwatt
+- **dBW** = relative to 1 watt
+- **dBi** = relative to isotropic antenna
+- **dBc** = relative to carrier
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### dB (pure ratio)
+
+Power ratio:
+$$G_{\text{dB}} = 10 \log_{10}\left(\frac{P_{out}}{P_{in}}\right)$$
+
+Voltage/current ratio (power ∝ V²):
+$$G_{\text{dB}} = 20 \log_{10}\left(\frac{V_{out}}{V_{in}}\right)$$
+
+### dBm (absolute power)
+
+Reference: 1 mW.
+
+$$P_{\text{dBm}} = 10 \log_{10}\left(\frac{P}{1\ \text{mW}}\right)$$
+
+| Power | dBm |
+|-------|-----|
+| 1 μW | −30 dBm |
+| 1 mW | 0 dBm |
+| 10 mW | +10 dBm |
+| 100 mW | +20 dBm |
+| 1 W | +30 dBm |
+
+### dBW (absolute power)
+
+Reference: 1 W.
+
+$$P_{\text{dBW}} = 10 \log_{10}\left(\frac{P}{1\ \text{W}}\right)$$
+
+Conversion: $\text{dBm} = \text{dBW} + 30$.
+
+### dBi (antenna gain)
+
+Reference: isotropic radiator (hypothetical antenna radiating equally in all directions).
+
+$$G_{\text{dBi}} = 10 \log_{10}\left(\frac{G}{G_{iso}}\right)$$
+
+A dipole has gain ≈ 2.15 dBi.
+
+### dBd (antenna gain)
+
+Reference: half-wave dipole.
+
+$$G_{\text{dBd}} = G_{\text{dBi}} - 2.15$$
+
+Datasheets use both — always check which reference.
+
+### dBc (relative to carrier)
+
+Used for spurious signals, phase noise, harmonics.
+
+$$P_{\text{dBc}} = 10 \log_{10}\left(\frac{P_{signal}}{P_{carrier}}\right)$$
+
+Example: "Second harmonic at −40 dBc" means 40 dB below carrier.
+
+### Addition rules
+
+| Operation | Linear | dB |
+|-----------|--------|-----|
+| Cascade gains | $G_{total} = G_1 \times G_2$ | $G_{total} = G_1 + G_2$ |
+| Power ratio | $P_2 / P_1$ | $P_{2,\text{dBm}} - P_{1,\text{dBm}}$ |
+
+**You cannot add dBm values directly.** To add powers in dBm:
+1. Convert to linear (mW)
+2. Add
+3. Convert back to dBm
+
+### Quick mental math
+
+| Change | dB | Exact |
+|--------|-----|-------|
+| ×2 | +3 dB | 3.01 dB |
+| ×4 | +6 dB | 6.02 dB |
+| ×10 | +10 dB | exact |
+| ×100 | +20 dB | exact |
+| ×1000 | +30 dB | exact |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Amplifier cascade**
+
+Amplifier 1: +20 dB gain.
+Amplifier 2: +15 dB gain.
+
+Total gain: $20 + 15 = 35$ dB = 3162× power.
+
+**Example: Power in dBm**
+
+Transmitter outputs 2 W.
+
+$P = 10 \log_{10}(2000\ \text{mW}) = 10 \times 3.3 = 33$ dBm.
+
+**Example: Link budget**
+
+TX power: +30 dBm.
+TX antenna gain: +10 dBi.
+Path loss: −100 dB.
+RX antenna gain: +5 dBi.
+
+Received power: $30 + 10 - 100 + 5 = -55$ dBm.
+
+**Example: Adding powers**
+
+Two signals: +10 dBm and +10 dBm.
+
+Linear: 10 mW + 10 mW = 20 mW = +13 dBm.
+
+(NOT +20 dBm — that's the multiplication mistake.)
+
+**Example: dBc to absolute**
+
+Carrier: +20 dBm.
+Spur at −30 dBc.
+
+Spur power: $20 + (-30) = -10$ dBm.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Adding dBm values.** dBm + dBm is meaningless. Convert to mW first, add, convert back.
+
+2. **Confusing dBi and dBd.** An antenna listed as "12 dBd" is actually 14.15 dBi. Always check the reference.
+
+3. **Using 10× for voltage.** For voltage or current ratios, use 20 log₁₀, not 10 log₁₀.
+
+4. **Forgetting dBm is absolute.** "The signal dropped 3 dB" is relative. "The signal is −80 dBm" is absolute.
+
+5. **Calculator precision.** 3 dB ≈ 2× is fine for estimates. For precise work, use 10^(x/10).
+
+6. **Negative dB confusion.** −3 dB means half power (÷2), not −2× power.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- IEEE Standard for Definitions of Physical Quantities for Fundamental Frequency and Time Metrology.
+- ITU Radio Regulations — definitions of power units.
+
+</section>

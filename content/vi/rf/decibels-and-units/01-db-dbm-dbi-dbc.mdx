@@ -8,17 +8,200 @@ track: r0
 unit: decibels-and-units
 order: 1
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
 title: "dB, dBm, dBi, dBc"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Ký hiệu decibel và các biến thể đặc trưng RF."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["decibels", "dBm", "dBi", "dBc", "units"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# dB, dBm, dBi, dBc
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao decibel?
+
+Kỹ sư RF làm việc với dải động khổng lồ — tín hiệu biến đổi từ picowatt đến kilowatt, độ lợi anten trải trên hệ số 1000+. Làm việc với đơn vị tuyến tính nghĩa là nhân các số 10^12. Decibel chuyển phép nhân thành phép cộng, làm ngân sách liên kết khả thi.
+
+Hiểu các biến thể dB (dBm, dBi, dBc) là bước đầu tiên để đọc bất kỳ datasheet hay đặc tả RF nào.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Decibel chỉ là tỷ số biểu diễn dạng logarit:
+
+$$\text{dB} = 10 \log_{10}\left(\frac{P_1}{P_2}\right)$$
+
+- **+3 dB** ≈ gấp đôi công suất
+- **+10 dB** = 10× công suất
+- **−3 dB** ≈ nửa công suất
+- **−10 dB** = 1/10 công suất
+
+Hậu tố cho biết tham chiếu là gì:
+- **dBm** = so với 1 milliwatt
+- **dBW** = so với 1 watt
+- **dBi** = so với anten đẳng hướng
+- **dBc** = so với sóng mang
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### dB (tỷ số thuần)
+
+Tỷ số công suất:
+$$G_{\text{dB}} = 10 \log_{10}\left(\frac{P_{out}}{P_{in}}\right)$$
+
+Tỷ số điện áp/dòng điện (công suất ∝ V²):
+$$G_{\text{dB}} = 20 \log_{10}\left(\frac{V_{out}}{V_{in}}\right)$$
+
+### dBm (công suất tuyệt đối)
+
+Tham chiếu: 1 mW.
+
+$$P_{\text{dBm}} = 10 \log_{10}\left(\frac{P}{1\ \text{mW}}\right)$$
+
+| Công suất | dBm |
+|-----------|-----|
+| 1 μW | −30 dBm |
+| 1 mW | 0 dBm |
+| 10 mW | +10 dBm |
+| 100 mW | +20 dBm |
+| 1 W | +30 dBm |
+
+### dBW (công suất tuyệt đối)
+
+Tham chiếu: 1 W.
+
+$$P_{\text{dBW}} = 10 \log_{10}\left(\frac{P}{1\ \text{W}}\right)$$
+
+Chuyển đổi: $\text{dBm} = \text{dBW} + 30$.
+
+### dBi (độ lợi anten)
+
+Tham chiếu: bộ bức xạ đẳng hướng (anten giả định bức xạ đều theo mọi hướng).
+
+$$G_{\text{dBi}} = 10 \log_{10}\left(\frac{G}{G_{iso}}\right)$$
+
+Dipole có độ lợi ≈ 2.15 dBi.
+
+### dBd (độ lợi anten)
+
+Tham chiếu: dipole nửa sóng.
+
+$$G_{\text{dBd}} = G_{\text{dBi}} - 2.15$$
+
+Datasheet dùng cả hai — luôn kiểm tra tham chiếu nào.
+
+### dBc (so với sóng mang)
+
+Dùng cho tín hiệu giả, tạp nhiễu pha, hài.
+
+$$P_{\text{dBc}} = 10 \log_{10}\left(\frac{P_{signal}}{P_{carrier}}\right)$$
+
+Ví dụ: "Hài bậc hai ở −40 dBc" nghĩa là 40 dB dưới sóng mang.
+
+### Quy tắc cộng
+
+| Phép tính | Tuyến tính | dB |
+|-----------|------------|-----|
+| Nối tiếp độ lợi | $G_{total} = G_1 \times G_2$ | $G_{total} = G_1 + G_2$ |
+| Tỷ số công suất | $P_2 / P_1$ | $P_{2,\text{dBm}} - P_{1,\text{dBm}}$ |
+
+**Bạn không thể cộng trực tiếp giá trị dBm.** Để cộng công suất trong dBm:
+1. Chuyển sang tuyến tính (mW)
+2. Cộng
+3. Chuyển lại dBm
+
+### Tính nhẩm nhanh
+
+| Thay đổi | dB | Chính xác |
+|----------|-----|-----------|
+| ×2 | +3 dB | 3.01 dB |
+| ×4 | +6 dB | 6.02 dB |
+| ×10 | +10 dB | chính xác |
+| ×100 | +20 dB | chính xác |
+| ×1000 | +30 dB | chính xác |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Nối tiếp bộ khuếch đại**
+
+Bộ khuếch đại 1: +20 dB độ lợi.
+Bộ khuếch đại 2: +15 dB độ lợi.
+
+Tổng độ lợi: $20 + 15 = 35$ dB = 3162× công suất.
+
+**Ví dụ: Công suất theo dBm**
+
+Máy phát ra 2 W.
+
+$P = 10 \log_{10}(2000\ \text{mW}) = 10 \times 3.3 = 33$ dBm.
+
+**Ví dụ: Ngân sách liên kết**
+
+Công suất TX: +30 dBm.
+Độ lợi anten TX: +10 dBi.
+Suy hao đường truyền: −100 dB.
+Độ lợi anten RX: +5 dBi.
+
+Công suất nhận: $30 + 10 - 100 + 5 = -55$ dBm.
+
+**Ví dụ: Cộng công suất**
+
+Hai tín hiệu: +10 dBm và +10 dBm.
+
+Tuyến tính: 10 mW + 10 mW = 20 mW = +13 dBm.
+
+(KHÔNG phải +20 dBm — đó là lỗi nhân.)
+
+**Ví dụ: dBc sang tuyệt đối**
+
+Sóng mang: +20 dBm.
+Spur ở −30 dBc.
+
+Công suất spur: $20 + (-30) = -10$ dBm.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Cộng giá trị dBm.** dBm + dBm vô nghĩa. Chuyển sang mW trước, cộng, chuyển lại.
+
+2. **Nhầm dBi và dBd.** Anten liệt kê "12 dBd" thực ra là 14.15 dBi. Luôn kiểm tra tham chiếu.
+
+3. **Dùng 10× cho điện áp.** Cho tỷ số điện áp hoặc dòng điện, dùng 20 log₁₀, không phải 10 log₁₀.
+
+4. **Quên dBm là tuyệt đối.** "Tín hiệu giảm 3 dB" là tương đối. "Tín hiệu là −80 dBm" là tuyệt đối.
+
+5. **Độ chính xác máy tính.** 3 dB ≈ 2× đủ cho ước tính. Để chính xác, dùng 10^(x/10).
+
+6. **Nhầm dB âm.** −3 dB nghĩa là nửa công suất (÷2), không phải −2× công suất.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- IEEE Standard for Definitions of Physical Quantities for Fundamental Frequency and Time Metrology.
+- ITU Radio Regulations — định nghĩa đơn vị công suất.
+
+</section>

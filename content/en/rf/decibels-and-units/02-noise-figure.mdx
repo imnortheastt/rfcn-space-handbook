@@ -8,17 +8,194 @@ track: r0
 unit: decibels-and-units
 order: 2
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 7
+prerequisites: ["rf-r0-decibels-and-units-01-db-dbm-dbi-dbc"]
+spiralRevisits: []
 title: "Noise figure"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Quantifying how much noise a component adds."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["noise-figure", "NF", "thermal-noise", "cascade"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Noise figure
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why noise figure?
+
+Every RF component adds noise. The noise figure (NF) tells you how much the signal-to-noise ratio degrades through that component. A perfect, noiseless component has NF = 0 dB. Real amplifiers, mixers, and cables all have NF > 0 dB.
+
+Understanding NF is essential for receiver design — it determines sensitivity and sets the system's weakest link.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Noise figure measures SNR degradation:
+
+$$F = \frac{\text{SNR}_{in}}{\text{SNR}_{out}}$$
+
+$$\text{NF (dB)} = 10 \log_{10}(F) = \text{SNR}_{in,\text{dB}} - \text{SNR}_{out,\text{dB}}$$
+
+A component with NF = 3 dB cuts your SNR in half. The lower the NF, the better the component preserves signal quality.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Thermal noise floor
+
+At temperature $T$, thermal noise power in bandwidth $B$:
+
+$$P_n = kTB$$
+
+where $k = 1.38 \times 10^{-23}$ J/K (Boltzmann constant).
+
+At room temperature (290 K):
+$$P_n = -174\ \text{dBm/Hz}$$
+
+For 1 MHz bandwidth:
+$$P_n = -174 + 60 = -114\ \text{dBm}$$
+
+### Noise figure definition
+
+$$F = \frac{P_{n,out}}{G \cdot P_{n,in}} = 1 + \frac{T_e}{T_0}$$
+
+where:
+- $P_{n,out}$ = output noise power
+- $G$ = component gain
+- $P_{n,in}$ = input noise power (typically $kT_0B$)
+- $T_e$ = equivalent noise temperature
+- $T_0$ = 290 K (standard reference)
+
+### Noise figure in dB
+
+$$\text{NF} = 10 \log_{10}(F)$$
+
+| Noise figure | SNR degradation |
+|--------------|-----------------|
+| 0 dB | None (ideal) |
+| 1 dB | 1.26× |
+| 3 dB | 2× (half SNR) |
+| 6 dB | 4× |
+| 10 dB | 10× |
+
+### Friis formula (cascade)
+
+For cascaded stages with gains $G_i$ and noise factors $F_i$:
+
+$$F_{total} = F_1 + \frac{F_2 - 1}{G_1} + \frac{F_3 - 1}{G_1 G_2} + \cdots$$
+
+Key insight: **first stage dominates**. A low-NF first stage (LNA) is critical because later stages are divided by the cumulative gain.
+
+### Noise temperature
+
+Alternative to noise figure, especially for low-noise systems:
+
+$$T_e = T_0(F - 1)$$
+
+| NF (dB) | $T_e$ (K) |
+|---------|-----------|
+| 0.5 | 35 |
+| 1.0 | 75 |
+| 2.0 | 170 |
+| 3.0 | 290 |
+
+### Lossy element NF
+
+For a passive component with loss $L$ (>1) at temperature $T$:
+
+$$F = L$$
+
+A 3 dB attenuator has NF = 3 dB. Cable loss directly degrades SNR.
+
+### Minimum detectable signal
+
+$$\text{MDS} = kT_0B \cdot F \cdot \text{SNR}_{min}$$
+
+In dBm:
+$$\text{MDS}_{\text{dBm}} = -174 + 10\log_{10}(B) + \text{NF} + \text{SNR}_{min,\text{dB}}$$
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: LNA selection**
+
+Two LNA options:
+- LNA A: NF = 1.5 dB, Gain = 15 dB
+- LNA B: NF = 2.5 dB, Gain = 20 dB
+
+For a following mixer with NF = 8 dB:
+
+With LNA A: $F_{total} = 1.41 + \frac{6.31-1}{31.6} = 1.41 + 0.17 = 1.58 = 2.0$ dB.
+
+With LNA B: $F_{total} = 1.78 + \frac{6.31-1}{100} = 1.78 + 0.05 = 1.83 = 2.6$ dB.
+
+LNA A wins despite lower gain — its lower NF dominates.
+
+**Example: Cable before LNA**
+
+3 m coax with 2 dB loss before LNA (NF = 1 dB).
+
+Effective system NF: $F_{total} = 1.58 + \frac{1.26-1}{0.63} = 1.58 + 0.41 = 1.99 = 3.0$ dB.
+
+The cable doubled the noise figure. Put the LNA as close to the antenna as possible.
+
+**Example: Receiver sensitivity**
+
+System NF = 4 dB.
+Bandwidth = 1 MHz.
+Required SNR = 10 dB.
+
+MDS = $-174 + 60 + 4 + 10 = -100$ dBm.
+
+Any signal weaker than −100 dBm cannot be demodulated reliably.
+
+**Example: Noise temperature in satellite**
+
+Ground station with $T_e = 25$ K (cryogenic LNA).
+
+NF = $10\log_{10}(1 + 25/290) = 0.36$ dB.
+
+Much better than room-temperature electronics (NF ≈ 1–2 dB).
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring loss before LNA.** Cable, filter, and switch losses before the LNA add directly to system NF. Minimize them.
+
+2. **Using NF directly in Friis.** Friis formula uses noise factor $F$ (linear), not NF (dB). Convert first.
+
+3. **High-gain ≠ low-NF.** A high-gain amplifier with poor NF can still ruin receiver performance.
+
+4. **Forgetting bandwidth.** Noise power scales with bandwidth. Narrower bandwidth = lower noise floor.
+
+5. **Mixing NF and SNR.** NF is the SNR degradation, not the output SNR. Output SNR = Input SNR − NF.
+
+6. **Temperature dependence.** NF is specified at 290 K. At different temperatures, use noise temperature.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Friis, "Noise Figures of Radio Receivers," Proceedings of the IRE, 1944.
+- Pozar, *Microwave Engineering*, Chapter 10.
+- IEEE Standard 196 — Methods of measuring noise factor.
+
+</section>

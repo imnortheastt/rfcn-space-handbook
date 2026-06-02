@@ -8,17 +8,194 @@ track: r0
 unit: decibels-and-units
 order: 2
 level: L2
-estimatedReadingMinutes: 5
-title: "Hệ số tạp âm"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: ["rf-r0-decibels-and-units-01-db-dbm-dbi-dbc"]
+spiralRevisits: []
+title: "Hệ số tạp nhiễu"
+description: "Định lượng mức tạp nhiễu mà linh kiện thêm vào."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["noise-figure", "NF", "thermal-noise", "cascade"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Hệ số tạp âm
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao hệ số tạp nhiễu?
+
+Mọi linh kiện RF đều thêm tạp nhiễu. Hệ số tạp nhiễu (NF) cho bạn biết tỷ số tín hiệu trên tạp nhiễu suy giảm bao nhiêu qua linh kiện đó. Linh kiện lý tưởng không tạp nhiễu có NF = 0 dB. Bộ khuếch đại, bộ trộn, và cáp thực tế đều có NF > 0 dB.
+
+Hiểu NF là thiết yếu cho thiết kế máy thu — nó xác định độ nhạy và đặt ra mắt xích yếu nhất của hệ thống.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hệ số tạp nhiễu đo suy giảm SNR:
+
+$$F = \frac{\text{SNR}_{in}}{\text{SNR}_{out}}$$
+
+$$\text{NF (dB)} = 10 \log_{10}(F) = \text{SNR}_{in,\text{dB}} - \text{SNR}_{out,\text{dB}}$$
+
+Linh kiện có NF = 3 dB cắt SNR của bạn còn một nửa. NF càng thấp, linh kiện càng giữ tốt chất lượng tín hiệu.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Nền tạp nhiễu nhiệt
+
+Ở nhiệt độ $T$, công suất tạp nhiễu nhiệt trong băng thông $B$:
+
+$$P_n = kTB$$
+
+trong đó $k = 1.38 \times 10^{-23}$ J/K (hằng số Boltzmann).
+
+Ở nhiệt độ phòng (290 K):
+$$P_n = -174\ \text{dBm/Hz}$$
+
+Cho băng thông 1 MHz:
+$$P_n = -174 + 60 = -114\ \text{dBm}$$
+
+### Định nghĩa hệ số tạp nhiễu
+
+$$F = \frac{P_{n,out}}{G \cdot P_{n,in}} = 1 + \frac{T_e}{T_0}$$
+
+trong đó:
+- $P_{n,out}$ = công suất tạp nhiễu đầu ra
+- $G$ = độ lợi linh kiện
+- $P_{n,in}$ = công suất tạp nhiễu đầu vào (thường $kT_0B$)
+- $T_e$ = nhiệt độ tạp nhiễu tương đương
+- $T_0$ = 290 K (tham chiếu chuẩn)
+
+### Hệ số tạp nhiễu theo dB
+
+$$\text{NF} = 10 \log_{10}(F)$$
+
+| Hệ số tạp nhiễu | Suy giảm SNR |
+|-----------------|--------------|
+| 0 dB | Không (lý tưởng) |
+| 1 dB | 1.26× |
+| 3 dB | 2× (nửa SNR) |
+| 6 dB | 4× |
+| 10 dB | 10× |
+
+### Công thức Friis (nối tiếp)
+
+Cho các tầng nối tiếp với độ lợi $G_i$ và hệ số tạp nhiễu $F_i$:
+
+$$F_{total} = F_1 + \frac{F_2 - 1}{G_1} + \frac{F_3 - 1}{G_1 G_2} + \cdots$$
+
+Điểm mấu chốt: **tầng đầu chiếm ưu thế**. Tầng đầu NF thấp (LNA) rất quan trọng vì các tầng sau bị chia cho độ lợi tích lũy.
+
+### Nhiệt độ tạp nhiễu
+
+Thay thế cho hệ số tạp nhiễu, đặc biệt cho hệ thống tạp nhiễu thấp:
+
+$$T_e = T_0(F - 1)$$
+
+| NF (dB) | $T_e$ (K) |
+|---------|-----------|
+| 0.5 | 35 |
+| 1.0 | 75 |
+| 2.0 | 170 |
+| 3.0 | 290 |
+
+### NF phần tử tổn hao
+
+Cho linh kiện thụ động với suy hao $L$ (>1) ở nhiệt độ $T$:
+
+$$F = L$$
+
+Bộ suy hao 3 dB có NF = 3 dB. Suy hao cáp trực tiếp làm suy giảm SNR.
+
+### Tín hiệu phát hiện tối thiểu
+
+$$\text{MDS} = kT_0B \cdot F \cdot \text{SNR}_{min}$$
+
+Theo dBm:
+$$\text{MDS}_{\text{dBm}} = -174 + 10\log_{10}(B) + \text{NF} + \text{SNR}_{min,\text{dB}}$$
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Chọn LNA**
+
+Hai lựa chọn LNA:
+- LNA A: NF = 1.5 dB, Độ lợi = 15 dB
+- LNA B: NF = 2.5 dB, Độ lợi = 20 dB
+
+Cho bộ trộn phía sau với NF = 8 dB:
+
+Với LNA A: $F_{total} = 1.41 + \frac{6.31-1}{31.6} = 1.41 + 0.17 = 1.58 = 2.0$ dB.
+
+Với LNA B: $F_{total} = 1.78 + \frac{6.31-1}{100} = 1.78 + 0.05 = 1.83 = 2.6$ dB.
+
+LNA A thắng dù độ lợi thấp hơn — NF thấp hơn chiếm ưu thế.
+
+**Ví dụ: Cáp trước LNA**
+
+Cáp đồng trục 3 m với suy hao 2 dB trước LNA (NF = 1 dB).
+
+NF hệ thống hiệu dụng: $F_{total} = 1.58 + \frac{1.26-1}{0.63} = 1.58 + 0.41 = 1.99 = 3.0$ dB.
+
+Cáp đã gấp đôi hệ số tạp nhiễu. Đặt LNA càng gần anten càng tốt.
+
+**Ví dụ: Độ nhạy máy thu**
+
+NF hệ thống = 4 dB.
+Băng thông = 1 MHz.
+SNR yêu cầu = 10 dB.
+
+MDS = $-174 + 60 + 4 + 10 = -100$ dBm.
+
+Bất kỳ tín hiệu nào yếu hơn −100 dBm không thể giải điều chế đáng tin cậy.
+
+**Ví dụ: Nhiệt độ tạp nhiễu trong vệ tinh**
+
+Trạm mặt đất với $T_e = 25$ K (LNA làm lạnh cryogenic).
+
+NF = $10\log_{10}(1 + 25/290) = 0.36$ dB.
+
+Tốt hơn nhiều so với điện tử nhiệt độ phòng (NF ≈ 1–2 dB).
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Bỏ qua suy hao trước LNA.** Suy hao cáp, bộ lọc, và công tắc trước LNA cộng trực tiếp vào NF hệ thống. Giảm thiểu chúng.
+
+2. **Dùng NF trực tiếp trong Friis.** Công thức Friis dùng hệ số tạp nhiễu $F$ (tuyến tính), không phải NF (dB). Chuyển đổi trước.
+
+3. **Độ lợi cao ≠ NF thấp.** Bộ khuếch đại độ lợi cao với NF kém vẫn có thể phá hỏng hiệu suất máy thu.
+
+4. **Quên băng thông.** Công suất tạp nhiễu tỷ lệ với băng thông. Băng thông hẹp hơn = nền tạp nhiễu thấp hơn.
+
+5. **Nhầm NF và SNR.** NF là suy giảm SNR, không phải SNR đầu ra. SNR đầu ra = SNR đầu vào − NF.
+
+6. **Phụ thuộc nhiệt độ.** NF được quy định ở 290 K. Ở nhiệt độ khác, dùng nhiệt độ tạp nhiễu.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Friis, "Noise Figures of Radio Receivers," Proceedings of the IRE, 1944.
+- Pozar, *Microwave Engineering*, Chapter 10.
+- IEEE Standard 196 — phương pháp đo hệ số tạp nhiễu.
+
+</section>
