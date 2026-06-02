@@ -8,17 +8,173 @@ track: r2
 unit: arrays
 order: 4
 level: L3
-estimatedReadingMinutes: 5
-title: "Ghép hỗ tương"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r2-arrays-01-linear-array", "rf-r2-element-antennas-01-dipole"]
+spiralRevisits: []
+title: "Ghép nối tương hỗ"
+description: "Cách các phần tử mảng tương tác và ảnh hưởng lẫn nhau."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["mutual-coupling", "impedance-matrix", "scan-impedance", "active-element-pattern", "embedded-element"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Ghép hỗ tương
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần hiểu ghép nối tương hỗ?
+
+Lý thuyết mảng giả định các phần tử không tương tác — nhân pattern hoạt động trên tiền đề này. Thực tế khác. Phần tử bức xạ, và các phần tử lân cận nhận bức xạ đó. Đây là **ghép nối tương hỗ**.
+
+Ghép nối tương hỗ thay đổi trở kháng phần tử, làm méo pattern, và giới hạn phạm vi quét. Hiểu ghép nối là thiết yếu cho thiết kế mảng chính xác và giải thích tại sao mảng đo khác với lý thuyết đơn giản.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Khi một phần tử anten bức xạ, các phần tử gần thu một phần năng lượng đó. Năng lượng nhận được cảm ứng dòng điện, lần lượt ảnh hưởng trở kháng phần tử gốc và pattern tổng thể.
+
+Hãy nghĩ về âm thoa: gõ một cái, và các âm thoa gần bắt đầu rung. Càng gần, tương tác càng mạnh. Tương tự với phần tử anten — khoảng cách gần hơn nghĩa ghép nối mạnh hơn.
+
+Ghép nối phụ thuộc loại phần tử, khoảng cách, và tần số. Thường mạnh nhất giữa các phần tử kề và giảm theo khoảng cách.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Ma trận trở kháng
+
+Với mảng N phần tử, ma trận trở kháng **Z** liên hệ điện áp cổng với dòng điện cổng:
+
+$$\mathbf{V} = \mathbf{Z} \mathbf{I}$$
+
+$$\begin{bmatrix} V_1 \\ V_2 \\ \vdots \\ V_N \end{bmatrix} = \begin{bmatrix} Z_{11} & Z_{12} & \cdots & Z_{1N} \\ Z_{21} & Z_{22} & \cdots & Z_{2N} \\ \vdots & \vdots & \ddots & \vdots \\ Z_{N1} & Z_{N2} & \cdots & Z_{NN} \end{bmatrix} \begin{bmatrix} I_1 \\ I_2 \\ \vdots \\ I_N \end{bmatrix}$$
+
+- $Z_{nn}$ = tự trở kháng của phần tử n (các phần tử khác hở)
+- $Z_{mn}$ = trở kháng tương hỗ giữa phần tử m và n
+
+Với anten thuận nghịch: $Z_{mn} = Z_{nm}$.
+
+### Trở kháng quét
+
+Khi mảng được pha để quét, mỗi phần tử thấy **trở kháng hoạt động**:
+
+$$Z_{active,n} = \frac{V_n}{I_n} = Z_{nn} + \sum_{m \neq n} Z_{nm} \frac{I_m}{I_n}$$
+
+Với kích thích đều với pha tiến dần $\beta$:
+
+$$Z_{scan}(\theta_0) = Z_{11} + \sum_{m \neq 1} Z_{1m} e^{j(m-1)\beta}$$
+
+Điều này thay đổi theo góc quét — phối hợp trở kháng suy giảm ở các cực quét.
+
+### Độ lớn ghép nối
+
+Với các dipole song song cách khoảng $d$:
+
+$$|Z_{12}| \approx 73 \times \frac{0.6\lambda}{d}$$
+
+Quy tắc: ghép nối giảm xấp xỉ như $1/d$ trong vùng trường xa.
+
+| Khoảng cách | $|Z_{12}/Z_{11}|$ điển hình |
+|-------------|------------------------------|
+| λ/4 | 0.3–0.5 |
+| λ/2 | 0.15–0.25 |
+| λ | 0.05–0.1 |
+
+### Pattern phần tử hoạt động
+
+Pattern bức xạ của một phần tử khi nhúng trong mảng (tất cả các phần tử khác kết thúc bằng tải phối hợp):
+
+$$g_{active}(\theta,\phi) \neq g_{isolated}(\theta,\phi)$$
+
+Pattern phần tử hoạt động bao gồm tất cả hiệu ứng ghép nối. Dùng điều này cho dự đoán pattern mảng chính xác.
+
+### Ảnh hưởng đến hiệu suất mảng
+
+1. **Sai lệch trở kháng:** Trở kháng quét thay đổi → VSWR tăng ở các góc quét
+2. **Giảm tăng ích:** Phần tử sai lệch bức xạ kém hiệu quả hơn
+3. **Méo pattern:** Phần tử biên ghép nối khác với phần tử giữa
+4. **Mù quét:** Ở góc nhất định, trở kháng quét → ∞ hoặc 0, không bức xạ
+
+### Kỹ thuật giảm ghép nối
+
+- **Tăng khoảng cách:** Hiệu quả nhưng tăng nguy cơ thùy cách tử
+- **Cấu trúc EBG:** Bề mặt electromagnetic bandgap triệt sóng mặt
+- **Mạng khử ghép:** Mạch chủ động hoặc thụ động ở cổng phần tử
+- **Phần tử giả:** Phần tử kết thúc ở biên mảng chuẩn hóa môi trường
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Trở kháng tương hỗ hai dipole**
+
+Dipole nửa sóng song song, khoảng cách $d = \lambda/2$.
+
+$Z_{11} \approx 73 + j42\ \Omega$ (dipole cô lập)
+
+$Z_{12} \approx -12 + j30\ \Omega$ (từ bảng/tính toán)
+
+Trở kháng hoạt động (broadside, $\beta = 0$):
+$$Z_{active} = Z_{11} + Z_{12} = 61 + j72\ \Omega$$
+
+Khá khác với 73 Ω cô lập!
+
+**Ví dụ: Mù quét**
+
+Mảng patch trên đế dày, ε cao. Sóng mặt lan truyền giữa các phần tử.
+
+Ở góc nơi sóng mặt cộng hưởng, tất cả năng lượng ghép nối giữa các phần tử thay vì bức xạ → mù quét.
+
+Giải pháp: đế mỏng, ε thấp hơn, hoặc bề mặt EBG.
+
+**Ví dụ: Hiệu ứng biên**
+
+ULA 16 phần tử. Phần tử biên (1 và 16) có một hàng xóm; phần tử giữa (8 và 9) có hai.
+
+Trở kháng hoạt động phần tử biên khác ~10–20% so với giữa. Giải pháp: điều chỉnh kích thước phần tử biên hoặc dùng phần tử giả ngoài biên.
+
+**Ví dụ: Hiệu chuẩn**
+
+Radar mảng pha đo ma trận ghép nối khi lắp đặt. Trọng số hiệu chuẩn bù cho ghép nối thực vs. giả định thiết kế.
+
+Không hiệu chuẩn: thùy phụ cao hơn dự đoán 5–10 dB.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Bỏ qua ghép nối.** Hệ số mảng đơn giản giả định không ghép nối. Mảng thực với khoảng cách λ/2 có ghép nối đáng kể. Dùng mô phỏng full-wave.
+
+2. **Dữ liệu phần tử cô lập.** Pattern phần tử của nhà sản xuất đo cô lập. Pattern nhúng khác. Đo hoặc mô phỏng trong môi trường mảng.
+
+3. **Bất ngờ mù quét.** Có thể xuất hiện đột ngột ở góc cụ thể. Luôn quét toàn phạm vi quét trong mô phỏng.
+
+4. **Ghép nối thay đổi theo tần số.** Ma trận trở kháng phụ thuộc tần số. Mảng băng rộng cần phân tích ghép nối trên toàn băng.
+
+5. **Ghép nối với phần tử kết thúc.** Ngay cả phần tử "tắt" (tải phối hợp) ảnh hưởng phần tử hoạt động. Mảng chùm chuyển mạch phải tính đến điều này.
+
+6. **Ghép nối mặt phẳng đất.** Ngoài ghép nối không gian tự do, dòng điện mặt trên mặt phẳng đất thêm đường ghép nối.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Balanis, *Antenna Theory*, Chương 8 — phân tích ghép nối tương hỗ.
+- Mailloux, *Phased Array Antenna Handbook* — trở kháng quét và mù.
+- Pozar, "The active element pattern" — khái niệm pattern nhúng.
+
+</section>

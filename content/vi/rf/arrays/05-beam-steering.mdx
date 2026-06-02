@@ -8,17 +8,182 @@ track: r2
 unit: arrays
 order: 5
 level: L3
-estimatedReadingMinutes: 5
-title: "Điều khiển búp sóng — lần đầu"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r2-arrays-01-linear-array", "rf-r2-arrays-03-array-factor"]
+spiralRevisits: ["rf-r2-beamforming-math-01-analog-beamforming"]
+title: "Điều khiển chùm"
+description: "Chỉ hướng chùm mảng bằng điện tử mà không di chuyển anten."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["beam-steering", "phase-shifter", "electronic-scanning", "scan-loss", "squint"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Điều khiển búp sóng — lần đầu
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần điều khiển chùm?
+
+Anten cố định chỉ theo một hướng. Để bám sát mục tiêu di động hoặc phục vụ nhiều người dùng, bạn hoặc xoay cơ khí anten (chậm, không tin cậy) hoặc điều khiển chùm bằng điện tử (nhanh, linh hoạt).
+
+Mảng pha đạt điều khiển chùm bằng cách điều chỉnh pha tín hiệu mỗi phần tử. Không có bộ phận chuyển động, đáp ứng micro giây, nhiều chùm đồng thời. Đây là lý do mảng pha thống trị radar, 5G, và hệ thống vệ tinh.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Chùm chỉ theo nơi các đóng góp phần tử cộng cùng pha. Bằng cách trễ một số phần tử so với các phần tử khác, bạn dịch chuyển nơi giao thoa tăng cường xảy ra.
+
+Hãy nghĩ về ban nhạc diễu hành: khi họ đều bước cùng lúc, âm thanh to nhất thẳng phía trước. Nếu bên trái bước hơi chậm hơn, mặt sóng nghiêng phải. Tương tự với mảng pha — trễ các phần tử trái, chùm lái phải.
+
+Trễ được thực hiện như dịch pha (cho băng hẹp) hoặc trễ thời gian thực (cho băng rộng).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Lái bằng pha
+
+Với ULA có khoảng cách $d$, để lái chùm đến góc $\theta_0$:
+
+$$\beta = -kd\sin\theta_0 = -\frac{2\pi d}{\lambda}\sin\theta_0$$
+
+Pha phần tử n:
+$$\phi_n = n\beta = -\frac{2\pi nd}{\lambda}\sin\theta_0$$
+
+### Hệ số mảng với lái
+
+$$AF(\theta) = \sum_{n=0}^{N-1} e^{jn(kd\sin\theta + \beta)} = \frac{\sin\left(\frac{N\psi}{2}\right)}{\sin\left(\frac{\psi}{2}\right)}$$
+
+trong đó $\psi = kd(\sin\theta - \sin\theta_0)$.
+
+Đỉnh xảy ra khi $\psi = 0$, tức $\theta = \theta_0$.
+
+### Lái 2D
+
+Với mảng phẳng, lái đến $(\theta_0, \phi_0)$:
+
+$$\phi_{mn} = -kd_x m \sin\theta_0\cos\phi_0 - kd_y n \sin\theta_0\sin\phi_0$$
+
+Mỗi phần tử có pha độc lập dựa trên vị trí và hướng chùm mong muốn.
+
+### Tổn hao quét
+
+Khẩu độ hiệu dụng giảm ở các góc quét:
+
+$$G(\theta_0) = G_{broadside} \times \cos\theta_0$$
+
+Ở quét 60°: tổn hao 3 dB. Ở 70°: tổn hao 5 dB.
+
+Với mảng phẳng 2D quét cả hai mặt phẳng:
+$$G(\theta_0,\phi_0) \approx G_{broadside} \times \cos\theta_0$$
+
+### Lệch chùm (squint)
+
+Lái pha phụ thuộc tần số. Ở tần số $f \neq f_0$:
+
+$$\sin\theta_{actual} = \sin\theta_0 \times \frac{f_0}{f}$$
+
+Thay đổi tần số 10% → ~10% lỗi chỉ hướng. Đây là **lệch chùm**.
+
+### Trễ thời gian thực
+
+Cho hệ thống băng rộng, dùng trễ thời gian thay vì pha:
+
+$$\tau_n = \frac{nd\sin\theta_0}{c}$$
+
+Trễ thời gian thực không phụ thuộc tần số — không lệch. Nhưng phần cứng TTD phức tạp và đắt hơn bộ dịch pha.
+
+### Loại bộ dịch pha
+
+| Loại | Bit | Độ phân giải | Tổn hao xen |
+|------|-----|--------------|-------------|
+| PIN diode | 3–6 | 45°–5.6° | 3–6 dB |
+| MEMS | 4–6 | 22.5°–5.6° | 1–2 dB |
+| Ferrite | Analog | Liên tục | 1–3 dB |
+| Digital ASIC | 6–10 | Tinh | Tích hợp |
+
+### Hiệu ứng lượng tử hóa
+
+Độ phân giải pha hữu hạn gây:
+- Thùy lượng tử hóa (thùy phụ tuần hoàn)
+- Tổn hao tăng ích
+- Lỗi chỉ hướng
+
+Bộ dịch pha 3-bit (bước 45°): ~0.3 dB tổn hao, thùy phụ ở −20 dB.
+Bộ dịch pha 6-bit (bước 5.6°): tổn hao không đáng kể, thùy phụ dưới −35 dB.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Lái đến 30°**
+
+ULA 8 phần tử, $d = \lambda/2$, lái đến $\theta_0 = 30°$.
+
+$$\beta = -\frac{2\pi \times 0.5\lambda}{\lambda} \times \sin(30°) = -\pi \times 0.5 = -90°$$
+
+Pha phần tử: [0°, −90°, −180°, −270°, ...] hoặc [0°, −90°, 180°, 90°, ...] (cuộn).
+
+**Ví dụ: Ngân sách tổn hao quét**
+
+Radar cần 30 dBi ở tất cả góc quét đến ±60°.
+
+Tăng ích broadside cần: $30 + 3 = 33$ dBi (để tính tổn hao cos 3 dB ở 60°).
+
+**Ví dụ: Tính lệch chùm**
+
+Băng thông 10%, chùm ở 30° ở tần số trung tâm.
+
+Ở biên băng trên: $\sin\theta = 0.5 \times (1/1.05) = 0.476$, $\theta = 28.4°$.
+
+Ở biên băng dưới: $\sin\theta = 0.5 \times (1/0.95) = 0.526$, $\theta = 31.7°$.
+
+Chùm di chuyển 3.3° qua băng — có thể vượt độ rộng chùm với chùm hẹp.
+
+**Ví dụ: Quản lý chùm 5G**
+
+5G NR định nghĩa quét chùm: trạm gốc tuần hoàn qua các hướng chùm.
+
+64 chùm phủ ±60° phương vị × ±15° góc ngẩng.
+
+Thời gian chuyển chùm: <100 μs. Quét cơ khí không thể; cần lái điện tử.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Bỏ qua tổn hao quét.** Ngân sách liên kết thường giả định tăng ích broadside. Phải tính tổn hao cos(θ) ở cực quét.
+
+2. **Lệch trong băng rộng.** Lái pha giả định tần số đơn. Hệ thống băng rộng cần TTD hoặc TTD mảng con.
+
+3. **Cuộn pha.** Bộ dịch pha là modulo 360°. Lệnh 450° = 90° thực. Xác minh tính toán lái xử lý cuộn đúng.
+
+4. **Trôi hiệu chuẩn.** Đặc tính bộ dịch pha trôi theo nhiệt độ. Cần hiệu chuẩn chủ động cho chỉ hướng chính xác.
+
+5. **Thùy cách tử khi quét.** Góc quét tối đa bị giới hạn bởi thùy cách tử vào. $\theta_{max} = \arcsin(\lambda/d - 1)$.
+
+6. **Giới hạn pattern phần tử.** Mảng chỉ có thể lái trong pattern phần tử. Độ rộng chùm phần tử 90° giới hạn quét hữu ích đến ±45°.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Mailloux, *Phased Array Antenna Handbook* — xử lý lái toàn diện.
+- Skolnik, *Radar Handbook*, Chương 7 — radar mảng pha.
+- 3GPP TS 38.214 — quản lý chùm 5G NR.
+
+</section>

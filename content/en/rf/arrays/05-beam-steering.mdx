@@ -8,17 +8,182 @@ track: r2
 unit: arrays
 order: 5
 level: L3
-estimatedReadingMinutes: 5
-title: "Beam steering — first pass"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r2-arrays-01-linear-array", "rf-r2-arrays-03-array-factor"]
+spiralRevisits: ["rf-r2-beamforming-math-01-analog-beamforming"]
+title: "Beam steering"
+description: "Electronically pointing the array beam without moving the antenna."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["beam-steering", "phase-shifter", "electronic-scanning", "scan-loss", "squint"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Beam steering — first pass
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why beam steering?
+
+A fixed antenna points in one direction. To track a moving target or serve multiple users, you either mechanically rotate the antenna (slow, unreliable) or electronically steer the beam (fast, flexible).
+
+Phased arrays achieve beam steering by adjusting the phase of each element's signal. No moving parts, microsecond response, simultaneous multiple beams. This is why phased arrays dominate radar, 5G, and satellite systems.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+The beam points where the element contributions add in phase. By delaying some elements relative to others, you shift where that constructive interference occurs.
+
+Think of a marching band: when they all step at the same time, the sound is loudest straight ahead. If the left side steps slightly later, the wavefront tilts right. Same with phased arrays — delay the left elements, beam steers right.
+
+The delay is implemented as a phase shift (for narrowband) or true time delay (for wideband).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Steering with phase
+
+For ULA with spacing $d$, to steer beam to angle $\theta_0$:
+
+$$\beta = -kd\sin\theta_0 = -\frac{2\pi d}{\lambda}\sin\theta_0$$
+
+Element n phase:
+$$\phi_n = n\beta = -\frac{2\pi nd}{\lambda}\sin\theta_0$$
+
+### Array factor with steering
+
+$$AF(\theta) = \sum_{n=0}^{N-1} e^{jn(kd\sin\theta + \beta)} = \frac{\sin\left(\frac{N\psi}{2}\right)}{\sin\left(\frac{\psi}{2}\right)}$$
+
+where $\psi = kd(\sin\theta - \sin\theta_0)$.
+
+Peak occurs when $\psi = 0$, i.e., $\theta = \theta_0$.
+
+### 2D steering
+
+For planar array, steer to $(\theta_0, \phi_0)$:
+
+$$\phi_{mn} = -kd_x m \sin\theta_0\cos\phi_0 - kd_y n \sin\theta_0\sin\phi_0$$
+
+Each element gets independent phase based on position and desired beam direction.
+
+### Scan loss
+
+Effective aperture decreases at scan angles:
+
+$$G(\theta_0) = G_{broadside} \times \cos\theta_0$$
+
+At 60° scan: 3 dB loss. At 70°: 5 dB loss.
+
+For 2D planar arrays scanning in both planes:
+$$G(\theta_0,\phi_0) \approx G_{broadside} \times \cos\theta_0$$
+
+### Beam squint
+
+Phase steering is frequency-dependent. At frequency $f \neq f_0$:
+
+$$\sin\theta_{actual} = \sin\theta_0 \times \frac{f_0}{f}$$
+
+10% frequency change → ~10% pointing error. This is **beam squint**.
+
+### True time delay
+
+For wideband systems, use time delay instead of phase:
+
+$$\tau_n = \frac{nd\sin\theta_0}{c}$$
+
+True time delay is frequency-independent — no squint. But TTD hardware is more complex and expensive than phase shifters.
+
+### Phase shifter types
+
+| Type | Bits | Resolution | Insertion loss |
+|------|------|------------|----------------|
+| PIN diode | 3–6 | 45°–5.6° | 3–6 dB |
+| MEMS | 4–6 | 22.5°–5.6° | 1–2 dB |
+| Ferrite | Analog | Continuous | 1–3 dB |
+| Digital ASIC | 6–10 | Fine | Integrated |
+
+### Quantization effects
+
+Finite phase resolution causes:
+- Quantization lobes (periodic sidelobes)
+- Gain loss
+- Pointing error
+
+3-bit phase shifters (45° steps): ~0.3 dB loss, sidelobes at −20 dB.
+6-bit phase shifters (5.6° steps): negligible loss, sidelobes below −35 dB.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Steer to 30°**
+
+8-element ULA, $d = \lambda/2$, steer to $\theta_0 = 30°$.
+
+$$\beta = -\frac{2\pi \times 0.5\lambda}{\lambda} \times \sin(30°) = -\pi \times 0.5 = -90°$$
+
+Element phases: [0°, −90°, −180°, −270°, ...] or [0°, −90°, 180°, 90°, ...] (wrapped).
+
+**Example: Scan loss budget**
+
+Radar requires 30 dBi at all scan angles to ±60°.
+
+Broadside gain needed: $30 + 3 = 33$ dBi (to account for 3 dB cos loss at 60°).
+
+**Example: Squint calculation**
+
+10% bandwidth, beam at 30° at center frequency.
+
+At upper band edge: $\sin\theta = 0.5 \times (1/1.05) = 0.476$, $\theta = 28.4°$.
+
+At lower band edge: $\sin\theta = 0.5 \times (1/0.95) = 0.526$, $\theta = 31.7°$.
+
+Beam moves 3.3° across band — may exceed beamwidth for narrow beams.
+
+**Example: 5G beam management**
+
+5G NR defines beam sweeping: base station cycles through beam directions.
+
+64 beams covering ±60° azimuth × ±15° elevation.
+
+Beam switch time: <100 μs. Mechanical scanning impossible; electronic steering required.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Scan loss ignored.** Link budgets often assume broadside gain. Must account for cos(θ) loss at scan extremes.
+
+2. **Squint in wideband.** Phase steering assumes single frequency. Wideband systems need TTD or sub-array TTD.
+
+3. **Phase wrap.** Phase shifters are modulo 360°. A 450° command = 90° actual. Verify steering calculations handle wrap correctly.
+
+4. **Calibration drift.** Phase shifter characteristics drift with temperature. Active calibration needed for precision pointing.
+
+5. **Grating lobes at scan.** Maximum scan angle limited by grating lobe entry. $\theta_{max} = \arcsin(\lambda/d - 1)$.
+
+6. **Element pattern limits.** Array can only steer within element pattern. 90° element beamwidth limits useful scan to ±45°.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Mailloux, *Phased Array Antenna Handbook* — comprehensive steering treatment.
+- Skolnik, *Radar Handbook*, Chapter 7 — phased array radar.
+- 3GPP TS 38.214 — 5G NR beam management.
+
+</section>

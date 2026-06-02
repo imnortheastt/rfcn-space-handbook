@@ -8,17 +8,173 @@ track: r2
 unit: arrays
 order: 4
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r2-arrays-01-linear-array", "rf-r2-element-antennas-01-dipole"]
+spiralRevisits: []
 title: "Mutual coupling"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "How array elements interact and affect each other."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["mutual-coupling", "impedance-matrix", "scan-impedance", "active-element-pattern", "embedded-element"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Mutual coupling
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why mutual coupling?
+
+Array theory assumes elements don't interact — pattern multiplication works on this premise. Reality is different. Elements radiate, and neighboring elements receive that radiation. This is **mutual coupling**.
+
+Mutual coupling changes element impedance, distorts patterns, and limits scan range. Understanding coupling is essential for accurate array design and explains why measured arrays differ from simple theory.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+When one antenna element radiates, nearby elements pick up some of that energy. The received energy induces currents, which in turn affect the original element's impedance and the overall pattern.
+
+Think of tuning forks: strike one, and nearby tuning forks start vibrating. The closer they are, the stronger the interaction. Same with antenna elements — closer spacing means stronger coupling.
+
+Coupling depends on element type, spacing, and frequency. It's usually strongest between adjacent elements and decreases with distance.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Impedance matrix
+
+For an N-element array, the impedance matrix **Z** relates port voltages to port currents:
+
+$$\mathbf{V} = \mathbf{Z} \mathbf{I}$$
+
+$$\begin{bmatrix} V_1 \\ V_2 \\ \vdots \\ V_N \end{bmatrix} = \begin{bmatrix} Z_{11} & Z_{12} & \cdots & Z_{1N} \\ Z_{21} & Z_{22} & \cdots & Z_{2N} \\ \vdots & \vdots & \ddots & \vdots \\ Z_{N1} & Z_{N2} & \cdots & Z_{NN} \end{bmatrix} \begin{bmatrix} I_1 \\ I_2 \\ \vdots \\ I_N \end{bmatrix}$$
+
+- $Z_{nn}$ = self-impedance of element n (with others open)
+- $Z_{mn}$ = mutual impedance between elements m and n
+
+For reciprocal antennas: $Z_{mn} = Z_{nm}$.
+
+### Scan impedance
+
+When array is phased to scan, each element sees an **active impedance**:
+
+$$Z_{active,n} = \frac{V_n}{I_n} = Z_{nn} + \sum_{m \neq n} Z_{nm} \frac{I_m}{I_n}$$
+
+For uniform excitation with progressive phase $\beta$:
+
+$$Z_{scan}(\theta_0) = Z_{11} + \sum_{m \neq 1} Z_{1m} e^{j(m-1)\beta}$$
+
+This varies with scan angle — impedance match degrades at scan extremes.
+
+### Coupling magnitude
+
+For parallel dipoles separated by distance $d$:
+
+$$|Z_{12}| \approx 73 \times \frac{0.6\lambda}{d}$$
+
+Rule of thumb: coupling decreases approximately as $1/d$ in the far-field region.
+
+| Spacing | Typical $|Z_{12}/Z_{11}|$ |
+|---------|---------------------------|
+| λ/4 | 0.3–0.5 |
+| λ/2 | 0.15–0.25 |
+| λ | 0.05–0.1 |
+
+### Active element pattern
+
+The radiation pattern of one element when embedded in the array (all others terminated in matched loads):
+
+$$g_{active}(\theta,\phi) \neq g_{isolated}(\theta,\phi)$$
+
+Active element pattern includes all coupling effects. Use this for accurate array pattern prediction.
+
+### Effects on array performance
+
+1. **Impedance mismatch:** Scan impedance varies → VSWR increases at scan angles
+2. **Gain reduction:** Mismatched elements radiate less efficiently
+3. **Pattern distortion:** Edge elements couple differently than center elements
+4. **Scan blindness:** At certain angles, scan impedance → ∞ or 0, no radiation
+
+### Coupling reduction techniques
+
+- **Increased spacing:** Effective but increases grating lobe risk
+- **EBG structures:** Electromagnetic bandgap surfaces suppress surface waves
+- **Decoupling networks:** Active or passive circuits at element ports
+- **Dummy elements:** Terminated elements at array edges normalize environment
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Two-dipole mutual impedance**
+
+Parallel half-wave dipoles, $d = \lambda/2$ spacing.
+
+$Z_{11} \approx 73 + j42\ \Omega$ (isolated dipole)
+
+$Z_{12} \approx -12 + j30\ \Omega$ (from tables/calculation)
+
+Active impedance (broadside, $\beta = 0$):
+$$Z_{active} = Z_{11} + Z_{12} = 61 + j72\ \Omega$$
+
+Quite different from isolated 73 Ω!
+
+**Example: Scan blindness**
+
+Patch array on thick, high-ε substrate. Surface waves propagate between elements.
+
+At angle where surface wave resonates, all energy couples between elements instead of radiating → scan blindness.
+
+Solution: thin substrate, lower ε, or EBG surface.
+
+**Example: Edge effects**
+
+16-element ULA. Edge elements (1 and 16) have one neighbor; center elements (8 and 9) have two.
+
+Edge element active impedance differs ~10–20% from center. Solution: adjust edge element dimensions or use dummy elements beyond edges.
+
+**Example: Calibration**
+
+Phased array radar measures coupling matrix at installation. Calibration weights compensate for actual coupling vs. design assumptions.
+
+Without calibration: sidelobes 5–10 dB higher than predicted.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring coupling.** Simple array factor assumes no coupling. Real arrays with λ/2 spacing have significant coupling. Use full-wave simulation.
+
+2. **Isolated element data.** Manufacturer element patterns are measured isolated. Embedded patterns differ. Measure or simulate in array environment.
+
+3. **Scan blindness surprise.** Can appear suddenly at specific angles. Always sweep full scan range in simulation.
+
+4. **Coupling varies with frequency.** Impedance matrix is frequency-dependent. Wideband arrays need coupling analysis across the band.
+
+5. **Coupling to terminated elements.** Even "off" elements (matched load) affect active elements. Switched-beam arrays must account for this.
+
+6. **Ground plane coupling.** In addition to free-space coupling, surface currents on ground planes add coupling paths.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Balanis, *Antenna Theory*, Chapter 8 — mutual coupling analysis.
+- Mailloux, *Phased Array Antenna Handbook* — scan impedance and blindness.
+- Pozar, "The active element pattern" — embedded pattern concept.
+
+</section>
