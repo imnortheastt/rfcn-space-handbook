@@ -9,16 +9,179 @@ unit: probability-for-communications
 order: 4
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r0-probability-for-communications-03-ber"]
+spiralRevisits: []
 title: "Shannon capacity"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The fundamental limit on reliable communication."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["shannon-capacity", "information-theory", "channel-capacity"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Shannon capacity
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why Shannon capacity?
+
+Shannon capacity is the theoretical ceiling: the maximum data rate at which you can communicate reliably over a noisy channel. No coding scheme can exceed it; optimal coding can approach it. This single formula defines what's possible and guides every communication system design.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Imagine a noisy phone line. Speak too fast and words blur together. Shannon's insight: there's a specific rate where, with clever enough encoding, you can communicate perfectly despite the noise — but beyond that rate, errors are inevitable no matter how smart you are.
+
+Capacity balances signal power against noise power, bandwidth against spectral efficiency.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Shannon-Hartley theorem
+
+For AWGN channel with bandwidth B and SNR:
+
+$$C = B \log_2(1 + \text{SNR}) \quad \text{bits/s}$$
+
+Or in spectral efficiency:
+
+$$\eta = \frac{C}{B} = \log_2(1 + \text{SNR}) \quad \text{bits/s/Hz}$$
+
+### Key relationships
+
+**Bandwidth limited (high SNR):**
+$$C \approx B \log_2(\text{SNR})$$
+
+Doubling bandwidth doubles capacity.
+
+**Power limited (low SNR):**
+$$C \approx \frac{\text{SNR}}{\ln 2} \cdot B \approx 1.44 \cdot \text{SNR} \cdot B$$
+
+Linear in SNR. Bandwidth helps less.
+
+### Shannon limit
+
+Minimum Eb/N0 for reliable communication:
+
+$$\frac{E_b}{N_0} \geq \frac{2^{C/B} - 1}{C/B}$$
+
+At infinite bandwidth (C/B → 0):
+
+$$\frac{E_b}{N_0} \geq \ln 2 \approx -1.59 \text{ dB}$$
+
+This is the Shannon limit — no system can work below -1.59 dB Eb/N0.
+
+### Gap to capacity
+
+Real systems operate at some gap from capacity:
+
+$$\text{Gap} = \frac{\text{SNR}_{required}}{2^{C/B} - 1}$$
+
+- Uncoded QPSK at BER 10⁻⁵: Gap ≈ 9 dB
+- Turbo codes: Gap ≈ 1 dB
+- LDPC codes: Gap ≈ 0.5 dB
+
+### Capacity in other channels
+
+**Rayleigh fading (ergodic):**
+$$C = \mathbb{E}_h[\log_2(1 + |h|^2 \cdot \text{SNR})]$$
+
+Lower than AWGN at same average SNR.
+
+**MIMO:**
+$$C = \log_2 \det(\mathbf{I} + \frac{\text{SNR}}{N_t}\mathbf{HH}^H)$$
+
+Scales linearly with min(Nt, Nr).
+
+### Practical implications
+
+| SNR (dB) | Capacity (bits/s/Hz) | Practical modulation |
+|----------|---------------------|---------------------|
+| 0 | 1.0 | BPSK |
+| 6 | 2.0 | QPSK |
+| 12 | 3.6 | 8-PSK, 16-QAM |
+| 18 | 5.3 | 32-QAM, 64-QAM |
+| 24 | 7.0 | 128-QAM, 256-QAM |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Wi-Fi 6 capacity**
+
+Bandwidth: 160 MHz
+SNR: 25 dB (typical good conditions)
+
+$$C = 160 \times \log_2(1 + 316) = 160 \times 8.3 = 1328 \text{ Mbps}$$
+
+Theoretical maximum ~1.3 Gbps.
+
+Wi-Fi 6 achieves ~1.2 Gbps with 1024-QAM + OFDM + LDPC.
+
+**Example: Satellite link**
+
+Bandwidth: 36 MHz
+SNR: 10 dB
+
+$$C = 36 \times \log_2(1 + 10) = 36 \times 3.46 = 125 \text{ Mbps}$$
+
+With DVB-S2 LDPC: achieve ~100 Mbps (80% of capacity).
+
+**Example: Shannon limit verification**
+
+BPSK uncoded at BER = 10⁻⁵ requires Eb/N0 = 9.6 dB.
+
+Shannon limit: -1.59 dB.
+
+Gap: 9.6 - (-1.59) = 11.2 dB.
+
+Modern LDPC at BER = 10⁻⁵ requires Eb/N0 ≈ 0.7 dB.
+
+Gap: 0.7 - (-1.59) = 2.3 dB — approaching Shannon!
+
+**Example: Bandwidth vs. power trade-off**
+
+Fixed capacity C = 100 Mbps.
+
+Narrow bandwidth (10 MHz): need SNR = 31.6 (15 dB)
+Wide bandwidth (100 MHz): need SNR = 1 (0 dB)
+
+Spread spectrum trades bandwidth for power savings.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Exceeding capacity.** You cannot reliably exceed Shannon capacity. Claims of "breaking Shannon" are either errors or different channel models.
+
+2. **Confusing bits/s and bits/s/Hz.** Capacity formula gives bits/s; divide by B for spectral efficiency.
+
+3. **Forgetting "reliably."** You can transmit faster than capacity, but errors approach 50%. Capacity is about error-free transmission.
+
+4. **Using wrong SNR.** Shannon uses linear SNR. Converting from dB: SNR = 10^(SNR_dB/10).
+
+5. **Ignoring practical gaps.** Real systems are 1-3 dB from capacity. Budget for this gap.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Shannon, "A Mathematical Theory of Communication," Bell System Technical Journal, 1948.
+- Cover and Thomas, *Elements of Information Theory*, Chapter 9.
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 5.
+
+</section>

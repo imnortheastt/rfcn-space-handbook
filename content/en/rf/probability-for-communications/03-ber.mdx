@@ -9,16 +9,169 @@ unit: probability-for-communications
 order: 3
 level: L2
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r0-probability-for-communications-02-awgn"]
+spiralRevisits: []
 title: "Bit error rate (BER)"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Quantifying digital communication reliability."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["ber", "error-probability", "modulation", "performance"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Bit error rate (BER)
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why BER?
+
+BER — bit error rate — is the fundamental quality metric for digital communication. It tells you what fraction of bits arrive incorrectly. A BER of 10⁻⁶ means one error per million bits. System design comes down to achieving target BER with minimum power, bandwidth, and complexity.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Digital receivers make decisions: "was this bit 0 or 1?" Noise corrupts the signal, sometimes pushing a 0 toward 1's threshold or vice versa. BER is the probability that noise causes a wrong decision.
+
+The further apart 0 and 1 are in signal space, the harder it is for noise to cause confusion.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Definition
+
+$$\text{BER} = \frac{\text{Number of bit errors}}{\text{Total bits transmitted}}$$
+
+Or theoretically: $P_b = P(\text{bit error})$
+
+### BPSK/QPSK over AWGN
+
+For antipodal signaling (BPSK):
+
+$$P_b = Q\left(\sqrt{\frac{2E_b}{N_0}}\right)$$
+
+QPSK has same BER per bit (orthogonal I/Q).
+
+### M-PSK
+
+For M-ary PSK (M > 4):
+
+$$P_s \approx 2Q\left(\sqrt{2\frac{E_s}{N_0}}\sin\left(\frac{\pi}{M}\right)\right)$$
+
+Symbol error to bit error: $P_b \approx P_s / \log_2 M$ (Gray coding).
+
+### M-QAM
+
+For square M-QAM:
+
+$$P_s \approx 4\left(1 - \frac{1}{\sqrt{M}}\right)Q\left(\sqrt{\frac{3E_s}{(M-1)N_0}}\right)$$
+
+16-QAM needs ~4 dB more Eb/N0 than BPSK for same BER.
+
+### Required Eb/N0 for target BER
+
+| Modulation | BER = 10⁻³ | BER = 10⁻⁵ | BER = 10⁻⁶ |
+|------------|------------|------------|------------|
+| BPSK/QPSK | 6.8 dB | 9.6 dB | 10.5 dB |
+| 16-QAM | 10.5 dB | 13.3 dB | 14.2 dB |
+| 64-QAM | 14.8 dB | 17.6 dB | 18.5 dB |
+
+### BER in fading channels
+
+AWGN floor disappears; BER dominated by fading.
+
+Rayleigh fading (high SNR):
+$$P_b \approx \frac{1}{4 \cdot E_b/N_0}$$
+
+No error floor, but much worse slope: $1/\text{SNR}$ vs. exponential.
+
+With diversity order L:
+$$P_b \approx \binom{2L-1}{L} \frac{1}{(4E_b/N_0)^L}$$
+
+### Coding gain
+
+Forward error correction (FEC) improves BER:
+
+Coding gain = reduction in required Eb/N0 for same BER.
+
+Typical: 2-6 dB for convolutional/turbo/LDPC codes.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: QPSK link design**
+
+Target: BER = 10⁻⁵
+From table: need Eb/N0 = 9.6 dB
+
+Symbol rate: 10 Msps (20 Mbps with QPSK)
+Noise floor: -95 dBm (20 MHz bandwidth)
+
+Required signal: -95 + 9.6 = -85.4 dBm
+
+**Example: Modulation selection**
+
+Bandwidth: 20 MHz, need 80 Mbps.
+
+Spectral efficiency: 80/20 = 4 bits/s/Hz → 16-QAM
+
+At BER = 10⁻⁵: need 13.3 dB Eb/N0
+
+With rate-1/2 LDPC (5 dB gain): need 8.3 dB → relaxes link budget.
+
+**Example: Fading impact**
+
+BPSK, target BER = 10⁻³.
+
+AWGN: need 6.8 dB Eb/N0
+Rayleigh fading (no diversity): need ~24 dB Eb/N0
+
+With 2-branch diversity: need ~14 dB Eb/N0
+
+Diversity is essential for wireless.
+
+**Example: Measured vs. theoretical**
+
+Measured BER: 2 × 10⁻⁴ at Eb/N0 = 8 dB
+
+Theoretical QPSK: 1.5 × 10⁻⁴ at 8 dB
+
+Implementation loss: ~0.5 dB — acceptable.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing Eb/N0 and SNR.** Eb/N0 is per-bit; SNR is per-symbol or per-bandwidth. Convert carefully.
+
+2. **Ignoring coding.** Uncoded BER is theoretical baseline. Real systems use FEC, which changes the curves.
+
+3. **Using AWGN results for fading.** Fading channels have completely different BER behavior. Always specify channel model.
+
+4. **Forgetting implementation loss.** Real receivers have timing errors, carrier offsets, quantization. Add 1-3 dB margin.
+
+5. **Target too aggressive.** BER = 10⁻¹² is overkill for most applications. Video works at 10⁻³; voice at 10⁻².
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Proakis and Salehi, *Digital Communications*, Chapter 5.
+- Goldsmith, *Wireless Communications*, Chapter 6.
+- 3GPP TS 38.104, "NR Base Station Radio Transmission and Reception."
+
+</section>

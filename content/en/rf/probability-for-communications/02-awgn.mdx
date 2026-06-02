@@ -9,16 +9,173 @@ unit: probability-for-communications
 order: 2
 level: L2
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r0-probability-for-communications-01-random-variables"]
+spiralRevisits: []
 title: "AWGN channel"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The fundamental additive white Gaussian noise model."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["awgn", "noise", "channel-model", "snr"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# AWGN channel
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why the AWGN channel?
+
+The AWGN channel is the simplest useful channel model: transmitted signal plus Gaussian noise. It captures thermal noise in receivers, cosmic background radiation, and the cumulative effect of many small disturbances. Every communication system analysis starts here.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Thermal noise comes from random electron motion in resistors and semiconductors. At any temperature above absolute zero, electrons jiggle randomly, creating voltage fluctuations. These fluctuations have equal power at all frequencies (white) and Gaussian amplitude distribution.
+
+The AWGN channel says: your signal arrives intact, but with this thermal fuzz added.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Channel model
+
+$$y(t) = x(t) + n(t)$$
+
+- $x(t)$ = transmitted signal
+- $n(t)$ = AWGN noise
+- $y(t)$ = received signal
+
+### Noise properties
+
+**Additive:** Noise adds to signal (vs. multiplicative fading).
+
+**White:** Flat power spectral density across all frequencies:
+$$S_n(f) = \frac{N_0}{2} \quad \text{(two-sided)}$$
+
+Or $S_n(f) = N_0$ (one-sided, for $f \geq 0$).
+
+**Gaussian:** Amplitude follows normal distribution:
+$$n(t) \sim \mathcal{N}(0, \sigma^2)$$
+
+### Thermal noise power
+
+Noise power in bandwidth B:
+$$N = kTB$$
+
+- $k$ = Boltzmann constant = $1.38 \times 10^{-23}$ J/K
+- $T$ = absolute temperature (K)
+- $B$ = bandwidth (Hz)
+
+At room temperature (T = 290 K):
+$$N_0 = kT = 4 \times 10^{-21} \text{ W/Hz} = -174 \text{ dBm/Hz}$$
+
+### Signal-to-noise ratio (SNR)
+
+$$\text{SNR} = \frac{E_s}{N_0} \quad \text{or} \quad \frac{P_s}{N}$$
+
+- $E_s$ = energy per symbol (J)
+- $P_s$ = signal power (W)
+- $N$ = noise power in signal bandwidth
+
+In dB: $\text{SNR}_{\text{dB}} = P_{s,\text{dBm}} - N_{\text{dBm}}$
+
+### Eb/N0
+
+Energy per bit normalized to noise:
+
+$$\frac{E_b}{N_0} = \frac{E_s}{N_0 \cdot \log_2 M}$$
+
+where M = constellation size.
+
+For BPSK: $E_b/N_0 = E_s/N_0$
+
+For 16-QAM: $E_b/N_0 = E_s/N_0 - 6$ dB
+
+### Discrete-time model
+
+Sampled at symbol rate:
+$$y_k = x_k + n_k$$
+
+where $n_k \sim \mathcal{N}(0, N_0/2)$ for real, or $\mathcal{CN}(0, N_0)$ for complex.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Wi-Fi receiver noise floor**
+
+Bandwidth: 20 MHz
+Temperature: 290 K
+
+$$N = kTB = 4 \times 10^{-21} \times 20 \times 10^6 = 8 \times 10^{-14} \text{ W}$$
+
+In dBm: $-174 + 10\log_{10}(20 \times 10^6) = -174 + 73 = -101$ dBm
+
+With 6 dB noise figure: noise floor = -95 dBm.
+
+**Example: Required SNR for BPSK**
+
+Target BER: $10^{-5}$
+
+From Q-function: need $E_b/N_0 \approx 9.6$ dB.
+
+For BPSK with Rs = 1 Mbps in 1 MHz:
+- Required SNR = 9.6 dB
+- At -95 dBm noise floor: need -85.4 dBm signal
+
+**Example: Link budget verification**
+
+TX power: 20 dBm
+Path loss: 80 dB
+RX sensitivity: -70 dBm
+
+Received power: 20 - 80 = -60 dBm
+
+Margin: -60 - (-70) = 10 dB ✓
+
+**Example: Complex baseband**
+
+For QAM signals, noise is complex:
+$$n = n_I + jn_Q$$
+
+where $n_I, n_Q \sim \mathcal{N}(0, N_0/2)$ independent.
+
+Total noise power: $E[|n|^2] = N_0$
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing one-sided and two-sided PSD.** One-sided $N_0$ (positive frequencies only) is 2× two-sided $N_0/2$. Be consistent.
+
+2. **Forgetting noise figure.** Real receivers add noise beyond thermal. Total noise = kTB × F where F is noise figure.
+
+3. **Wrong bandwidth.** Use noise bandwidth, not 3-dB bandwidth. They differ for non-ideal filters.
+
+4. **Ignoring AWGN in presence of fading.** AWGN is always there. Fading channels are AWGN plus multiplicative effects.
+
+5. **Assuming infinite precision.** At very high SNR, quantization noise dominates over AWGN.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Proakis and Salehi, *Digital Communications*, Chapter 4.
+- Sklar, *Digital Communications*, Chapter 3.
+- ITU-R P.372, "Radio Noise."
+
+</section>

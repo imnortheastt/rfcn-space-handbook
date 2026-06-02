@@ -9,16 +9,179 @@ unit: probability-for-communications
 order: 4
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r0-probability-for-communications-03-ber"]
+spiralRevisits: []
 title: "Dung lượng Shannon"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Giới hạn cơ bản của truyền thông đáng tin cậy."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["shannon-capacity", "information-theory", "channel-capacity"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Dung lượng Shannon
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao dung lượng Shannon?
+
+Dung lượng Shannon là trần lý thuyết: tốc độ dữ liệu tối đa mà bạn có thể truyền thông đáng tin cậy qua kênh nhiễu. Không sơ đồ mã hóa nào có thể vượt qua; mã hóa tối ưu có thể tiến đến. Công thức đơn này định nghĩa những gì khả thi và định hướng mọi thiết kế hệ thống truyền thông.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy tưởng tượng đường dây điện thoại nhiễu. Nói quá nhanh và từ ngữ nhòe vào nhau. Hiểu biết của Shannon: có một tốc độ cụ thể mà, với mã hóa đủ thông minh, bạn có thể truyền thông hoàn hảo bất chấp nhiễu — nhưng vượt qua tốc độ đó, lỗi là không tránh khỏi dù bạn thông minh đến đâu.
+
+Dung lượng cân bằng công suất tín hiệu với công suất nhiễu, băng thông với hiệu suất phổ.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Định lý Shannon-Hartley
+
+Cho kênh AWGN với băng thông B và SNR:
+
+$$C = B \log_2(1 + \text{SNR}) \quad \text{bits/s}$$
+
+Hoặc trong hiệu suất phổ:
+
+$$\eta = \frac{C}{B} = \log_2(1 + \text{SNR}) \quad \text{bits/s/Hz}$$
+
+### Quan hệ chính
+
+**Giới hạn băng thông (SNR cao):**
+$$C \approx B \log_2(\text{SNR})$$
+
+Gấp đôi băng thông gấp đôi dung lượng.
+
+**Giới hạn công suất (SNR thấp):**
+$$C \approx \frac{\text{SNR}}{\ln 2} \cdot B \approx 1.44 \cdot \text{SNR} \cdot B$$
+
+Tuyến tính với SNR. Băng thông giúp ít hơn.
+
+### Giới hạn Shannon
+
+Eb/N0 tối thiểu cho truyền thông đáng tin cậy:
+
+$$\frac{E_b}{N_0} \geq \frac{2^{C/B} - 1}{C/B}$$
+
+Ở băng thông vô hạn (C/B → 0):
+
+$$\frac{E_b}{N_0} \geq \ln 2 \approx -1.59 \text{ dB}$$
+
+Đây là giới hạn Shannon — không hệ thống nào có thể hoạt động dưới -1.59 dB Eb/N0.
+
+### Khoảng cách đến dung lượng
+
+Hệ thống thực hoạt động ở một khoảng cách từ dung lượng:
+
+$$\text{Gap} = \frac{\text{SNR}_{required}}{2^{C/B} - 1}$$
+
+- QPSK không mã hóa ở BER 10⁻⁵: Gap ≈ 9 dB
+- Mã Turbo: Gap ≈ 1 dB
+- Mã LDPC: Gap ≈ 0.5 dB
+
+### Dung lượng trong các kênh khác
+
+**Fading Rayleigh (ergodic):**
+$$C = \mathbb{E}_h[\log_2(1 + |h|^2 \cdot \text{SNR})]$$
+
+Thấp hơn AWGN ở cùng SNR trung bình.
+
+**MIMO:**
+$$C = \log_2 \det(\mathbf{I} + \frac{\text{SNR}}{N_t}\mathbf{HH}^H)$$
+
+Tỷ lệ tuyến tính với min(Nt, Nr).
+
+### Hàm ý thực tế
+
+| SNR (dB) | Dung lượng (bits/s/Hz) | Điều chế thực tế |
+|----------|------------------------|------------------|
+| 0 | 1.0 | BPSK |
+| 6 | 2.0 | QPSK |
+| 12 | 3.6 | 8-PSK, 16-QAM |
+| 18 | 5.3 | 32-QAM, 64-QAM |
+| 24 | 7.0 | 128-QAM, 256-QAM |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Dung lượng Wi-Fi 6**
+
+Băng thông: 160 MHz
+SNR: 25 dB (điều kiện tốt điển hình)
+
+$$C = 160 \times \log_2(1 + 316) = 160 \times 8.3 = 1328 \text{ Mbps}$$
+
+Tối đa lý thuyết ~1.3 Gbps.
+
+Wi-Fi 6 đạt ~1.2 Gbps với 1024-QAM + OFDM + LDPC.
+
+**Ví dụ: Liên kết vệ tinh**
+
+Băng thông: 36 MHz
+SNR: 10 dB
+
+$$C = 36 \times \log_2(1 + 10) = 36 \times 3.46 = 125 \text{ Mbps}$$
+
+Với DVB-S2 LDPC: đạt ~100 Mbps (80% dung lượng).
+
+**Ví dụ: Xác minh giới hạn Shannon**
+
+BPSK không mã hóa ở BER = 10⁻⁵ yêu cầu Eb/N0 = 9.6 dB.
+
+Giới hạn Shannon: -1.59 dB.
+
+Gap: 9.6 - (-1.59) = 11.2 dB.
+
+LDPC hiện đại ở BER = 10⁻⁵ yêu cầu Eb/N0 ≈ 0.7 dB.
+
+Gap: 0.7 - (-1.59) = 2.3 dB — đang tiến đến Shannon!
+
+**Ví dụ: Đánh đổi băng thông vs. công suất**
+
+Dung lượng cố định C = 100 Mbps.
+
+Băng thông hẹp (10 MHz): cần SNR = 31.6 (15 dB)
+Băng thông rộng (100 MHz): cần SNR = 1 (0 dB)
+
+Spread spectrum đánh đổi băng thông lấy tiết kiệm công suất.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Vượt dung lượng.** Bạn không thể đáng tin cậy vượt dung lượng Shannon. Tuyên bố "phá vỡ Shannon" hoặc là lỗi hoặc là mô hình kênh khác.
+
+2. **Nhầm bits/s và bits/s/Hz.** Công thức dung lượng cho bits/s; chia cho B để có hiệu suất phổ.
+
+3. **Quên "đáng tin cậy."** Bạn có thể truyền nhanh hơn dung lượng, nhưng lỗi tiến đến 50%. Dung lượng là về truyền không lỗi.
+
+4. **Dùng sai SNR.** Shannon dùng SNR tuyến tính. Chuyển từ dB: SNR = 10^(SNR_dB/10).
+
+5. **Bỏ qua gap thực tế.** Hệ thống thực cách dung lượng 1-3 dB. Ngân sách cho gap này.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Shannon, "A Mathematical Theory of Communication," Bell System Technical Journal, 1948.
+- Cover and Thomas, *Elements of Information Theory*, Chapter 9.
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 5.
+
+</section>

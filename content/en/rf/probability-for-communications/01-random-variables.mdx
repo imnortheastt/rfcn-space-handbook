@@ -9,16 +9,170 @@ unit: probability-for-communications
 order: 1
 level: L2
 estimatedReadingMinutes: 5
+prerequisites: []
+spiralRevisits: []
 title: "Random variables"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Probability fundamentals for communication systems."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["probability", "random-variable", "pdf", "communications"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Random variables
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why random variables?
+
+Wireless signals are inherently random — noise is random, fading is random, interference is random. To design communication systems that work reliably, you need to describe and manipulate these random quantities mathematically. Random variables are the foundation.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+A random variable assigns a number to each outcome of a random experiment. Instead of tracking every possible scenario, you work with probability distributions that summarize what's likely to happen.
+
+Think of it as replacing "the signal could be anywhere from -1 to +1" with "the signal is uniformly distributed on [-1, 1]."
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Probability density function (PDF)
+
+For continuous random variable X:
+
+$$f_X(x) = \frac{dF_X(x)}{dx}$$
+
+Properties:
+- $f_X(x) \geq 0$
+- $\int_{-\infty}^{\infty} f_X(x) \, dx = 1$
+
+Probability: $P(a < X < b) = \int_a^b f_X(x) \, dx$
+
+### Cumulative distribution function (CDF)
+
+$$F_X(x) = P(X \leq x) = \int_{-\infty}^{x} f_X(t) \, dt$$
+
+Properties:
+- $0 \leq F_X(x) \leq 1$
+- Monotonically non-decreasing
+- $\lim_{x \to -\infty} F_X(x) = 0$, $\lim_{x \to \infty} F_X(x) = 1$
+
+### Expected value (mean)
+
+$$\mu = E[X] = \int_{-\infty}^{\infty} x \cdot f_X(x) \, dx$$
+
+For function g(X):
+$$E[g(X)] = \int_{-\infty}^{\infty} g(x) \cdot f_X(x) \, dx$$
+
+### Variance
+
+$$\sigma^2 = \text{Var}(X) = E[(X - \mu)^2] = E[X^2] - (E[X])^2$$
+
+Standard deviation: $\sigma = \sqrt{\text{Var}(X)}$
+
+### Key distributions for RF
+
+**Gaussian (Normal):**
+$$f_X(x) = \frac{1}{\sqrt{2\pi\sigma^2}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}$$
+
+Models thermal noise, sum of many independent sources.
+
+**Rayleigh:**
+$$f_R(r) = \frac{r}{\sigma^2} e^{-\frac{r^2}{2\sigma^2}}, \quad r \geq 0$$
+
+Models envelope of complex Gaussian (fading amplitude).
+
+**Exponential:**
+$$f_X(x) = \lambda e^{-\lambda x}, \quad x \geq 0$$
+
+Models fading power ($|h|^2$ when h is complex Gaussian).
+
+**Rician:**
+$$f_R(r) = \frac{r}{\sigma^2} e^{-\frac{r^2 + s^2}{2\sigma^2}} I_0\left(\frac{rs}{\sigma^2}\right)$$
+
+Models fading with LOS component.
+
+### Q-function
+
+Tail probability of standard Gaussian:
+
+$$Q(x) = \frac{1}{\sqrt{2\pi}} \int_x^{\infty} e^{-t^2/2} \, dt = \frac{1}{2}\text{erfc}\left(\frac{x}{\sqrt{2}}\right)$$
+
+Used for BER calculations.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Thermal noise power**
+
+Noise follows $n \sim \mathcal{N}(0, \sigma^2)$.
+
+Power: $E[n^2] = \sigma^2$
+
+For $\sigma^2 = 10^{-12}$ W: noise power = -90 dBm.
+
+**Example: Rayleigh fading probability**
+
+Channel amplitude h is Rayleigh with $E[|h|^2] = 1$.
+
+Probability of deep fade ($|h|^2 < 0.1$):
+
+$$P(|h|^2 < 0.1) = 1 - e^{-0.1} \approx 9.5\%$$
+
+~10% of the time, you lose 10 dB.
+
+**Example: Outage calculation**
+
+Required SNR: 10 dB. Average SNR: 20 dB.
+
+For Rayleigh fading: outage occurs when instantaneous SNR < 10 dB.
+
+$$P_{out} = 1 - e^{-10/100} = 1 - e^{-0.1} \approx 9.5\%$$
+
+**Example: Sum of Gaussians**
+
+If $X \sim \mathcal{N}(\mu_1, \sigma_1^2)$ and $Y \sim \mathcal{N}(\mu_2, \sigma_2^2)$ independent:
+
+$$X + Y \sim \mathcal{N}(\mu_1 + \mu_2, \sigma_1^2 + \sigma_2^2)$$
+
+Two noise sources with -90 dBm and -93 dBm: total ≈ -87 dBm.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing PDF and CDF.** PDF gives probability density (can exceed 1); CDF gives cumulative probability (always ≤ 1).
+
+2. **Forgetting independence.** Many formulas assume independent random variables. Correlated variables need joint distributions.
+
+3. **Wrong units.** Noise power in linear vs. dB. Always convert to linear for calculations, then back to dB.
+
+4. **Assuming Gaussian.** Central limit theorem requires many independent sources. Few dominant interferers aren't Gaussian.
+
+5. **Ignoring tails.** Communication systems care about rare events (10⁻⁶ BER). The distribution tail matters more than the mean.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Papoulis and Pillai, *Probability, Random Variables, and Stochastic Processes*, Chapters 4-5.
+- Proakis and Salehi, *Digital Communications*, Chapter 2.
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Appendix A.
+
+</section>

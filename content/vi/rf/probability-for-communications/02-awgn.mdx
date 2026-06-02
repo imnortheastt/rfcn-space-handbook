@@ -9,16 +9,173 @@ unit: probability-for-communications
 order: 2
 level: L2
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r0-probability-for-communications-01-random-variables"]
+spiralRevisits: []
 title: "Kênh AWGN"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Mô hình nhiễu Gaussian trắng cộng tính cơ bản."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["awgn", "noise", "channel-model", "snr"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Kênh AWGN
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao kênh AWGN?
+
+Kênh AWGN là mô hình kênh đơn giản nhất hữu ích: tín hiệu phát cộng nhiễu Gaussian. Nó bắt lấy nhiễu nhiệt trong máy thu, bức xạ nền vũ trụ, và hiệu ứng tích lũy của nhiều nhiễu loạn nhỏ. Mọi phân tích hệ thống truyền thông bắt đầu ở đây.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Nhiễu nhiệt đến từ chuyển động electron ngẫu nhiên trong điện trở và bán dẫn. Ở bất kỳ nhiệt độ nào trên không độ tuyệt đối, electron rung ngẫu nhiên, tạo dao động điện áp. Những dao động này có công suất bằng nhau ở tất cả tần số (trắng) và phân bố biên độ Gaussian.
+
+Kênh AWGN nói: tín hiệu của bạn đến nguyên vẹn, nhưng với fuzz nhiệt này được cộng vào.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Mô hình kênh
+
+$$y(t) = x(t) + n(t)$$
+
+- $x(t)$ = tín hiệu phát
+- $n(t)$ = nhiễu AWGN
+- $y(t)$ = tín hiệu thu
+
+### Tính chất nhiễu
+
+**Cộng tính:** Nhiễu cộng vào tín hiệu (vs. fading nhân tính).
+
+**Trắng:** Mật độ phổ công suất phẳng qua tất cả tần số:
+$$S_n(f) = \frac{N_0}{2} \quad \text{(hai phía)}$$
+
+Hoặc $S_n(f) = N_0$ (một phía, cho $f \geq 0$).
+
+**Gaussian:** Biên độ tuân theo phân phối chuẩn:
+$$n(t) \sim \mathcal{N}(0, \sigma^2)$$
+
+### Công suất nhiễu nhiệt
+
+Công suất nhiễu trong băng thông B:
+$$N = kTB$$
+
+- $k$ = hằng số Boltzmann = $1.38 \times 10^{-23}$ J/K
+- $T$ = nhiệt độ tuyệt đối (K)
+- $B$ = băng thông (Hz)
+
+Ở nhiệt độ phòng (T = 290 K):
+$$N_0 = kT = 4 \times 10^{-21} \text{ W/Hz} = -174 \text{ dBm/Hz}$$
+
+### Tỷ số tín hiệu trên nhiễu (SNR)
+
+$$\text{SNR} = \frac{E_s}{N_0} \quad \text{hoặc} \quad \frac{P_s}{N}$$
+
+- $E_s$ = năng lượng mỗi ký hiệu (J)
+- $P_s$ = công suất tín hiệu (W)
+- $N$ = công suất nhiễu trong băng thông tín hiệu
+
+Trong dB: $\text{SNR}_{\text{dB}} = P_{s,\text{dBm}} - N_{\text{dBm}}$
+
+### Eb/N0
+
+Năng lượng mỗi bit chuẩn hóa với nhiễu:
+
+$$\frac{E_b}{N_0} = \frac{E_s}{N_0 \cdot \log_2 M}$$
+
+trong đó M = kích thước constellation.
+
+Cho BPSK: $E_b/N_0 = E_s/N_0$
+
+Cho 16-QAM: $E_b/N_0 = E_s/N_0 - 6$ dB
+
+### Mô hình thời gian rời rạc
+
+Lấy mẫu ở tốc độ ký hiệu:
+$$y_k = x_k + n_k$$
+
+trong đó $n_k \sim \mathcal{N}(0, N_0/2)$ cho thực, hoặc $\mathcal{CN}(0, N_0)$ cho phức.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Mức nhiễu sàn máy thu Wi-Fi**
+
+Băng thông: 20 MHz
+Nhiệt độ: 290 K
+
+$$N = kTB = 4 \times 10^{-21} \times 20 \times 10^6 = 8 \times 10^{-14} \text{ W}$$
+
+Trong dBm: $-174 + 10\log_{10}(20 \times 10^6) = -174 + 73 = -101$ dBm
+
+Với noise figure 6 dB: mức nhiễu sàn = -95 dBm.
+
+**Ví dụ: SNR yêu cầu cho BPSK**
+
+BER mục tiêu: $10^{-5}$
+
+Từ hàm Q: cần $E_b/N_0 \approx 9.6$ dB.
+
+Cho BPSK với Rs = 1 Mbps trong 1 MHz:
+- SNR yêu cầu = 9.6 dB
+- Ở mức nhiễu sàn -95 dBm: cần tín hiệu -85.4 dBm
+
+**Ví dụ: Xác minh link budget**
+
+Công suất TX: 20 dBm
+Path loss: 80 dB
+Độ nhạy RX: -70 dBm
+
+Công suất nhận: 20 - 80 = -60 dBm
+
+Dự trữ: -60 - (-70) = 10 dB ✓
+
+**Ví dụ: Baseband phức**
+
+Cho tín hiệu QAM, nhiễu là phức:
+$$n = n_I + jn_Q$$
+
+trong đó $n_I, n_Q \sim \mathcal{N}(0, N_0/2)$ độc lập.
+
+Tổng công suất nhiễu: $E[|n|^2] = N_0$
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Nhầm PSD một phía và hai phía.** $N_0$ một phía (chỉ tần số dương) là 2× $N_0/2$ hai phía. Hãy nhất quán.
+
+2. **Quên noise figure.** Máy thu thực thêm nhiễu ngoài nhiệt. Tổng nhiễu = kTB × F trong đó F là noise figure.
+
+3. **Sai băng thông.** Dùng băng thông nhiễu, không phải băng thông 3-dB. Chúng khác nhau cho bộ lọc không lý tưởng.
+
+4. **Bỏ qua AWGN khi có fading.** AWGN luôn có mặt. Kênh fading là AWGN cộng hiệu ứng nhân tính.
+
+5. **Giả định độ chính xác vô hạn.** Ở SNR rất cao, nhiễu lượng tử hóa chiếm ưu thế so với AWGN.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Proakis and Salehi, *Digital Communications*, Chapter 4.
+- Sklar, *Digital Communications*, Chapter 3.
+- ITU-R P.372, "Radio Noise."
+
+</section>

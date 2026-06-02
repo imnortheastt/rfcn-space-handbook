@@ -9,16 +9,169 @@ unit: probability-for-communications
 order: 3
 level: L2
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r0-probability-for-communications-02-awgn"]
+spiralRevisits: []
 title: "Tỷ lệ lỗi bit (BER)"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Định lượng độ tin cậy truyền thông số."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["ber", "error-probability", "modulation", "performance"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tỷ lệ lỗi bit (BER)
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao BER?
+
+BER — bit error rate — là metric chất lượng cơ bản cho truyền thông số. Nó cho bạn biết phần nào của bit đến không chính xác. BER 10⁻⁶ nghĩa là một lỗi trên triệu bit. Thiết kế hệ thống quy về đạt BER mục tiêu với công suất, băng thông, và độ phức tạp tối thiểu.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Máy thu số đưa ra quyết định: "bit này là 0 hay 1?" Nhiễu làm hỏng tín hiệu, đôi khi đẩy 0 về phía ngưỡng 1 hoặc ngược lại. BER là xác suất nhiễu gây quyết định sai.
+
+Khoảng cách giữa 0 và 1 trong không gian tín hiệu càng xa, nhiễu càng khó gây nhầm lẫn.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Định nghĩa
+
+$$\text{BER} = \frac{\text{Số lỗi bit}}{\text{Tổng bit phát}}$$
+
+Hoặc lý thuyết: $P_b = P(\text{lỗi bit})$
+
+### BPSK/QPSK qua AWGN
+
+Cho tín hiệu antipodal (BPSK):
+
+$$P_b = Q\left(\sqrt{\frac{2E_b}{N_0}}\right)$$
+
+QPSK có cùng BER mỗi bit (I/Q trực giao).
+
+### M-PSK
+
+Cho M-ary PSK (M > 4):
+
+$$P_s \approx 2Q\left(\sqrt{2\frac{E_s}{N_0}}\sin\left(\frac{\pi}{M}\right)\right)$$
+
+Lỗi ký hiệu sang lỗi bit: $P_b \approx P_s / \log_2 M$ (mã Gray).
+
+### M-QAM
+
+Cho M-QAM vuông:
+
+$$P_s \approx 4\left(1 - \frac{1}{\sqrt{M}}\right)Q\left(\sqrt{\frac{3E_s}{(M-1)N_0}}\right)$$
+
+16-QAM cần ~4 dB Eb/N0 hơn BPSK cho cùng BER.
+
+### Eb/N0 yêu cầu cho BER mục tiêu
+
+| Điều chế | BER = 10⁻³ | BER = 10⁻⁵ | BER = 10⁻⁶ |
+|----------|------------|------------|------------|
+| BPSK/QPSK | 6.8 dB | 9.6 dB | 10.5 dB |
+| 16-QAM | 10.5 dB | 13.3 dB | 14.2 dB |
+| 64-QAM | 14.8 dB | 17.6 dB | 18.5 dB |
+
+### BER trong kênh fading
+
+Sàn AWGN biến mất; BER bị chi phối bởi fading.
+
+Fading Rayleigh (SNR cao):
+$$P_b \approx \frac{1}{4 \cdot E_b/N_0}$$
+
+Không có error floor, nhưng slope tệ hơn nhiều: $1/\text{SNR}$ vs. hàm mũ.
+
+Với bậc diversity L:
+$$P_b \approx \binom{2L-1}{L} \frac{1}{(4E_b/N_0)^L}$$
+
+### Khuếch đại mã hóa
+
+Forward error correction (FEC) cải thiện BER:
+
+Khuếch đại mã hóa = giảm Eb/N0 yêu cầu cho cùng BER.
+
+Điển hình: 2-6 dB cho mã convolutional/turbo/LDPC.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Thiết kế liên kết QPSK**
+
+Mục tiêu: BER = 10⁻⁵
+Từ bảng: cần Eb/N0 = 9.6 dB
+
+Tốc độ ký hiệu: 10 Msps (20 Mbps với QPSK)
+Mức nhiễu sàn: -95 dBm (băng thông 20 MHz)
+
+Tín hiệu yêu cầu: -95 + 9.6 = -85.4 dBm
+
+**Ví dụ: Chọn điều chế**
+
+Băng thông: 20 MHz, cần 80 Mbps.
+
+Hiệu suất phổ: 80/20 = 4 bits/s/Hz → 16-QAM
+
+Ở BER = 10⁻⁵: cần 13.3 dB Eb/N0
+
+Với LDPC rate-1/2 (khuếch đại 5 dB): cần 8.3 dB → nới lỏng link budget.
+
+**Ví dụ: Tác động fading**
+
+BPSK, BER mục tiêu = 10⁻³.
+
+AWGN: cần 6.8 dB Eb/N0
+Fading Rayleigh (không diversity): cần ~24 dB Eb/N0
+
+Với diversity 2-nhánh: cần ~14 dB Eb/N0
+
+Diversity thiết yếu cho không dây.
+
+**Ví dụ: Đo vs. lý thuyết**
+
+BER đo: 2 × 10⁻⁴ ở Eb/N0 = 8 dB
+
+QPSK lý thuyết: 1.5 × 10⁻⁴ ở 8 dB
+
+Mất mát thực hiện: ~0.5 dB — chấp nhận được.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Nhầm Eb/N0 và SNR.** Eb/N0 là mỗi bit; SNR là mỗi ký hiệu hoặc mỗi băng thông. Chuyển đổi cẩn thận.
+
+2. **Bỏ qua mã hóa.** BER không mã hóa là baseline lý thuyết. Hệ thống thực dùng FEC, thay đổi đường cong.
+
+3. **Dùng kết quả AWGN cho fading.** Kênh fading có hành vi BER hoàn toàn khác. Luôn chỉ định mô hình kênh.
+
+4. **Quên mất mát thực hiện.** Máy thu thực có lỗi timing, offset sóng mang, lượng tử hóa. Thêm dự trữ 1-3 dB.
+
+5. **Mục tiêu quá tham vọng.** BER = 10⁻¹² là overkill cho hầu hết ứng dụng. Video hoạt động ở 10⁻³; giọng nói ở 10⁻².
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Proakis and Salehi, *Digital Communications*, Chapter 5.
+- Goldsmith, *Wireless Communications*, Chapter 6.
+- 3GPP TS 38.104, "NR Base Station Radio Transmission and Reception."
+
+</section>

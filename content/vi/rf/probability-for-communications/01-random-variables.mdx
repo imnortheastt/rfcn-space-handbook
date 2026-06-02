@@ -9,16 +9,170 @@ unit: probability-for-communications
 order: 1
 level: L2
 estimatedReadingMinutes: 5
+prerequisites: []
+spiralRevisits: []
 title: "Biến ngẫu nhiên"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Nền tảng xác suất cho hệ thống truyền thông."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["probability", "random-variable", "pdf", "communications"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Biến ngẫu nhiên
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao biến ngẫu nhiên?
+
+Tín hiệu không dây vốn ngẫu nhiên — nhiễu ngẫu nhiên, fading ngẫu nhiên, nhiễu giao thoa ngẫu nhiên. Để thiết kế hệ thống truyền thông hoạt động đáng tin cậy, bạn cần mô tả và thao tác các đại lượng ngẫu nhiên này bằng toán học. Biến ngẫu nhiên là nền tảng.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Biến ngẫu nhiên gán một số cho mỗi kết quả của thí nghiệm ngẫu nhiên. Thay vì theo dõi mọi kịch bản có thể, bạn làm việc với phân phối xác suất tóm tắt những gì có thể xảy ra.
+
+Hãy nghĩ như thay thế "tín hiệu có thể ở bất kỳ đâu từ -1 đến +1" bằng "tín hiệu phân bố đều trên [-1, 1]."
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Hàm mật độ xác suất (PDF)
+
+Cho biến ngẫu nhiên liên tục X:
+
+$$f_X(x) = \frac{dF_X(x)}{dx}$$
+
+Tính chất:
+- $f_X(x) \geq 0$
+- $\int_{-\infty}^{\infty} f_X(x) \, dx = 1$
+
+Xác suất: $P(a < X < b) = \int_a^b f_X(x) \, dx$
+
+### Hàm phân phối tích lũy (CDF)
+
+$$F_X(x) = P(X \leq x) = \int_{-\infty}^{x} f_X(t) \, dt$$
+
+Tính chất:
+- $0 \leq F_X(x) \leq 1$
+- Đơn điệu không giảm
+- $\lim_{x \to -\infty} F_X(x) = 0$, $\lim_{x \to \infty} F_X(x) = 1$
+
+### Giá trị kỳ vọng (trung bình)
+
+$$\mu = E[X] = \int_{-\infty}^{\infty} x \cdot f_X(x) \, dx$$
+
+Cho hàm g(X):
+$$E[g(X)] = \int_{-\infty}^{\infty} g(x) \cdot f_X(x) \, dx$$
+
+### Phương sai
+
+$$\sigma^2 = \text{Var}(X) = E[(X - \mu)^2] = E[X^2] - (E[X])^2$$
+
+Độ lệch chuẩn: $\sigma = \sqrt{\text{Var}(X)}$
+
+### Các phân phối chính cho RF
+
+**Gaussian (Chuẩn):**
+$$f_X(x) = \frac{1}{\sqrt{2\pi\sigma^2}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}$$
+
+Mô hình nhiễu nhiệt, tổng nhiều nguồn độc lập.
+
+**Rayleigh:**
+$$f_R(r) = \frac{r}{\sigma^2} e^{-\frac{r^2}{2\sigma^2}}, \quad r \geq 0$$
+
+Mô hình biên độ của Gaussian phức (biên độ fading).
+
+**Mũ:**
+$$f_X(x) = \lambda e^{-\lambda x}, \quad x \geq 0$$
+
+Mô hình công suất fading ($|h|^2$ khi h là Gaussian phức).
+
+**Rician:**
+$$f_R(r) = \frac{r}{\sigma^2} e^{-\frac{r^2 + s^2}{2\sigma^2}} I_0\left(\frac{rs}{\sigma^2}\right)$$
+
+Mô hình fading với thành phần LOS.
+
+### Hàm Q
+
+Xác suất đuôi của Gaussian chuẩn:
+
+$$Q(x) = \frac{1}{\sqrt{2\pi}} \int_x^{\infty} e^{-t^2/2} \, dt = \frac{1}{2}\text{erfc}\left(\frac{x}{\sqrt{2}}\right)$$
+
+Dùng cho tính toán BER.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Công suất nhiễu nhiệt**
+
+Nhiễu tuân theo $n \sim \mathcal{N}(0, \sigma^2)$.
+
+Công suất: $E[n^2] = \sigma^2$
+
+Cho $\sigma^2 = 10^{-12}$ W: công suất nhiễu = -90 dBm.
+
+**Ví dụ: Xác suất fading Rayleigh**
+
+Biên độ kênh h là Rayleigh với $E[|h|^2] = 1$.
+
+Xác suất fade sâu ($|h|^2 < 0.1$):
+
+$$P(|h|^2 < 0.1) = 1 - e^{-0.1} \approx 9.5\%$$
+
+~10% thời gian, bạn mất 10 dB.
+
+**Ví dụ: Tính toán outage**
+
+SNR yêu cầu: 10 dB. SNR trung bình: 20 dB.
+
+Cho fading Rayleigh: outage xảy ra khi SNR tức thời < 10 dB.
+
+$$P_{out} = 1 - e^{-10/100} = 1 - e^{-0.1} \approx 9.5\%$$
+
+**Ví dụ: Tổng các Gaussian**
+
+Nếu $X \sim \mathcal{N}(\mu_1, \sigma_1^2)$ và $Y \sim \mathcal{N}(\mu_2, \sigma_2^2)$ độc lập:
+
+$$X + Y \sim \mathcal{N}(\mu_1 + \mu_2, \sigma_1^2 + \sigma_2^2)$$
+
+Hai nguồn nhiễu với -90 dBm và -93 dBm: tổng ≈ -87 dBm.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Nhầm PDF và CDF.** PDF cho mật độ xác suất (có thể vượt 1); CDF cho xác suất tích lũy (luôn ≤ 1).
+
+2. **Quên độc lập.** Nhiều công thức giả định biến ngẫu nhiên độc lập. Biến tương quan cần phân phối đồng thời.
+
+3. **Sai đơn vị.** Công suất nhiễu trong tuyến tính vs. dB. Luôn chuyển sang tuyến tính cho tính toán, sau đó quay lại dB.
+
+4. **Giả định Gaussian.** Định lý giới hạn trung tâm yêu cầu nhiều nguồn độc lập. Vài nguồn giao thoa chiếm ưu thế không phải Gaussian.
+
+5. **Bỏ qua đuôi.** Hệ thống truyền thông quan tâm sự kiện hiếm (BER 10⁻⁶). Đuôi phân phối quan trọng hơn trung bình.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Papoulis and Pillai, *Probability, Random Variables, and Stochastic Processes*, Chapters 4-5.
+- Proakis and Salehi, *Digital Communications*, Chapter 2.
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Appendix A.
+
+</section>
