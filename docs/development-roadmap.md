@@ -47,16 +47,27 @@ Multi-year roadmap for RF·CN·Space from Phase 0 (foundation) through Phase 4 (
 
 ## Phase 1 — Content Scaffold & Anchor Slice (Months 2–6)
 
-**Status:** In Planning
+**Status:** SCAFFOLDING COMPLETE 2026-06-02 — Content authoring in progress
 
 **Goal:** Make the platform credibly usable for one complete reader journey per domain. Establish content patterns, prove Vietnamese-language depth.
 
-### Milestones
+### Phase 1.0 Mechanical Scaffolding (COMPLETE)
 
-- [ ] Curriculum graph (`curriculum.json`) fully populated with structure
-  - Domain → Track → Unit → Lesson hierarchy defined (even for unwritten lessons)
-  - ~150–200 lesson placeholders created with stubs
-  - Roadmap visualizer renders curriculum tree per domain
+- [x] Curriculum graph (`curriculum.json`) fully populated with ~1,000 lesson IDs
+  - Domain → Track → Unit → Lesson hierarchy defined (34 tracks, ~150 units)
+  - Zod schema validates structure (commit d2cd946)
+- [x] 526 lesson stub MDX files generated in EN+VI (commit 3da3383)
+  - `status: draft` frontmatter excludes from navigation
+  - Parity validator confirms EN/VI match
+- [x] Roadmap visualizer renders curriculum tree per domain (commit 0fc4653)
+  - SVG-based, no JS, renders at `/{lang}/{domain}/`
+- [x] 4 flagship widget scaffolds (commit 9a5264f)
+  - LinkBudget, ModulationVisualizer, FiveGCallFlow, OrbitVisualizer
+  - Placeholder math, experimental flag, smoke tests pass
+- [x] Glossary expanded to 52 bilingual terms (commit 4d44c4b)
+- [x] Citations expanded to 20 verified standards/textbooks (commit 4d44c4b)
+
+### Phase 1.1+ Content Authoring (IN PROGRESS)
 
 - [ ] Content authoring & publication
   - ~50 lessons per domain (~150 total)

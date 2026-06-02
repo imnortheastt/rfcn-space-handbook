@@ -6,14 +6,61 @@ All notable changes to RF·CN·Space are documented here. Format follows [Keep a
 
 ## [Unreleased]
 
-### Added — Phase 1 (In Planning)
+### Phase 1.1+ Content Authoring (In Progress)
 
-- Content scaffolding: curriculum graph fully defined (~150–200 lesson placeholders)
-- Cross-domain bridges: B1 (antenna to base station), B2 (satellite to UE), B3 (spectrum to service)
-- Interactive widgets: Link Budget Calculator, Antenna Pattern 3D, 5G Call Flow Stepper, Orbital Visualizer, Modulation Visualizer
-- Glossary expansion: ~300 bilingual terms
-- Citation database expansion: ~300 entries (standards + textbooks)
-- Public launch (end of Phase 1)
+- [ ] ~150 lessons authored (EN+VI parity)
+- [ ] Cross-domain bridges: B1, B2, B3
+- [ ] Glossary expansion to ~300 terms
+- [ ] Public launch
+
+---
+
+## [1.1.0] — 2026-06-02
+
+### Added — Phase 1.0 Mechanical Scaffolding
+
+#### Curriculum Structure
+- Full curriculum DAG with ~1,000 lesson IDs across 3 domains (RF, Core Network, Space)
+- 34 tracks, ~150 units with Zod-validated schema
+- Lesson ID convention: `{domain}-{track}-{unit-slug}-{order:02d}-{slug}`
+
+#### Content Infrastructure
+- 526 lesson stub MDX files (EN+VI pairs)
+- `status: draft` frontmatter field for navigation exclusion
+- Lesson stub generator tool (`tools/lesson-stub-generator/`)
+- Extended frontmatter schema with status field
+
+#### Visualization
+- Per-domain SVG roadmap visualizer at `/{lang}/{domain}/`
+- Pure CSS hover effects (no JS shipped)
+- Full curriculum DAG rendered with track/unit/lesson hierarchy
+
+#### Interactive Widgets (4 scaffolds)
+- **LinkBudget** (RF domain) — link budget calculator scaffold
+- **ModulationVisualizer** (RF domain) — constellation/eye diagram scaffold
+- **FiveGCallFlow** (Network domain) — 5G call flow stepper scaffold
+- **OrbitVisualizer** (Space domain) — orbital mechanics scaffold
+- All widgets: experimental flag, placeholder math, smoke tests pass
+
+#### Data Expansion
+- Glossary: 52 bilingual terms (from 50 baseline)
+- Citations: 20 verified standards + textbooks
+  - IEEE 145-2013, 3GPP TS 23.501/23.502/23.503, TR 38.811
+  - Pozar Microwave Engineering, etc.
+
+#### Validation
+- `pnpm validate:parity` confirms ~500+ parityIds matched
+- `pnpm validate:frontmatter` passes on all ~1,000 files
+- Build completes in <90s
+- All tests green
+
+### Changed
+
+- Development roadmap updated to reflect Phase 1.0 completion
+
+### Fixed
+
+- N/A
 
 ---
 
