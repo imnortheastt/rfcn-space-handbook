@@ -92,10 +92,10 @@ Multi-year roadmap for RF·CN·Space from Phase 0 (foundation) through Phase 4 (
     - **Space (s0–s1):** Math/physics foundations, orbital mechanics introduction
   - All lessons peer-reviewed (editorial + technical)
 
-- [ ] First cross-domain bridge (B1: From antenna to base station)
-  - Published end-to-end
-  - Demonstrates unified RF ↔ Core Network treatment
-  - **Key lessons:** "An RF engineer's view of the gNB"; "Why fronthaul option 7.2x looks the way it does"
+- [x] All three cross-domain bridges published (B1, B2, B3) — EN+VI
+  - **B1:** Antenna to base station — gNB architecture, fronthaul 7.2x, RF-network interface
+  - **B2:** Satellite to UE — LEO 5G NTN, link budget, Doppler compensation, timing advance, HARQ
+  - **B3:** Spectrum to service — ITU framework, auctions, interference management, economics
 
 - [ ] Five flagship interactive widgets shipped & tested
   1. **Link Budget Calculator** — RF domain
@@ -161,10 +161,10 @@ End of Phase 1 marks the first public announcement. Target channels:
   - No orphaned units or tracks
   - Cross-unit connections established
 
-- [ ] All three domain bridges (B1, B2, B3) shipped
-  - B1: Antenna to Base Station (RF ↔ Core Network)
-  - B2: Satellite to UE (Space ↔ RF ↔ Core Network) — complete walkthrough: UE registers on LEO 5G NTN bird
-  - B3: Spectrum to Service (RF ↔ Core Network ↔ Space regulatory) — ITU-R/3GPP/national regulator interlock
+- [x] All three domain bridges (B1, B2, B3) shipped (completed in Phase 1)
+  - B1: Antenna to Base Station (RF ↔ Core Network) ✓
+  - B2: Satellite to UE (Space ↔ RF ↔ Core Network) ✓
+  - B3: Spectrum to Service (RF ↔ Core Network ↔ Space regulatory) ✓
 
 - [ ] Interactive widgets: ~20 total
   - Additional domain-specific widgets
