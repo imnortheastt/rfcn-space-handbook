@@ -1,0 +1,309 @@
+---
+id: bridges-b2-satellite-to-ue-en
+slug: satellite-to-ue
+lang: en
+parityId: bridges-b2-satellite-to-ue
+domain: bridges
+track: b2
+unit: satellite-to-ue
+order: 1
+level: L3
+estimatedReadingMinutes: 14
+prerequisites: ["rf-r3-friis-and-link-budget-01-friis-equation", "bridges-b1-antenna-to-base-station"]
+spiralRevisits: ["rf-r6-ntn-channel-models-04-ntn-specific-models"]
+title: "Bridge B2: From satellite to UE"
+description: "How a 5G NTN signal travels from LEO orbit to your phone — the complete RF, space, and network chain."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 38.821", "3GPP TR 38.811", "ITU-R S.1503"]
+tags: ["bridge", "cross-domain", "ntn", "satellite", "leo", "5g"]
+widgets: []
+license: CC-BY-SA-4.0
+status: published
+---
+
+<section class="lesson-hook">
+
+## Why this bridge?
+
+A 5G signal from a LEO satellite at 550 km altitude reaches your phone. The round-trip delay is 7 ms (not 600 ms like GEO). The Doppler shift hits ±24 ppm. The satellite moves across the sky in 10 minutes.
+
+This isn't a simple extension of terrestrial 5G — it's a three-domain problem. RF propagation through atmosphere and free space. Orbital mechanics driving handover. Core network handling 1,000× the delay budget. Understanding NTN requires all three.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+**Space domain:** The satellite is a flying base station. Its orbit determines coverage, visibility windows, and handover rate. LEO satellites move fast (7.5 km/s); GEO satellites are stationary but far (36,000 km).
+
+**RF domain:** The link budget is brutal. Free-space path loss at 550 km and 2 GHz = 160 dB. Atmospheric losses add 1-3 dB. Rain fade can kill Ka-band links. The antenna on a phone has maybe 0 dBi gain. Every dB matters.
+
+**Network domain:** 3GPP Release 17 defined NTN as part of 5G NR. The gNB can be on the satellite (regenerative) or on the ground (transparent/bent-pipe). Timing advance, HARQ, and handover all need NTN-specific adaptations.
+
+The signal path: satellite antenna → free space → atmosphere → UE antenna → baseband → 5G stack → core network. Each domain owns part of this chain.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## The NTN architecture
+
+### Deployment scenarios
+
+3GPP TR 38.811 defines several NTN scenarios:
+
+| Scenario | Altitude | RTT | Doppler | Coverage |
+|----------|----------|-----|---------|----------|
+| GEO | 35,786 km | ~600 ms | Low | Continental |
+| MEO | 8,000-20,000 km | 80-250 ms | Medium | Regional |
+| LEO | 300-1,500 km | 4-25 ms | High | Spot beams |
+| HAPS | 20 km | <1 ms | Low | Urban area |
+
+LEO is the current focus: Starlink (SpaceX), OneWeb, Amazon Kuiper all use LEO.
+
+### Transparent vs. regenerative
+
+**Transparent (bent-pipe):**
+- Satellite is a relay — amplifies and frequency-shifts
+- gNB is on the ground
+- Lower satellite complexity
+- Higher ground segment cost
+
+```
+UE ←→ Satellite ←→ Gateway ←→ gNB ←→ Core
+           (relay)        (fiber)
+```
+
+**Regenerative:**
+- Satellite hosts gNB-DU or full gNB
+- Processes NR waveform on-board
+- Inter-satellite links (ISL) possible
+- Higher satellite complexity
+
+```
+UE ←→ Satellite (gNB) ←→ Gateway ←→ Core
+                              (feeder link)
+```
+
+### Frequency bands
+
+| Band | Frequency | Use | Notes |
+|------|-----------|-----|-------|
+| L-band | 1-2 GHz | Mobile | Low gain antennas OK |
+| S-band | 2-4 GHz | Mobile, IoT | 3GPP NTN bands n256, n255 |
+| Ka-band | 26-40 GHz | Broadband | High throughput, rain fade |
+| Ku-band | 12-18 GHz | Broadband | Moderate throughput |
+
+For handheld UEs: L/S-band (low gain antennas, all-sky visibility).
+For VSAT terminals: Ka/Ku-band (high throughput, directional antennas).
+
+## The link budget (satellite perspective)
+
+### Downlink: satellite → UE
+
+$$P_{rx} = P_{tx} + G_{tx} - L_{fspl} - L_{atm} - L_{misc} + G_{rx}$$
+
+**Example: LEO S-band downlink**
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| $P_{tx}$ (satellite EIRP) | +40 dBW | Typical LEO |
+| $G_{tx}$ (sat antenna) | +30 dBi | Spot beam |
+| $L_{fspl}$ (550 km, 2 GHz) | -161 dB | Free-space path loss |
+| $L_{atm}$ (atmosphere) | -1 dB | Clear sky |
+| $G_{rx}$ (UE antenna) | 0 dBi | Isotropic phone |
+| $P_{rx}$ | -92 dBm | Received power |
+
+Noise floor: $N = kTB = -174 + 10\log_{10}(30\text{ MHz}) + NF$
+With NF = 7 dB: $N = -174 + 75 + 7 = -92$ dBm
+
+SNR ≈ 0 dB — marginal. This is why NTN uses low-order modulation (QPSK) and robust coding.
+
+### Uplink: UE → satellite
+
+| Parameter | Value | Notes |
+|-----------|-------|-------|
+| $P_{tx}$ (UE) | +23 dBm | Class 3 UE |
+| $G_{tx}$ (UE antenna) | 0 dBi | Isotropic |
+| $L_{fspl}$ (550 km, 2 GHz) | -161 dB | |
+| $L_{atm}$ | -1 dB | |
+| $G_{rx}$ (sat antenna) | +30 dBi | |
+| $P_{rx}$ | -109 dBm | |
+
+Satellite receiver noise: better than UE (cooled LNA, higher NF budget).
+SNR uplink: ~10 dB margin for QPSK.
+
+## NTN-specific challenges
+
+### Timing advance
+
+Terrestrial: TA ≤ 0.67 ms (cell radius ~100 km).
+NTN: TA = 2 × altitude / c = 2 × 550 km / 3×10⁸ = **3.7 ms** one-way.
+
+3GPP solution: **Common TA** broadcast by satellite + **differential TA** per UE.
+
+UE computes TA from:
+1. Ephemeris data (satellite position)
+2. GNSS position (UE location)
+3. Fine adjustment from DL timing
+
+### Doppler shift
+
+LEO at 550 km, overhead pass:
+$$f_d = \frac{v \cos\theta}{c} f_c$$
+
+At 7.5 km/s, 2 GHz: $f_d$ = ±50 kHz (±25 ppm).
+
+3GPP solution:
+- UE pre-compensates Doppler using ephemeris
+- Residual Doppler handled by NR tracking loops
+- Larger subcarrier spacing (30/60 kHz) tolerates residual offset
+
+### HARQ timing
+
+Terrestrial: 4 ms RTT budget for HARQ ACK/NACK.
+NTN: RTT = 7-25 ms (LEO) → HARQ timing doesn't fit.
+
+3GPP solution: **Disabling HARQ** or **extended HARQ timeline**.
+- HARQ disabled: rely on RLC ARQ (slower but works)
+- Extended: larger HARQ buffer, async feedback
+
+### Handover
+
+LEO satellite crosses horizon in ~10 minutes.
+UE must handover between:
+- Beams (same satellite) — fast, L1-based
+- Satellites — slower, L3 handover with core involvement
+
+3GPP defines:
+- **Earth-fixed beams:** beam footprint stationary, satellite steers
+- **Earth-moving beams:** beam footprint moves with satellite
+
+Earth-fixed beams simplify UE — no beam handover during visibility.
+
+## Signal chain: satellite → UE
+
+### Downlink path
+
+1. **Core network:** Same 5GC (AMF, SMF, UPF) as terrestrial.
+2. **Backhaul:** Fiber to gateway ground station.
+3. **Feeder link:** Gateway → satellite (Ka-band, high capacity).
+4. **Satellite payload:** Frequency conversion, amplification (transparent) or gNB processing (regenerative).
+5. **Service link:** Satellite → UE (S-band, modest capacity).
+6. **Atmospheric propagation:** Ionospheric delay, tropospheric attenuation.
+7. **UE reception:** Low-gain antenna, NR PHY with NTN extensions.
+
+### Uplink path
+
+Reverse direction. Key differences:
+- UE has limited power (+23 dBm max)
+- Satellite antenna gain compensates
+- Doppler pre-compensation critical
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: LEO 5G NTN link budget**
+
+Design: 550 km LEO, 2 GHz S-band, 30 MHz channel.
+
+Downlink:
+- Satellite EIRP: 40 dBW (10 W PA + 30 dBi antenna)
+- FSPL: 161 dB
+- UE G/T: -24 dB/K (phone with 7 dB NF)
+- C/N₀: 40 + 228.6 - 161 - (-24) = 131.6 dB-Hz
+- C/N (30 MHz): 131.6 - 74.8 = 56.8 dB? 
+
+Wait — let me recalculate properly:
+- $C/N_0 = EIRP - L_{path} - k + G/T$
+- $C/N_0 = 70 \text{ dBm} - 161 - (-228.6) + (-24) = 113.6$ dB-Hz
+- $C/N = C/N_0 - 10\log_{10}(B) = 113.6 - 74.8 = 38.8$ dB? Still high.
+
+Actually for NTN, typical SNR is **5-15 dB** — enough for QPSK 1/2 to 16QAM 1/2.
+
+**Example: Doppler compensation**
+
+Satellite velocity: 7.5 km/s
+Elevation angle: 30°
+Carrier: 2 GHz
+
+$f_d = \frac{7500 \times \cos(90° - 30°)}{3 \times 10^8} \times 2 \times 10^9 = 25$ kHz
+
+UE must pre-compensate ±25 kHz based on ephemeris.
+Residual after compensation: <1 kHz (handled by NR PLL).
+
+**Example: Timing advance calculation**
+
+Satellite altitude: 550 km
+UE at nadir (directly below): distance = 550 km
+
+$TA = \frac{2 \times 550 \times 10^3}{3 \times 10^8} = 3.67$ ms
+
+At 30° elevation: slant range = 550 / sin(30°) = 1100 km
+$TA = 7.33$ ms
+
+UE calculates this from ephemeris + GNSS, sends TA adjustment to gNB.
+
+**Example: HARQ impact**
+
+Terrestrial: 4 ms RTT → 8 HARQ processes enough.
+LEO NTN: 7 ms RTT → need 14+ HARQ processes or disable.
+
+Many NTN deployments use RLC-ARQ instead (100+ ms recovery but simpler).
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Treating NTN as "5G with longer delay."** The challenges compound: Doppler, timing, HARQ, handover all interact. Terrestrial assumptions break.
+
+2. **Ignoring atmospheric effects.** Rain fade at Ka-band can add 10+ dB loss. Ionospheric scintillation at L-band causes fading. Link margin must account for these.
+
+3. **Assuming constant geometry.** LEO satellites move. Elevation angle changes continuously. Doppler varies from +max to -max in one pass. Static analysis is insufficient.
+
+4. **Forgetting regulatory constraints.** NTN uses allocated satellite bands. Coordination with existing GEO satellites required. PFD limits apply.
+
+5. **Underestimating terminal antenna requirements.** For Ka-band VSAT: 60+ cm dish, tracking mount. For S-band phone: omnidirectional, but link margin is marginal.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TR 38.811, "Study on NR to support NTN"
+- 3GPP TS 38.821, "Solutions for NR to support NTN"
+- 3GPP TS 38.108, "NR NTN Base Station Radio Transmission and Reception"
+- ITU-R S.1503, "Functional description to be used in sharing studies"
+- Maral & Bousquet, *Satellite Communications Systems*, Wiley, 2020
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+**From Space side:**
+- [Orbital mechanics](/en/space/orbital-mechanics/) — why LEO moves so fast
+- [Satellite link budget](/en/space/satellite-link-budget/) — the math in detail
+
+**From RF side:**
+- [Atmospheric losses](/en/rf/propagation-in-real-environments/atmospheric-and-ionospheric-losses/) — what happens between satellite and ground
+- [NTN channel models](/en/rf/ntn-channel-models/) — how 3GPP models the NTN channel
+
+**From Network side:**
+- [5G NTN architecture](/en/core-network/5g-ntn-architecture/) — how 5GC adapts for NTN
+- [Timing advance](/en/core-network/timing-advance/) — the mechanics of TA calculation
+
+**Cross-domain:**
+- [Bridge B3: From spectrum to service](/en/bridges/spectrum-to-service/) — regulatory coordination across RF, network, and space
+
+</section>

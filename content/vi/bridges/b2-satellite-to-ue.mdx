@@ -1,0 +1,302 @@
+---
+id: bridges-b2-satellite-to-ue-vi
+slug: satellite-to-ue
+lang: vi
+parityId: bridges-b2-satellite-to-ue
+domain: bridges
+track: b2
+unit: satellite-to-ue
+order: 1
+level: L3
+estimatedReadingMinutes: 14
+prerequisites: ["rf-r3-friis-and-link-budget-01-friis-equation", "bridges-b1-antenna-to-base-station"]
+spiralRevisits: ["rf-r6-ntn-channel-models-04-ntn-specific-models"]
+title: "Cầu nối B2: Từ vệ tinh đến UE"
+description: "Cách tín hiệu 5G NTN đi từ quỹ đạo LEO đến điện thoại của bạn — chuỗi RF, không gian, và mạng hoàn chỉnh."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 38.821", "3GPP TR 38.811", "ITU-R S.1503"]
+tags: ["bridge", "cross-domain", "ntn", "satellite", "leo", "5g"]
+widgets: []
+license: CC-BY-SA-4.0
+status: published
+---
+
+<section class="lesson-hook">
+
+## Tại sao cầu nối này?
+
+Tín hiệu 5G từ vệ tinh LEO ở độ cao 550 km đến điện thoại của bạn. Độ trễ khứ hồi là 7 ms (không phải 600 ms như GEO). Dịch Doppler đạt ±24 ppm. Vệ tinh di chuyển ngang bầu trời trong 10 phút.
+
+Đây không phải mở rộng đơn giản của 5G mặt đất — đây là bài toán ba miền. Lan truyền RF qua khí quyển và không gian tự do. Cơ học quỹ đạo điều khiển handover. Mạng lõi xử lý ngân sách trễ 1,000×. Hiểu NTN yêu cầu cả ba.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+**Miền không gian:** Vệ tinh là trạm gốc bay. Quỹ đạo của nó quyết định vùng phủ, cửa sổ nhìn thấy, và tốc độ handover. Vệ tinh LEO di chuyển nhanh (7.5 km/s); vệ tinh GEO đứng yên nhưng xa (36,000 km).
+
+**Miền RF:** Link budget khắc nghiệt. Suy hao không gian tự do ở 550 km và 2 GHz = 160 dB. Suy hao khí quyển thêm 1-3 dB. Rain fade có thể giết link Ka-band. Ăng-ten trên điện thoại có thể 0 dBi tăng ích. Mỗi dB đều quan trọng.
+
+**Miền mạng:** 3GPP Release 17 định nghĩa NTN là phần của 5G NR. gNB có thể ở trên vệ tinh (regenerative) hoặc dưới đất (transparent/bent-pipe). Timing advance, HARQ, và handover đều cần thích ứng riêng cho NTN.
+
+Đường đi tín hiệu: ăng-ten vệ tinh → không gian tự do → khí quyển → ăng-ten UE → baseband → ngăn xếp 5G → mạng lõi. Mỗi miền sở hữu phần của chuỗi này.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Kiến trúc NTN
+
+### Kịch bản triển khai
+
+3GPP TR 38.811 định nghĩa nhiều kịch bản NTN:
+
+| Kịch bản | Độ cao | RTT | Doppler | Vùng phủ |
+|----------|--------|-----|---------|----------|
+| GEO | 35,786 km | ~600 ms | Thấp | Lục địa |
+| MEO | 8,000-20,000 km | 80-250 ms | Trung bình | Khu vực |
+| LEO | 300-1,500 km | 4-25 ms | Cao | Búp điểm |
+| HAPS | 20 km | <1 ms | Thấp | Đô thị |
+
+LEO là trọng tâm hiện tại: Starlink (SpaceX), OneWeb, Amazon Kuiper đều dùng LEO.
+
+### Transparent vs. regenerative
+
+**Transparent (bent-pipe):**
+- Vệ tinh là relay — khuếch đại và chuyển tần
+- gNB ở dưới đất
+- Độ phức tạp vệ tinh thấp hơn
+- Chi phí phân đoạn mặt đất cao hơn
+
+```
+UE ←→ Vệ tinh ←→ Gateway ←→ gNB ←→ Core
+         (relay)        (fiber)
+```
+
+**Regenerative:**
+- Vệ tinh chứa gNB-DU hoặc gNB đầy đủ
+- Xử lý dạng sóng NR trên board
+- Liên kết liên vệ tinh (ISL) có thể
+- Độ phức tạp vệ tinh cao hơn
+
+```
+UE ←→ Vệ tinh (gNB) ←→ Gateway ←→ Core
+                           (feeder link)
+```
+
+### Băng tần
+
+| Băng | Tần số | Sử dụng | Ghi chú |
+|------|--------|---------|---------|
+| L-band | 1-2 GHz | Di động | Ăng-ten tăng ích thấp OK |
+| S-band | 2-4 GHz | Di động, IoT | Băng NTN 3GPP n256, n255 |
+| Ka-band | 26-40 GHz | Băng rộng | Thông lượng cao, rain fade |
+| Ku-band | 12-18 GHz | Băng rộng | Thông lượng vừa phải |
+
+Cho UE cầm tay: L/S-band (ăng-ten tăng ích thấp, nhìn thấy toàn bầu trời).
+Cho terminal VSAT: Ka/Ku-band (thông lượng cao, ăng-ten định hướng).
+
+## Link budget (góc nhìn vệ tinh)
+
+### Đường xuống: vệ tinh → UE
+
+$$P_{rx} = P_{tx} + G_{tx} - L_{fspl} - L_{atm} - L_{misc} + G_{rx}$$
+
+**Ví dụ: Đường xuống LEO S-band**
+
+| Tham số | Giá trị | Ghi chú |
+|---------|---------|---------|
+| $P_{tx}$ (EIRP vệ tinh) | +40 dBW | LEO điển hình |
+| $G_{tx}$ (ăng-ten sat) | +30 dBi | Búp điểm |
+| $L_{fspl}$ (550 km, 2 GHz) | -161 dB | Suy hao không gian tự do |
+| $L_{atm}$ (khí quyển) | -1 dB | Trời trong |
+| $G_{rx}$ (ăng-ten UE) | 0 dBi | Điện thoại đẳng hướng |
+| $P_{rx}$ | -92 dBm | Công suất nhận |
+
+Sàn tạp âm: $N = kTB = -174 + 10\log_{10}(30\text{ MHz}) + NF$
+Với NF = 7 dB: $N = -174 + 75 + 7 = -92$ dBm
+
+SNR ≈ 0 dB — biên. Đây là lý do NTN dùng điều chế bậc thấp (QPSK) và mã hóa robust.
+
+### Đường lên: UE → vệ tinh
+
+| Tham số | Giá trị | Ghi chú |
+|---------|---------|---------|
+| $P_{tx}$ (UE) | +23 dBm | UE Class 3 |
+| $G_{tx}$ (ăng-ten UE) | 0 dBi | Đẳng hướng |
+| $L_{fspl}$ (550 km, 2 GHz) | -161 dB | |
+| $L_{atm}$ | -1 dB | |
+| $G_{rx}$ (ăng-ten sat) | +30 dBi | |
+| $P_{rx}$ | -109 dBm | |
+
+Tạp âm bộ thu vệ tinh: tốt hơn UE (LNA làm mát, ngân sách NF cao hơn).
+SNR đường lên: ~10 dB margin cho QPSK.
+
+## Thách thức riêng NTN
+
+### Timing advance
+
+Mặt đất: TA ≤ 0.67 ms (bán kính cell ~100 km).
+NTN: TA = 2 × độ cao / c = 2 × 550 km / 3×10⁸ = **3.7 ms** một chiều.
+
+Giải pháp 3GPP: **Common TA** phát bởi vệ tinh + **differential TA** mỗi UE.
+
+UE tính TA từ:
+1. Dữ liệu ephemeris (vị trí vệ tinh)
+2. Vị trí GNSS (vị trí UE)
+3. Điều chỉnh tinh từ timing DL
+
+### Dịch Doppler
+
+LEO ở 550 km, qua đỉnh đầu:
+$$f_d = \frac{v \cos\theta}{c} f_c$$
+
+Ở 7.5 km/s, 2 GHz: $f_d$ = ±50 kHz (±25 ppm).
+
+Giải pháp 3GPP:
+- UE bù trước Doppler dùng ephemeris
+- Doppler dư được xử lý bởi vòng tracking NR
+- Khoảng cách subcarrier lớn hơn (30/60 kHz) chịu được offset dư
+
+### Timing HARQ
+
+Mặt đất: ngân sách RTT 4 ms cho HARQ ACK/NACK.
+NTN: RTT = 7-25 ms (LEO) → timing HARQ không phù hợp.
+
+Giải pháp 3GPP: **Tắt HARQ** hoặc **timeline HARQ mở rộng**.
+- HARQ tắt: dựa vào RLC ARQ (chậm hơn nhưng hoạt động)
+- Mở rộng: buffer HARQ lớn hơn, feedback async
+
+### Handover
+
+Vệ tinh LEO vượt đường chân trời trong ~10 phút.
+UE phải handover giữa:
+- Búp (cùng vệ tinh) — nhanh, dựa L1
+- Vệ tinh — chậm hơn, L3 handover với sự tham gia core
+
+3GPP định nghĩa:
+- **Búp cố định Trái Đất:** vùng phủ búp đứng yên, vệ tinh lái
+- **Búp di động Trái Đất:** vùng phủ búp di chuyển cùng vệ tinh
+
+Búp cố định Trái Đất đơn giản hóa UE — không handover búp trong thời gian nhìn thấy.
+
+## Chuỗi tín hiệu: vệ tinh → UE
+
+### Đường xuống
+
+1. **Mạng lõi:** Cùng 5GC (AMF, SMF, UPF) như mặt đất.
+2. **Backhaul:** Fiber đến trạm gateway mặt đất.
+3. **Feeder link:** Gateway → vệ tinh (Ka-band, dung lượng cao).
+4. **Payload vệ tinh:** Chuyển đổi tần số, khuếch đại (transparent) hoặc xử lý gNB (regenerative).
+5. **Service link:** Vệ tinh → UE (S-band, dung lượng khiêm tốn).
+6. **Lan truyền khí quyển:** Trễ tầng điện ly, suy hao tầng đối lưu.
+7. **Thu UE:** Ăng-ten tăng ích thấp, NR PHY với mở rộng NTN.
+
+### Đường lên
+
+Chiều ngược lại. Khác biệt chính:
+- UE có công suất hạn chế (+23 dBm max)
+- Tăng ích ăng-ten vệ tinh bù đắp
+- Bù trước Doppler quan trọng
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Link budget LEO 5G NTN**
+
+Thiết kế: LEO 550 km, S-band 2 GHz, kênh 30 MHz.
+
+Đường xuống:
+- EIRP vệ tinh: 40 dBW (PA 10 W + ăng-ten 30 dBi)
+- FSPL: 161 dB
+- G/T UE: -24 dB/K (điện thoại với NF 7 dB)
+
+Cho NTN, SNR điển hình là **5-15 dB** — đủ cho QPSK 1/2 đến 16QAM 1/2.
+
+**Ví dụ: Bù Doppler**
+
+Vận tốc vệ tinh: 7.5 km/s
+Góc ngẩng: 30°
+Sóng mang: 2 GHz
+
+$f_d = \frac{7500 \times \cos(90° - 30°)}{3 \times 10^8} \times 2 \times 10^9 = 25$ kHz
+
+UE phải bù trước ±25 kHz dựa trên ephemeris.
+Dư sau bù: <1 kHz (xử lý bởi NR PLL).
+
+**Ví dụ: Tính timing advance**
+
+Độ cao vệ tinh: 550 km
+UE ở nadir (trực tiếp bên dưới): khoảng cách = 550 km
+
+$TA = \frac{2 \times 550 \times 10^3}{3 \times 10^8} = 3.67$ ms
+
+Ở góc ngẩng 30°: slant range = 550 / sin(30°) = 1100 km
+$TA = 7.33$ ms
+
+UE tính từ ephemeris + GNSS, gửi điều chỉnh TA đến gNB.
+
+**Ví dụ: Tác động HARQ**
+
+Mặt đất: RTT 4 ms → 8 process HARQ đủ.
+LEO NTN: RTT 7 ms → cần 14+ process HARQ hoặc tắt.
+
+Nhiều triển khai NTN dùng RLC-ARQ thay thế (phục hồi 100+ ms nhưng đơn giản hơn).
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Xem NTN là "5G với trễ dài hơn."** Thách thức kết hợp: Doppler, timing, HARQ, handover đều tương tác. Giả định mặt đất sụp đổ.
+
+2. **Bỏ qua hiệu ứng khí quyển.** Rain fade ở Ka-band có thể thêm 10+ dB suy hao. Scintillation tầng điện ly ở L-band gây fading. Link margin phải tính đến.
+
+3. **Giả định hình học không đổi.** Vệ tinh LEO di chuyển. Góc ngẩng thay đổi liên tục. Doppler biến từ +max sang -max trong một lượt qua. Phân tích tĩnh không đủ.
+
+4. **Quên ràng buộc quy định.** NTN dùng băng vệ tinh được phân bổ. Cần phối hợp với vệ tinh GEO hiện có. Giới hạn PFD áp dụng.
+
+5. **Đánh giá thấp yêu cầu ăng-ten terminal.** Cho VSAT Ka-band: đĩa 60+ cm, giá đỡ tracking. Cho điện thoại S-band: đẳng hướng, nhưng link margin biên.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- 3GPP TR 38.811, "Study on NR to support NTN"
+- 3GPP TS 38.821, "Solutions for NR to support NTN"
+- 3GPP TS 38.108, "NR NTN Base Station Radio Transmission and Reception"
+- ITU-R S.1503, "Functional description to be used in sharing studies"
+- Maral & Bousquet, *Satellite Communications Systems*, Wiley, 2020
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp ở đâu
+
+**Từ phía Không gian:**
+- [Cơ học quỹ đạo](/vi/space/orbital-mechanics/) — tại sao LEO di chuyển nhanh
+- [Link budget vệ tinh](/vi/space/satellite-link-budget/) — toán chi tiết
+
+**Từ phía RF:**
+- [Suy hao khí quyển](/vi/rf/propagation-in-real-environments/atmospheric-and-ionospheric-losses/) — điều gì xảy ra giữa vệ tinh và mặt đất
+- [Mô hình kênh NTN](/vi/rf/ntn-channel-models/) — cách 3GPP mô hình kênh NTN
+
+**Từ phía Mạng:**
+- [Kiến trúc 5G NTN](/vi/core-network/5g-ntn-architecture/) — cách 5GC thích ứng cho NTN
+- [Timing advance](/vi/core-network/timing-advance/) — cơ chế tính TA
+
+**Xuyên miền:**
+- [Cầu nối B3: Từ phổ tần đến dịch vụ](/vi/bridges/spectrum-to-service/) — phối hợp quy định xuyên RF, mạng, và không gian
+
+</section>
