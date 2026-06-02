@@ -47,7 +47,7 @@ Multi-year roadmap for RF·CN·Space from Phase 0 (foundation) through Phase 4 (
 
 ## Phase 1 — Content Scaffold & Anchor Slice (Months 2–6)
 
-**Status:** SCAFFOLDING COMPLETE 2026-06-02 — Content authoring in progress
+**Status:** RF CONTENT COMPLETE — 92/92 RF lessons published (100%)
 
 **Goal:** Make the platform credibly usable for one complete reader journey per domain. Establish content patterns, prove Vietnamese-language depth.
 
@@ -67,7 +67,21 @@ Multi-year roadmap for RF·CN·Space from Phase 0 (foundation) through Phase 4 (
 - [x] Glossary expanded to 52 bilingual terms (commit 4d44c4b)
 - [x] Citations expanded to 20 verified standards/textbooks (commit 4d44c4b)
 
-### Phase 1.1+ Content Authoring (IN PROGRESS)
+### Phase 1.1+ Content Authoring (RF COMPLETE — 100%)
+
+**Current Progress (2026-06-02):**
+- RF domain: 92/92 lessons published (100%)
+- All RF tracks fully authored in EN+VI bilingual parity
+
+**Completed Units This Session:**
+- mimo-capacity (4 lessons)
+- the-diversity-intuition (3 lessons)
+- practical-antenna-design (3 lessons)
+- probability-for-communications (4 lessons)
+- propagation-in-real-environments (6 lessons)
+- massive-mimo-and-favorable-propagation (3 lessons)
+- ml-detection-sphere-decoding (2 lessons)
+- spatial-multiplexing-vs-diversity-vs-beamforming (3 lessons)
 
 - [ ] Content authoring & publication
   - ~50 lessons per domain (~150 total)

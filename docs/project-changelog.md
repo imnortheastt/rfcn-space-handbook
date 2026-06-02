@@ -6,9 +6,26 @@ All notable changes to RF·CN·Space are documented here. Format follows [Keep a
 
 ## [Unreleased]
 
-### Phase 1.1+ Content Authoring (In Progress)
+### Phase 1.1+ Content Authoring (COMPLETE — RF Domain)
 
-- [ ] ~150 lessons authored (EN+VI parity)
+**Session 2026-06-02: 92/92 RF lessons published (100%)**
+
+All RF domain lessons now authored in bilingual EN+VI:
+
+**Completed units this session:**
+- **mimo-capacity** (4 lessons): Channel matrix, SVD, Foschini's analysis, capacity vs SNR
+- **the-diversity-intuition** (3 lessons): Diversity types, diversity gain, diversity order
+- **practical-antenna-design** (3 lessons): 2.4GHz dipole, 5GHz patch, helical satcom
+- **probability-for-communications** (4 lessons): Random variables, AWGN, BER, Shannon capacity
+- **propagation-in-real-environments** (6 lessons): Reflection/refraction/diffraction, two-ray, multipath, fading, shadowing, atmospheric losses
+- **measurement** (4 lessons): Anechoic chambers, OTA testing, pattern measurement, calibration
+- **massive-mimo-and-favorable-propagation** (3 lessons): Favorable propagation, uplink, pilot contamination
+- **ml-detection-sphere-decoding** (2 lessons): ML detection, sphere decoding
+- **spatial-multiplexing-vs-diversity-vs-beamforming** (3 lessons): Spatial multiplexing, diversity-beamforming tradeoff, DMT frontier
+
+Progress: 92/92 RF lessons published (100%)
+
+Remaining for Phase 1:
 - [ ] Cross-domain bridges: B1, B2, B3
 - [ ] Glossary expansion to ~300 terms
 - [ ] Public launch
