@@ -9,16 +9,168 @@ unit: ml-detection-sphere-decoding
 order: 1
 level: L4
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r4-linear-receivers-01-zero-forcing"]
+spiralRevisits: []
 title: "Phát hiện hợp lý cực đại (ML)"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Phát hiện MIMO tối ưu: tìm kiếm vét cạn điểm lưới gần nhất."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["ml-detection", "mimo", "optimal", "lattice"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Phát hiện hợp lý cực đại (ML)
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao phát hiện ML?
+
+Bộ thu tuyến tính (ZF, MMSE) đơn giản nhưng không tối ưu — chúng xử lý nhiễu như tạp âm thay vì khai thác bản chất rời rạc của ký hiệu phát. Phát hiện Hợp lý Cực đại (ML) tìm vector ký hiệu phát giải thích tốt nhất tín hiệu nhận. Nó tối ưu cho kênh nhiễu Gauss trắng nhưng tính toán khủng khiếp.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Tín hiệu nhận sống trong không gian phức M chiều. Máy phát gửi một trong $|\mathcal{S}|^K$ vector ký hiệu có thể, mỗi cái ánh xạ đến một điểm trong không gian thu qua kênh. Phát hiện ML đo khoảng cách từ tín hiệu nhận đến mọi điểm phát có thể và chọn điểm gần nhất. Đó là tìm kiếm láng giềng gần nhất trong lưới tạo bởi kênh.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Mô hình hệ thống
+
+$$\mathbf{y} = \mathbf{H}\mathbf{s} + \mathbf{n}$$
+
+- $\mathbf{y} \in \mathbb{C}^M$ — tín hiệu nhận
+- $\mathbf{H} \in \mathbb{C}^{M \times K}$ — ma trận kênh (đã biết)
+- $\mathbf{s} \in \mathcal{S}^K$ — ký hiệu phát từ chòm sao $\mathcal{S}$
+- $\mathbf{n} \sim \mathcal{CN}(0, \sigma^2\mathbf{I})$ — tạp âm Gauss trắng
+
+### Tiêu chí ML
+
+Tìm:
+$$\hat{\mathbf{s}}_{ML} = \arg\min_{\mathbf{s} \in \mathcal{S}^K} \|\mathbf{y} - \mathbf{H}\mathbf{s}\|^2$$
+
+Tương đương: cực tiểu khoảng cách Euclid trong không gian thu.
+
+### Tại sao tối ưu
+
+Cho AWGN, hàm hợp lý là:
+$$p(\mathbf{y}|\mathbf{s}) \propto \exp\left(-\frac{\|\mathbf{y} - \mathbf{H}\mathbf{s}\|^2}{\sigma^2}\right)$$
+
+Cực đại hợp lý = cực tiểu khoảng cách.
+
+Với ký hiệu đẳng xác suất, ML = MAP (cực đại hậu nghiệm).
+
+### Độ phức tạp
+
+Brute-force: đánh giá tất cả $|\mathcal{S}|^K$ ứng viên.
+
+| Chòm sao | K | Ứng viên |
+|----------|---|----------|
+| QPSK (4) | 2 | 16 |
+| QPSK (4) | 4 | 256 |
+| 16-QAM (16) | 4 | 65,536 |
+| 64-QAM (64) | 4 | 16.8M |
+| 64-QAM (64) | 8 | 281 nghìn tỷ |
+
+Theo cấp số mũ K. Không khả thi cho hệ thống thực mà không có thuật toán thông minh.
+
+### Giới hạn hiệu suất
+
+ML đạt tỷ lệ lỗi tối ưu cho kênh và SNR cho trước.
+
+**Bậc đa dạng:** Đa dạng thu đầy đủ M (với K luồng).
+
+**Khuếch đại mã:** Phụ thuộc chòm sao và mã, nhưng ML trích xuất khuếch đại tối đa khả dụng.
+
+Không có bộ thu tuyến tính nào thắng được ML. ZF/MMSE là xấp xỉ đánh đổi hiệu suất lấy độ phức tạp.
+
+### Giải thích lưới
+
+$\mathbf{H}\mathbf{s}$ cho tất cả $\mathbf{s} \in \mathcal{S}^K$ tạo thành lưới trong không gian thu.
+
+ML = bài toán điểm lưới gần nhất (CVP).
+
+CVP là NP-hard nói chung, nhưng kênh MIMO có cấu trúc giúp ích.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: 2×2 QPSK**
+
+K = 2 phát, M = 2 thu, ký hiệu QPSK.
+
+Tổng ứng viên: $4^2 = 16$.
+
+Cho mỗi ứng viên $\mathbf{s}_i$:
+1. Tính $\mathbf{H}\mathbf{s}_i$
+2. Tính $\|\mathbf{y} - \mathbf{H}\mathbf{s}_i\|^2$
+3. Theo dõi cực tiểu
+
+16 khoảng cách → khả thi, ngay cả thời gian thực.
+
+**Ví dụ: So sánh với ZF**
+
+Kênh: 2×2, SNR = 15 dB, QPSK.
+
+BER ZF: ~$10^{-3}$
+BER ML: ~$10^{-4}$
+
+Cải thiện 10× tỷ lệ lỗi từ phát hiện tối ưu.
+
+Khoảng cách rộng hơn ở SNR thấp hoặc điều chế bậc cao.
+
+**Ví dụ: Khi ML khả thi**
+
+- K thấp (2-4 luồng)
+- Điều chế bậc thấp (QPSK, 8-PSK)
+- Độ dài khối ngắn
+- Bộ thu lặp (đầu ra mềm ML cung cấp cho bộ giải mã)
+
+Hệ thống thực: K=2 QPSK ML phổ biến trong 802.11n/ac.
+
+**Ví dụ: Đầu ra mềm ML**
+
+Tỷ lệ log-hợp lý cho bit $b_j$:
+
+$$L(b_j) = \frac{1}{\sigma^2}\left(\min_{\mathbf{s}: b_j=0}\|\mathbf{y}-\mathbf{H}\mathbf{s}\|^2 - \min_{\mathbf{s}: b_j=1}\|\mathbf{y}-\mathbf{H}\mathbf{s}\|^2\right)$$
+
+Yêu cầu tìm hai cực tiểu mỗi bit — vẫn cấp số mũ, nhưng cho phép giải mã turbo/LDPC.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Giả định ML luôn khả thi.** Vượt K=4 hoặc 16-QAM, brute force không thực tế. Dùng giải mã hình cầu hoặc xấp xỉ.
+
+2. **Bỏ qua lỗi ước lượng kênh.** ML giả định CSI hoàn hảo. CSI không hoàn hảo giảm tối ưu.
+
+3. **Quên hệ thống mã hóa.** ML đầu ra mềm (max-log hoặc chính xác) có độ phức tạp khác ML quyết định cứng.
+
+4. **Nhầm ML với MAP.** Chúng trùng chỉ cho ký hiệu đẳng xác suất. Với mã hóa hoặc tiên nghiệm không đều, MAP khác.
+
+5. **Bỏ qua giảm lưới.** Tiền xử lý (giảm LLL) làm bộ thu tuyến tính gần tốt như ML trong nhiều trường hợp.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Ch. 8, Cambridge, 2005.
+- Agrell et al., "Closest Point Search in Lattices," IEEE TIT, 2002.
+- Hochwald & ten Brink, "Achieving Near-Capacity on a Multiple-Antenna Channel," IEEE TCOM, 2003.
+
+</section>

@@ -9,16 +9,177 @@ unit: ml-detection-sphere-decoding
 order: 2
 level: L4
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r5-ml-detection-sphere-decoding-01-ml-detection"]
+spiralRevisits: []
 title: "Sphere decoding"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Efficient ML detection by searching only lattice points inside a sphere."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["sphere-decoding", "mimo", "lattice", "tree-search"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Sphere decoding
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why sphere decoding?
+
+ML detection is optimal but exponentially complex. Sphere decoding is the escape hatch: search only lattice points within a sphere of radius r around the received signal. If r is chosen well, you find the ML solution in polynomial average complexity — often much faster than brute force.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Instead of checking all $|\mathcal{S}|^K$ candidates, draw a sphere around the received signal $\mathbf{y}$. Only lattice points $\mathbf{H}\mathbf{s}$ inside the sphere are candidates. Use the channel's triangular structure (from QR decomposition) to prune branches early: if a partial solution already exceeds the radius, stop exploring that branch.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### QR decomposition
+
+Decompose: $\mathbf{H} = \mathbf{Q}\mathbf{R}$ where $\mathbf{Q}^H\mathbf{Q} = \mathbf{I}$ and $\mathbf{R}$ is upper triangular.
+
+Transform received signal:
+$$\tilde{\mathbf{y}} = \mathbf{Q}^H\mathbf{y} = \mathbf{R}\mathbf{s} + \tilde{\mathbf{n}}$$
+
+ML problem becomes:
+$$\hat{\mathbf{s}} = \arg\min_{\mathbf{s} \in \mathcal{S}^K} \|\tilde{\mathbf{y}} - \mathbf{R}\mathbf{s}\|^2$$
+
+### Tree structure
+
+Because $\mathbf{R}$ is upper triangular, we can decode layer by layer (bottom-up):
+
+$$\|\tilde{\mathbf{y}} - \mathbf{R}\mathbf{s}\|^2 = \sum_{k=1}^K \left|\tilde{y}_k - \sum_{j=k}^K r_{kj}s_j\right|^2$$
+
+Layer K depends only on $s_K$.
+Layer K-1 depends on $s_K, s_{K-1}$.
+...and so on.
+
+This creates a tree: each level adds one symbol, and the partial distance accumulates.
+
+### Sphere constraint
+
+Set initial radius $r$.
+
+At each node, compute partial distance:
+$$d_k = d_{k+1} + \left|\tilde{y}_k - \sum_{j=k}^K r_{kj}s_j\right|^2$$
+
+If $d_k > r^2$, prune — this branch cannot lead to a valid solution.
+
+If you reach level 1 with $d_1 \leq r^2$, you found a candidate. Update $r = \sqrt{d_1}$ and continue searching for better solutions.
+
+### Algorithm (depth-first)
+
+1. **Initialize:** Compute QR, set radius $r$ (e.g., from ZF solution).
+2. **Start at level K:** Try each $s_K \in \mathcal{S}$.
+3. **Descend:** Compute partial distance, prune if exceeds $r^2$.
+4. **Reach leaf:** If $d_1 \leq r^2$, update best solution and shrink $r$.
+5. **Backtrack:** Try next sibling; ascend if all children pruned.
+6. **Terminate:** When tree exhausted or radius reaches ML bound.
+
+### Complexity
+
+**Worst case:** Still $O(|\mathcal{S}|^K)$ — bad channels, small radius, or very low SNR.
+
+**Average case:** Polynomial in K for good channels and moderate SNR. Empirically $O(K^3)$ to $O(K^6)$.
+
+**Key insight:** Complexity depends on channel condition number and SNR. Well-conditioned channels = fast decoding.
+
+### Radius initialization
+
+Good initial radius is critical.
+
+**ZF-based:** $r^2 = \|\mathbf{y} - \mathbf{H}\hat{\mathbf{s}}_{ZF}\|^2$
+
+Ensures at least one lattice point inside sphere.
+
+**Noise-based:** $r^2 = K \sigma^2 \cdot \chi$ where $\chi$ is a scaling factor (e.g., 2-4).
+
+Probabilistic: sphere likely contains ML solution.
+
+**Adaptive:** Start with small radius, increase if no solution found.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 4×4 16-QAM**
+
+Brute force: $16^4 = 65,536$ candidates.
+
+Sphere decoding (typical high-SNR case): ~100-500 nodes visited.
+
+Speedup: 100×+ over exhaustive search.
+
+**Example: Complexity scaling**
+
+| K | Brute (16-QAM) | Sphere (avg) |
+|---|----------------|--------------|
+| 2 | 256 | 20-50 |
+| 4 | 65K | 100-500 |
+| 8 | 4.3B | 10K-100K |
+
+Sphere decoding makes 8×8 16-QAM feasible; brute force cannot.
+
+**Example: SNR dependence**
+
+Low SNR: Noise large → need large radius → many candidates → slow.
+High SNR: Noise small → tight radius → few candidates → fast.
+
+At 20 dB SNR, sphere decoding is fast.
+At 5 dB SNR, sphere decoding approaches brute-force complexity.
+
+**Example: Real implementation**
+
+Fixed-point sphere decoder for 4×4 64-QAM:
+- ~2000 nodes/symbol at 20 dB
+- Fits in hardware (FPGA/ASIC)
+- Meets 802.11ac timing requirements
+
+**Example: K-best variant**
+
+Keep only K-best candidates at each level (beam search).
+
+Guaranteed $O(K \cdot |\mathcal{S}|)$ per level = $O(K^2 \cdot |\mathcal{S}|)$ total.
+
+Near-ML performance with bounded complexity.
+
+Common in 5G NR implementations.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming constant complexity.** Sphere decoding complexity is data-dependent. Worst-case is still exponential.
+
+2. **Wrong radius.** Too small = no solution found. Too large = many candidates, slow.
+
+3. **Ignoring preprocessing.** Lattice reduction (LLL) dramatically improves sphere decoding by conditioning the lattice.
+
+4. **Depth-first always.** Breadth-first or K-best variants offer bounded complexity at slight performance cost.
+
+5. **Real-valued model.** Many implementations convert complex to real-valued (2K dimensions) — doubles tree depth but simplifies math.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Viterbo & Boutros, "A Universal Lattice Code Decoder for Fading Channels," IEEE TIT, 1999.
+- Damen, El Gamal, Caire, "On Maximum-Likelihood Detection and the Search for the Closest Lattice Point," IEEE TIT, 2003.
+- Guo & Nilsson, "Algorithm and Implementation of the K-Best Sphere Decoding for MIMO Detection," IEEE JSAC, 2006.
+
+</section>

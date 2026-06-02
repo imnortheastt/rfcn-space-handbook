@@ -9,16 +9,177 @@ unit: ml-detection-sphere-decoding
 order: 2
 level: L4
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r5-ml-detection-sphere-decoding-01-ml-detection"]
+spiralRevisits: []
 title: "Giải mã hình cầu"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Phát hiện ML hiệu quả bằng cách chỉ tìm kiếm điểm lưới bên trong hình cầu."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["sphere-decoding", "mimo", "lattice", "tree-search"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Giải mã hình cầu
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao giải mã hình cầu?
+
+Phát hiện ML tối ưu nhưng phức tạp cấp số mũ. Giải mã hình cầu là lối thoát: chỉ tìm kiếm điểm lưới trong hình cầu bán kính r quanh tín hiệu nhận. Nếu r được chọn tốt, bạn tìm nghiệm ML với độ phức tạp trung bình đa thức — thường nhanh hơn nhiều so với brute force.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Thay vì kiểm tra tất cả $|\mathcal{S}|^K$ ứng viên, vẽ hình cầu quanh tín hiệu nhận $\mathbf{y}$. Chỉ điểm lưới $\mathbf{H}\mathbf{s}$ bên trong hình cầu là ứng viên. Dùng cấu trúc tam giác của kênh (từ phân tích QR) để cắt tỉa nhánh sớm: nếu nghiệm một phần đã vượt bán kính, dừng khám phá nhánh đó.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Phân tích QR
+
+Phân tích: $\mathbf{H} = \mathbf{Q}\mathbf{R}$ trong đó $\mathbf{Q}^H\mathbf{Q} = \mathbf{I}$ và $\mathbf{R}$ là tam giác trên.
+
+Biến đổi tín hiệu nhận:
+$$\tilde{\mathbf{y}} = \mathbf{Q}^H\mathbf{y} = \mathbf{R}\mathbf{s} + \tilde{\mathbf{n}}$$
+
+Bài toán ML trở thành:
+$$\hat{\mathbf{s}} = \arg\min_{\mathbf{s} \in \mathcal{S}^K} \|\tilde{\mathbf{y}} - \mathbf{R}\mathbf{s}\|^2$$
+
+### Cấu trúc cây
+
+Vì $\mathbf{R}$ là tam giác trên, chúng ta có thể giải mã từng lớp (từ dưới lên):
+
+$$\|\tilde{\mathbf{y}} - \mathbf{R}\mathbf{s}\|^2 = \sum_{k=1}^K \left|\tilde{y}_k - \sum_{j=k}^K r_{kj}s_j\right|^2$$
+
+Lớp K chỉ phụ thuộc $s_K$.
+Lớp K-1 phụ thuộc $s_K, s_{K-1}$.
+...và tiếp tục.
+
+Điều này tạo cây: mỗi mức thêm một ký hiệu, và khoảng cách từng phần tích lũy.
+
+### Ràng buộc hình cầu
+
+Đặt bán kính ban đầu $r$.
+
+Tại mỗi nút, tính khoảng cách từng phần:
+$$d_k = d_{k+1} + \left|\tilde{y}_k - \sum_{j=k}^K r_{kj}s_j\right|^2$$
+
+Nếu $d_k > r^2$, cắt tỉa — nhánh này không thể dẫn đến nghiệm hợp lệ.
+
+Nếu bạn đến mức 1 với $d_1 \leq r^2$, bạn tìm được ứng viên. Cập nhật $r = \sqrt{d_1}$ và tiếp tục tìm nghiệm tốt hơn.
+
+### Thuật toán (depth-first)
+
+1. **Khởi tạo:** Tính QR, đặt bán kính $r$ (ví dụ từ nghiệm ZF).
+2. **Bắt đầu ở mức K:** Thử mỗi $s_K \in \mathcal{S}$.
+3. **Đi xuống:** Tính khoảng cách từng phần, cắt tỉa nếu vượt $r^2$.
+4. **Đến lá:** Nếu $d_1 \leq r^2$, cập nhật nghiệm tốt nhất và thu nhỏ $r$.
+5. **Quay lui:** Thử anh em tiếp theo; đi lên nếu tất cả con bị cắt.
+6. **Kết thúc:** Khi cây cạn kiệt hoặc bán kính đạt giới hạn ML.
+
+### Độ phức tạp
+
+**Trường hợp xấu nhất:** Vẫn $O(|\mathcal{S}|^K)$ — kênh xấu, bán kính nhỏ, hoặc SNR rất thấp.
+
+**Trường hợp trung bình:** Đa thức theo K cho kênh tốt và SNR vừa phải. Thực nghiệm $O(K^3)$ đến $O(K^6)$.
+
+**Điểm mấu chốt:** Độ phức tạp phụ thuộc số điều kiện kênh và SNR. Kênh được điều kiện tốt = giải mã nhanh.
+
+### Khởi tạo bán kính
+
+Bán kính ban đầu tốt rất quan trọng.
+
+**Dựa ZF:** $r^2 = \|\mathbf{y} - \mathbf{H}\hat{\mathbf{s}}_{ZF}\|^2$
+
+Đảm bảo ít nhất một điểm lưới bên trong hình cầu.
+
+**Dựa tạp âm:** $r^2 = K \sigma^2 \cdot \chi$ trong đó $\chi$ là hệ số tỷ lệ (ví dụ 2-4).
+
+Xác suất: hình cầu có khả năng chứa nghiệm ML.
+
+**Thích ứng:** Bắt đầu với bán kính nhỏ, tăng nếu không tìm được nghiệm.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: 4×4 16-QAM**
+
+Brute force: $16^4 = 65,536$ ứng viên.
+
+Giải mã hình cầu (trường hợp SNR cao điển hình): ~100-500 nút được thăm.
+
+Tăng tốc: 100×+ so với tìm kiếm vét cạn.
+
+**Ví dụ: Tỷ lệ độ phức tạp**
+
+| K | Brute (16-QAM) | Sphere (tb) |
+|---|----------------|-------------|
+| 2 | 256 | 20-50 |
+| 4 | 65K | 100-500 |
+| 8 | 4.3B | 10K-100K |
+
+Giải mã hình cầu làm 8×8 16-QAM khả thi; brute force không thể.
+
+**Ví dụ: Phụ thuộc SNR**
+
+SNR thấp: Tạp âm lớn → cần bán kính lớn → nhiều ứng viên → chậm.
+SNR cao: Tạp âm nhỏ → bán kính chặt → ít ứng viên → nhanh.
+
+Ở 20 dB SNR, giải mã hình cầu nhanh.
+Ở 5 dB SNR, giải mã hình cầu tiến gần độ phức tạp brute-force.
+
+**Ví dụ: Triển khai thực**
+
+Bộ giải mã hình cầu fixed-point cho 4×4 64-QAM:
+- ~2000 nút/ký hiệu ở 20 dB
+- Phù hợp phần cứng (FPGA/ASIC)
+- Đáp ứng yêu cầu thời gian 802.11ac
+
+**Ví dụ: Biến thể K-best**
+
+Chỉ giữ K-best ứng viên ở mỗi mức (beam search).
+
+Đảm bảo $O(K \cdot |\mathcal{S}|)$ mỗi mức = $O(K^2 \cdot |\mathcal{S}|)$ tổng.
+
+Hiệu suất gần ML với độ phức tạp giới hạn.
+
+Phổ biến trong triển khai 5G NR.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Giả định độ phức tạp hằng số.** Độ phức tạp giải mã hình cầu phụ thuộc dữ liệu. Trường hợp xấu nhất vẫn cấp số mũ.
+
+2. **Bán kính sai.** Quá nhỏ = không tìm được nghiệm. Quá lớn = nhiều ứng viên, chậm.
+
+3. **Bỏ qua tiền xử lý.** Giảm lưới (LLL) cải thiện đáng kể giải mã hình cầu bằng cách điều kiện hóa lưới.
+
+4. **Luôn depth-first.** Biến thể breadth-first hoặc K-best cung cấp độ phức tạp giới hạn với chi phí hiệu suất nhẹ.
+
+5. **Mô hình thực.** Nhiều triển khai chuyển phức sang thực (2K chiều) — tăng gấp đôi chiều sâu cây nhưng đơn giản hóa toán.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Viterbo & Boutros, "A Universal Lattice Code Decoder for Fading Channels," IEEE TIT, 1999.
+- Damen, El Gamal, Caire, "On Maximum-Likelihood Detection and the Search for the Closest Lattice Point," IEEE TIT, 2003.
+- Guo & Nilsson, "Algorithm and Implementation of the K-Best Sphere Decoding for MIMO Detection," IEEE JSAC, 2006.
+
+</section>

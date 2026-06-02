@@ -9,16 +9,168 @@ unit: ml-detection-sphere-decoding
 order: 1
 level: L4
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r4-linear-receivers-01-zero-forcing"]
+spiralRevisits: []
 title: "Maximum likelihood detection"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Optimal MIMO detection: exhaustive search for the closest lattice point."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["ml-detection", "mimo", "optimal", "lattice"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Maximum likelihood detection
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why ML detection?
+
+Linear receivers (ZF, MMSE) are simple but sub-optimal — they treat interference as noise rather than exploiting the discrete nature of transmitted symbols. Maximum Likelihood (ML) detection finds the transmitted symbol vector that best explains the received signal. It's optimal for white Gaussian noise channels but computationally brutal.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+The received signal lives in M-dimensional complex space. The transmitter sent one of $|\mathcal{S}|^K$ possible symbol vectors, each mapping to a point in receive space via the channel. ML detection measures the distance from the received signal to every possible transmit point and picks the closest one. It's a nearest-neighbor search in a lattice created by the channel.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### System model
+
+$$\mathbf{y} = \mathbf{H}\mathbf{s} + \mathbf{n}$$
+
+- $\mathbf{y} \in \mathbb{C}^M$ — received signal
+- $\mathbf{H} \in \mathbb{C}^{M \times K}$ — channel matrix (known)
+- $\mathbf{s} \in \mathcal{S}^K$ — transmitted symbols from constellation $\mathcal{S}$
+- $\mathbf{n} \sim \mathcal{CN}(0, \sigma^2\mathbf{I})$ — white Gaussian noise
+
+### ML criterion
+
+Find:
+$$\hat{\mathbf{s}}_{ML} = \arg\min_{\mathbf{s} \in \mathcal{S}^K} \|\mathbf{y} - \mathbf{H}\mathbf{s}\|^2$$
+
+Equivalently: minimize Euclidean distance in receive space.
+
+### Why it's optimal
+
+For AWGN, the likelihood is:
+$$p(\mathbf{y}|\mathbf{s}) \propto \exp\left(-\frac{\|\mathbf{y} - \mathbf{H}\mathbf{s}\|^2}{\sigma^2}\right)$$
+
+Maximizing likelihood = minimizing distance.
+
+With equiprobable symbols, ML = MAP (maximum a posteriori).
+
+### Complexity
+
+Brute-force: evaluate all $|\mathcal{S}|^K$ candidates.
+
+| Constellation | K | Candidates |
+|--------------|---|------------|
+| QPSK (4) | 2 | 16 |
+| QPSK (4) | 4 | 256 |
+| 16-QAM (16) | 4 | 65,536 |
+| 64-QAM (64) | 4 | 16.8M |
+| 64-QAM (64) | 8 | 281 trillion |
+
+Exponential in K. Impractical for real systems without clever algorithms.
+
+### Performance bound
+
+ML achieves the optimal error rate for the given channel and SNR.
+
+**Diversity order:** Full receive diversity M (with K streams).
+
+**Coding gain:** Depends on constellation and coding, but ML extracts maximum available gain.
+
+No linear receiver can beat ML. ZF/MMSE are approximations that trade performance for complexity.
+
+### Lattice interpretation
+
+$\mathbf{H}\mathbf{s}$ for all $\mathbf{s} \in \mathcal{S}^K$ forms a lattice in receive space.
+
+ML = closest lattice point problem (CVP).
+
+CVP is NP-hard in general, but MIMO channels have structure that helps.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 2×2 QPSK**
+
+K = 2 transmit, M = 2 receive, QPSK symbols.
+
+Total candidates: $4^2 = 16$.
+
+For each candidate $\mathbf{s}_i$:
+1. Compute $\mathbf{H}\mathbf{s}_i$
+2. Compute $\|\mathbf{y} - \mathbf{H}\mathbf{s}_i\|^2$
+3. Track minimum
+
+16 distances → tractable, even in real-time.
+
+**Example: Comparison with ZF**
+
+Channel: 2×2, SNR = 15 dB, QPSK.
+
+ZF BER: ~$10^{-3}$
+ML BER: ~$10^{-4}$
+
+10× error rate improvement from optimal detection.
+
+Gap widens at lower SNR or higher-order modulation.
+
+**Example: When ML is practical**
+
+- Low K (2-4 streams)
+- Low-order modulation (QPSK, 8-PSK)
+- Short block lengths
+- Iterative receivers (ML soft output feeds decoder)
+
+Real systems: K=2 QPSK ML is common in 802.11n/ac.
+
+**Example: Soft ML output**
+
+Log-likelihood ratio for bit $b_j$:
+
+$$L(b_j) = \frac{1}{\sigma^2}\left(\min_{\mathbf{s}: b_j=0}\|\mathbf{y}-\mathbf{H}\mathbf{s}\|^2 - \min_{\mathbf{s}: b_j=1}\|\mathbf{y}-\mathbf{H}\mathbf{s}\|^2\right)$$
+
+Requires finding two minima per bit — still exponential, but enables turbo/LDPC decoding.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming ML is always feasible.** Beyond K=4 or 16-QAM, brute force is impractical. Use sphere decoding or approximations.
+
+2. **Ignoring channel estimation errors.** ML assumes perfect CSI. Imperfect CSI degrades optimality.
+
+3. **Forgetting coded systems.** Soft-output ML (max-log or exact) has different complexity than hard-decision ML.
+
+4. **Confusing ML with MAP.** They coincide only for equiprobable symbols. With coding or non-uniform priors, MAP differs.
+
+5. **Overlooking lattice reduction.** Pre-processing (LLL reduction) makes linear receivers nearly as good as ML in many cases.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Ch. 8, Cambridge, 2005.
+- Agrell et al., "Closest Point Search in Lattices," IEEE TIT, 2002.
+- Hochwald & ten Brink, "Achieving Near-Capacity on a Multiple-Antenna Channel," IEEE TCOM, 2003.
+
+</section>
