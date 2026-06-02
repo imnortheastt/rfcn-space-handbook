@@ -9,16 +9,158 @@ unit: spatial-multiplexing-vs-diversity-vs-beamforming
 order: 2
 level: L4
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r5-spatial-multiplexing-vs-diversity-vs-beamforming-01-spatial-multiplexing", "rf-r4-diversity-intuition-01-diversity-types"]
+spiralRevisits: []
 title: "Diversity-beamforming trade-off"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "How antenna resources split between combating fading and focusing energy."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["diversity", "beamforming", "tradeoff", "mimo"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Diversity-beamforming trade-off
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this trade-off?
+
+With 4 antennas, you can either: (a) use all 4 to combat fading (maximum diversity), (b) use all 4 to focus energy toward the user (maximum beamforming gain), or (c) something in between. These aren't the same thing, and you can't have both simultaneously. Understanding this trade-off guides system design.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+**Diversity:** Transmit the same signal through multiple independent paths. When one path fades, another survives. Reduces outage probability.
+
+**Beamforming:** Coherently combine antennas to focus energy in one direction. Increases average SNR but doesn't reduce fading variance.
+
+With perfect CSI at the transmitter, beamforming gives the highest average SNR. But without CSI, diversity is safer — it protects against bad fades. The choice depends on what you optimize and what you know.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Diversity perspective
+
+Transmit same symbol from all antennas with different phases/delays.
+
+Receiver combines signals. Even if some paths fade, others remain.
+
+**Diversity order:** Number of independent fading paths. With M transmit and N receive antennas and rich scattering: $d = M \cdot N$.
+
+**Error rate:** $P_e \propto \text{SNR}^{-d}$ at high SNR.
+
+### Beamforming perspective
+
+With CSI, transmitter adjusts phases so signals add coherently at receiver.
+
+**Array gain:** M antennas → M× power at receiver (coherent combining).
+
+**Beamforming gain:** $10\log_{10}(M)$ dB increase in received SNR.
+
+But if the channel fades, all that focused energy fades together — no diversity protection.
+
+### The tension
+
+Both use the same antenna resources differently:
+
+| Strategy | Uses antennas for... | Benefit | Drawback |
+|----------|---------------------|---------|----------|
+| Diversity | Independent paths | Reduces fading depth | Lower average power |
+| Beamforming | Coherent focus | Higher average SNR | No fading protection |
+
+### Optimal strategy depends on scenario
+
+**No CSIT (channel state info at transmitter):** Can't beamform. Use diversity coding (space-time codes).
+
+**Perfect CSIT:** Beamform to maximize instantaneous SNR. But channel must be tracked accurately.
+
+**Partial CSIT:** Hybrid approaches — some beamforming gain, some diversity.
+
+### Mathematical framework
+
+Outage probability at rate R:
+
+$$P_{out} = P(\log_2(1 + \gamma) < R)$$
+
+Beamforming maximizes average $\gamma$ but doesn't reduce variance.
+
+Diversity reduces variance of $\gamma$, lowering outage probability for fixed R.
+
+**Key insight:** At low outage targets (high reliability), diversity dominates. At average throughput targets, beamforming wins.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 4-antenna transmitter, no CSIT**
+
+Option A: Alamouti code (2-antenna diversity scheme extended).
+Diversity order: 4 (with 1 Rx), protects against fades.
+
+Option B: Transmit from 1 antenna at 4× power.
+No diversity, same average SNR but high outage risk.
+
+For reliability-critical links (control channels), use diversity.
+
+**Example: 4-antenna transmitter, perfect CSIT**
+
+Maximal ratio transmission (MRT): weight antennas by channel conjugate.
+
+$$\mathbf{w} = \frac{\mathbf{h}^*}{\|\mathbf{h}\|}$$
+
+Beamforming gain: +6 dB compared to isotropic.
+
+Use for throughput-optimized data channels.
+
+**Example: Hybrid beamforming with partial diversity**
+
+4 antennas → 2 beamform to user direction, 2 provide polarization diversity.
+
+Moderate beamforming gain + moderate diversity protection.
+
+Common in mmWave systems where both matter.
+
+**Example: 5G NR design**
+
+Control channels: diversity-focused (reliability matters).
+Data channels: beamforming-focused (throughput matters).
+
+System dynamically switches based on channel conditions and traffic type.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Treating them as the same.** "More antennas = better" is true, but HOW they're used matters. Diversity ≠ beamforming.
+
+2. **Ignoring CSIT quality.** Beamforming with outdated CSI can be worse than diversity. High-mobility channels favor diversity.
+
+3. **Forgetting the objective.** Maximize average rate → beamforming. Minimize outage → diversity. Match strategy to goal.
+
+4. **Over-beamforming at low SNR.** Beamforming gain is multiplicative. At low SNR, the multiplied value is still low. Diversity helps more.
+
+5. **Confusing beamforming with spatial multiplexing.** Beamforming = 1 stream, focused. Multiplexing = multiple streams. Different goals.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Ch. 3, 7, Cambridge, 2005.
+- Love, Heath, "Equal Gain Transmission in MIMO Wireless Systems," IEEE TCOM, 2003.
+- Alamouti, "A Simple Transmit Diversity Technique," IEEE JSAC, 1998.
+
+</section>

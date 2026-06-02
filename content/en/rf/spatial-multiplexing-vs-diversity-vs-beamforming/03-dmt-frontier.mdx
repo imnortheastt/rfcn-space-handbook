@@ -9,16 +9,178 @@ unit: spatial-multiplexing-vs-diversity-vs-beamforming
 order: 3
 level: L4
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r5-spatial-multiplexing-vs-diversity-vs-beamforming-01-spatial-multiplexing", "rf-r5-spatial-multiplexing-vs-diversity-vs-beamforming-02-diversity-beamforming-tradeoff"]
+spiralRevisits: []
 title: "Diversity-multiplexing trade-off (DMT)"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The fundamental frontier between reliability and data rate in MIMO."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["dmt", "diversity", "multiplexing", "tradeoff", "mimo"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Diversity-multiplexing trade-off (DMT)
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why DMT?
+
+You can't have maximum diversity AND maximum multiplexing gain simultaneously. The Diversity-Multiplexing Trade-off (DMT) quantifies this fundamental limit. It tells you exactly how much reliability you sacrifice for each additional data stream, and vice versa. This is the theoretical backbone of MIMO system design.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Diversity protects against fading (reliability). Multiplexing sends more data (rate). Both compete for the same spatial degrees of freedom.
+
+Send 1 stream, use remaining antennas for diversity → high reliability, modest rate.
+Send max streams → high rate, no redundancy, outage-prone.
+
+The DMT curve maps out the frontier: for each multiplexing gain r, what's the best achievable diversity order d(r)?
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Definitions (high-SNR regime)
+
+**Multiplexing gain:**
+$$r = \lim_{\text{SNR} \to \infty} \frac{R(\text{SNR})}{\log_2(\text{SNR})}$$
+
+Rate scales as $R \approx r \cdot \log_2(\text{SNR})$.
+
+**Diversity gain:**
+$$d = -\lim_{\text{SNR} \to \infty} \frac{\log P_e(\text{SNR})}{\log(\text{SNR})}$$
+
+Error probability decays as $P_e \propto \text{SNR}^{-d}$.
+
+### DMT frontier
+
+For M × N MIMO channel (M transmit, N receive):
+
+$$d^*(r) = (M - r)(N - r), \quad 0 \leq r \leq \min(M, N)$$
+
+This is a piecewise-linear curve connecting integer points.
+
+**Key points:**
+- $(r=0, d=MN)$: Zero multiplexing, maximum diversity.
+- $(r=\min(M,N), d=0)$: Maximum multiplexing, zero diversity.
+- Points in between: intermediate trade-off.
+
+### Integer-point interpretation
+
+At $r=k$ (integer), we transmit k streams.
+
+Remaining $(M-k)(N-k)$ degrees of freedom provide diversity.
+
+Example: 4×4 MIMO.
+- r=0: d=16 (full diversity)
+- r=1: d=9
+- r=2: d=4
+- r=3: d=1
+- r=4: d=0 (full multiplexing)
+
+### Achieving the frontier
+
+**Optimal codes:** Approximately universal codes achieve DMT frontier for all channel realizations.
+
+**Space-time codes:** Well-designed STCs (like golden code) are DMT-optimal for specific (r, d) points.
+
+**Practical systems:** Most real systems operate at fixed (r, d) point, not adapting along the frontier.
+
+### Code design criterion
+
+A code achieves $(r, d(r))$ if:
+
+1. Sends at rate $R = r \cdot \log_2(\text{SNR})$
+2. Error probability decays as $\text{SNR}^{-d(r)}$
+
+This guides the minimum distance and rank properties of space-time codes.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 2×2 MIMO choices**
+
+DMT frontier: $d^*(r) = (2-r)^2$
+
+| r | d | Strategy |
+|---|---|----------|
+| 0 | 4 | Alamouti (full diversity) |
+| 1 | 1 | 1 stream + some diversity |
+| 2 | 0 | V-BLAST (full multiplexing) |
+
+Choose r based on reliability vs. rate requirements.
+
+**Example: Rate adaptation**
+
+High SNR (good channel): Use r=2 (max throughput).
+Low SNR (fading): Use r=0 or r=1 (protect against outage).
+
+System dynamically moves along DMT curve.
+
+**Example: Golden code**
+
+2×2 space-time code achieving full DMT frontier.
+
+At r=1: provides d=1 diversity while transmitting 1 stream.
+At r=2: achieves d=0 but still outperforms naive V-BLAST.
+
+Used in WiMAX and some LTE configurations.
+
+**Example: Practical operating points**
+
+802.11n MIMO: Fixed spatial streams (1-4), doesn't adapt along DMT.
+
+LTE/5G: Rank adaptation — switches between r=1, 2, 4, 8 based on channel quality.
+
+Each rank is a different point on the DMT curve.
+
+**Example: Outage probability calculation**
+
+4×4 MIMO, r=2 streams, target rate R.
+
+Diversity order: d = (4-2)(4-2) = 4.
+
+At 10 dB SNR: $P_{out} \propto 10^{-4} = 10^{-4}$
+
+At 20 dB SNR: $P_{out} \propto 10^{-8}$
+
+Each 10 dB SNR increase reduces outage by factor of $10^d$.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Treating DMT as exact finite-SNR result.** DMT is a high-SNR approximation. At practical SNRs (10-30 dB), the frontier is approximate.
+
+2. **Ignoring the integer constraint.** You can't send 1.5 streams. Practical r is integer; DMT is continuous approximation.
+
+3. **Assuming all codes achieve DMT.** Only well-designed codes reach the frontier. Poor codes operate below it.
+
+4. **Forgetting CSI requirements.** DMT assumes perfect CSI at receiver. Imperfect CSI shifts the frontier.
+
+5. **Confusing DMT with finite-length performance.** DMT is an asymptotic characterization. Short codewords have worse performance.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Zheng & Tse, "Diversity and Multiplexing: A Fundamental Tradeoff," IEEE TIT, 2003.
+- Tarokh, Seshadri, Calderbank, "Space-Time Codes for High Data Rate Wireless Communication," IEEE TIT, 1998.
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Ch. 9, Cambridge, 2005.
+
+</section>

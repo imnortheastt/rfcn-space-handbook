@@ -9,16 +9,159 @@ unit: spatial-multiplexing-vs-diversity-vs-beamforming
 order: 1
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r4-mimo-capacity-01-channel-matrix"]
+spiralRevisits: []
 title: "Spatial multiplexing"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Transmitting independent data streams over parallel spatial channels."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["spatial-multiplexing", "mimo", "capacity", "streams"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Spatial multiplexing
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why spatial multiplexing?
+
+A 4×4 MIMO system can transmit 4 independent data streams simultaneously — 4× the throughput of a single antenna. This isn't time or frequency multiplexing; it's spatial multiplexing, using multiple antennas to create parallel pipes through the air. It's why modern wireless delivers gigabits, not megabits.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+With multiple transmit and receive antennas, the channel matrix has multiple singular values. Each singular value represents an independent "pipe" through the wireless medium. If you have 4 strong pipes, you can send 4 different symbols at the same time, on the same frequency. The receiver separates them using the spatial signatures.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### System model
+
+$$\mathbf{y} = \mathbf{H}\mathbf{x} + \mathbf{n}$$
+
+- M transmit antennas, N receive antennas
+- $\mathbf{H} \in \mathbb{C}^{N \times M}$ — channel matrix
+- Send $\min(M, N)$ independent streams
+
+### SVD decomposition
+
+$$\mathbf{H} = \mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^H$$
+
+- $\boldsymbol{\Sigma}$ = diagonal matrix of singular values $\sigma_1 \geq \sigma_2 \geq ... \geq \sigma_r$
+- $r = \text{rank}(\mathbf{H}) \leq \min(M, N)$
+
+Each singular value defines a parallel channel with gain $\sigma_i^2$.
+
+### Capacity
+
+With water-filling power allocation:
+
+$$C = \sum_{i=1}^r \log_2\left(1 + \frac{p_i \sigma_i^2}{\sigma_n^2}\right)$$
+
+At high SNR, approximately:
+
+$$C \approx r \cdot \log_2(\text{SNR})$$
+
+Capacity scales linearly with $r$ — the multiplexing gain.
+
+### Multiplexing gain
+
+**Definition:** The pre-log factor in capacity scaling.
+
+$$r^* = \lim_{\text{SNR} \to \infty} \frac{C(\text{SNR})}{\log_2(\text{SNR})}$$
+
+For full-rank channel: $r^* = \min(M, N)$.
+
+**Example:** 4×4 MIMO with full-rank channel achieves 4× the capacity of SISO at high SNR.
+
+### Conditions for spatial multiplexing
+
+1. **Rich scattering:** Channel must have full (or near-full) rank. LOS with no scattering = rank 1.
+2. **Antenna spacing:** Typically λ/2 or more to decorrelate.
+3. **Sufficient SNR:** Low SNR makes weak streams unusable.
+4. **Channel knowledge:** Receiver needs CSI to separate streams.
+
+### V-BLAST: Practical spatial multiplexing
+
+Transmit independent symbols on each antenna (no precoding).
+
+Receive: ZF, MMSE, or successive interference cancellation (SIC).
+
+SIC: Detect strongest stream, subtract, repeat. Approaches capacity.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 4×4 MIMO throughput**
+
+20 MHz bandwidth, 256-QAM (8 bits/symbol), 4 streams.
+
+Throughput: $20 \times 10^6 \times 8 \times 4 = 640$ Mbps
+
+Compare SISO: 160 Mbps. 4× improvement.
+
+**Example: Stream allocation**
+
+Channel singular values: [10, 8, 3, 0.5].
+
+At high SNR: use all 4 streams (4× multiplexing gain).
+At moderate SNR: use 3 streams (stream 4 too weak).
+At low SNR: use 1-2 streams (focus power on strong channels).
+
+Water-filling automatically optimizes this.
+
+**Example: Rank deficiency**
+
+LOS rooftop link: channel has rank ≈ 1.
+Only 1 stream useful despite 4×4 antennas.
+
+Rich urban scattering: full rank 4.
+All 4 streams usable.
+
+Environment determines multiplexing capability.
+
+**Example: 802.11ac/ax**
+
+8×8 MU-MIMO: up to 8 spatial streams.
+Each user may get 1-4 streams depending on their channel.
+
+5 GHz, 160 MHz, 1024-QAM, 8 streams: 9.6 Gbps peak rate.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming full rank.** Real channels often have rank deficiency (correlated antennas, LOS, keyhole effects).
+
+2. **Ignoring SNR regime.** At low SNR, multiplexing wastes power on weak streams. Focus power on best stream.
+
+3. **Confusing with diversity.** Diversity combats fading (reliability). Multiplexing increases rate (throughput). They trade off.
+
+4. **Forgetting antenna count.** Max streams = $\min(M, N)$. 2×4 system has at most 2 streams.
+
+5. **Over-counting practical gains.** Overhead (pilots, guard intervals) and imperfect CSI reduce real throughput below theory.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Foschini, "Layered Space-Time Architecture for Wireless Communication," Bell Labs Tech. J., 1996.
+- Telatar, "Capacity of Multi-Antenna Gaussian Channels," European Trans. Telecom., 1999.
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Ch. 7-8, Cambridge, 2005.
+
+</section>

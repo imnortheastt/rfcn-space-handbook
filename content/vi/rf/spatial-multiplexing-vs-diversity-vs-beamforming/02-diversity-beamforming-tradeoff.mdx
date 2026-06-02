@@ -9,16 +9,158 @@ unit: spatial-multiplexing-vs-diversity-vs-beamforming
 order: 2
 level: L4
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r5-spatial-multiplexing-vs-diversity-vs-beamforming-01-spatial-multiplexing", "rf-r4-diversity-intuition-01-diversity-types"]
+spiralRevisits: []
 title: "Đánh đổi phân tập-beamforming"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Cách tài nguyên ăng-ten phân chia giữa chống fading và tập trung năng lượng."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["diversity", "beamforming", "tradeoff", "mimo"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Đánh đổi phân tập-beamforming
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao đánh đổi này?
+
+Với 4 ăng-ten, bạn có thể: (a) dùng cả 4 để chống fading (đa dạng tối đa), (b) dùng cả 4 để tập trung năng lượng về phía người dùng (khuếch đại beamforming tối đa), hoặc (c) cái gì đó ở giữa. Đây không phải cùng một thứ, và bạn không thể có cả hai đồng thời. Hiểu đánh đổi này hướng dẫn thiết kế hệ thống.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+**Đa dạng:** Phát cùng tín hiệu qua nhiều đường độc lập. Khi một đường fade, đường khác tồn tại. Giảm xác suất outage.
+
+**Beamforming:** Kết hợp kết hợp ăng-ten để tập trung năng lượng vào một hướng. Tăng SNR trung bình nhưng không giảm phương sai fading.
+
+Với CSI hoàn hảo ở máy phát, beamforming cho SNR trung bình cao nhất. Nhưng không có CSI, đa dạng an toàn hơn — nó bảo vệ khỏi fade xấu. Lựa chọn phụ thuộc bạn tối ưu gì và bạn biết gì.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Góc nhìn đa dạng
+
+Phát cùng ký hiệu từ tất cả ăng-ten với pha/độ trễ khác nhau.
+
+Bộ thu kết hợp tín hiệu. Ngay cả khi một số đường fade, những đường khác còn.
+
+**Bậc đa dạng:** Số đường fading độc lập. Với M phát và N thu và tán xạ phong phú: $d = M \cdot N$.
+
+**Tỷ lệ lỗi:** $P_e \propto \text{SNR}^{-d}$ ở SNR cao.
+
+### Góc nhìn beamforming
+
+Với CSI, máy phát điều chỉnh pha để tín hiệu cộng kết hợp ở bộ thu.
+
+**Khuếch đại mảng:** M ăng-ten → M× công suất ở bộ thu (kết hợp kết hợp).
+
+**Khuếch đại beamforming:** Tăng $10\log_{10}(M)$ dB SNR nhận.
+
+Nhưng nếu kênh fade, tất cả năng lượng tập trung đó fade cùng nhau — không có bảo vệ đa dạng.
+
+### Sự căng thẳng
+
+Cả hai dùng cùng tài nguyên ăng-ten khác nhau:
+
+| Chiến lược | Dùng ăng-ten cho... | Lợi ích | Nhược điểm |
+|------------|---------------------|---------|------------|
+| Đa dạng | Đường độc lập | Giảm độ sâu fading | Công suất trung bình thấp hơn |
+| Beamforming | Tập trung kết hợp | SNR trung bình cao hơn | Không bảo vệ fading |
+
+### Chiến lược tối ưu phụ thuộc kịch bản
+
+**Không CSIT (thông tin trạng thái kênh ở máy phát):** Không thể beamform. Dùng mã đa dạng (mã không gian-thời gian).
+
+**CSIT hoàn hảo:** Beamform để cực đại SNR tức thời. Nhưng kênh phải được theo dõi chính xác.
+
+**CSIT một phần:** Tiếp cận lai — một số khuếch đại beamforming, một số đa dạng.
+
+### Khung toán học
+
+Xác suất outage ở tốc độ R:
+
+$$P_{out} = P(\log_2(1 + \gamma) < R)$$
+
+Beamforming cực đại $\gamma$ trung bình nhưng không giảm phương sai.
+
+Đa dạng giảm phương sai $\gamma$, hạ xác suất outage cho R cố định.
+
+**Điểm mấu chốt:** Ở mục tiêu outage thấp (độ tin cậy cao), đa dạng chiếm ưu thế. Ở mục tiêu thông lượng trung bình, beamforming thắng.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Máy phát 4 ăng-ten, không CSIT**
+
+Lựa chọn A: Mã Alamouti (sơ đồ đa dạng 2 ăng-ten mở rộng).
+Bậc đa dạng: 4 (với 1 Rx), bảo vệ khỏi fade.
+
+Lựa chọn B: Phát từ 1 ăng-ten ở công suất 4×.
+Không đa dạng, cùng SNR trung bình nhưng rủi ro outage cao.
+
+Cho liên kết quan trọng độ tin cậy (kênh điều khiển), dùng đa dạng.
+
+**Ví dụ: Máy phát 4 ăng-ten, CSIT hoàn hảo**
+
+Truyền tỷ lệ cực đại (MRT): trọng số ăng-ten bằng liên hợp kênh.
+
+$$\mathbf{w} = \frac{\mathbf{h}^*}{\|\mathbf{h}\|}$$
+
+Khuếch đại beamforming: +6 dB so với đẳng hướng.
+
+Dùng cho kênh dữ liệu tối ưu thông lượng.
+
+**Ví dụ: Beamforming lai với đa dạng một phần**
+
+4 ăng-ten → 2 beamform về hướng người dùng, 2 cung cấp đa dạng phân cực.
+
+Khuếch đại beamforming vừa phải + bảo vệ đa dạng vừa phải.
+
+Phổ biến trong hệ thống mmWave nơi cả hai quan trọng.
+
+**Ví dụ: Thiết kế 5G NR**
+
+Kênh điều khiển: tập trung đa dạng (độ tin cậy quan trọng).
+Kênh dữ liệu: tập trung beamforming (thông lượng quan trọng).
+
+Hệ thống chuyển động lực dựa trên điều kiện kênh và loại lưu lượng.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Xem chúng là cùng một thứ.** "Nhiều ăng-ten hơn = tốt hơn" đúng, nhưng CÁCH dùng quan trọng. Đa dạng ≠ beamforming.
+
+2. **Bỏ qua chất lượng CSIT.** Beamforming với CSI lỗi thời có thể tệ hơn đa dạng. Kênh di động cao ưa đa dạng.
+
+3. **Quên mục tiêu.** Cực đại tốc độ trung bình → beamforming. Cực tiểu outage → đa dạng. Khớp chiến lược với mục tiêu.
+
+4. **Beamforming quá nhiều ở SNR thấp.** Khuếch đại beamforming là nhân. Ở SNR thấp, giá trị nhân vẫn thấp. Đa dạng giúp nhiều hơn.
+
+5. **Nhầm beamforming với ghép kênh không gian.** Beamforming = 1 luồng, tập trung. Ghép kênh = nhiều luồng. Mục tiêu khác.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Ch. 3, 7, Cambridge, 2005.
+- Love, Heath, "Equal Gain Transmission in MIMO Wireless Systems," IEEE TCOM, 2003.
+- Alamouti, "A Simple Transmit Diversity Technique," IEEE JSAC, 1998.
+
+</section>

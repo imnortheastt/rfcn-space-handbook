@@ -9,16 +9,159 @@ unit: spatial-multiplexing-vs-diversity-vs-beamforming
 order: 1
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r4-mimo-capacity-01-channel-matrix"]
+spiralRevisits: []
 title: "Ghép kênh không gian"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Truyền các luồng dữ liệu độc lập qua các kênh không gian song song."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["spatial-multiplexing", "mimo", "capacity", "streams"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Ghép kênh không gian
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao ghép kênh không gian?
+
+Hệ thống MIMO 4×4 có thể truyền 4 luồng dữ liệu độc lập đồng thời — 4× thông lượng của một ăng-ten. Đây không phải ghép kênh thời gian hay tần số; đó là ghép kênh không gian, sử dụng nhiều ăng-ten để tạo các ống song song qua không khí. Đây là lý do không dây hiện đại cung cấp gigabit, không phải megabit.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Với nhiều ăng-ten phát và thu, ma trận kênh có nhiều giá trị suy biến. Mỗi giá trị suy biến đại diện cho một "ống" độc lập qua môi trường không dây. Nếu bạn có 4 ống mạnh, bạn có thể gửi 4 ký hiệu khác nhau cùng lúc, trên cùng tần số. Bộ thu tách chúng bằng chữ ký không gian.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Mô hình hệ thống
+
+$$\mathbf{y} = \mathbf{H}\mathbf{x} + \mathbf{n}$$
+
+- M ăng-ten phát, N ăng-ten thu
+- $\mathbf{H} \in \mathbb{C}^{N \times M}$ — ma trận kênh
+- Gửi $\min(M, N)$ luồng độc lập
+
+### Phân tích SVD
+
+$$\mathbf{H} = \mathbf{U}\boldsymbol{\Sigma}\mathbf{V}^H$$
+
+- $\boldsymbol{\Sigma}$ = ma trận đường chéo của giá trị suy biến $\sigma_1 \geq \sigma_2 \geq ... \geq \sigma_r$
+- $r = \text{rank}(\mathbf{H}) \leq \min(M, N)$
+
+Mỗi giá trị suy biến định nghĩa kênh song song với khuếch đại $\sigma_i^2$.
+
+### Dung lượng
+
+Với phân bổ công suất water-filling:
+
+$$C = \sum_{i=1}^r \log_2\left(1 + \frac{p_i \sigma_i^2}{\sigma_n^2}\right)$$
+
+Ở SNR cao, xấp xỉ:
+
+$$C \approx r \cdot \log_2(\text{SNR})$$
+
+Dung lượng tỷ lệ tuyến tính với $r$ — khuếch đại ghép kênh.
+
+### Khuếch đại ghép kênh
+
+**Định nghĩa:** Hệ số pre-log trong tỷ lệ dung lượng.
+
+$$r^* = \lim_{\text{SNR} \to \infty} \frac{C(\text{SNR})}{\log_2(\text{SNR})}$$
+
+Cho kênh đủ hạng: $r^* = \min(M, N)$.
+
+**Ví dụ:** MIMO 4×4 với kênh đủ hạng đạt 4× dung lượng của SISO ở SNR cao.
+
+### Điều kiện cho ghép kênh không gian
+
+1. **Tán xạ phong phú:** Kênh phải có hạng đầy (hoặc gần đầy). LOS không tán xạ = hạng 1.
+2. **Khoảng cách ăng-ten:** Thường λ/2 hoặc hơn để giải tương quan.
+3. **Đủ SNR:** SNR thấp làm luồng yếu không dùng được.
+4. **Kiến thức kênh:** Bộ thu cần CSI để tách luồng.
+
+### V-BLAST: Ghép kênh không gian thực tế
+
+Phát ký hiệu độc lập trên mỗi ăng-ten (không precoding).
+
+Thu: ZF, MMSE, hoặc triệt nhiễu liên tiếp (SIC).
+
+SIC: Phát hiện luồng mạnh nhất, trừ đi, lặp lại. Tiến đến dung lượng.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Thông lượng MIMO 4×4**
+
+Băng thông 20 MHz, 256-QAM (8 bit/ký hiệu), 4 luồng.
+
+Thông lượng: $20 \times 10^6 \times 8 \times 4 = 640$ Mbps
+
+So sánh SISO: 160 Mbps. Cải thiện 4×.
+
+**Ví dụ: Phân bổ luồng**
+
+Giá trị suy biến kênh: [10, 8, 3, 0.5].
+
+Ở SNR cao: dùng cả 4 luồng (4× khuếch đại ghép kênh).
+Ở SNR vừa: dùng 3 luồng (luồng 4 quá yếu).
+Ở SNR thấp: dùng 1-2 luồng (tập trung công suất vào kênh mạnh).
+
+Water-filling tự động tối ưu điều này.
+
+**Ví dụ: Thiếu hạng**
+
+Liên kết LOS mái nhà: kênh có hạng ≈ 1.
+Chỉ 1 luồng hữu ích dù ăng-ten 4×4.
+
+Tán xạ đô thị phong phú: hạng đầy 4.
+Cả 4 luồng dùng được.
+
+Môi trường quyết định khả năng ghép kênh.
+
+**Ví dụ: 802.11ac/ax**
+
+8×8 MU-MIMO: tới 8 luồng không gian.
+Mỗi người dùng có thể nhận 1-4 luồng tùy thuộc kênh của họ.
+
+5 GHz, 160 MHz, 1024-QAM, 8 luồng: tốc độ đỉnh 9.6 Gbps.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Giả định đủ hạng.** Kênh thực thường thiếu hạng (ăng-ten tương quan, LOS, hiệu ứng lỗ khóa).
+
+2. **Bỏ qua chế độ SNR.** Ở SNR thấp, ghép kênh lãng phí công suất vào luồng yếu. Tập trung công suất vào luồng tốt nhất.
+
+3. **Nhầm với đa dạng.** Đa dạng chống fading (độ tin cậy). Ghép kênh tăng tốc độ (thông lượng). Chúng đánh đổi.
+
+4. **Quên số lượng ăng-ten.** Max luồng = $\min(M, N)$. Hệ thống 2×4 có tối đa 2 luồng.
+
+5. **Đếm quá khuếch đại thực tế.** Overhead (pilot, guard interval) và CSI không hoàn hảo giảm thông lượng thực dưới lý thuyết.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Foschini, "Layered Space-Time Architecture for Wireless Communication," Bell Labs Tech. J., 1996.
+- Telatar, "Capacity of Multi-Antenna Gaussian Channels," European Trans. Telecom., 1999.
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Ch. 7-8, Cambridge, 2005.
+
+</section>

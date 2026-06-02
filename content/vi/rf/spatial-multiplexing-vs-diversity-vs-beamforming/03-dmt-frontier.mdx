@@ -9,16 +9,178 @@ unit: spatial-multiplexing-vs-diversity-vs-beamforming
 order: 3
 level: L4
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r5-spatial-multiplexing-vs-diversity-vs-beamforming-01-spatial-multiplexing", "rf-r5-spatial-multiplexing-vs-diversity-vs-beamforming-02-diversity-beamforming-tradeoff"]
+spiralRevisits: []
 title: "Đánh đổi phân tập-ghép kênh (DMT)"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Biên giới cơ bản giữa độ tin cậy và tốc độ dữ liệu trong MIMO."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["dmt", "diversity", "multiplexing", "tradeoff", "mimo"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Đánh đổi phân tập-ghép kênh (DMT)
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao DMT?
+
+Bạn không thể có khuếch đại đa dạng tối đa VÀ khuếch đại ghép kênh tối đa đồng thời. Đánh đổi Phân tập-Ghép kênh (DMT) định lượng giới hạn cơ bản này. Nó cho bạn biết chính xác bạn hy sinh bao nhiêu độ tin cậy cho mỗi luồng dữ liệu bổ sung, và ngược lại. Đây là xương sống lý thuyết của thiết kế hệ thống MIMO.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Đa dạng bảo vệ khỏi fading (độ tin cậy). Ghép kênh gửi nhiều dữ liệu hơn (tốc độ). Cả hai cạnh tranh cho cùng bậc tự do không gian.
+
+Gửi 1 luồng, dùng ăng-ten còn lại cho đa dạng → độ tin cậy cao, tốc độ khiêm tốn.
+Gửi max luồng → tốc độ cao, không dư thừa, dễ outage.
+
+Đường cong DMT vẽ ra biên giới: cho mỗi khuếch đại ghép kênh r, bậc đa dạng d(r) tốt nhất đạt được là gì?
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Định nghĩa (chế độ SNR cao)
+
+**Khuếch đại ghép kênh:**
+$$r = \lim_{\text{SNR} \to \infty} \frac{R(\text{SNR})}{\log_2(\text{SNR})}$$
+
+Tốc độ tỷ lệ $R \approx r \cdot \log_2(\text{SNR})$.
+
+**Khuếch đại đa dạng:**
+$$d = -\lim_{\text{SNR} \to \infty} \frac{\log P_e(\text{SNR})}{\log(\text{SNR})}$$
+
+Xác suất lỗi suy giảm như $P_e \propto \text{SNR}^{-d}$.
+
+### Biên giới DMT
+
+Cho kênh MIMO M × N (M phát, N thu):
+
+$$d^*(r) = (M - r)(N - r), \quad 0 \leq r \leq \min(M, N)$$
+
+Đây là đường cong tuyến tính từng khúc nối các điểm nguyên.
+
+**Điểm chính:**
+- $(r=0, d=MN)$: Không ghép kênh, đa dạng tối đa.
+- $(r=\min(M,N), d=0)$: Ghép kênh tối đa, không đa dạng.
+- Điểm ở giữa: đánh đổi trung gian.
+
+### Giải thích điểm nguyên
+
+Tại $r=k$ (nguyên), chúng ta truyền k luồng.
+
+$(M-k)(N-k)$ bậc tự do còn lại cung cấp đa dạng.
+
+Ví dụ: MIMO 4×4.
+- r=0: d=16 (đa dạng đầy đủ)
+- r=1: d=9
+- r=2: d=4
+- r=3: d=1
+- r=4: d=0 (ghép kênh đầy đủ)
+
+### Đạt được biên giới
+
+**Mã tối ưu:** Mã xấp xỉ phổ quát đạt biên giới DMT cho tất cả thực hiện kênh.
+
+**Mã không gian-thời gian:** STC được thiết kế tốt (như golden code) DMT-tối ưu cho điểm (r, d) cụ thể.
+
+**Hệ thống thực tế:** Hầu hết hệ thống thực hoạt động ở điểm (r, d) cố định, không thích ứng dọc biên giới.
+
+### Tiêu chí thiết kế mã
+
+Mã đạt $(r, d(r))$ nếu:
+
+1. Gửi ở tốc độ $R = r \cdot \log_2(\text{SNR})$
+2. Xác suất lỗi suy giảm như $\text{SNR}^{-d(r)}$
+
+Điều này hướng dẫn khoảng cách tối thiểu và tính chất hạng của mã không gian-thời gian.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Lựa chọn MIMO 2×2**
+
+Biên giới DMT: $d^*(r) = (2-r)^2$
+
+| r | d | Chiến lược |
+|---|---|------------|
+| 0 | 4 | Alamouti (đa dạng đầy đủ) |
+| 1 | 1 | 1 luồng + một số đa dạng |
+| 2 | 0 | V-BLAST (ghép kênh đầy đủ) |
+
+Chọn r dựa trên yêu cầu độ tin cậy vs. tốc độ.
+
+**Ví dụ: Thích ứng tốc độ**
+
+SNR cao (kênh tốt): Dùng r=2 (thông lượng max).
+SNR thấp (fading): Dùng r=0 hoặc r=1 (bảo vệ khỏi outage).
+
+Hệ thống di chuyển động lực dọc đường cong DMT.
+
+**Ví dụ: Golden code**
+
+Mã không gian-thời gian 2×2 đạt toàn bộ biên giới DMT.
+
+Tại r=1: cung cấp đa dạng d=1 trong khi truyền 1 luồng.
+Tại r=2: đạt d=0 nhưng vẫn vượt V-BLAST ngây thơ.
+
+Dùng trong WiMAX và một số cấu hình LTE.
+
+**Ví dụ: Điểm hoạt động thực tế**
+
+802.11n MIMO: Luồng không gian cố định (1-4), không thích ứng dọc DMT.
+
+LTE/5G: Thích ứng hạng — chuyển giữa r=1, 2, 4, 8 dựa trên chất lượng kênh.
+
+Mỗi hạng là điểm khác nhau trên đường cong DMT.
+
+**Ví dụ: Tính xác suất outage**
+
+MIMO 4×4, r=2 luồng, tốc độ mục tiêu R.
+
+Bậc đa dạng: d = (4-2)(4-2) = 4.
+
+Ở 10 dB SNR: $P_{out} \propto 10^{-4}$
+
+Ở 20 dB SNR: $P_{out} \propto 10^{-8}$
+
+Mỗi 10 dB SNR tăng giảm outage hệ số $10^d$.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Xem DMT như kết quả chính xác SNR hữu hạn.** DMT là xấp xỉ SNR cao. Ở SNR thực tế (10-30 dB), biên giới là xấp xỉ.
+
+2. **Bỏ qua ràng buộc nguyên.** Bạn không thể gửi 1.5 luồng. r thực tế là nguyên; DMT là xấp xỉ liên tục.
+
+3. **Giả định tất cả mã đạt DMT.** Chỉ mã thiết kế tốt đạt biên giới. Mã kém hoạt động dưới nó.
+
+4. **Quên yêu cầu CSI.** DMT giả định CSI hoàn hảo ở bộ thu. CSI không hoàn hảo dịch chuyển biên giới.
+
+5. **Nhầm DMT với hiệu suất độ dài hữu hạn.** DMT là đặc trưng tiệm cận. Từ mã ngắn có hiệu suất tệ hơn.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Zheng & Tse, "Diversity and Multiplexing: A Fundamental Tradeoff," IEEE TIT, 2003.
+- Tarokh, Seshadri, Calderbank, "Space-Time Codes for High Data Rate Wireless Communication," IEEE TIT, 1998.
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Ch. 9, Cambridge, 2005.
+
+</section>
