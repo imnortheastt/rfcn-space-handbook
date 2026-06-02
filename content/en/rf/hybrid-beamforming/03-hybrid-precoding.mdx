@@ -8,17 +8,188 @@ track: r5
 unit: hybrid-beamforming
 order: 3
 level: L5
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 7
+prerequisites: ["rf-r5-hybrid-beamforming-02-analog-digital-partition"]
+spiralRevisits: []
 title: "Hybrid precoding algorithms"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Algorithms for jointly designing analog and digital precoders."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["hybrid-precoding", "omp", "alternating-minimization", "codebook"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Hybrid precoding algorithms
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why hybrid precoding algorithms?
+
+Given the constraint that analog precoders can only adjust phase (not amplitude), designing the optimal hybrid precoder is a non-convex optimization problem. Direct solutions don't exist — we need clever algorithms that approach optimal performance while respecting hardware constraints.
+
+These algorithms determine how well your hybrid system actually performs.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+The problem: approximate the optimal fully-digital precoder $\mathbf{F}_{opt}$ using the product $\mathbf{F}_{RF}\mathbf{F}_{BB}$, where $\mathbf{F}_{RF}$ has constant modulus entries.
+
+It's like painting a portrait using only a fixed palette of colors (analog) and then adding fine details with any color you want (digital). The challenge is choosing which fixed colors to use.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Problem formulation
+
+Objective: minimize distance to optimal precoder
+
+$$\min_{\mathbf{F}_{RF}, \mathbf{F}_{BB}} \|\mathbf{F}_{opt} - \mathbf{F}_{RF}\mathbf{F}_{BB}\|_F^2$$
+
+Subject to:
+- $|[\mathbf{F}_{RF}]_{i,j}| = 1/\sqrt{N_t}$ (constant modulus)
+- $\|\mathbf{F}_{RF}\mathbf{F}_{BB}\|_F^2 = N_s$ (power constraint)
+
+### Algorithm 1: Spatially sparse precoding (OMP-based)
+
+**Key insight**: mmWave channels are sparse in the angle domain. The optimal precoder concentrates energy along dominant paths.
+
+Algorithm:
+1. Compute optimal precoder: $\mathbf{F}_{opt} = \mathbf{V}[:, 1:N_s]$ (right singular vectors of H)
+2. Define dictionary $\mathbf{A}$ of array response vectors
+3. For each column of $\mathbf{F}_{opt}$:
+   - Find best matching dictionary atom (OMP)
+   - Add to $\mathbf{F}_{RF}$
+4. Compute $\mathbf{F}_{BB} = (\mathbf{F}_{RF}^H\mathbf{F}_{RF})^{-1}\mathbf{F}_{RF}^H\mathbf{F}_{opt}$
+
+Complexity: $O(N_t N_{RF} N_s)$
+
+### Algorithm 2: Alternating minimization
+
+**Key insight**: Fix one variable, optimize the other, iterate.
+
+Initialize $\mathbf{F}_{RF}$ randomly (phases uniform in $[0, 2\pi)$)
+
+Repeat until convergence:
+1. Fix $\mathbf{F}_{RF}$, solve for $\mathbf{F}_{BB}$:
+   $$\mathbf{F}_{BB} = (\mathbf{F}_{RF}^H\mathbf{F}_{RF})^{-1}\mathbf{F}_{RF}^H\mathbf{F}_{opt}$$
+
+2. Fix $\mathbf{F}_{BB}$, solve for $\mathbf{F}_{RF}$:
+   $$[\mathbf{F}_{RF}]_{i,j} = \frac{1}{\sqrt{N_t}} e^{j \angle[\mathbf{F}_{opt}\mathbf{F}_{BB}^H]_{i,j}}$$
+
+Complexity per iteration: $O(N_t N_{RF}^2)$
+
+### Algorithm 3: Codebook-based
+
+**Key insight**: In practice, phase shifters have finite resolution. Optimize over discrete codebook.
+
+Codebook $\mathcal{F}$: set of predefined beam directions
+
+Algorithm:
+1. For each RF chain:
+   - Search all codebook entries
+   - Select beam maximizing received power
+2. Form $\mathbf{F}_{RF}$ from selected codewords
+3. Compute $\mathbf{F}_{BB}$ in closed form
+
+Complexity: $O(|\mathcal{F}| N_{RF})$
+
+Used in 5G NR beam management (Type I/II codebooks).
+
+### Performance comparison
+
+| Algorithm | SE loss vs. optimal | Complexity | Practical? |
+|-----------|---------------------|------------|------------|
+| OMP-based | 5-10% | Medium | Yes |
+| Alternating min. | 2-5% | High | Research |
+| Codebook | 10-15% | Low | Yes (5G NR) |
+| Fully digital | 0% | N/A | Baseline |
+
+### Convergence properties
+
+Alternating minimization:
+- Guaranteed non-increasing cost
+- Converges to local minimum
+- Multiple restarts help find better minima
+
+OMP:
+- Greedy, no convergence guarantee
+- Single pass, deterministic
+- Works well when channel is truly sparse
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: OMP iteration**
+
+64-element array, 4 RF chains, 2 streams.
+
+Channel has 3 dominant paths at angles: -30°, 0°, +25°.
+
+Dictionary atoms at: -45°, -30°, -15°, 0°, +15°, +30°, +45°.
+
+OMP selects:
+1. Stream 1: atoms at -30° and 0° (match path 1 and 2)
+2. Stream 2: atoms at 0° and +30° (match path 2 and closest to path 3)
+
+Result: $\mathbf{F}_{RF}$ has 4 columns corresponding to selected atoms.
+
+**Example: Phase quantization impact**
+
+6-bit phase shifter: 64 states, 5.625° resolution.
+
+Alternating minimization outputs: $\phi = 47.3°$
+
+Quantized: $\phi_q = 45°$ (nearest state)
+
+Quantization error: 2.3°
+
+Over 64 elements, average gain loss: ~0.1 dB.
+
+**Example: 5G NR Type I codebook**
+
+DFT-based codebook with oversampling factor O:
+
+$$\mathbf{f}_m = \frac{1}{\sqrt{N_t}} [1, e^{j2\pi m/(ON_t)}, ..., e^{j2\pi m(N_t-1)/(ON_t)}]^T$$
+
+For 16 elements, O=4: 64 codewords covering ±60°.
+
+UE reports best beam index, gNB uses corresponding codeword.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring quantization in design.** Continuous-phase algorithms look good on paper but performance degrades with 4-6 bit phase shifters. Design directly for quantized phases.
+
+2. **Assuming channel sparsity.** OMP-based methods fail in rich scattering (indoor NLOS). Use alternating minimization for these scenarios.
+
+3. **Overlooking computational constraints.** Base stations may have limited DSP capability. Codebook methods are preferred for real-time operation.
+
+4. **Forgetting wideband effects.** Each subcarrier may need different precoder. Hybrid architectures typically share $\mathbf{F}_{RF}$ across subcarriers, limiting wideband performance.
+
+5. **Benchmarking against wrong baseline.** Compare against fully-digital with same total power, not same per-antenna power.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Ayach et al., "Spatially Sparse Precoding in Millimeter Wave MIMO Systems," IEEE TWC, 2014.
+- Sohrabi and Yu, "Hybrid Beamforming with Finite-Resolution Phase Shifters," IEEE TWC, 2016.
+- 3GPP TS 38.214, Section 5.2 (CSI reporting).
+
+</section>

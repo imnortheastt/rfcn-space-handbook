@@ -8,17 +8,188 @@ track: r5
 unit: hybrid-beamforming
 order: 3
 level: L5
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 7
+prerequisites: ["rf-r5-hybrid-beamforming-02-analog-digital-partition"]
+spiralRevisits: []
 title: "Thuật toán tạo mã trước lai"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Thuật toán thiết kế đồng thời precoder analog và số."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["hybrid-precoding", "omp", "alternating-minimization", "codebook"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Thuật toán tạo mã trước lai
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao thuật toán hybrid precoding?
+
+Với ràng buộc precoder analog chỉ điều chỉnh pha (không phải biên độ), thiết kế precoder lai tối ưu là bài toán tối ưu không lồi. Không có nghiệm trực tiếp — chúng ta cần thuật toán thông minh tiến gần hiệu năng tối ưu trong khi tôn trọng ràng buộc phần cứng.
+
+Các thuật toán này xác định hiệu năng thực sự của hệ thống lai.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Bài toán: xấp xỉ precoder số tối ưu $\mathbf{F}_{opt}$ bằng tích $\mathbf{F}_{RF}\mathbf{F}_{BB}$, trong đó $\mathbf{F}_{RF}$ có các phần tử biên độ không đổi.
+
+Giống như vẽ chân dung chỉ dùng bảng màu cố định (analog) rồi thêm chi tiết tinh với bất kỳ màu nào bạn muốn (số). Thách thức là chọn màu cố định nào.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Công thức bài toán
+
+Mục tiêu: cực tiểu khoảng cách đến precoder tối ưu
+
+$$\min_{\mathbf{F}_{RF}, \mathbf{F}_{BB}} \|\mathbf{F}_{opt} - \mathbf{F}_{RF}\mathbf{F}_{BB}\|_F^2$$
+
+Với điều kiện:
+- $|[\mathbf{F}_{RF}]_{i,j}| = 1/\sqrt{N_t}$ (biên độ không đổi)
+- $\|\mathbf{F}_{RF}\mathbf{F}_{BB}\|_F^2 = N_s$ (ràng buộc công suất)
+
+### Thuật toán 1: Precoding thưa không gian (dựa OMP)
+
+**Ý tưởng chính**: kênh mmWave thưa trong miền góc. Precoder tối ưu tập trung năng lượng dọc các đường chính.
+
+Thuật toán:
+1. Tính precoder tối ưu: $\mathbf{F}_{opt} = \mathbf{V}[:, 1:N_s]$ (vectơ kỳ dị phải của H)
+2. Định nghĩa từ điển $\mathbf{A}$ các vectơ đáp ứng mảng
+3. Cho mỗi cột của $\mathbf{F}_{opt}$:
+   - Tìm atom từ điển khớp nhất (OMP)
+   - Thêm vào $\mathbf{F}_{RF}$
+4. Tính $\mathbf{F}_{BB} = (\mathbf{F}_{RF}^H\mathbf{F}_{RF})^{-1}\mathbf{F}_{RF}^H\mathbf{F}_{opt}$
+
+Độ phức tạp: $O(N_t N_{RF} N_s)$
+
+### Thuật toán 2: Cực tiểu xen kẽ
+
+**Ý tưởng chính**: Cố định một biến, tối ưu biến kia, lặp.
+
+Khởi tạo $\mathbf{F}_{RF}$ ngẫu nhiên (pha đồng đều trong $[0, 2\pi)$)
+
+Lặp đến hội tụ:
+1. Cố định $\mathbf{F}_{RF}$, giải $\mathbf{F}_{BB}$:
+   $$\mathbf{F}_{BB} = (\mathbf{F}_{RF}^H\mathbf{F}_{RF})^{-1}\mathbf{F}_{RF}^H\mathbf{F}_{opt}$$
+
+2. Cố định $\mathbf{F}_{BB}$, giải $\mathbf{F}_{RF}$:
+   $$[\mathbf{F}_{RF}]_{i,j} = \frac{1}{\sqrt{N_t}} e^{j \angle[\mathbf{F}_{opt}\mathbf{F}_{BB}^H]_{i,j}}$$
+
+Độ phức tạp mỗi lần lặp: $O(N_t N_{RF}^2)$
+
+### Thuật toán 3: Dựa codebook
+
+**Ý tưởng chính**: Thực tế, bộ dịch pha có độ phân giải hữu hạn. Tối ưu trên codebook rời rạc.
+
+Codebook $\mathcal{F}$: tập hướng beam định trước
+
+Thuật toán:
+1. Cho mỗi chuỗi RF:
+   - Tìm kiếm tất cả codebook entries
+   - Chọn beam cực đại công suất nhận
+2. Tạo $\mathbf{F}_{RF}$ từ codewords chọn
+3. Tính $\mathbf{F}_{BB}$ dạng đóng
+
+Độ phức tạp: $O(|\mathcal{F}| N_{RF})$
+
+Được dùng trong quản lý beam 5G NR (codebook Type I/II).
+
+### So sánh hiệu năng
+
+| Thuật toán | Mất SE vs. tối ưu | Độ phức tạp | Thực tế? |
+|------------|-------------------|-------------|----------|
+| Dựa OMP | 5-10% | Trung bình | Có |
+| Cực tiểu xen kẽ | 2-5% | Cao | Nghiên cứu |
+| Codebook | 10-15% | Thấp | Có (5G NR) |
+| Số hoàn toàn | 0% | N/A | Baseline |
+
+### Tính chất hội tụ
+
+Cực tiểu xen kẽ:
+- Đảm bảo chi phí không tăng
+- Hội tụ đến cực tiểu cục bộ
+- Khởi động lại nhiều lần giúp tìm cực tiểu tốt hơn
+
+OMP:
+- Tham lam, không đảm bảo hội tụ
+- Một lượt, tất định
+- Hoạt động tốt khi kênh thực sự thưa
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Lặp OMP**
+
+Mảng 64 phần tử, 4 chuỗi RF, 2 luồng.
+
+Kênh có 3 đường chính ở góc: -30°, 0°, +25°.
+
+Atoms từ điển ở: -45°, -30°, -15°, 0°, +15°, +30°, +45°.
+
+OMP chọn:
+1. Luồng 1: atoms ở -30° và 0° (khớp đường 1 và 2)
+2. Luồng 2: atoms ở 0° và +30° (khớp đường 2 và gần nhất đường 3)
+
+Kết quả: $\mathbf{F}_{RF}$ có 4 cột tương ứng atoms chọn.
+
+**Ví dụ: Tác động lượng tử pha**
+
+Bộ dịch pha 6-bit: 64 trạng thái, độ phân giải 5.625°.
+
+Cực tiểu xen kẽ xuất: $\phi = 47.3°$
+
+Lượng tử: $\phi_q = 45°$ (trạng thái gần nhất)
+
+Lỗi lượng tử: 2.3°
+
+Trên 64 phần tử, mất khuếch đại trung bình: ~0.1 dB.
+
+**Ví dụ: Codebook Type I 5G NR**
+
+Codebook dựa DFT với hệ số oversampling O:
+
+$$\mathbf{f}_m = \frac{1}{\sqrt{N_t}} [1, e^{j2\pi m/(ON_t)}, ..., e^{j2\pi m(N_t-1)/(ON_t)}]^T$$
+
+Cho 16 phần tử, O=4: 64 codewords phủ ±60°.
+
+UE báo chỉ số beam tốt nhất, gNB dùng codeword tương ứng.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Bỏ qua lượng tử trong thiết kế.** Thuật toán pha liên tục trông đẹp trên giấy nhưng hiệu năng giảm với bộ dịch pha 4-6 bit. Thiết kế trực tiếp cho pha lượng tử.
+
+2. **Giả định kênh thưa.** Phương pháp dựa OMP thất bại trong tán xạ giàu (indoor NLOS). Dùng cực tiểu xen kẽ cho các tình huống này.
+
+3. **Bỏ qua ràng buộc tính toán.** Trạm gốc có thể có khả năng DSP hạn chế. Phương pháp codebook được ưa thích cho hoạt động thời gian thực.
+
+4. **Quên hiệu ứng băng rộng.** Mỗi subcarrier có thể cần precoder khác. Kiến trúc lai thường chia sẻ $\mathbf{F}_{RF}$ qua subcarriers, giới hạn hiệu năng băng rộng.
+
+5. **So sánh với baseline sai.** So sánh với số hoàn toàn cùng tổng công suất, không phải cùng công suất mỗi anten.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Ayach et al., "Spatially Sparse Precoding in Millimeter Wave MIMO Systems," IEEE TWC, 2014.
+- Sohrabi and Yu, "Hybrid Beamforming with Finite-Resolution Phase Shifters," IEEE TWC, 2016.
+- 3GPP TS 38.214, Section 5.2 (CSI reporting).
+
+</section>

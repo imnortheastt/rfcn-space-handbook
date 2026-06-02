@@ -8,17 +8,192 @@ track: r5
 unit: hybrid-beamforming
 order: 2
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r5-hybrid-beamforming-01-hybrid-architecture"]
+spiralRevisits: []
 title: "Analog/digital partition trade-offs"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Choosing the right balance between analog and digital processing."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["hybrid-beamforming", "partition", "rf-chains", "tradeoffs"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Analog/digital partition trade-offs
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why does partition matter?
+
+The split between analog and digital processing determines your system's cost, power, flexibility, and performance. More RF chains = better spatial multiplexing but higher cost. Fewer RF chains = cheaper but reduced multi-user capability.
+
+Getting this balance right is the core design decision in mmWave systems.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Imagine a restaurant kitchen:
+- **Analog side**: Prep cooks who can chop fast but only follow one recipe
+- **Digital side**: Head chefs who can create anything but work slower and cost more
+
+With unlimited budget, you'd hire all head chefs. In reality, you optimize the ratio based on menu complexity (number of streams) and dinner rush capacity (throughput requirements).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### The fundamental constraint
+
+$$N_s \leq N_{RF} \leq N_t$$
+
+- $N_s$ = number of data streams
+- $N_{RF}$ = number of RF chains
+- $N_t$ = number of transmit antennas
+
+More RF chains → closer to optimal digital beamforming performance.
+
+### Cost model
+
+| Component | Approximate cost |
+|-----------|------------------|
+| RF chain (28 GHz) | $300-800 |
+| Phase shifter (4-bit) | $5-15 |
+| Power amplifier | $50-200 |
+| ADC (12-bit, 1 Gsps) | $100-500 |
+
+For 64-element array:
+- Fully digital: 64 RF chains ≈ $32,000
+- Hybrid (8 RF chains): 8 RF chains + 64 PS ≈ $3,000
+
+10× cost reduction with hybrid.
+
+### Power consumption
+
+| Component | Power per unit |
+|-----------|---------------|
+| RF chain | 200-500 mW |
+| Phase shifter | 5-20 mW |
+| ADC | 50-200 mW |
+| DAC | 30-100 mW |
+
+64-element array power:
+- Fully digital: ~40W (RF chains + ADCs)
+- Hybrid (8 chains): ~8W
+
+5× power reduction.
+
+### Performance vs. RF chains
+
+Spectral efficiency vs. $N_{RF}$:
+
+| $N_{RF}$ | % of optimal SE | Use case |
+|----------|-----------------|----------|
+| $N_s$ | 70-85% | Minimum viable |
+| $2N_s$ | 90-95% | Good balance |
+| $N_t$ | 100% | Fully digital (ideal) |
+
+Rule of thumb: $N_{RF} = 2N_s$ captures most of the spatial multiplexing gain.
+
+### Channel sparsity exploitation
+
+mmWave channels have few dominant paths (typically 3-5 clusters).
+
+Effective channel dimension: $\text{rank}(\mathbf{H}) \approx N_{clusters}$
+
+If channel rank ≪ $N_t$, you don't need $N_t$ RF chains to capture all information.
+
+### Sub-array sizing
+
+For sub-array architecture with $N_t$ elements and $N_{RF}$ RF chains:
+
+Sub-array size: $M = N_t / N_{RF}$
+
+Sub-array beamwidth: $\theta_{3dB} \approx 102° / M$ (linear array)
+
+Trade-off:
+- Larger M → narrower beams, higher gain, less flexibility
+- Smaller M → wider beams, lower gain, more beams simultaneously
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Base station design**
+
+Requirements:
+- 8 users simultaneously
+- 64-element array
+- Budget: $5,000 for RF front-end
+
+Option A: $N_{RF} = 8$ (1 per user)
+- Cost: 8 × $400 + 64 × $10 = $3,840
+- SE: ~80% of optimal
+- Within budget ✓
+
+Option B: $N_{RF} = 16$ (2 per user)
+- Cost: 16 × $400 + 64 × $10 = $7,040
+- SE: ~92% of optimal
+- Exceeds budget ✗
+
+**Example: Sub-array beamwidth**
+
+64-element ULA, $N_{RF} = 8$:
+- Sub-array size: M = 64/8 = 8 elements
+- Sub-array beamwidth: 102°/8 ≈ 13°
+- Each sub-array can independently scan ±45°
+
+**Example: Power budget allocation**
+
+10W total RF power budget:
+- 8 RF chains × 400 mW = 3.2W
+- 64 phase shifters × 15 mW = 1.0W
+- 8 ADCs × 150 mW = 1.2W
+- 8 DACs × 75 mW = 0.6W
+- Total: 6.0W → within budget with margin
+
+**Example: Link budget impact**
+
+Fully digital 64-element: 18 dBi per stream
+Hybrid 8-sub-array: 12 dBi per sub-array
+
+Link budget difference: 6 dB
+- Compensate with 2× transmit power, or
+- Accept 50% range reduction, or
+- Use larger sub-arrays
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Optimizing for wrong metric.** Cost, power, and performance all matter. A low-cost design that can't meet range requirements is useless.
+
+2. **Ignoring channel statistics.** Indoor channels are richer than outdoor. Indoor may need more RF chains despite shorter range.
+
+3. **Forgetting control overhead.** Each phase shifter needs control signals. 256 phase shifters × 6 bits = 1536 control lines.
+
+4. **Assuming fixed partition.** Some architectures allow dynamic reconfiguration — merging sub-arrays for high-gain narrow beam or splitting for multi-user.
+
+5. **Neglecting calibration.** Each RF chain needs calibration. More chains = more calibration complexity and drift compensation.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Molisch et al., "Hybrid Beamforming for Massive MIMO: A Survey," IEEE Comm. Mag., 2017.
+- Alkhateeb et al., "Channel Estimation and Hybrid Precoding for Millimeter Wave Cellular Systems," IEEE JSTSP, 2014.
+- 3GPP TR 38.802, "Study on New Radio Access Technology."
+
+</section>

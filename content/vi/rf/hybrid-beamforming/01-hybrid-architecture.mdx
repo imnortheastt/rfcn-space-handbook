@@ -8,17 +8,173 @@ track: r5
 unit: hybrid-beamforming
 order: 1
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r3-beamforming-fundamentals-03-digital-beamforming"]
+spiralRevisits: []
 title: "Kiến trúc beamforming lai"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Kết hợp beamforming analog và số cho hệ thống mmWave."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 38.214"]
+tags: ["hybrid-beamforming", "mmwave", "5g-nr", "antenna-array"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Kiến trúc beamforming lai
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao beamforming lai?
+
+Ở tần số mmWave, bạn cần mảng khổng lồ (64-256 phần tử) để vượt qua suy hao đường truyền. Beamforming số hoàn toàn sẽ cần một chuỗi RF cho mỗi phần tử — không thực tế với chi phí ~$500/chuỗi. Kiến trúc lai phân chia công việc: bộ dịch pha analog xử lý điều hướng chiều cao, baseband số xử lý đa luồng.
+
+Đây là cách 5G NR thực sự hoạt động ở 28/39 GHz.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy nghĩ như kính thiên văn hai tầng:
+- **Tầng analog**: Chỉ hướng kính (điều hướng thô với bộ dịch pha)
+- **Tầng số**: Lấy nét và xử lý ảnh (điều khiển tinh, phân tách đa người dùng)
+
+Analog rẻ nhưng giới hạn ở điều khiển pha. Số mạnh nhưng đắt. Lai đạt hầu hết hiệu năng với một phần chi phí.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Phân loại kiến trúc
+
+| Kiến trúc | Chuỗi RF | Kết nối | Linh hoạt |
+|-----------|----------|---------|-----------|
+| Số hoàn toàn | N (phần tử) | N/A | Tối đa |
+| Analog hoàn toàn | 1 | Đầy đủ | Tối thiểu |
+| Lai kết nối đầy đủ | $N_{RF}$ | Mỗi RF đến tất cả phần tử | Cao |
+| Lai mảng con | $N_{RF}$ | Mỗi RF đến tập con | Trung bình |
+
+### Mô hình hệ thống
+
+$$\mathbf{y} = \mathbf{H} \mathbf{F}_{RF} \mathbf{F}_{BB} \mathbf{s} + \mathbf{n}$$
+
+- $\mathbf{F}_{RF}$ = precoder analog ($N_t \times N_{RF}$, chỉ pha)
+- $\mathbf{F}_{BB}$ = precoder baseband số ($N_{RF} \times N_s$)
+- $N_t$ = anten phát
+- $N_{RF}$ = chuỗi RF
+- $N_s$ = luồng dữ liệu
+
+Ràng buộc: $|[\mathbf{F}_{RF}]_{i,j}| = 1$ (biên độ không đổi cho bộ dịch pha)
+
+### Kiến trúc kết nối đầy đủ
+
+Mỗi chuỗi RF kết nối đến tất cả phần tử anten qua bộ dịch pha.
+
+```
+RF Chain 1 ─┬─ PS ─── Ant 1
+            ├─ PS ─── Ant 2
+            └─ PS ─── Ant N
+
+RF Chain 2 ─┬─ PS ─── Ant 1
+            ├─ PS ─── Ant 2
+            └─ PS ─── Ant N
+```
+
+- Cần $N_t \times N_{RF}$ bộ dịch pha
+- Khuếch đại mảng đầy đủ cho mỗi luồng
+- Định tuyến phức tạp ở mmWave
+
+### Kiến trúc mảng con
+
+Mỗi chuỗi RF điều khiển tập con rời rạc của anten.
+
+```
+RF Chain 1 ─┬─ PS ─── Ant 1
+            └─ PS ─── Ant 2
+
+RF Chain 2 ─┬─ PS ─── Ant 3
+            └─ PS ─── Ant 4
+```
+
+- Tổng cộng $N_t$ bộ dịch pha
+- Định tuyến đơn giản hơn
+- Giảm linh hoạt beamforming
+- Được dùng trong hầu hết sản phẩm 5G NR thương mại
+
+### Tham số chính
+
+| Tham số | 5G NR mmWave điển hình |
+|---------|------------------------|
+| Sóng mang | 28 GHz hoặc 39 GHz |
+| Phần tử | 64-256 |
+| Chuỗi RF | 4-16 |
+| Luồng | 2-8 |
+| Bit bộ dịch pha | 4-6 |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Thiết kế mảng 64 phần tử**
+
+Yêu cầu: 8 luồng, 28 GHz.
+
+Phương án A: Kết nối đầy đủ
+- 8 chuỗi RF × 64 phần tử = 512 bộ dịch pha
+- Linh hoạt đầy đủ, định tuyến phức tạp
+
+Phương án B: Mảng con (8×8)
+- 8 chuỗi RF × 8 phần tử mỗi = 64 bộ dịch pha
+- Ít hơn 8× linh kiện, thực tế cho sản xuất
+
+**Ví dụ: So sánh khuếch đại mảng**
+
+Mảng 64 phần tử, 4 chuỗi RF:
+- Số hoàn toàn: 10log₁₀(64) = 18 dBi mỗi luồng
+- Mảng con (16 mỗi sub): 10log₁₀(16) = 12 dBi mỗi luồng
+- Nhưng mảng con có thể tạo 4 beam độc lập
+
+**Ví dụ: Lượng tử hóa bộ dịch pha**
+
+Bộ dịch pha 4-bit: 16 trạng thái, độ phân giải 22.5°.
+
+Tổn hao lượng tử so với lý tưởng:
+- 4-bit: ~0.2 dB tổn hao trung bình
+- 3-bit: ~0.5 dB tổn hao trung bình
+- 2-bit: ~1.5 dB tổn hao trung bình
+
+5G NR thường dùng bộ dịch pha 4-6 bit.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Bỏ qua ràng buộc bộ dịch pha.** Precoder analog phải có biên độ không đổi. Điều khiển biên độ cần bộ khuếch đại độ lợi biến đổi — thêm chi phí và tổn hao.
+
+2. **Giả định điều khiển pha hoàn hảo.** Bộ dịch pha thực có tổn hao xen (2-4 dB), lỗi lượng tử, và trôi nhiệt độ.
+
+3. **Bỏ qua tiêu thụ điện.** Bộ dịch pha tiêu thụ điện. Mảng 256 phần tử với bộ dịch pha 6-bit có thể tiêu 5-10W chỉ cho điều hướng beam.
+
+4. **Nhầm khuếch đại mảng con.** Mỗi mảng con có khuếch đại thấp hơn mảng đầy đủ. Tổng công suất được phân phối qua các mảng con.
+
+5. **Quên beam squint.** Tín hiệu băng rộng có hướng beam thay đổi theo tần số. Kiến trúc lai với true-time-delay có thể bù.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Heath et al., "An Overview of Signal Processing Techniques for Millimeter Wave MIMO Systems," IEEE JSTSP, 2016.
+- 3GPP TS 38.214, "NR Physical Layer Procedures for Data."
+- Roh et al., "Millimeter-Wave Beamforming as an Enabling Technology for 5G," IEEE Comm. Mag., 2014.
+
+</section>

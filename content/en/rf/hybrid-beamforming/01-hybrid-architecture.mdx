@@ -8,17 +8,173 @@ track: r5
 unit: hybrid-beamforming
 order: 1
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r3-beamforming-fundamentals-03-digital-beamforming"]
+spiralRevisits: []
 title: "Hybrid beamforming architecture"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Combining analog and digital beamforming for mmWave systems."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 38.214"]
+tags: ["hybrid-beamforming", "mmwave", "5g-nr", "antenna-array"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Hybrid beamforming architecture
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why hybrid beamforming?
+
+At mmWave frequencies, you need massive arrays (64-256 elements) to overcome path loss. Fully digital beamforming would require one RF chain per element — impractical at cost ~$500/chain. Hybrid architectures split the work: analog phase shifters handle high-dimensional steering, digital baseband handles multi-stream processing.
+
+This is how 5G NR actually works at 28/39 GHz.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Think of it as a two-stage telescope:
+- **Analog stage**: Points the telescope (coarse steering with phase shifters)
+- **Digital stage**: Focuses and processes the image (fine control, multi-user separation)
+
+Analog is cheap but limited to phase-only control. Digital is powerful but expensive. Hybrid gets most of the performance at a fraction of the cost.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Architecture taxonomy
+
+| Architecture | RF chains | Connectivity | Flexibility |
+|--------------|-----------|--------------|-------------|
+| Fully digital | N (elements) | N/A | Maximum |
+| Fully analog | 1 | Full | Minimum |
+| Fully-connected hybrid | $N_{RF}$ | Each RF to all elements | High |
+| Sub-array hybrid | $N_{RF}$ | Each RF to subset | Medium |
+
+### System model
+
+$$\mathbf{y} = \mathbf{H} \mathbf{F}_{RF} \mathbf{F}_{BB} \mathbf{s} + \mathbf{n}$$
+
+- $\mathbf{F}_{RF}$ = analog precoder ($N_t \times N_{RF}$, phase-only)
+- $\mathbf{F}_{BB}$ = digital baseband precoder ($N_{RF} \times N_s$)
+- $N_t$ = transmit antennas
+- $N_{RF}$ = RF chains
+- $N_s$ = data streams
+
+Constraint: $|[\mathbf{F}_{RF}]_{i,j}| = 1$ (constant modulus for phase shifters)
+
+### Fully-connected architecture
+
+Each RF chain connects to all antenna elements via phase shifters.
+
+```
+RF Chain 1 ─┬─ PS ─── Ant 1
+            ├─ PS ─── Ant 2
+            └─ PS ─── Ant N
+
+RF Chain 2 ─┬─ PS ─── Ant 1
+            ├─ PS ─── Ant 2
+            └─ PS ─── Ant N
+```
+
+- $N_t \times N_{RF}$ phase shifters needed
+- Full array gain for each stream
+- Complex routing at mmWave
+
+### Sub-array architecture
+
+Each RF chain drives a disjoint subset of antennas.
+
+```
+RF Chain 1 ─┬─ PS ─── Ant 1
+            └─ PS ─── Ant 2
+
+RF Chain 2 ─┬─ PS ─── Ant 3
+            └─ PS ─── Ant 4
+```
+
+- $N_t$ phase shifters total
+- Simpler routing
+- Reduced beamforming flexibility
+- Used in most commercial 5G NR products
+
+### Key parameters
+
+| Parameter | Typical 5G NR mmWave |
+|-----------|---------------------|
+| Carrier | 28 GHz or 39 GHz |
+| Elements | 64-256 |
+| RF chains | 4-16 |
+| Streams | 2-8 |
+| Phase shifter bits | 4-6 |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 64-element array design**
+
+Requirements: 8 streams, 28 GHz.
+
+Option A: Fully-connected
+- 8 RF chains × 64 elements = 512 phase shifters
+- Full flexibility, complex routing
+
+Option B: Sub-array (8×8)
+- 8 RF chains × 8 elements each = 64 phase shifters
+- 8× fewer components, practical for production
+
+**Example: Array gain comparison**
+
+64-element array, 4 RF chains:
+- Fully digital: 10log₁₀(64) = 18 dBi per stream
+- Sub-array (16 per sub): 10log₁₀(16) = 12 dBi per stream
+- But sub-array can form 4 independent beams
+
+**Example: Phase shifter quantization**
+
+4-bit phase shifter: 16 states, 22.5° resolution.
+
+Quantization loss vs. ideal:
+- 4-bit: ~0.2 dB average loss
+- 3-bit: ~0.5 dB average loss
+- 2-bit: ~1.5 dB average loss
+
+5G NR typically uses 4-6 bit phase shifters.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring phase shifter constraints.** Analog precoder must have constant modulus. Amplitude control requires variable gain amplifiers — additional cost and loss.
+
+2. **Assuming perfect phase control.** Real phase shifters have insertion loss (2-4 dB), quantization error, and temperature drift.
+
+3. **Overlooking power consumption.** Phase shifters consume power. A 256-element array with 6-bit phase shifters may draw 5-10W just for beam steering.
+
+4. **Confusing sub-array gain.** Each sub-array has lower gain than the full array. Total power is distributed across sub-arrays.
+
+5. **Forgetting beam squint.** Wideband signals experience beam direction change with frequency. Hybrid architectures with true-time-delay can compensate.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Heath et al., "An Overview of Signal Processing Techniques for Millimeter Wave MIMO Systems," IEEE JSTSP, 2016.
+- 3GPP TS 38.214, "NR Physical Layer Procedures for Data."
+- Roh et al., "Millimeter-Wave Beamforming as an Enabling Technology for 5G," IEEE Comm. Mag., 2014.
+
+</section>

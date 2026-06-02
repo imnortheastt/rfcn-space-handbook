@@ -8,17 +8,192 @@ track: r5
 unit: hybrid-beamforming
 order: 2
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r5-hybrid-beamforming-01-hybrid-architecture"]
+spiralRevisits: []
 title: "Đánh đổi phân vùng analog/số"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Chọn cân bằng đúng giữa xử lý analog và số."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["hybrid-beamforming", "partition", "rf-chains", "tradeoffs"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Đánh đổi phân vùng analog/số
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao phân vùng quan trọng?
+
+Sự phân chia giữa xử lý analog và số xác định chi phí, công suất, linh hoạt và hiệu năng hệ thống. Nhiều chuỗi RF hơn = ghép kênh không gian tốt hơn nhưng chi phí cao hơn. Ít chuỗi RF hơn = rẻ hơn nhưng giảm khả năng đa người dùng.
+
+Cân bằng đúng là quyết định thiết kế cốt lõi trong hệ thống mmWave.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy tưởng tượng bếp nhà hàng:
+- **Phía analog**: Đầu bếp chuẩn bị có thể cắt nhanh nhưng chỉ theo một công thức
+- **Phía số**: Bếp trưởng có thể tạo bất cứ thứ gì nhưng làm chậm hơn và đắt hơn
+
+Với ngân sách không giới hạn, bạn sẽ thuê toàn bếp trưởng. Thực tế, bạn tối ưu tỷ lệ dựa trên độ phức tạp menu (số luồng) và khả năng phục vụ cao điểm (yêu cầu thông lượng).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Ràng buộc cơ bản
+
+$$N_s \leq N_{RF} \leq N_t$$
+
+- $N_s$ = số luồng dữ liệu
+- $N_{RF}$ = số chuỗi RF
+- $N_t$ = số anten phát
+
+Nhiều chuỗi RF hơn → gần hơn với hiệu năng beamforming số tối ưu.
+
+### Mô hình chi phí
+
+| Linh kiện | Chi phí xấp xỉ |
+|-----------|----------------|
+| Chuỗi RF (28 GHz) | $300-800 |
+| Bộ dịch pha (4-bit) | $5-15 |
+| Bộ khuếch đại công suất | $50-200 |
+| ADC (12-bit, 1 Gsps) | $100-500 |
+
+Cho mảng 64 phần tử:
+- Số hoàn toàn: 64 chuỗi RF ≈ $32,000
+- Lai (8 chuỗi RF): 8 chuỗi RF + 64 PS ≈ $3,000
+
+Giảm 10× chi phí với lai.
+
+### Tiêu thụ điện
+
+| Linh kiện | Công suất mỗi đơn vị |
+|-----------|---------------------|
+| Chuỗi RF | 200-500 mW |
+| Bộ dịch pha | 5-20 mW |
+| ADC | 50-200 mW |
+| DAC | 30-100 mW |
+
+Công suất mảng 64 phần tử:
+- Số hoàn toàn: ~40W (chuỗi RF + ADC)
+- Lai (8 chuỗi): ~8W
+
+Giảm 5× công suất.
+
+### Hiệu năng vs. chuỗi RF
+
+Hiệu quả phổ vs. $N_{RF}$:
+
+| $N_{RF}$ | % SE tối ưu | Trường hợp sử dụng |
+|----------|-------------|-------------------|
+| $N_s$ | 70-85% | Tối thiểu khả thi |
+| $2N_s$ | 90-95% | Cân bằng tốt |
+| $N_t$ | 100% | Số hoàn toàn (lý tưởng) |
+
+Quy tắc ngón tay cái: $N_{RF} = 2N_s$ đạt hầu hết khuếch đại ghép kênh không gian.
+
+### Khai thác thưa kênh
+
+Kênh mmWave có ít đường chính (thường 3-5 cụm).
+
+Chiều kênh hiệu dụng: $\text{rank}(\mathbf{H}) \approx N_{clusters}$
+
+Nếu hạng kênh ≪ $N_t$, bạn không cần $N_t$ chuỗi RF để nắm bắt tất cả thông tin.
+
+### Kích thước mảng con
+
+Cho kiến trúc mảng con với $N_t$ phần tử và $N_{RF}$ chuỗi RF:
+
+Kích thước mảng con: $M = N_t / N_{RF}$
+
+Độ rộng beam mảng con: $\theta_{3dB} \approx 102° / M$ (mảng tuyến tính)
+
+Đánh đổi:
+- M lớn hơn → beam hẹp hơn, khuếch đại cao hơn, ít linh hoạt
+- M nhỏ hơn → beam rộng hơn, khuếch đại thấp hơn, nhiều beam đồng thời hơn
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Thiết kế trạm gốc**
+
+Yêu cầu:
+- 8 người dùng đồng thời
+- Mảng 64 phần tử
+- Ngân sách: $5,000 cho RF front-end
+
+Phương án A: $N_{RF} = 8$ (1 mỗi người dùng)
+- Chi phí: 8 × $400 + 64 × $10 = $3,840
+- SE: ~80% tối ưu
+- Trong ngân sách ✓
+
+Phương án B: $N_{RF} = 16$ (2 mỗi người dùng)
+- Chi phí: 16 × $400 + 64 × $10 = $7,040
+- SE: ~92% tối ưu
+- Vượt ngân sách ✗
+
+**Ví dụ: Độ rộng beam mảng con**
+
+ULA 64 phần tử, $N_{RF} = 8$:
+- Kích thước mảng con: M = 64/8 = 8 phần tử
+- Độ rộng beam mảng con: 102°/8 ≈ 13°
+- Mỗi mảng con có thể quét độc lập ±45°
+
+**Ví dụ: Phân bổ ngân sách công suất**
+
+Ngân sách công suất RF tổng 10W:
+- 8 chuỗi RF × 400 mW = 3.2W
+- 64 bộ dịch pha × 15 mW = 1.0W
+- 8 ADC × 150 mW = 1.2W
+- 8 DAC × 75 mW = 0.6W
+- Tổng: 6.0W → trong ngân sách với dư
+
+**Ví dụ: Tác động link budget**
+
+Số hoàn toàn 64 phần tử: 18 dBi mỗi luồng
+Lai 8 mảng con: 12 dBi mỗi mảng con
+
+Chênh lệch link budget: 6 dB
+- Bù với 2× công suất phát, hoặc
+- Chấp nhận giảm 50% tầm xa, hoặc
+- Dùng mảng con lớn hơn
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Tối ưu sai metric.** Chi phí, công suất và hiệu năng đều quan trọng. Thiết kế chi phí thấp không đáp ứng yêu cầu tầm xa là vô dụng.
+
+2. **Bỏ qua thống kê kênh.** Kênh trong nhà phong phú hơn ngoài trời. Trong nhà có thể cần nhiều chuỗi RF hơn dù tầm ngắn hơn.
+
+3. **Quên overhead điều khiển.** Mỗi bộ dịch pha cần tín hiệu điều khiển. 256 bộ dịch pha × 6 bit = 1536 đường điều khiển.
+
+4. **Giả định phân vùng cố định.** Một số kiến trúc cho phép tái cấu hình động — gộp mảng con cho beam hẹp khuếch đại cao hoặc tách cho đa người dùng.
+
+5. **Bỏ qua hiệu chuẩn.** Mỗi chuỗi RF cần hiệu chuẩn. Nhiều chuỗi hơn = phức tạp hiệu chuẩn và bù trôi nhiều hơn.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Molisch et al., "Hybrid Beamforming for Massive MIMO: A Survey," IEEE Comm. Mag., 2017.
+- Alkhateeb et al., "Channel Estimation and Hybrid Precoding for Millimeter Wave Cellular Systems," IEEE JSTSP, 2014.
+- 3GPP TR 38.802, "Study on New Radio Access Technology."
+
+</section>
