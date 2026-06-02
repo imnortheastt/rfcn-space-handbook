@@ -9,16 +9,174 @@ unit: propagation-in-real-environments
 order: 2
 level: L2
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r2-propagation-in-real-environments-01-reflection-refraction-diffraction"]
+spiralRevisits: []
 title: "Two-ray model"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Ground reflection creates distance-dependent fading patterns."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["two-ray", "ground-reflection", "path-loss", "propagation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Two-ray model
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why the two-ray model?
+
+Free-space path loss predicts signal falls as 1/d². But measurements over flat ground show 1/d⁴ beyond a breakpoint distance. The two-ray model explains this: direct wave plus ground-reflected wave interfere, creating alternating peaks and nulls, transitioning to steeper loss at long range.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Imagine two paths: direct line-of-sight and a bounce off the ground. Near the transmitter, these paths have different lengths and phases — they can add or cancel. Far away, both paths become nearly horizontal, the phase difference stabilizes at 180°, and they partially cancel — giving the 1/d⁴ law.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Geometry
+
+TX at height $h_t$, RX at height $h_r$, separated by distance d.
+
+Direct path length:
+$$d_1 = \sqrt{d^2 + (h_t - h_r)^2} \approx d + \frac{(h_t - h_r)^2}{2d}$$
+
+Reflected path length:
+$$d_2 = \sqrt{d^2 + (h_t + h_r)^2} \approx d + \frac{(h_t + h_r)^2}{2d}$$
+
+Path difference:
+$$\Delta = d_2 - d_1 \approx \frac{2h_t h_r}{d}$$
+
+Phase difference:
+$$\Delta\phi = \frac{2\pi}{\lambda}\Delta = \frac{4\pi h_t h_r}{\lambda d}$$
+
+### Received power
+
+Including ground reflection coefficient Γ ≈ -1:
+
+$$P_r = P_t G_t G_r \left(\frac{\lambda}{4\pi d}\right)^2 \left|1 + \Gamma e^{-j\Delta\phi}\right|^2$$
+
+The interference term $|1 - e^{-j\Delta\phi}|^2 = 4\sin^2(\Delta\phi/2)$.
+
+### Two regimes
+
+**Near field (d < d_c):**
+
+$$P_r \propto \frac{1}{d^2} \times \text{oscillations}$$
+
+Alternating constructive/destructive interference.
+
+**Far field (d > d_c):**
+
+When $\Delta\phi << 1$: $\sin(\Delta\phi/2) \approx \Delta\phi/2$
+
+$$P_r = P_t G_t G_r \frac{h_t^2 h_r^2}{d^4}$$
+
+Fourth-power law — 40 dB/decade.
+
+### Crossover distance
+
+Transition occurs when first Fresnel zone touches ground:
+
+$$d_c = \frac{4 h_t h_r}{\lambda}$$
+
+Or equivalently, when $\Delta\phi = \pi/2$.
+
+### Path loss equation
+
+Beyond crossover:
+
+$$L = 40\log_{10}(d) - 20\log_{10}(h_t) - 20\log_{10}(h_r)$$
+
+Note: no frequency dependence in far-field two-ray.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Cellular tower**
+
+Frequency: 900 MHz (λ = 0.33 m)
+Tower height: 30 m
+Mobile height: 1.5 m
+
+Crossover distance:
+$$d_c = \frac{4 \times 30 \times 1.5}{0.33} = 545 \text{ m}$$
+
+At 100 m (< dc): free-space-like with oscillations.
+At 1 km (> dc): two-ray 1/d⁴ applies.
+
+Path loss at 1 km:
+$$L = 40\log_{10}(1000) - 20\log_{10}(30) - 20\log_{10}(1.5) = 120 - 29.5 - 3.5 = 87 \text{ dB}$$
+
+**Example: Wi-Fi across parking lot**
+
+2.4 GHz, both antennas at 2 m height.
+
+$$d_c = \frac{4 \times 2 \times 2}{0.125} = 128 \text{ m}$$
+
+Under 128 m: expect nulls and peaks.
+Over 128 m: two-ray loss dominates.
+
+At 50 m (before dc): null spacing ≈ $\frac{\lambda d}{2h_t h_r} = \frac{0.125 \times 50}{2 \times 4} = 0.78$ m.
+
+Moving 0.78 m can swing signal by 20+ dB.
+
+**Example: Air-to-ground**
+
+Aircraft at 3000 m, ground terminal at 10 m, 1 GHz.
+
+$$d_c = \frac{4 \times 3000 \times 10}{0.3} = 400 \text{ km}$$
+
+Within 400 km: two-ray doesn't apply, use free-space.
+
+**Example: Path loss comparison**
+
+At 2 km, 30 m tower, 1.5 m mobile:
+
+Free-space (900 MHz): $32.4 + 20\log(0.9) + 20\log(2) = 32.4 - 0.9 + 6 = 37.5$ dB? 
+
+Correct: $20\log(4\pi \times 2000/0.33) = 20\log(76000) = 97.6$ dB
+
+Two-ray: $40\log(2000) - 20\log(30) - 20\log(1.5) = 132 - 29.5 - 3.5 = 99$ dB
+
+Two-ray predicts ~1.5 dB more loss — close match confirms two-ray region.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Applying two-ray too close.** Below crossover distance, use free-space with oscillations, not 1/d⁴.
+
+2. **Forgetting ground imperfection.** Real ground isn't flat or perfectly reflecting. Roughness scatters energy.
+
+3. **Assuming Γ = -1.** Ground reflection coefficient depends on frequency, polarization, and soil type. Range: -0.3 to -1.
+
+4. **Ignoring multipath.** Two-ray is minimum complexity. Real environments have buildings, trees, terrain.
+
+5. **Using two-ray indoors.** Multiple reflections dominate. Two-ray is an outdoor flat-earth model.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Rappaport, *Wireless Communications*, Chapter 4.
+- Goldsmith, *Wireless Communications*, Chapter 2.
+- Parsons, *The Mobile Radio Propagation Channel*, Chapter 3.
+
+</section>

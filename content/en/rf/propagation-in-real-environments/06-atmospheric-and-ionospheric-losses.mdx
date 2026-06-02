@@ -9,16 +9,182 @@ unit: propagation-in-real-environments
 order: 6
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r2-propagation-in-real-environments-05-shadowing"]
+spiralRevisits: []
 title: "Rain, atmospheric and ionospheric losses"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "How weather and the atmosphere affect RF propagation above 1 GHz."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["rain-attenuation", "atmospheric-loss", "ionosphere", "satellite"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Rain, atmospheric and ionospheric losses
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why atmospheric effects matter?
+
+Above 10 GHz, rain can add 10+ dB loss to a satellite link. At 60 GHz, oxygen absorption creates 15 dB/km loss — great for frequency reuse, bad for range. Understanding these effects is essential for satellite communications, 5G mmWave, and any system above a few GHz.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Radio waves interact with atmosphere constituents. Water droplets scatter and absorb energy (rain attenuation). Oxygen and water vapor molecules resonate at specific frequencies (gaseous absorption). The ionosphere bends and delays signals (ionospheric effects). Each dominates at different frequencies and conditions.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Rain attenuation
+
+Rain attenuation increases with frequency and rain rate:
+
+$$A_{rain} = \gamma_R \cdot d_{eff} \quad \text{dB}$$
+
+Specific attenuation:
+$$\gamma_R = k \cdot R^\alpha \quad \text{dB/km}$$
+
+where R = rain rate (mm/hr), k and α are frequency-dependent coefficients.
+
+| Frequency | k | α |
+|-----------|---|---|
+| 10 GHz | 0.01 | 1.2 |
+| 20 GHz | 0.07 | 1.1 |
+| 30 GHz | 0.19 | 1.0 |
+
+**Typical values at 30 GHz:**
+- Light rain (5 mm/hr): ~1 dB/km
+- Moderate rain (25 mm/hr): ~4 dB/km  
+- Heavy rain (50 mm/hr): ~8 dB/km
+
+### Effective path length
+
+Rain doesn't fall uniformly. Effective path:
+
+$$d_{eff} = d \cdot r$$
+
+where r = path reduction factor (< 1 for longer paths).
+
+### Gaseous absorption
+
+**Oxygen (O₂):** Peak at 60 GHz (~15 dB/km), significant 50-70 GHz.
+
+**Water vapor (H₂O):** Peak at 22 GHz (~0.2 dB/km sea level), another at 183 GHz.
+
+Total atmospheric attenuation:
+$$A_{atm} = (\gamma_O + \gamma_W) \cdot d$$
+
+### ITU-R P.676 model
+
+Standard model for gaseous attenuation up to 1000 GHz.
+
+Sea-level zenith attenuation:
+- 10 GHz: 0.01 dB/km
+- 30 GHz: 0.08 dB/km
+- 60 GHz: 15 dB/km (O₂ peak)
+- 90 GHz: 0.4 dB/km
+
+### Ionospheric effects
+
+Affect frequencies below ~3 GHz:
+
+**Faraday rotation:** Polarization plane rotates through ionosphere.
+
+$$\Omega = \frac{2.36 \times 10^4}{f^2} \int N_e B \cos\theta \, dl \quad \text{rad}$$
+
+**Ionospheric delay:** GPS timing error ~10 ns at 1.5 GHz.
+
+**Scintillation:** Amplitude/phase fluctuations, worst near equator at sunset.
+
+### Total path loss for satellite
+
+$$L_{total} = L_{FS} + A_{rain} + A_{atm} + A_{misc}$$
+
+where:
+- L_FS = free-space path loss
+- A_rain = rain attenuation
+- A_atm = gaseous attenuation
+- A_misc = pointing loss, radome, etc.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Ka-band satellite**
+
+Frequency: 30 GHz
+Rain rate: 25 mm/hr (1% exceedance)
+Path through rain: 5 km effective
+
+$$\gamma_R = 0.19 \times 25^{1.0} = 4.75 \text{ dB/km}$$
+$$A_{rain} = 4.75 \times 5 = 23.75 \text{ dB}$$
+
+Need ~24 dB rain margin for 99% availability.
+
+**Example: 5G at 60 GHz**
+
+Oxygen absorption: 15 dB/km.
+
+For 100 m cell: 1.5 dB loss — acceptable.
+For 1 km backhaul: 15 dB — needs high-gain antennas.
+
+This is why mmWave 5G uses small cells.
+
+**Example: LEO satellite at 2 GHz**
+
+Ionospheric effects significant:
+
+Faraday rotation: ~5-10° typical → may need circular polarization.
+Delay: ~10 ns → 3 m ranging error if uncorrected.
+Scintillation: ±2 dB amplitude variation.
+
+**Example: Link availability trade-off**
+
+Ka-band satellite, target 99.9% availability.
+
+Rain margin needed (tropical region): ~30 dB
+
+Options:
+1. Higher power: expensive
+2. Adaptive coding: reduce rate during rain
+3. Site diversity: switch ground stations
+4. Lower frequency backup: Ku-band (less rain impact)
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring rain above 10 GHz.** Rain attenuation dominates link budgets at Ka-band and above.
+
+2. **Using average rain rates.** Link budgets use exceedance statistics (0.01%, 0.1%, 1%). Average rain is irrelevant.
+
+3. **Forgetting elevation angle.** Low elevation = longer path through atmosphere = more attenuation.
+
+4. **Assuming uniform rain.** Rain cells are localized. 5 km path may cross cell edge.
+
+5. **Ignoring wet antenna.** Water on the antenna radome adds several dB loss beyond rain attenuation.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU-R P.618, "Propagation data and prediction methods for satellite links."
+- ITU-R P.676, "Attenuation by atmospheric gases and related effects."
+- ITU-R P.838, "Specific attenuation model for rain."
+- Ippolito, *Radiowave Propagation in Satellite Communications*.
+
+</section>

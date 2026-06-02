@@ -9,16 +9,176 @@ unit: propagation-in-real-environments
 order: 3
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r2-propagation-in-real-environments-02-two-ray-model"]
+spiralRevisits: []
 title: "Multipath"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Multiple signal paths create time dispersion and frequency selectivity."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["multipath", "delay-spread", "frequency-selectivity", "channel"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Multipath
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why multipath matters?
+
+In real environments, signals arrive via multiple paths — direct, reflected, scattered, diffracted. These paths have different delays, creating copies of your signal that arrive at different times. This causes inter-symbol interference, frequency-selective fading, and determines whether your system needs equalization or OFDM.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Imagine shouting in a canyon. You hear echoes arriving at different times. Radio signals do the same in cities — bouncing off buildings, arriving as ghosts of the original. If echoes arrive within one symbol period, they blur the symbol. If they span multiple symbols, they cause inter-symbol interference (ISI).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Channel impulse response
+
+The multipath channel is characterized by:
+
+$$h(\tau) = \sum_{i=0}^{N-1} a_i \delta(\tau - \tau_i) e^{j\phi_i}$$
+
+- $a_i$ = amplitude of path i
+- $\tau_i$ = delay of path i
+- $\phi_i$ = phase of path i (from path length and carrier)
+
+### Power delay profile (PDP)
+
+Average power vs. delay:
+
+$$P(\tau) = E[|h(\tau)|^2]$$
+
+Often modeled as exponentially decaying:
+
+$$P(\tau) = \frac{1}{\tau_{rms}} e^{-\tau/\tau_{rms}}$$
+
+### Delay spread metrics
+
+**Mean excess delay:**
+$$\bar{\tau} = \frac{\sum_k P(\tau_k) \tau_k}{\sum_k P(\tau_k)}$$
+
+**RMS delay spread:**
+$$\tau_{rms} = \sqrt{\overline{\tau^2} - (\bar{\tau})^2}$$
+
+where $\overline{\tau^2} = \frac{\sum_k P(\tau_k) \tau_k^2}{\sum_k P(\tau_k)}$
+
+### Coherence bandwidth
+
+Frequency range over which channel is approximately flat:
+
+$$B_c \approx \frac{1}{5\tau_{rms}} \quad \text{(0.9 correlation)}$$
+
+$$B_c \approx \frac{1}{2\pi\tau_{rms}} \quad \text{(0.5 correlation)}$$
+
+### Frequency-selective vs. flat fading
+
+| Condition | Type | Effect |
+|-----------|------|--------|
+| $B_s << B_c$ | Flat fading | All frequencies fade together |
+| $B_s >> B_c$ | Frequency-selective | Different frequencies fade differently |
+
+where $B_s$ = signal bandwidth.
+
+### Typical delay spreads
+
+| Environment | τ_rms |
+|-------------|-------|
+| Indoor (small office) | 10-50 ns |
+| Indoor (large building) | 50-200 ns |
+| Urban cellular | 1-5 μs |
+| Suburban | 200 ns - 2 μs |
+| Hilly terrain | up to 20 μs |
+
+### ISI condition
+
+ISI occurs when delay spread exceeds symbol time:
+
+$$\tau_{rms} > T_s$$
+
+Maximum ISI-free symbol rate:
+
+$$R_s < \frac{1}{\tau_{rms}}$$
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Wi-Fi indoors**
+
+τ_rms = 50 ns (typical office).
+
+Coherence bandwidth:
+$$B_c = \frac{1}{5 \times 50 \times 10^{-9}} = 4 \text{ MHz}$$
+
+Wi-Fi uses 20 MHz bandwidth — frequency-selective.
+
+This is why Wi-Fi uses OFDM with 312.5 kHz subcarriers (< 4 MHz).
+
+**Example: LTE design**
+
+Urban τ_rms = 3 μs.
+
+$$B_c = \frac{1}{5 \times 3 \times 10^{-6}} = 67 \text{ kHz}$$
+
+LTE uses 15 kHz subcarriers (< 67 kHz) — each subcarrier sees flat fading.
+
+Cyclic prefix: 4.7 μs (normal) — covers 3 μs delay spread with margin.
+
+**Example: Single-carrier limit**
+
+τ_rms = 1 μs.
+
+Maximum ISI-free symbol rate: 1 Msps.
+
+For higher rates without OFDM: need equalization.
+
+10 Msps with 1 μs spread: equalizer needs ~10 taps.
+
+**Example: Satellite link**
+
+LEO satellite, τ_rms ≈ 10 ns (near-LOS).
+
+$$B_c = \frac{1}{5 \times 10 \times 10^{-9}} = 20 \text{ MHz}$$
+
+Satellite channels are essentially flat-fading up to ~20 MHz bandwidth.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring delay spread.** A system designed for AWGN fails in multipath. Always characterize the channel.
+
+2. **Confusing coherence bandwidth and signal bandwidth.** Bc is channel property; Bs is system design choice.
+
+3. **Single τ_rms value.** Delay spread varies with environment and link geometry. Use appropriate model.
+
+4. **Forgetting power weighting.** Delay spread uses power-weighted delays. Weak late paths contribute less.
+
+5. **OFDM solves everything.** OFDM converts frequency-selective to flat per subcarrier — but you still need CP > τ_max.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Rappaport, *Wireless Communications*, Chapter 5.
+- Goldsmith, *Wireless Communications*, Chapter 3.
+- 3GPP TR 38.901, "Channel model for frequencies from 0.5 to 100 GHz."
+
+</section>

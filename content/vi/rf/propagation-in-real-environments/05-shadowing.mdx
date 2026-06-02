@@ -9,16 +9,176 @@ unit: propagation-in-real-environments
 order: 5
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r2-propagation-in-real-environments-04-fading"]
+spiralRevisits: []
 title: "Che khuất"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Biến đổi tín hiệu quy mô lớn từ vật cản chặn đường truyền."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["shadowing", "log-normal", "large-scale-fading", "propagation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Che khuất
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao che khuất quan trọng?
+
+Di chuyển quanh góc tòa nhà và tín hiệu giảm 10-20 dB. Đây không phải fading nhanh — đó là che khuất từ vật cản chặn đường truyền. Che khuất tạo lỗ hổng phủ sóng kéo dài hàng mét, không phải centimet. Link budget phải tính đến hoặc đối mặt mất sóng bất ngờ.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy tưởng tượng đường giữa máy phát và máy thu đi qua nhiều vật cản — tòa nhà, cây, địa hình. Mỗi vật cản suy giảm tín hiệu một lượng ngẫu nhiên. Tổng suy giảm là tích của nhiều yếu tố, theo định lý giới hạn trung tâm trở thành phân phối log-normal.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Mô hình che khuất log-normal
+
+Suy hao đường với che khuất:
+
+$$PL(d) = \overline{PL}(d) + X_\sigma$$
+
+trong đó:
+- $\overline{PL}(d)$ = suy hao đường trung bình ở khoảng cách d
+- $X_\sigma$ = biến ngẫu nhiên Gaussian trung bình zero (dB)
+- $\sigma$ = độ lệch chuẩn che khuất (dB)
+
+### Phân phối log-normal
+
+Công suất tuyến tính P có phân phối log-normal:
+
+$$f_P(p) = \frac{10/\ln 10}{p\sqrt{2\pi}\sigma} \exp\left(-\frac{(10\log_{10}p - \mu)^2}{2\sigma^2}\right)$$
+
+Trong dB, đơn giản là Gaussian với trung bình μ và std σ.
+
+### Giá trị che khuất điển hình
+
+| Môi trường | σ (dB) |
+|------------|--------|
+| Không gian tự do | 0 |
+| Ngoài trời LOS | 4-6 |
+| Cellular đô thị | 6-10 |
+| Ngoại ô | 6-8 |
+| Trong nhà | 4-12 |
+| Đô thị dày đặc/NLOS | 8-12 |
+
+### Khoảng cách tương quan
+
+Che khuất tương quan không gian. Khoảng cách giải tương quan:
+
+$$d_c \approx 5\lambda \text{ đến } 100\lambda$$
+
+Điển hình: 10-50 m trong môi trường đô thị.
+
+Mô hình tương quan:
+$$\rho(d) = e^{-d/d_c}$$
+
+### Xác suất outage
+
+Xác suất công suất nhận giảm dưới ngưỡng:
+
+$$P_{out} = P(P_r < P_{th}) = Q\left(\frac{\bar{P}_r - P_{th}}{\sigma}\right)$$
+
+trong đó $\bar{P}_r$ = công suất nhận trung bình, Q = hàm Q.
+
+### Dự trữ fade
+
+Link budget thêm để đạt độ tin cậy mục tiêu:
+
+Cho 90% phủ sóng: dự trữ = $1.28\sigma$
+Cho 95% phủ sóng: dự trữ = $1.65\sigma$
+Cho 99% phủ sóng: dự trữ = $2.33\sigma$
+
+### Mô hình suy hao đường kết hợp
+
+$$PL(d) = PL_0 + 10n\log_{10}\left(\frac{d}{d_0}\right) + X_\sigma$$
+
+trong đó:
+- PL₀ = suy hao đường ở tham chiếu d₀
+- n = số mũ suy hao đường
+- X_σ = che khuất (N(0, σ²) trong dB)
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Quy hoạch phủ sóng cellular**
+
+Môi trường đô thị, σ = 8 dB.
+
+Mục tiêu: 95% độ tin cậy vị trí.
+
+Dự trữ fade: $1.65 \times 8 = 13.2$ dB.
+
+Nếu ranh giới phủ sóng trung bình ở -100 dBm, thiết kế cho -86.8 dBm để đảm bảo 95% vị trí hoạt động.
+
+**Ví dụ: Hysteresis handoff**
+
+σ = 6 dB, khoảng cách tương quan = 20 m.
+
+Hai trạm gốc: tín hiệu biến đổi σ = 6 dB trong ~20 m.
+
+Hysteresis handoff nên > 2σ = 12 dB để tránh ping-pong.
+
+**Ví dụ: Xuyên tòa nhà**
+
+Suy hao xuyên tòa nhà: ~20 dB trung bình, σ = 10 dB.
+
+Ở độ tin cậy 99%: cần dự trữ 20 + 2.33×10 = 43.3 dB cho phòng tệ nhất.
+
+**Ví dụ: Outage kết hợp**
+
+Suy hao đường trung bình: 120 dB ở biên
+Che khuất: σ = 8 dB
+Tín hiệu yêu cầu: -100 dBm
+Công suất TX: 43 dBm
+Khuếch đại ăng-ten: 15 dBi tổng
+
+Link budget: 43 + 15 - 120 = -62 dBm trung bình
+
+Dự trữ: -62 - (-100) = 38 dB
+
+Outage: $Q(38/8) = Q(4.75) < 10^{-6}$
+
+Cơ bản 100% phủ sóng ở vị trí này.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Nhầm che khuất và fading.** Che khuất là quy mô lớn (mét); fading là quy mô nhỏ (bước sóng). Cả hai đều quan trọng.
+
+2. **Dùng sai σ.** Độ lệch chuẩn che khuất thay đổi theo môi trường. Đừng dùng giá trị đô thị cho nông thôn.
+
+3. **Bỏ qua tương quan.** Cell kề chia sẻ che khuất tương quan. Bản đồ phủ sóng phải mô hình hóa điều này.
+
+4. **Trung bình tuyến tính.** Trung bình giá trị dB, không phải công suất tuyến tính, khi phân tích thống kê che khuất.
+
+5. **Dự trữ fade đơn.** Ứng dụng khác cần độ tin cậy khác. IoT có thể chấp nhận 80%; giọng nói cần 99%.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Rappaport, *Wireless Communications*, Chapter 4.
+- Goldsmith, *Wireless Communications*, Chapter 2.
+- 3GPP TR 38.901, "Channel model for frequencies from 0.5 to 100 GHz."
+
+</section>

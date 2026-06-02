@@ -9,16 +9,178 @@ unit: propagation-in-real-environments
 order: 4
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r2-propagation-in-real-environments-03-multipath"]
+spiralRevisits: []
 title: "Fading"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Time-varying signal strength from multipath and mobility."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["fading", "rayleigh", "rician", "doppler", "coherence-time"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Fading
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why understand fading?
+
+Signal strength varies dramatically — 20-40 dB swings within half a wavelength. This isn't noise; it's multipath interference changing as you move. Understanding fading statistics (Rayleigh, Rician) and dynamics (Doppler, coherence time) lets you design systems that survive these fluctuations.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Multiple signal paths arrive with different phases. As you move, path lengths change, phases shift, and the paths combine differently. Sometimes they add constructively (strong signal); sometimes destructively (deep fade). The faster you move, the faster the fading.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Small-scale fading distributions
+
+**Rayleigh fading (no LOS):**
+
+When many scattered paths, no dominant LOS:
+
+$$f_R(r) = \frac{r}{\sigma^2} e^{-r^2/2\sigma^2}, \quad r \geq 0$$
+
+Mean: $E[R] = \sigma\sqrt{\pi/2}$
+Power: $E[R^2] = 2\sigma^2$
+
+**Rician fading (with LOS):**
+
+Dominant LOS path plus scattered paths:
+
+$$f_R(r) = \frac{r}{\sigma^2} e^{-(r^2+s^2)/2\sigma^2} I_0\left(\frac{rs}{\sigma^2}\right)$$
+
+where s = amplitude of LOS component, $I_0$ = modified Bessel function.
+
+**K-factor:**
+$$K = \frac{s^2}{2\sigma^2} = \frac{\text{LOS power}}{\text{scattered power}}$$
+
+K = 0: Rayleigh
+K → ∞: No fading (AWGN-like)
+Typical: K = 3-10 dB for moderate LOS.
+
+### Doppler effect
+
+Moving at velocity v, carrier frequency f_c:
+
+**Maximum Doppler shift:**
+$$f_D = \frac{v}{\lambda} = \frac{vf_c}{c}$$
+
+**Doppler spectrum (Jakes model):**
+
+$$S(f) = \frac{1}{\pi f_D \sqrt{1 - (f/f_D)^2}}, \quad |f| < f_D$$
+
+U-shaped spectrum with peaks at ±f_D.
+
+### Coherence time
+
+Time over which channel remains approximately constant:
+
+$$T_c \approx \frac{0.423}{f_D} = \frac{0.423c}{vf_c}$$
+
+Or: $T_c \approx \frac{1}{f_D}$ (order of magnitude).
+
+### Fast vs. slow fading
+
+| Condition | Type | Effect |
+|-----------|------|--------|
+| $T_s << T_c$ | Slow fading | Channel constant over symbol |
+| $T_s >> T_c$ | Fast fading | Channel varies within symbol |
+
+### Level crossing rate
+
+Average number of times envelope crosses level R per second:
+
+$$N_R = \sqrt{2\pi} f_D \rho e^{-\rho^2}$$
+
+where $\rho = R/R_{rms}$.
+
+### Average fade duration
+
+Average time below threshold R:
+
+$$\bar{\tau} = \frac{e^{\rho^2} - 1}{\rho \sqrt{2\pi} f_D}$$
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Vehicular at 60 mph**
+
+Frequency: 2 GHz
+Velocity: 60 mph ≈ 27 m/s
+
+$$f_D = \frac{27 \times 2 \times 10^9}{3 \times 10^8} = 180 \text{ Hz}$$
+
+Coherence time:
+$$T_c = \frac{0.423}{180} = 2.4 \text{ ms}$$
+
+LTE slot = 0.5 ms < 2.4 ms — slow fading per slot ✓.
+
+**Example: Pedestrian**
+
+Velocity: 1.5 m/s (walking), 900 MHz
+
+$$f_D = \frac{1.5 \times 900 \times 10^6}{3 \times 10^8} = 4.5 \text{ Hz}$$
+
+$$T_c = \frac{0.423}{4.5} = 94 \text{ ms}$$
+
+Channel changes ~10× per second — slow enough for accurate CSI.
+
+**Example: Deep fade probability**
+
+Rayleigh fading. What's P(signal 20 dB below mean)?
+
+20 dB below = $10^{-2}$ of mean power.
+
+$$P(|h|^2 < 0.01) = 1 - e^{-0.01} \approx 1\%$$
+
+~1% of time in 20 dB fade.
+
+**Example: Fade duration**
+
+180 Hz Doppler, 10 dB fade threshold (ρ = 0.316).
+
+$$\bar{\tau} = \frac{e^{0.1} - 1}{0.316 \times \sqrt{2\pi} \times 180} = \frac{0.105}{142} = 0.74 \text{ ms}$$
+
+Average 10 dB fade lasts 0.74 ms — ~100 bits at 128 kbps.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming Rayleigh everywhere.** Indoor/urban may have LOS → Rician. Satellite almost always Rician.
+
+2. **Ignoring Doppler at low speeds.** Even 5 m/s at 60 GHz gives 1 kHz Doppler — significant for mmWave.
+
+3. **Confusing coherence time and delay spread.** Coherence time is temporal; coherence bandwidth is frequency. Different phenomena.
+
+4. **Static channel assumption.** Channel estimation stales. Re-estimate at least every Tc.
+
+5. **Underestimating fade depth.** Rayleigh fades can exceed 30 dB. Design margin for outage, not average.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Rappaport, *Wireless Communications*, Chapter 5.
+- Goldsmith, *Wireless Communications*, Chapter 3.
+- Jakes, *Microwave Mobile Communications*, Chapter 1.
+
+</section>

@@ -9,16 +9,178 @@ unit: propagation-in-real-environments
 order: 4
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r2-propagation-in-real-environments-03-multipath"]
+spiralRevisits: []
 title: "Fading (suy giảm tín hiệu)"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Cường độ tín hiệu biến đổi theo thời gian từ đa đường và di động."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["fading", "rayleigh", "rician", "doppler", "coherence-time"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Fading (suy giảm tín hiệu)
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao hiểu fading?
+
+Cường độ tín hiệu biến đổi mạnh — dao động 20-40 dB trong nửa bước sóng. Đây không phải nhiễu; đó là giao thoa đa đường thay đổi khi bạn di chuyển. Hiểu thống kê fading (Rayleigh, Rician) và động lực học (Doppler, thời gian kết hợp) cho phép bạn thiết kế hệ thống sống sót qua các dao động này.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Nhiều đường tín hiệu đến với pha khác nhau. Khi bạn di chuyển, độ dài đường thay đổi, pha dịch chuyển, và các đường kết hợp khác nhau. Đôi khi chúng cộng xây dựng (tín hiệu mạnh); đôi khi phá hủy (fade sâu). Bạn di chuyển càng nhanh, fading càng nhanh.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Phân phối fading quy mô nhỏ
+
+**Fading Rayleigh (không LOS):**
+
+Khi nhiều đường tán xạ, không có LOS chiếm ưu thế:
+
+$$f_R(r) = \frac{r}{\sigma^2} e^{-r^2/2\sigma^2}, \quad r \geq 0$$
+
+Trung bình: $E[R] = \sigma\sqrt{\pi/2}$
+Công suất: $E[R^2] = 2\sigma^2$
+
+**Fading Rician (có LOS):**
+
+Đường LOS chiếm ưu thế cộng đường tán xạ:
+
+$$f_R(r) = \frac{r}{\sigma^2} e^{-(r^2+s^2)/2\sigma^2} I_0\left(\frac{rs}{\sigma^2}\right)$$
+
+trong đó s = biên độ thành phần LOS, $I_0$ = hàm Bessel sửa đổi.
+
+**Hệ số K:**
+$$K = \frac{s^2}{2\sigma^2} = \frac{\text{công suất LOS}}{\text{công suất tán xạ}}$$
+
+K = 0: Rayleigh
+K → ∞: Không fading (giống AWGN)
+Điển hình: K = 3-10 dB cho LOS vừa phải.
+
+### Hiệu ứng Doppler
+
+Di chuyển vận tốc v, tần số sóng mang f_c:
+
+**Dịch Doppler tối đa:**
+$$f_D = \frac{v}{\lambda} = \frac{vf_c}{c}$$
+
+**Phổ Doppler (mô hình Jakes):**
+
+$$S(f) = \frac{1}{\pi f_D \sqrt{1 - (f/f_D)^2}}, \quad |f| < f_D$$
+
+Phổ hình U với đỉnh ở ±f_D.
+
+### Thời gian kết hợp
+
+Thời gian mà kênh giữ nguyên xấp xỉ không đổi:
+
+$$T_c \approx \frac{0.423}{f_D} = \frac{0.423c}{vf_c}$$
+
+Hoặc: $T_c \approx \frac{1}{f_D}$ (bậc độ lớn).
+
+### Fading nhanh vs. chậm
+
+| Điều kiện | Loại | Hiệu ứng |
+|-----------|------|----------|
+| $T_s << T_c$ | Fading chậm | Kênh không đổi qua ký hiệu |
+| $T_s >> T_c$ | Fading nhanh | Kênh biến đổi trong ký hiệu |
+
+### Tốc độ vượt mức
+
+Số lần trung bình biên độ vượt mức R mỗi giây:
+
+$$N_R = \sqrt{2\pi} f_D \rho e^{-\rho^2}$$
+
+trong đó $\rho = R/R_{rms}$.
+
+### Thời gian fade trung bình
+
+Thời gian trung bình dưới ngưỡng R:
+
+$$\bar{\tau} = \frac{e^{\rho^2} - 1}{\rho \sqrt{2\pi} f_D}$$
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Xe ở 60 mph**
+
+Tần số: 2 GHz
+Vận tốc: 60 mph ≈ 27 m/s
+
+$$f_D = \frac{27 \times 2 \times 10^9}{3 \times 10^8} = 180 \text{ Hz}$$
+
+Thời gian kết hợp:
+$$T_c = \frac{0.423}{180} = 2.4 \text{ ms}$$
+
+LTE slot = 0.5 ms < 2.4 ms — fading chậm mỗi slot ✓.
+
+**Ví dụ: Người đi bộ**
+
+Vận tốc: 1.5 m/s (đi bộ), 900 MHz
+
+$$f_D = \frac{1.5 \times 900 \times 10^6}{3 \times 10^8} = 4.5 \text{ Hz}$$
+
+$$T_c = \frac{0.423}{4.5} = 94 \text{ ms}$$
+
+Kênh thay đổi ~10× mỗi giây — đủ chậm cho CSI chính xác.
+
+**Ví dụ: Xác suất fade sâu**
+
+Fading Rayleigh. P(tín hiệu 20 dB dưới trung bình) là gì?
+
+20 dB dưới = $10^{-2}$ công suất trung bình.
+
+$$P(|h|^2 < 0.01) = 1 - e^{-0.01} \approx 1\%$$
+
+~1% thời gian trong fade 20 dB.
+
+**Ví dụ: Thời gian fade**
+
+Doppler 180 Hz, ngưỡng fade 10 dB (ρ = 0.316).
+
+$$\bar{\tau} = \frac{e^{0.1} - 1}{0.316 \times \sqrt{2\pi} \times 180} = \frac{0.105}{142} = 0.74 \text{ ms}$$
+
+Fade 10 dB trung bình kéo dài 0.74 ms — ~100 bit ở 128 kbps.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Giả định Rayleigh khắp nơi.** Trong nhà/đô thị có thể có LOS → Rician. Vệ tinh gần như luôn Rician.
+
+2. **Bỏ qua Doppler ở tốc độ thấp.** Ngay 5 m/s ở 60 GHz cho 1 kHz Doppler — đáng kể cho mmWave.
+
+3. **Nhầm thời gian kết hợp và phân tán trễ.** Thời gian kết hợp là thời gian; băng thông kết hợp là tần số. Hiện tượng khác nhau.
+
+4. **Giả định kênh tĩnh.** Ước lượng kênh cũ. Ước lượng lại ít nhất mỗi Tc.
+
+5. **Đánh giá thấp độ sâu fade.** Fade Rayleigh có thể vượt 30 dB. Thiết kế dự trữ cho outage, không phải trung bình.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Rappaport, *Wireless Communications*, Chapter 5.
+- Goldsmith, *Wireless Communications*, Chapter 3.
+- Jakes, *Microwave Mobile Communications*, Chapter 1.
+
+</section>

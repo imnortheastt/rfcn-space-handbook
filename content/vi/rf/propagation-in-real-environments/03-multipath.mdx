@@ -9,16 +9,176 @@ unit: propagation-in-real-environments
 order: 3
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r2-propagation-in-real-environments-02-two-ray-model"]
+spiralRevisits: []
 title: "Đa đường"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Nhiều đường tín hiệu tạo phân tán thời gian và chọn lọc tần số."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["multipath", "delay-spread", "frequency-selectivity", "channel"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Đa đường
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao đa đường quan trọng?
+
+Trong môi trường thực, tín hiệu đến qua nhiều đường — trực tiếp, phản xạ, tán xạ, nhiễu xạ. Các đường này có độ trễ khác nhau, tạo bản sao tín hiệu đến vào thời điểm khác nhau. Điều này gây nhiễu xuyên ký hiệu, fading chọn lọc tần số, và quyết định hệ thống có cần cân bằng hay OFDM.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy tưởng tượng hét trong hẻm núi. Bạn nghe tiếng vọng đến vào thời điểm khác nhau. Tín hiệu vô tuyến làm tương tự trong thành phố — dội từ tòa nhà, đến như bóng ma của bản gốc. Nếu tiếng vọng đến trong một chu kỳ ký hiệu, chúng làm mờ ký hiệu. Nếu trải qua nhiều ký hiệu, chúng gây nhiễu xuyên ký hiệu (ISI).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Đáp ứng xung kênh
+
+Kênh đa đường được đặc trưng bởi:
+
+$$h(\tau) = \sum_{i=0}^{N-1} a_i \delta(\tau - \tau_i) e^{j\phi_i}$$
+
+- $a_i$ = biên độ đường i
+- $\tau_i$ = độ trễ đường i
+- $\phi_i$ = pha đường i (từ độ dài đường và sóng mang)
+
+### Hồ sơ trễ công suất (PDP)
+
+Công suất trung bình vs. độ trễ:
+
+$$P(\tau) = E[|h(\tau)|^2]$$
+
+Thường mô hình hóa suy giảm theo hàm mũ:
+
+$$P(\tau) = \frac{1}{\tau_{rms}} e^{-\tau/\tau_{rms}}$$
+
+### Metric phân tán trễ
+
+**Độ trễ dư trung bình:**
+$$\bar{\tau} = \frac{\sum_k P(\tau_k) \tau_k}{\sum_k P(\tau_k)}$$
+
+**Phân tán trễ RMS:**
+$$\tau_{rms} = \sqrt{\overline{\tau^2} - (\bar{\tau})^2}$$
+
+trong đó $\overline{\tau^2} = \frac{\sum_k P(\tau_k) \tau_k^2}{\sum_k P(\tau_k)}$
+
+### Băng thông kết hợp
+
+Phạm vi tần số mà kênh xấp xỉ phẳng:
+
+$$B_c \approx \frac{1}{5\tau_{rms}} \quad \text{(tương quan 0.9)}$$
+
+$$B_c \approx \frac{1}{2\pi\tau_{rms}} \quad \text{(tương quan 0.5)}$$
+
+### Fading chọn lọc tần số vs. phẳng
+
+| Điều kiện | Loại | Hiệu ứng |
+|-----------|------|----------|
+| $B_s << B_c$ | Fading phẳng | Tất cả tần số fade cùng nhau |
+| $B_s >> B_c$ | Chọn lọc tần số | Tần số khác fade khác nhau |
+
+trong đó $B_s$ = băng thông tín hiệu.
+
+### Phân tán trễ điển hình
+
+| Môi trường | τ_rms |
+|------------|-------|
+| Trong nhà (văn phòng nhỏ) | 10-50 ns |
+| Trong nhà (tòa nhà lớn) | 50-200 ns |
+| Cellular đô thị | 1-5 μs |
+| Ngoại ô | 200 ns - 2 μs |
+| Địa hình đồi | đến 20 μs |
+
+### Điều kiện ISI
+
+ISI xảy ra khi phân tán trễ vượt thời gian ký hiệu:
+
+$$\tau_{rms} > T_s$$
+
+Tốc độ ký hiệu tối đa không ISI:
+
+$$R_s < \frac{1}{\tau_{rms}}$$
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Wi-Fi trong nhà**
+
+τ_rms = 50 ns (văn phòng điển hình).
+
+Băng thông kết hợp:
+$$B_c = \frac{1}{5 \times 50 \times 10^{-9}} = 4 \text{ MHz}$$
+
+Wi-Fi dùng băng thông 20 MHz — chọn lọc tần số.
+
+Đây là lý do Wi-Fi dùng OFDM với subcarrier 312.5 kHz (< 4 MHz).
+
+**Ví dụ: Thiết kế LTE**
+
+τ_rms đô thị = 3 μs.
+
+$$B_c = \frac{1}{5 \times 3 \times 10^{-6}} = 67 \text{ kHz}$$
+
+LTE dùng subcarrier 15 kHz (< 67 kHz) — mỗi subcarrier thấy fading phẳng.
+
+Cyclic prefix: 4.7 μs (bình thường) — bao phủ 3 μs phân tán trễ với dự trữ.
+
+**Ví dụ: Giới hạn đơn sóng mang**
+
+τ_rms = 1 μs.
+
+Tốc độ ký hiệu tối đa không ISI: 1 Msps.
+
+Cho tốc độ cao hơn không OFDM: cần cân bằng.
+
+10 Msps với 1 μs phân tán: bộ cân bằng cần ~10 tap.
+
+**Ví dụ: Liên kết vệ tinh**
+
+Vệ tinh LEO, τ_rms ≈ 10 ns (gần LOS).
+
+$$B_c = \frac{1}{5 \times 10 \times 10^{-9}} = 20 \text{ MHz}$$
+
+Kênh vệ tinh cơ bản là fading phẳng đến ~20 MHz băng thông.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Bỏ qua phân tán trễ.** Hệ thống thiết kế cho AWGN thất bại trong đa đường. Luôn đặc trưng hóa kênh.
+
+2. **Nhầm băng thông kết hợp và băng thông tín hiệu.** Bc là thuộc tính kênh; Bs là lựa chọn thiết kế hệ thống.
+
+3. **Giá trị τ_rms đơn.** Phân tán trễ thay đổi theo môi trường và hình học liên kết. Dùng mô hình phù hợp.
+
+4. **Quên trọng số công suất.** Phân tán trễ dùng độ trễ trọng số công suất. Đường muộn yếu đóng góp ít.
+
+5. **OFDM giải quyết mọi thứ.** OFDM chuyển chọn lọc tần số thành phẳng mỗi subcarrier — nhưng vẫn cần CP > τ_max.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Rappaport, *Wireless Communications*, Chapter 5.
+- Goldsmith, *Wireless Communications*, Chapter 3.
+- 3GPP TR 38.901, "Channel model for frequencies from 0.5 to 100 GHz."
+
+</section>

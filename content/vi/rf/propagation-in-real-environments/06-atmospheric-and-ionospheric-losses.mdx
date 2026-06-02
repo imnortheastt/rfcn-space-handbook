@@ -9,16 +9,182 @@ unit: propagation-in-real-environments
 order: 6
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r2-propagation-in-real-environments-05-shadowing"]
+spiralRevisits: []
 title: "Suy hao mưa, khí quyển và tầng điện ly"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Cách thời tiết và khí quyển ảnh hưởng truyền sóng RF trên 1 GHz."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["rain-attenuation", "atmospheric-loss", "ionosphere", "satellite"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Suy hao mưa, khí quyển và tầng điện ly
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao hiệu ứng khí quyển quan trọng?
+
+Trên 10 GHz, mưa có thể thêm 10+ dB suy hao vào liên kết vệ tinh. Ở 60 GHz, hấp thụ oxy tạo suy hao 15 dB/km — tốt cho tái sử dụng tần số, xấu cho phạm vi. Hiểu các hiệu ứng này thiết yếu cho truyền thông vệ tinh, 5G mmWave, và bất kỳ hệ thống nào trên vài GHz.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Sóng vô tuyến tương tác với thành phần khí quyển. Giọt nước tán xạ và hấp thụ năng lượng (suy hao mưa). Phân tử oxy và hơi nước cộng hưởng ở tần số cụ thể (hấp thụ khí). Tầng điện ly uốn cong và làm trễ tín hiệu (hiệu ứng tầng điện ly). Mỗi loại chiếm ưu thế ở tần số và điều kiện khác nhau.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Suy hao mưa
+
+Suy hao mưa tăng theo tần số và tốc độ mưa:
+
+$$A_{rain} = \gamma_R \cdot d_{eff} \quad \text{dB}$$
+
+Suy hao riêng:
+$$\gamma_R = k \cdot R^\alpha \quad \text{dB/km}$$
+
+trong đó R = tốc độ mưa (mm/hr), k và α là hệ số phụ thuộc tần số.
+
+| Tần số | k | α |
+|--------|---|---|
+| 10 GHz | 0.01 | 1.2 |
+| 20 GHz | 0.07 | 1.1 |
+| 30 GHz | 0.19 | 1.0 |
+
+**Giá trị điển hình ở 30 GHz:**
+- Mưa nhẹ (5 mm/hr): ~1 dB/km
+- Mưa vừa (25 mm/hr): ~4 dB/km  
+- Mưa lớn (50 mm/hr): ~8 dB/km
+
+### Độ dài đường hiệu dụng
+
+Mưa không rơi đều. Đường hiệu dụng:
+
+$$d_{eff} = d \cdot r$$
+
+trong đó r = hệ số giảm đường (< 1 cho đường dài hơn).
+
+### Hấp thụ khí
+
+**Oxy (O₂):** Đỉnh ở 60 GHz (~15 dB/km), đáng kể 50-70 GHz.
+
+**Hơi nước (H₂O):** Đỉnh ở 22 GHz (~0.2 dB/km mực nước biển), đỉnh khác ở 183 GHz.
+
+Tổng suy hao khí quyển:
+$$A_{atm} = (\gamma_O + \gamma_W) \cdot d$$
+
+### Mô hình ITU-R P.676
+
+Mô hình chuẩn cho suy hao khí đến 1000 GHz.
+
+Suy hao thiên đỉnh mực nước biển:
+- 10 GHz: 0.01 dB/km
+- 30 GHz: 0.08 dB/km
+- 60 GHz: 15 dB/km (đỉnh O₂)
+- 90 GHz: 0.4 dB/km
+
+### Hiệu ứng tầng điện ly
+
+Ảnh hưởng tần số dưới ~3 GHz:
+
+**Quay Faraday:** Mặt phẳng phân cực quay qua tầng điện ly.
+
+$$\Omega = \frac{2.36 \times 10^4}{f^2} \int N_e B \cos\theta \, dl \quad \text{rad}$$
+
+**Trễ tầng điện ly:** Lỗi timing GPS ~10 ns ở 1.5 GHz.
+
+**Nhấp nháy:** Dao động biên độ/pha, tệ nhất gần xích đạo lúc hoàng hôn.
+
+### Tổng suy hao đường cho vệ tinh
+
+$$L_{total} = L_{FS} + A_{rain} + A_{atm} + A_{misc}$$
+
+trong đó:
+- L_FS = suy hao không gian tự do
+- A_rain = suy hao mưa
+- A_atm = suy hao khí
+- A_misc = suy hao chỉ hướng, radome, v.v.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Vệ tinh Ka-band**
+
+Tần số: 30 GHz
+Tốc độ mưa: 25 mm/hr (vượt ngưỡng 1%)
+Đường qua mưa: 5 km hiệu dụng
+
+$$\gamma_R = 0.19 \times 25^{1.0} = 4.75 \text{ dB/km}$$
+$$A_{rain} = 4.75 \times 5 = 23.75 \text{ dB}$$
+
+Cần ~24 dB dự trữ mưa cho 99% khả dụng.
+
+**Ví dụ: 5G ở 60 GHz**
+
+Hấp thụ oxy: 15 dB/km.
+
+Cho cell 100 m: 1.5 dB suy hao — chấp nhận được.
+Cho backhaul 1 km: 15 dB — cần ăng-ten khuếch đại cao.
+
+Đây là lý do 5G mmWave dùng cell nhỏ.
+
+**Ví dụ: Vệ tinh LEO ở 2 GHz**
+
+Hiệu ứng tầng điện ly đáng kể:
+
+Quay Faraday: ~5-10° điển hình → có thể cần phân cực tròn.
+Trễ: ~10 ns → 3 m lỗi đo khoảng cách nếu không hiệu chỉnh.
+Nhấp nháy: biến đổi biên độ ±2 dB.
+
+**Ví dụ: Đánh đổi khả dụng liên kết**
+
+Vệ tinh Ka-band, mục tiêu 99.9% khả dụng.
+
+Dự trữ mưa cần (vùng nhiệt đới): ~30 dB
+
+Lựa chọn:
+1. Công suất cao hơn: đắt
+2. Mã hóa thích ứng: giảm tốc độ khi mưa
+3. Đa dạng địa điểm: chuyển trạm mặt đất
+4. Dự phòng tần số thấp: Ku-band (ít tác động mưa)
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Bỏ qua mưa trên 10 GHz.** Suy hao mưa chiếm ưu thế link budget ở Ka-band trở lên.
+
+2. **Dùng tốc độ mưa trung bình.** Link budget dùng thống kê vượt ngưỡng (0.01%, 0.1%, 1%). Mưa trung bình không liên quan.
+
+3. **Quên góc ngẩng.** Góc ngẩng thấp = đường dài hơn qua khí quyển = suy hao nhiều hơn.
+
+4. **Giả định mưa đều.** Ô mưa cục bộ. Đường 5 km có thể cắt ngang biên ô.
+
+5. **Bỏ qua ăng-ten ướt.** Nước trên radome ăng-ten thêm vài dB suy hao ngoài suy hao mưa.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- ITU-R P.618, "Propagation data and prediction methods for satellite links."
+- ITU-R P.676, "Attenuation by atmospheric gases and related effects."
+- ITU-R P.838, "Specific attenuation model for rain."
+- Ippolito, *Radiowave Propagation in Satellite Communications*.
+
+</section>

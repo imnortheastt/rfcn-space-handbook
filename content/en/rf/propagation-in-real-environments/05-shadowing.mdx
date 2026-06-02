@@ -9,16 +9,176 @@ unit: propagation-in-real-environments
 order: 5
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: ["rf-r2-propagation-in-real-environments-04-fading"]
+spiralRevisits: []
 title: "Shadowing"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Large-scale signal variation from obstacles blocking propagation paths."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["shadowing", "log-normal", "large-scale-fading", "propagation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Shadowing
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why shadowing matters?
+
+Move around a building corner and signal drops 10-20 dB. This isn't fast fading — it's shadowing from obstacles blocking propagation paths. Shadowing creates coverage holes that persist for meters, not centimeters. Link budgets must account for it or face unexpected outages.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Imagine the path between transmitter and receiver passing through various obstacles — buildings, trees, terrain. Each obstacle attenuates the signal by some random amount. The total attenuation is the product of many factors, which by the central limit theorem becomes log-normal in distribution.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Log-normal shadowing model
+
+Path loss with shadowing:
+
+$$PL(d) = \overline{PL}(d) + X_\sigma$$
+
+where:
+- $\overline{PL}(d)$ = mean path loss at distance d
+- $X_\sigma$ = zero-mean Gaussian random variable (dB)
+- $\sigma$ = standard deviation of shadowing (dB)
+
+### Log-normal distribution
+
+Linear power P has log-normal distribution:
+
+$$f_P(p) = \frac{10/\ln 10}{p\sqrt{2\pi}\sigma} \exp\left(-\frac{(10\log_{10}p - \mu)^2}{2\sigma^2}\right)$$
+
+In dB, it's simply Gaussian with mean μ and std σ.
+
+### Typical shadowing values
+
+| Environment | σ (dB) |
+|-------------|--------|
+| Free space | 0 |
+| Outdoor LOS | 4-6 |
+| Urban cellular | 6-10 |
+| Suburban | 6-8 |
+| Indoor | 4-12 |
+| Dense urban/NLOS | 8-12 |
+
+### Correlation distance
+
+Shadowing is spatially correlated. Decorrelation distance:
+
+$$d_c \approx 5\lambda \text{ to } 100\lambda$$
+
+Typical: 10-50 m in urban environments.
+
+Correlation model:
+$$\rho(d) = e^{-d/d_c}$$
+
+### Outage probability
+
+Probability that received power falls below threshold:
+
+$$P_{out} = P(P_r < P_{th}) = Q\left(\frac{\bar{P}_r - P_{th}}{\sigma}\right)$$
+
+where $\bar{P}_r$ = mean received power, Q = Q-function.
+
+### Fade margin
+
+Extra link budget to achieve target reliability:
+
+For 90% coverage: margin = $1.28\sigma$
+For 95% coverage: margin = $1.65\sigma$
+For 99% coverage: margin = $2.33\sigma$
+
+### Combined path loss model
+
+$$PL(d) = PL_0 + 10n\log_{10}\left(\frac{d}{d_0}\right) + X_\sigma$$
+
+where:
+- PL₀ = path loss at reference d₀
+- n = path loss exponent
+- X_σ = shadowing (N(0, σ²) in dB)
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Cellular coverage planning**
+
+Urban environment, σ = 8 dB.
+
+Target: 95% location reliability.
+
+Fade margin: $1.65 \times 8 = 13.2$ dB.
+
+If mean coverage boundary is at -100 dBm, design for -86.8 dBm to ensure 95% of locations work.
+
+**Example: Handoff hysteresis**
+
+σ = 6 dB, correlation distance = 20 m.
+
+Two base stations: signal varies by σ = 6 dB over ~20 m.
+
+Handoff hysteresis should be > 2σ = 12 dB to prevent ping-pong.
+
+**Example: Indoor penetration**
+
+Building penetration loss: ~20 dB mean, σ = 10 dB.
+
+At 99% reliability: need 20 + 2.33×10 = 43.3 dB margin for worst-case rooms.
+
+**Example: Combined outage**
+
+Mean path loss: 120 dB at edge
+Shadowing: σ = 8 dB
+Required signal: -100 dBm
+TX power: 43 dBm
+Antenna gains: 15 dBi total
+
+Link budget: 43 + 15 - 120 = -62 dBm mean
+
+Margin: -62 - (-100) = 38 dB
+
+Outage: $Q(38/8) = Q(4.75) < 10^{-6}$
+
+Essentially 100% coverage at this location.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing shadowing and fading.** Shadowing is large-scale (meters); fading is small-scale (wavelengths). Both matter.
+
+2. **Using wrong σ.** Shadowing standard deviation varies by environment. Don't use urban values for rural.
+
+3. **Ignoring correlation.** Adjacent cells share correlated shadowing. Coverage maps must model this.
+
+4. **Linear averaging.** Average dB values, not linear powers, when analyzing shadowing statistics.
+
+5. **Single fade margin.** Different applications need different reliability. IoT might accept 80%; voice needs 99%.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Rappaport, *Wireless Communications*, Chapter 4.
+- Goldsmith, *Wireless Communications*, Chapter 2.
+- 3GPP TR 38.901, "Channel model for frequencies from 0.5 to 100 GHz."
+
+</section>
