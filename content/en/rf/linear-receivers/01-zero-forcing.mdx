@@ -8,17 +8,156 @@ track: r5
 unit: linear-receivers
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: []
+spiralRevisits: []
 title: "Zero-forcing receiver"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Canceling interference through channel inversion."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["zero-forcing", "mimo", "linear-receiver", "channel-inversion", "spatial-multiplexing"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Zero-forcing receiver
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why zero-forcing?
+
+In a MIMO system, multiple transmit antennas send different data streams simultaneously. At the receiver, these streams arrive mixed together. How do you separate them?
+
+The zero-forcing (ZF) receiver inverts the channel matrix to completely eliminate inter-stream interference. It's the simplest linear approach and the starting point for understanding MIMO detection.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Imagine two people talking at once. Your brain separates their voices using spatial cues — each voice comes from a different direction. A MIMO receiver does something similar: different transmit antennas create different spatial signatures at the receive array.
+
+The channel matrix $\mathbf{H}$ captures how each transmit antenna's signal appears at each receive antenna. Zero-forcing computes the inverse (or pseudo-inverse) of $\mathbf{H}$ to undo the mixing.
+
+The name "zero-forcing" comes from forcing the interference from other streams to exactly zero. The cost: noise gets amplified, sometimes severely.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### MIMO system model
+
+For $N_t$ transmit and $N_r$ receive antennas:
+
+$$\mathbf{y} = \mathbf{H}\mathbf{x} + \mathbf{n}$$
+
+where:
+- $\mathbf{y}$ is $N_r \times 1$ received signal vector
+- $\mathbf{H}$ is $N_r \times N_t$ channel matrix
+- $\mathbf{x}$ is $N_t \times 1$ transmitted symbol vector
+- $\mathbf{n}$ is $N_r \times 1$ noise vector (AWGN, variance $\sigma^2$)
+
+### ZF receiver
+
+The ZF equalizer applies:
+
+$$\hat{\mathbf{x}}_{ZF} = \mathbf{W}_{ZF} \mathbf{y}$$
+
+where:
+
+$$\mathbf{W}_{ZF} = (\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H$$
+
+This is the Moore-Penrose pseudo-inverse when $N_r \geq N_t$.
+
+### How it works
+
+$$\hat{\mathbf{x}}_{ZF} = (\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H (\mathbf{H}\mathbf{x} + \mathbf{n})$$
+$$= \mathbf{x} + (\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H \mathbf{n}$$
+
+The transmitted symbols $\mathbf{x}$ are recovered perfectly (no interference), but noise is transformed by $(\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H$.
+
+### Noise enhancement
+
+The post-detection noise covariance is:
+
+$$\mathbf{R}_{nn} = \sigma^2 (\mathbf{H}^H \mathbf{H})^{-1}$$
+
+The noise power for stream $k$ is proportional to $[(\mathbf{H}^H \mathbf{H})^{-1}]_{kk}$.
+
+When $\mathbf{H}$ is ill-conditioned (eigenvalues vary widely), some streams experience severe noise enhancement — SNR can drop dramatically.
+
+### Post-detection SNR
+
+For stream $k$:
+
+$$\text{SNR}_k = \frac{1}{\sigma^2 [(\mathbf{H}^H \mathbf{H})^{-1}]_{kk}}$$
+
+The worst stream limits overall performance.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 2×2 MIMO**
+
+Channel matrix:
+$$\mathbf{H} = \begin{pmatrix} 0.8 & 0.3 \\ 0.2 & 0.9 \end{pmatrix}$$
+
+Compute $\mathbf{H}^H \mathbf{H}$:
+$$\mathbf{H}^H \mathbf{H} = \begin{pmatrix} 0.68 & 0.42 \\ 0.42 & 0.90 \end{pmatrix}$$
+
+Inverse:
+$$(\mathbf{H}^H \mathbf{H})^{-1} = \begin{pmatrix} 2.17 & -1.01 \\ -1.01 & 1.64 \end{pmatrix}$$
+
+Noise enhancement factors: 2.17 and 1.64 for streams 1 and 2.
+
+In dB: stream 1 loses 3.4 dB SNR; stream 2 loses 2.1 dB SNR compared to single-stream transmission.
+
+**Example: Near-singular channel**
+
+If the channel has two nearly identical columns (similar spatial signatures), $\mathbf{H}^H \mathbf{H}$ becomes nearly singular. The inverse explodes, and noise enhancement can be 20+ dB.
+
+This happens when:
+- Transmit antennas are too close (high correlation)
+- Line-of-sight dominates (rank-deficient channel)
+- One path is much stronger than others
+
+**Example: Required receive antennas**
+
+For ZF to work, $N_r \geq N_t$ (at least as many receive antennas as transmit streams). With $N_r = N_t$, performance is marginal. With $N_r > N_t$, extra receive antennas provide diversity gain and reduce noise enhancement.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ill-conditioned channels.** ZF amplifies noise when channel columns are nearly parallel. Check the condition number of $\mathbf{H}$ before trusting ZF performance predictions.
+
+2. **No diversity gain.** With $N_r = N_t$, ZF extracts no receive diversity. BER curves show diversity order of 1 per stream, not $N_r$.
+
+3. **Requires channel knowledge.** ZF needs accurate $\mathbf{H}$ at the receiver. Channel estimation errors directly degrade performance.
+
+4. **Computational cost.** Matrix inversion is $O(N_t^3)$. For massive MIMO (many antennas), approximate methods or MMSE are preferred.
+
+5. **Not optimal.** ZF ignores noise statistics. MMSE (next lesson) trades some interference suppression for reduced noise enhancement and generally outperforms ZF.
+
+6. **Underdetermined systems.** If $N_r < N_t$, ZF cannot separate all streams. Use stream selection, SIC, or reduce the number of transmitted streams.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Chapter 7 — MIMO receivers.
+- Goldsmith, *Wireless Communications*, Chapter 10 — linear detectors.
+- Paulraj et al., *Introduction to Space-Time Wireless Communications* — comprehensive MIMO treatment.
+
+</section>

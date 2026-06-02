@@ -8,17 +8,166 @@ track: r5
 unit: linear-receivers
 order: 2
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["rf-r5-linear-receivers-01-zero-forcing"]
+spiralRevisits: []
 title: "MMSE receiver"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Balancing interference suppression and noise enhancement."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["mmse", "mimo", "linear-receiver", "wiener-filter", "regularization"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# MMSE receiver
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why MMSE?
+
+Zero-forcing eliminates interference completely but amplifies noise, sometimes catastrophically. What if we allowed a small amount of residual interference in exchange for much lower noise?
+
+The Minimum Mean Square Error (MMSE) receiver finds the optimal balance. It minimizes the total error — interference plus noise — rather than forcing interference to zero. In most practical scenarios, MMSE outperforms ZF.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Think of a noisy room where someone is talking. You could use noise-canceling headphones (ZF approach) that try to eliminate all background noise. But aggressive cancellation might introduce artifacts.
+
+Alternatively, you could use a more gentle filter that reduces noise but doesn't eliminate it completely. The result sounds more natural and easier to understand.
+
+MMSE takes this approach: it accepts some interference leakage to avoid the noise explosion that ZF suffers in ill-conditioned channels. At high SNR, MMSE converges to ZF. At low SNR, it acts more like a matched filter.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### MMSE criterion
+
+MMSE minimizes the mean square error between the estimate and the true transmitted symbols:
+
+$$\mathbf{W}_{MMSE} = \arg\min_{\mathbf{W}} \mathbb{E}[||\mathbf{x} - \mathbf{W}\mathbf{y}||^2]$$
+
+### MMSE receiver formula
+
+The solution is:
+
+$$\mathbf{W}_{MMSE} = (\mathbf{H}^H \mathbf{H} + \sigma^2 \mathbf{I})^{-1} \mathbf{H}^H$$
+
+Or equivalently:
+
+$$\mathbf{W}_{MMSE} = \mathbf{H}^H (\mathbf{H}\mathbf{H}^H + \sigma^2 \mathbf{I})^{-1}$$
+
+### Comparison with ZF
+
+| Property | ZF | MMSE |
+|----------|----|----- |
+| Formula | $(\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H$ | $(\mathbf{H}^H \mathbf{H} + \sigma^2 \mathbf{I})^{-1} \mathbf{H}^H$ |
+| Interference | Zero | Small residual |
+| Noise enhancement | Can be severe | Controlled |
+| SNR dependence | None | Yes (needs $\sigma^2$) |
+
+The $\sigma^2 \mathbf{I}$ term is **regularization** — it prevents the inverse from exploding when $\mathbf{H}^H \mathbf{H}$ has small eigenvalues.
+
+### Post-detection SINR
+
+For stream $k$, the signal-to-interference-plus-noise ratio:
+
+$$\text{SINR}_k = \frac{|[\mathbf{W}_{MMSE}\mathbf{H}]_{kk}|^2}{\sum_{j \neq k}|[\mathbf{W}_{MMSE}\mathbf{H}]_{kj}|^2 + \sigma^2||\mathbf{w}_k||^2}$$
+
+where $\mathbf{w}_k$ is the $k$th row of $\mathbf{W}_{MMSE}$.
+
+### High-SNR limit
+
+As $\sigma^2 \to 0$:
+
+$$\mathbf{W}_{MMSE} \to \mathbf{W}_{ZF}$$
+
+MMSE converges to ZF at high SNR, where noise enhancement matters less than interference.
+
+### Low-SNR limit
+
+As $\sigma^2 \to \infty$:
+
+$$\mathbf{W}_{MMSE} \to \frac{1}{\sigma^2} \mathbf{H}^H$$
+
+MMSE converges to a matched filter, maximizing SNR rather than suppressing interference.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 2×2 MIMO comparison**
+
+Channel matrix:
+$$\mathbf{H} = \begin{pmatrix} 0.8 & 0.3 \\ 0.2 & 0.9 \end{pmatrix}$$
+
+At SNR = 10 dB ($\sigma^2 = 0.1$):
+
+ZF: $\mathbf{W}_{ZF} = (\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H$
+
+MMSE: $\mathbf{W}_{MMSE} = (\mathbf{H}^H \mathbf{H} + 0.1\mathbf{I})^{-1} \mathbf{H}^H$
+
+The $0.1\mathbf{I}$ term prevents the noise enhancement that ZF suffers. Typical improvement: 1–3 dB in BER at moderate SNR.
+
+**Example: Ill-conditioned channel**
+
+For a channel with condition number 100 (eigenvalues differ by 100×):
+
+- ZF: worst stream has 20 dB noise enhancement
+- MMSE: regularization limits noise enhancement to ~10 dB
+
+MMSE can be 5–10 dB better in BER for poorly conditioned channels.
+
+**Example: Massive MIMO**
+
+In massive MIMO ($N_r \gg N_t$), the channel becomes well-conditioned with probability 1 (channel hardening). ZF and MMSE converge. MMSE's advantage is smaller but computation is the same — might as well use MMSE.
+
+**Example: SNR estimation**
+
+MMSE requires knowing $\sigma^2$. In practice:
+
+1. Use training symbols to estimate noise variance
+2. Or use the residual after initial detection
+3. Or assume a nominal SNR and update iteratively
+
+Misestimating $\sigma^2$ by 3 dB degrades MMSE by ~0.5 dB — it's robust.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Needs noise variance.** MMSE requires $\sigma^2$, unlike ZF. In rapidly varying noise environments, estimation lag can hurt.
+
+2. **Still linear.** MMSE is optimal among linear receivers but not globally optimal. Nonlinear receivers (ML, sphere decoding) can do better at high SNR.
+
+3. **Symbol power assumption.** The derivation assumes $\mathbb{E}[\mathbf{x}\mathbf{x}^H] = \mathbf{I}$. Non-uniform power allocation or correlated symbols require modified formulas.
+
+4. **Per-stream SNR varies.** Even with MMSE, different streams have different post-detection SINR. Rate adaptation or power allocation can help.
+
+5. **Iterative variants.** MMSE-SIC (successive interference cancellation) outperforms linear MMSE but has error propagation. Order matters — decode strongest stream first.
+
+6. **Complexity.** Matrix inversion is still $O(N_t^3)$. For large systems, iterative methods (conjugate gradient, Neumann series) approximate the MMSE solution.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Kay, *Fundamentals of Statistical Signal Processing: Estimation Theory* — MMSE derivation.
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Chapter 7 — MIMO receivers comparison.
+- Goldsmith, *Wireless Communications*, Chapter 10 — linear vs. nonlinear detection.
+
+</section>

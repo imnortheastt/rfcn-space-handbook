@@ -8,17 +8,169 @@ track: r5
 unit: linear-receivers
 order: 3
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r5-linear-receivers-01-zero-forcing", "rf-r5-linear-receivers-02-mmse-receiver"]
+spiralRevisits: []
 title: "So sánh các bộ thu tuyến tính"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Khi nào dùng ZF, MMSE, bộ lọc phối hợp, và hơn thế."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["receiver-comparison", "zf", "mmse", "matched-filter", "ml-detector", "complexity"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# So sánh các bộ thu tuyến tính
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Chọn bộ thu phù hợp
+
+Bạn đã học ZF và MMSE — nhưng nên dùng cái nào? Còn bộ lọc phối hợp, maximum likelihood, hay triệt nhiễu liên tiếp thì sao?
+
+Bài này so sánh các bộ thu tuyến tính về hiệu năng, độ phức tạp, và khả năng áp dụng thực tế. Lựa chọn đúng phụ thuộc vào chế độ SNR, điều kiện kênh, và ngân sách tính toán của bạn.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Các bộ thu tuyến tính tạo thành phổ từ đơn giản đến tinh vi:
+
+1. **Bộ lọc phối hợp (MF):** Tối đa SNR, bỏ qua nhiễu. Tốt khi nhiễu không đáng kể (đơn người dùng, kênh trực giao).
+
+2. **Zero-forcing (ZF):** Loại bỏ nhiễu hoàn toàn. Tốt khi SNR cao và kênh điều kiện tốt.
+
+3. **MMSE:** Đánh đổi tuyến tính tối ưu. Bộ thu tuyến tính đa năng tốt nhất.
+
+4. **Maximum likelihood (ML):** Tối ưu tổng thể nhưng độ phức tạp hàm mũ. Chuẩn vàng để so sánh.
+
+Khoảng cách giữa các bộ thu này co hoặc giãn tùy kịch bản. Hiểu khi nào quan trọng hơn nhớ công thức.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Tóm tắt công thức bộ thu
+
+| Bộ thu | Công thức | Tiêu chí |
+|--------|-----------|----------|
+| Bộ lọc phối hợp | $\mathbf{W}_{MF} = \mathbf{H}^H$ | Tối đa SNR (bỏ qua nhiễu) |
+| Zero-forcing | $\mathbf{W}_{ZF} = (\mathbf{H}^H\mathbf{H})^{-1}\mathbf{H}^H$ | Không nhiễu |
+| MMSE | $\mathbf{W}_{MMSE} = (\mathbf{H}^H\mathbf{H} + \sigma^2\mathbf{I})^{-1}\mathbf{H}^H$ | Tối thiểu MSE |
+| ML | $\hat{\mathbf{x}} = \arg\min_{\mathbf{x} \in \mathcal{A}^{N_t}} ||\mathbf{y} - \mathbf{H}\mathbf{x}||^2$ | Maximum likelihood |
+
+### So sánh hiệu năng
+
+**Ở SNR thấp:**
+- MF ≈ MMSE (cả hai tối đa SNR)
+- ZF hiệu năng kém (khuếch đại noise chi phối)
+- Khoảng cách: MMSE có thể tốt hơn ZF 5–10 dB
+
+**Ở SNR cao:**
+- MMSE → ZF (regularization biến mất)
+- ZF hoạt động tốt
+- Khoảng cách: MMSE ≈ ZF ≈ ML cho điều chế tuyến tính
+
+**Kênh điều kiện kém:**
+- ZF thất bại thảm khốc
+- MMSE suy giảm nhẹ nhàng
+- ML bền vững nhưng đắt
+
+### So sánh độ phức tạp
+
+| Bộ thu | Độ phức tạp | Bộ nhớ |
+|--------|-------------|--------|
+| MF | $O(N_r N_t)$ | $O(N_r N_t)$ |
+| ZF | $O(N_t^3 + N_r N_t^2)$ | $O(N_t^2)$ |
+| MMSE | $O(N_t^3 + N_r N_t^2)$ | $O(N_t^2)$ |
+| ML (brute force) | $O(M^{N_t} N_r N_t)$ | $O(1)$ |
+
+Trong đó $M$ = kích thước chòm sao. Độ phức tạp ML bùng nổ với số luồng và bậc điều chế.
+
+### Bậc đa dạng
+
+Với MIMO $N_r \times N_t$ với $N_r > N_t$:
+
+| Bộ thu | Bậc đa dạng |
+|--------|-------------|
+| MF | 1 (không triệt nhiễu) |
+| ZF | $N_r - N_t + 1$ |
+| MMSE | $N_r - N_t + 1$ (bằng ZF) |
+| ML | $N_r$ (đa dạng thu đầy đủ) |
+
+MMSE và ZF đạt cùng đa dạng nhưng MMSE có độ lợi mã hóa tốt hơn (dịch đường cong BER sang trái).
+
+### Vùng quyết định
+
+ML phân chia không gian thu thành vùng Voronoi tối ưu quanh mỗi vector phát có thể. Bộ thu tuyến tính tạo biên tuyến tính (siêu phẳng) — không tối ưu nhưng khả thi.
+
+Ở SNR cao, biên tuyến tính xấp xỉ Voronoi tốt. Ở SNR thấp, xấp xỉ kém.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Khi nào dùng MF**
+
+SISO đơn người dùng: Không nhiễu, MF tối ưu.
+
+CDMA với mã trực giao: Nếu mã trực giao hoàn hảo sau kênh, MF đủ.
+
+MIMO lớn với $N_r \gg N_t$: Kênh trở nên gần trực giao; MF tiếp cận hiệu năng MMSE.
+
+**Ví dụ: Khi ZF đủ**
+
+MIMO Wi-Fi trong điều kiện tốt: Kênh trong nhà thường điều kiện tốt. Ở SNR điển hình 20–30 dB, ZF và MMSE hiệu năng tương tự.
+
+mmWave tầm nhìn thẳng: Kênh LOS thuần túy có thể thấp hạng, làm ZF có vấn đề. Nhưng với beamforming analog áp dụng trước, kênh hiệu dụng có thể điều kiện tốt.
+
+**Ví dụ: Khi MMSE thiết yếu**
+
+Di động đô thị: Điều kiện kênh đa dạng, SNR vừa. Sự bền vững của MMSE thắng.
+
+IoT SNR thấp: Thiết bị hạn chế pin hoạt động ở SNR thấp nơi khuếch đại noise của ZF chết người.
+
+**Ví dụ: Khi ML đáng giá**
+
+Chòm sao nhỏ (BPSK, QPSK) với ít luồng (MIMO 2×2): $4^2 = 16$ giả thuyết — ML khả thi.
+
+Ứng dụng an toàn quan trọng: Khi hiệu năng quan trọng hơn công suất (quân sự, không gian).
+
+Sphere decoding: Giảm độ phức tạp ML về đa thức (trường hợp trung bình) bằng cách cắt tỉa giả thuyết không có khả năng.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **MMSE không luôn tốt hơn.** Với kênh điều kiện tốt ở SNR cao, chi phí MMSE cho độ lợi không đáng kể so với ZF.
+
+2. **MF không vô dụng.** Trong MIMO lớn với channel hardening, MF đạt hiệu năng gần tối ưu với độ phức tạp tối thiểu.
+
+3. **Độ phức tạp ML đánh lừa.** Độ phức tạp trường hợp trung bình (với sphere decoding) thấp hơn nhiều trường hợp xấu nhất, nhưng trường hợp xấu nhất quan trọng cho hệ thống thời gian thực.
+
+4. **Ước lượng kênh chi phối.** So sánh CSI hoàn hảo che giấu thực tế: lỗi ước lượng ảnh hưởng tất cả bộ thu, và bộ thu đơn giản hơn có thể bền vững hơn với CSI không hoàn hảo.
+
+5. **Triển khai quan trọng.** Số học điểm cố định, độ sâu pipeline, và diện tích silicon thường ưu tiên bộ thu đơn giản hơn dù có khoảng cách hiệu năng lý thuyết.
+
+6. **Bộ thu phi tuyến tồn tại.** MMSE-SIC, V-BLAST, và cân bằng turbo thu hẹp khoảng cách giữa tuyến tính và ML ở độ phức tạp trung gian.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Chương 7 — so sánh bộ thu toàn diện.
+- Paulraj et al., *Introduction to Space-Time Wireless Communications*, Chương 8–9 — lý thuyết phát hiện.
+- Larsson & Stoica, *Space-Time Block Coding for Wireless Communications* — phân tích đa dạng.
+
+</section>

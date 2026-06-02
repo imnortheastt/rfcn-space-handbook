@@ -8,17 +8,166 @@ track: r5
 unit: linear-receivers
 order: 2
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["rf-r5-linear-receivers-01-zero-forcing"]
+spiralRevisits: []
 title: "Bộ thu MMSE"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Cân bằng triệt nhiễu và khuếch đại nhiễu."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["mmse", "mimo", "linear-receiver", "wiener-filter", "regularization"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Bộ thu MMSE
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần MMSE?
+
+Zero-forcing loại bỏ nhiễu hoàn toàn nhưng khuếch đại nhiễu, đôi khi thảm khốc. Nếu chúng ta cho phép một lượng nhỏ nhiễu dư để đổi lấy nhiễu thấp hơn nhiều thì sao?
+
+Bộ thu Minimum Mean Square Error (MMSE) tìm cân bằng tối ưu. Nó tối thiểu tổng sai số — nhiễu cộng noise — thay vì ép nhiễu về không. Trong hầu hết kịch bản thực tế, MMSE vượt trội ZF.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy nghĩ về phòng ồn nơi ai đó đang nói. Bạn có thể dùng tai nghe chống ồn (cách tiếp cận ZF) cố gắng loại bỏ tất cả tiếng ồn nền. Nhưng triệt tiêu quá mạnh có thể tạo ra hiện tượng lạ.
+
+Thay vào đó, bạn có thể dùng bộ lọc nhẹ nhàng hơn giảm nhiễu nhưng không loại bỏ hoàn toàn. Kết quả nghe tự nhiên hơn và dễ hiểu hơn.
+
+MMSE theo cách tiếp cận này: nó chấp nhận một số rò rỉ nhiễu để tránh bùng nổ noise mà ZF gánh chịu trong kênh điều kiện kém. Ở SNR cao, MMSE hội tụ về ZF. Ở SNR thấp, nó hoạt động giống bộ lọc phối hợp hơn.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Tiêu chí MMSE
+
+MMSE tối thiểu sai số bình phương trung bình giữa ước lượng và ký hiệu phát thực:
+
+$$\mathbf{W}_{MMSE} = \arg\min_{\mathbf{W}} \mathbb{E}[||\mathbf{x} - \mathbf{W}\mathbf{y}||^2]$$
+
+### Công thức bộ thu MMSE
+
+Lời giải là:
+
+$$\mathbf{W}_{MMSE} = (\mathbf{H}^H \mathbf{H} + \sigma^2 \mathbf{I})^{-1} \mathbf{H}^H$$
+
+Hoặc tương đương:
+
+$$\mathbf{W}_{MMSE} = \mathbf{H}^H (\mathbf{H}\mathbf{H}^H + \sigma^2 \mathbf{I})^{-1}$$
+
+### So sánh với ZF
+
+| Tính chất | ZF | MMSE |
+|-----------|----|----- |
+| Công thức | $(\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H$ | $(\mathbf{H}^H \mathbf{H} + \sigma^2 \mathbf{I})^{-1} \mathbf{H}^H$ |
+| Nhiễu | Không | Dư nhỏ |
+| Khuếch đại noise | Có thể nghiêm trọng | Được kiểm soát |
+| Phụ thuộc SNR | Không | Có (cần $\sigma^2$) |
+
+Số hạng $\sigma^2 \mathbf{I}$ là **regularization** — nó ngăn nghịch đảo bùng nổ khi $\mathbf{H}^H \mathbf{H}$ có eigenvalue nhỏ.
+
+### SINR sau phát hiện
+
+Với luồng $k$, tỷ số tín hiệu trên nhiễu cộng noise:
+
+$$\text{SINR}_k = \frac{|[\mathbf{W}_{MMSE}\mathbf{H}]_{kk}|^2}{\sum_{j \neq k}|[\mathbf{W}_{MMSE}\mathbf{H}]_{kj}|^2 + \sigma^2||\mathbf{w}_k||^2}$$
+
+trong đó $\mathbf{w}_k$ là hàng thứ $k$ của $\mathbf{W}_{MMSE}$.
+
+### Giới hạn SNR cao
+
+Khi $\sigma^2 \to 0$:
+
+$$\mathbf{W}_{MMSE} \to \mathbf{W}_{ZF}$$
+
+MMSE hội tụ về ZF ở SNR cao, nơi khuếch đại noise quan trọng ít hơn nhiễu.
+
+### Giới hạn SNR thấp
+
+Khi $\sigma^2 \to \infty$:
+
+$$\mathbf{W}_{MMSE} \to \frac{1}{\sigma^2} \mathbf{H}^H$$
+
+MMSE hội tụ về bộ lọc phối hợp, tối đa SNR thay vì triệt nhiễu.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: So sánh MIMO 2×2**
+
+Ma trận kênh:
+$$\mathbf{H} = \begin{pmatrix} 0.8 & 0.3 \\ 0.2 & 0.9 \end{pmatrix}$$
+
+Ở SNR = 10 dB ($\sigma^2 = 0.1$):
+
+ZF: $\mathbf{W}_{ZF} = (\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H$
+
+MMSE: $\mathbf{W}_{MMSE} = (\mathbf{H}^H \mathbf{H} + 0.1\mathbf{I})^{-1} \mathbf{H}^H$
+
+Số hạng $0.1\mathbf{I}$ ngăn khuếch đại noise mà ZF gánh chịu. Cải thiện điển hình: 1–3 dB trong BER ở SNR vừa.
+
+**Ví dụ: Kênh điều kiện kém**
+
+Với kênh có số điều kiện 100 (eigenvalue khác nhau 100×):
+
+- ZF: luồng tệ nhất có khuếch đại noise 20 dB
+- MMSE: regularization giới hạn khuếch đại noise còn ~10 dB
+
+MMSE có thể tốt hơn 5–10 dB trong BER cho kênh điều kiện kém.
+
+**Ví dụ: MIMO lớn**
+
+Trong MIMO lớn ($N_r \gg N_t$), kênh trở nên điều kiện tốt với xác suất 1 (channel hardening). ZF và MMSE hội tụ. Lợi thế MMSE nhỏ hơn nhưng tính toán như nhau — nên dùng MMSE.
+
+**Ví dụ: Ước lượng SNR**
+
+MMSE cần biết $\sigma^2$. Thực tế:
+
+1. Dùng ký hiệu huấn luyện để ước lượng phương sai noise
+2. Hoặc dùng phần dư sau phát hiện ban đầu
+3. Hoặc giả định SNR danh nghĩa và cập nhật lặp
+
+Ước lượng sai $\sigma^2$ 3 dB làm giảm MMSE ~0.5 dB — nó bền vững.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Cần phương sai noise.** MMSE cần $\sigma^2$, không như ZF. Trong môi trường noise thay đổi nhanh, độ trễ ước lượng có thể gây hại.
+
+2. **Vẫn tuyến tính.** MMSE tối ưu trong bộ thu tuyến tính nhưng không tối ưu toàn cục. Bộ thu phi tuyến (ML, sphere decoding) có thể tốt hơn ở SNR cao.
+
+3. **Giả định công suất ký hiệu.** Suy dẫn giả định $\mathbb{E}[\mathbf{x}\mathbf{x}^H] = \mathbf{I}$. Phân bổ công suất không đều hoặc ký hiệu tương quan cần công thức sửa đổi.
+
+4. **SNR mỗi luồng khác nhau.** Ngay với MMSE, các luồng khác nhau có SINR sau phát hiện khác nhau. Thích ứng tốc độ hoặc phân bổ công suất có thể giúp.
+
+5. **Biến thể lặp.** MMSE-SIC (successive interference cancellation) vượt trội MMSE tuyến tính nhưng có lan truyền lỗi. Thứ tự quan trọng — giải mã luồng mạnh nhất trước.
+
+6. **Độ phức tạp.** Nghịch đảo ma trận vẫn $O(N_t^3)$. Cho hệ thống lớn, phương pháp lặp (conjugate gradient, chuỗi Neumann) xấp xỉ lời giải MMSE.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Kay, *Fundamentals of Statistical Signal Processing: Estimation Theory* — suy dẫn MMSE.
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Chương 7 — so sánh bộ thu MIMO.
+- Goldsmith, *Wireless Communications*, Chương 10 — phát hiện tuyến tính vs. phi tuyến.
+
+</section>

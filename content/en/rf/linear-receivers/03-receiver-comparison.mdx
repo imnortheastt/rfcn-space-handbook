@@ -8,17 +8,169 @@ track: r5
 unit: linear-receivers
 order: 3
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r5-linear-receivers-01-zero-forcing", "rf-r5-linear-receivers-02-mmse-receiver"]
+spiralRevisits: []
 title: "Linear receiver comparison"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "When to use ZF, MMSE, matched filter, and beyond."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["receiver-comparison", "zf", "mmse", "matched-filter", "ml-detector", "complexity"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Linear receiver comparison
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Choosing the right receiver
+
+You've learned ZF and MMSE — but which should you use? And what about matched filtering, maximum likelihood, or successive cancellation?
+
+This lesson compares linear receivers across performance, complexity, and practical applicability. The right choice depends on your SNR regime, channel conditions, and computational budget.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Linear receivers form a spectrum from simple to sophisticated:
+
+1. **Matched filter (MF):** Maximizes SNR, ignores interference. Good when interference is negligible (single user, orthogonal channels).
+
+2. **Zero-forcing (ZF):** Eliminates interference completely. Good when SNR is high and channels are well-conditioned.
+
+3. **MMSE:** Optimal linear trade-off. Best general-purpose linear receiver.
+
+4. **Maximum likelihood (ML):** Optimal overall but exponential complexity. The gold standard for comparison.
+
+The gaps between these shrink or grow depending on the scenario. Understanding when matters more than memorizing formulas.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Receiver formulas summary
+
+| Receiver | Formula | Criterion |
+|----------|---------|-----------|
+| Matched filter | $\mathbf{W}_{MF} = \mathbf{H}^H$ | Maximize SNR (ignore interference) |
+| Zero-forcing | $\mathbf{W}_{ZF} = (\mathbf{H}^H\mathbf{H})^{-1}\mathbf{H}^H$ | Zero interference |
+| MMSE | $\mathbf{W}_{MMSE} = (\mathbf{H}^H\mathbf{H} + \sigma^2\mathbf{I})^{-1}\mathbf{H}^H$ | Minimize MSE |
+| ML | $\hat{\mathbf{x}} = \arg\min_{\mathbf{x} \in \mathcal{A}^{N_t}} ||\mathbf{y} - \mathbf{H}\mathbf{x}||^2$ | Maximum likelihood |
+
+### Performance comparison
+
+**At low SNR:**
+- MF ≈ MMSE (both maximize SNR)
+- ZF performs poorly (noise enhancement dominates)
+- Gap: MMSE can be 5–10 dB better than ZF
+
+**At high SNR:**
+- MMSE → ZF (regularization vanishes)
+- ZF works well
+- Gap: MMSE ≈ ZF ≈ ML for linear modulation
+
+**Ill-conditioned channels:**
+- ZF fails catastrophically
+- MMSE degrades gracefully
+- ML is robust but expensive
+
+### Complexity comparison
+
+| Receiver | Complexity | Memory |
+|----------|------------|--------|
+| MF | $O(N_r N_t)$ | $O(N_r N_t)$ |
+| ZF | $O(N_t^3 + N_r N_t^2)$ | $O(N_t^2)$ |
+| MMSE | $O(N_t^3 + N_r N_t^2)$ | $O(N_t^2)$ |
+| ML (brute force) | $O(M^{N_t} N_r N_t)$ | $O(1)$ |
+
+Where $M$ = constellation size. ML complexity explodes with streams and modulation order.
+
+### Diversity order
+
+For $N_r \times N_t$ MIMO with $N_r > N_t$:
+
+| Receiver | Diversity order |
+|----------|----------------|
+| MF | 1 (no interference suppression) |
+| ZF | $N_r - N_t + 1$ |
+| MMSE | $N_r - N_t + 1$ (same as ZF) |
+| ML | $N_r$ (full receive diversity) |
+
+MMSE and ZF achieve the same diversity but MMSE has better coding gain (shifts BER curve left).
+
+### Decision regions
+
+ML partitions the receive space into optimal Voronoi regions around each possible transmit vector. Linear receivers create linear (hyperplane) boundaries — suboptimal but tractable.
+
+At high SNR, linear boundaries approximate Voronoi well. At low SNR, the approximation is poor.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: When to use MF**
+
+Single-user SISO: No interference, MF is optimal.
+
+CDMA with orthogonal codes: If codes are perfectly orthogonal after the channel, MF suffices.
+
+Massive MIMO with $N_r \gg N_t$: Channel becomes nearly orthogonal; MF approaches MMSE performance.
+
+**Example: When ZF suffices**
+
+Wi-Fi MIMO in good conditions: Indoor channels are often well-conditioned. At typical 20–30 dB SNR, ZF and MMSE perform similarly.
+
+Line-of-sight mmWave: Pure LOS channels can be low-rank, making ZF problematic. But with analog beamforming pre-applied, the effective channel may be well-conditioned.
+
+**Example: When MMSE is essential**
+
+Urban cellular: Varied channel conditions, moderate SNR. MMSE's robustness wins.
+
+Low-SNR IoT: Battery-limited devices operate at low SNR where ZF's noise enhancement is fatal.
+
+**Example: When ML is worth it**
+
+Small constellations (BPSK, QPSK) with few streams (2×2 MIMO): $4^2 = 16$ hypotheses — ML is tractable.
+
+Safety-critical applications: When performance matters more than power (military, space).
+
+Sphere decoding: Reduces ML complexity to polynomial (average case) by pruning unlikely hypotheses.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **MMSE isn't always better.** For well-conditioned channels at high SNR, MMSE's overhead provides negligible gain over ZF.
+
+2. **MF isn't useless.** In massive MIMO with channel hardening, MF achieves near-optimal performance with minimal complexity.
+
+3. **ML complexity is deceptive.** Average-case complexity (with sphere decoding) is much lower than worst-case, but worst-case matters for real-time systems.
+
+4. **Channel estimation dominates.** Perfect CSI comparisons hide the reality: estimation errors affect all receivers, and simpler receivers may be more robust to imperfect CSI.
+
+5. **Implementation matters.** Fixed-point arithmetic, pipeline depth, and silicon area often favor simpler receivers despite theoretical performance gaps.
+
+6. **Nonlinear receivers exist.** MMSE-SIC, V-BLAST, and turbo equalization bridge the gap between linear and ML at intermediate complexity.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Chapter 7 — comprehensive receiver comparison.
+- Paulraj et al., *Introduction to Space-Time Wireless Communications*, Chapters 8–9 — detection theory.
+- Larsson & Stoica, *Space-Time Block Coding for Wireless Communications* — diversity analysis.
+
+</section>

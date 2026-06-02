@@ -8,17 +8,156 @@ track: r5
 unit: linear-receivers
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: []
+spiralRevisits: []
 title: "Bộ thu triệt nhiễu (ZF)"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Triệt tiêu nhiễu thông qua nghịch đảo kênh."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["zero-forcing", "mimo", "linear-receiver", "channel-inversion", "spatial-multiplexing"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Bộ thu triệt nhiễu (ZF)
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần zero-forcing?
+
+Trong hệ thống MIMO, nhiều anten phát gửi các luồng dữ liệu khác nhau đồng thời. Tại máy thu, các luồng này đến trộn lẫn nhau. Làm sao để tách chúng?
+
+Bộ thu zero-forcing (ZF) nghịch đảo ma trận kênh để loại bỏ hoàn toàn nhiễu giữa các luồng. Đây là cách tiếp cận tuyến tính đơn giản nhất và là điểm khởi đầu để hiểu phát hiện MIMO.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy tưởng tượng hai người nói cùng lúc. Não bạn tách giọng của họ bằng tín hiệu không gian — mỗi giọng đến từ hướng khác nhau. Bộ thu MIMO làm điều tương tự: các anten phát khác nhau tạo chữ ký không gian khác nhau tại mảng thu.
+
+Ma trận kênh $\mathbf{H}$ nắm bắt cách tín hiệu của mỗi anten phát xuất hiện tại mỗi anten thu. Zero-forcing tính nghịch đảo (hoặc giả nghịch đảo) của $\mathbf{H}$ để hoàn tác việc trộn.
+
+Tên "zero-forcing" đến từ việc ép nhiễu từ các luồng khác về chính xác không. Cái giá: nhiễu được khuếch đại, đôi khi nghiêm trọng.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Mô hình hệ thống MIMO
+
+Với $N_t$ anten phát và $N_r$ anten thu:
+
+$$\mathbf{y} = \mathbf{H}\mathbf{x} + \mathbf{n}$$
+
+trong đó:
+- $\mathbf{y}$ là vector tín hiệu thu $N_r \times 1$
+- $\mathbf{H}$ là ma trận kênh $N_r \times N_t$
+- $\mathbf{x}$ là vector ký hiệu phát $N_t \times 1$
+- $\mathbf{n}$ là vector nhiễu $N_r \times 1$ (AWGN, phương sai $\sigma^2$)
+
+### Bộ thu ZF
+
+Bộ cân bằng ZF áp dụng:
+
+$$\hat{\mathbf{x}}_{ZF} = \mathbf{W}_{ZF} \mathbf{y}$$
+
+trong đó:
+
+$$\mathbf{W}_{ZF} = (\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H$$
+
+Đây là giả nghịch đảo Moore-Penrose khi $N_r \geq N_t$.
+
+### Cách hoạt động
+
+$$\hat{\mathbf{x}}_{ZF} = (\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H (\mathbf{H}\mathbf{x} + \mathbf{n})$$
+$$= \mathbf{x} + (\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H \mathbf{n}$$
+
+Các ký hiệu phát $\mathbf{x}$ được khôi phục hoàn hảo (không nhiễu), nhưng nhiễu bị biến đổi bởi $(\mathbf{H}^H \mathbf{H})^{-1} \mathbf{H}^H$.
+
+### Khuếch đại nhiễu
+
+Hiệp phương sai nhiễu sau phát hiện là:
+
+$$\mathbf{R}_{nn} = \sigma^2 (\mathbf{H}^H \mathbf{H})^{-1}$$
+
+Công suất nhiễu cho luồng $k$ tỉ lệ với $[(\mathbf{H}^H \mathbf{H})^{-1}]_{kk}$.
+
+Khi $\mathbf{H}$ điều kiện kém (eigenvalue biến đổi rộng), một số luồng trải nghiệm khuếch đại nhiễu nghiêm trọng — SNR có thể giảm đáng kể.
+
+### SNR sau phát hiện
+
+Với luồng $k$:
+
+$$\text{SNR}_k = \frac{1}{\sigma^2 [(\mathbf{H}^H \mathbf{H})^{-1}]_{kk}}$$
+
+Luồng tệ nhất giới hạn hiệu năng tổng thể.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: MIMO 2×2**
+
+Ma trận kênh:
+$$\mathbf{H} = \begin{pmatrix} 0.8 & 0.3 \\ 0.2 & 0.9 \end{pmatrix}$$
+
+Tính $\mathbf{H}^H \mathbf{H}$:
+$$\mathbf{H}^H \mathbf{H} = \begin{pmatrix} 0.68 & 0.42 \\ 0.42 & 0.90 \end{pmatrix}$$
+
+Nghịch đảo:
+$$(\mathbf{H}^H \mathbf{H})^{-1} = \begin{pmatrix} 2.17 & -1.01 \\ -1.01 & 1.64 \end{pmatrix}$$
+
+Hệ số khuếch đại nhiễu: 2.17 và 1.64 cho luồng 1 và 2.
+
+Tính bằng dB: luồng 1 mất 3.4 dB SNR; luồng 2 mất 2.1 dB SNR so với truyền đơn luồng.
+
+**Ví dụ: Kênh gần suy biến**
+
+Nếu kênh có hai cột gần giống nhau (chữ ký không gian tương tự), $\mathbf{H}^H \mathbf{H}$ trở nên gần suy biến. Nghịch đảo bùng nổ, và khuếch đại nhiễu có thể 20+ dB.
+
+Điều này xảy ra khi:
+- Anten phát quá gần nhau (tương quan cao)
+- Tầm nhìn thẳng chi phối (kênh thiếu hạng)
+- Một đường mạnh hơn nhiều so với các đường khác
+
+**Ví dụ: Số anten thu cần thiết**
+
+Để ZF hoạt động, $N_r \geq N_t$ (ít nhất nhiều anten thu bằng số luồng phát). Với $N_r = N_t$, hiệu năng là biên. Với $N_r > N_t$, anten thu thêm cung cấp độ lợi đa dạng và giảm khuếch đại nhiễu.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Kênh điều kiện kém.** ZF khuếch đại nhiễu khi các cột kênh gần song song. Kiểm tra số điều kiện của $\mathbf{H}$ trước khi tin dự đoán hiệu năng ZF.
+
+2. **Không có độ lợi đa dạng.** Với $N_r = N_t$, ZF không trích xuất đa dạng thu. Đường cong BER cho thấy bậc đa dạng 1 mỗi luồng, không phải $N_r$.
+
+3. **Cần biết kênh.** ZF cần $\mathbf{H}$ chính xác tại máy thu. Lỗi ước lượng kênh trực tiếp làm giảm hiệu năng.
+
+4. **Chi phí tính toán.** Nghịch đảo ma trận là $O(N_t^3)$. Cho MIMO lớn (nhiều anten), phương pháp xấp xỉ hoặc MMSE được ưa thích.
+
+5. **Không tối ưu.** ZF bỏ qua thống kê nhiễu. MMSE (bài tiếp theo) đánh đổi một số triệt nhiễu lấy giảm khuếch đại nhiễu và thường vượt trội ZF.
+
+6. **Hệ thống thiếu xác định.** Nếu $N_r < N_t$, ZF không thể tách tất cả luồng. Dùng chọn luồng, SIC, hoặc giảm số luồng phát.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Tse & Viswanath, *Fundamentals of Wireless Communication*, Chương 7 — bộ thu MIMO.
+- Goldsmith, *Wireless Communications*, Chương 10 — bộ phát hiện tuyến tính.
+- Paulraj et al., *Introduction to Space-Time Wireless Communications* — trình bày MIMO toàn diện.
+
+</section>
