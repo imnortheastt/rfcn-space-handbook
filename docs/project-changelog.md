@@ -25,8 +25,13 @@ All RF domain lessons now authored in bilingual EN+VI:
 
 Progress: 92/92 RF lessons published (100%)
 
+**Cross-domain bridges:**
+- [x] B1: From antenna to base station (EN+VI) — gNB architecture, fronthaul 7.2x, RF-network interface
+- [ ] B2: From satellite to UE
+- [ ] B3: From spectrum to service
+
 Remaining for Phase 1:
-- [ ] Cross-domain bridges: B1, B2, B3
+- [ ] Cross-domain bridges: B2, B3
 - [ ] Glossary expansion to ~300 terms
 - [ ] Public launch
 
