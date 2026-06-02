@@ -8,17 +8,171 @@ track: r5
 unit: mimo-capacity
 order: 2
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r5-mimo-capacity-01-channel-matrix"]
+spiralRevisits: []
 title: "Singular value decomposition for MIMO"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Decomposing the channel into parallel independent pipes."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["svd", "mimo", "eigenmode", "waterfilling"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Singular value decomposition for MIMO
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why SVD?
+
+The channel matrix H couples transmit and receive antennas in complex ways. SVD diagonalizes the channel — transforming the messy MIMO channel into parallel, independent SISO pipes. Each pipe has its own gain (singular value), and you can optimize power allocation across pipes.
+
+This is the theoretical foundation for optimal MIMO transmission.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+SVD finds the "natural axes" of the channel. Instead of fighting the coupling between antennas, you transmit along these axes. The channel becomes a set of independent tunnels — some wide (high gain), some narrow (low gain).
+
+It's like finding the grain direction in wood: work with it, not against it.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### SVD definition
+
+Any matrix H can be decomposed:
+
+$$\mathbf{H} = \mathbf{U} \mathbf{\Sigma} \mathbf{V}^H$$
+
+- $\mathbf{U}$: $N_r \times N_r$ unitary matrix (receive eigenvectors)
+- $\mathbf{\Sigma}$: $N_r \times N_t$ diagonal matrix of singular values
+- $\mathbf{V}$: $N_t \times N_t$ unitary matrix (transmit eigenvectors)
+
+Unitary: $\mathbf{U}^H\mathbf{U} = \mathbf{I}$, $\mathbf{V}^H\mathbf{V} = \mathbf{I}$
+
+### Singular values
+
+$$\mathbf{\Sigma} = \text{diag}(\sigma_1, \sigma_2, ..., \sigma_r, 0, ..., 0)$$
+
+- $r = \text{rank}(\mathbf{H}) \leq \min(N_t, N_r)$
+- $\sigma_1 \geq \sigma_2 \geq ... \geq \sigma_r > 0$
+- $\sigma_i^2$ = eigenvalue of $\mathbf{H}^H\mathbf{H}$ (or $\mathbf{H}\mathbf{H}^H$)
+
+### Eigenmode transmission
+
+Transmit: $\mathbf{x} = \mathbf{V}\mathbf{s}$ (precode with V)
+Receive: $\mathbf{U}^H\mathbf{y}$ (combine with U)
+
+Effective system:
+$$\tilde{\mathbf{y}} = \mathbf{U}^H\mathbf{H}\mathbf{V}\mathbf{s} + \mathbf{U}^H\mathbf{n} = \mathbf{\Sigma}\mathbf{s} + \tilde{\mathbf{n}}$$
+
+Result: r independent channels with gains $\sigma_1, ..., \sigma_r$.
+
+### Eigenmode SNR
+
+For stream i with power $p_i$:
+
+$$\text{SNR}_i = \frac{\sigma_i^2 p_i}{\sigma^2}$$
+
+Total power constraint: $\sum_i p_i = P$
+
+### Waterfilling power allocation
+
+Optimal power distribution:
+
+$$p_i = \left(\mu - \frac{\sigma^2}{\sigma_i^2}\right)^+$$
+
+where $(x)^+ = \max(0, x)$ and $\mu$ chosen so $\sum p_i = P$.
+
+Intuition: pour water into vessel with bottom heights $\sigma^2/\sigma_i^2$. Deeper channels get more power.
+
+### Condition number
+
+$$\kappa = \frac{\sigma_{max}}{\sigma_{min}} = \frac{\sigma_1}{\sigma_r}$$
+
+- $\kappa \approx 1$: well-conditioned, all streams similar
+- $\kappa \gg 1$: ill-conditioned, weak streams barely usable
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 2×2 MIMO SVD**
+
+$$\mathbf{H} = \begin{bmatrix} 1 & 1 \\ 1 & -1 \end{bmatrix}$$
+
+SVD: $\sigma_1 = \sqrt{2}$, $\sigma_2 = \sqrt{2}$
+
+This is a well-conditioned channel — both eigenmodes have equal gain.
+
+$$\mathbf{V} = \frac{1}{\sqrt{2}}\begin{bmatrix} 1 & 1 \\ 1 & -1 \end{bmatrix}$$
+
+Precoding with V transmits along sum and difference directions.
+
+**Example: Waterfilling**
+
+3 eigenmodes: $\sigma_1^2 = 4$, $\sigma_2^2 = 1$, $\sigma_3^2 = 0.25$.
+
+Noise: $\sigma^2 = 0.1$. Total power: P = 3.
+
+Inverse SNRs: $0.1/4 = 0.025$, $0.1/1 = 0.1$, $0.1/0.25 = 0.4$
+
+Water level μ found numerically: μ ≈ 1.175
+
+Powers: $p_1 = 1.15$, $p_2 = 1.075$, $p_3 = 0.775$
+
+Weak channel still gets power (above threshold).
+
+**Example: Rank-deficient channel**
+
+LOS channel: rank = 1.
+
+Only $\sigma_1 > 0$, all other $\sigma_i = 0$.
+
+Only one eigenmode usable — beamforming to that direction.
+
+**Example: Equal power vs. waterfilling**
+
+At high SNR: equal power approaches waterfilling capacity.
+At low SNR: concentrate power on strongest eigenmode.
+
+Waterfilling provides 0.5-2 dB gain in practical scenarios.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming full CSI.** Eigenmode transmission requires channel knowledge at transmitter. In FDD, this means feedback overhead.
+
+2. **Forgetting noise enhancement.** Weak eigenmodes have low SNR even with power allocation. Sometimes better to not use them.
+
+3. **Confusing SVD with eigendecomposition.** SVD applies to any matrix. Eigendecomposition only to square matrices. H is typically non-square.
+
+4. **Ignoring implementation complexity.** SVD requires matrix operations at symbol rate. May not be feasible for wideband OFDM.
+
+5. **Overlooking channel estimation errors.** Imperfect CSI means imperfect U, V. Performance degrades gracefully but eigenmode orthogonality is lost.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 7.
+- Goldsmith, *Wireless Communications*, Chapter 10.
+- Telatar, "Capacity of Multi-Antenna Gaussian Channels," European Trans. Telecomm., 1999.
+
+</section>

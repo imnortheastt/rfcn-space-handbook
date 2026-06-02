@@ -8,17 +8,166 @@ track: r5
 unit: mimo-capacity
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
 title: "Ma trận kênh MIMO"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Mô hình hóa hệ thống đa anten với đại số ma trận."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["mimo", "channel-matrix", "spatial-multiplexing", "wireless"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Ma trận kênh MIMO
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao ma trận kênh?
+
+Hệ thống SISO có một độ lợi đường. Hệ thống MIMO với $N_t$ anten phát và $N_r$ anten thu có $N_t \times N_r$ độ lợi đường — một cho mỗi cặp anten TX-RX. Ma trận kênh H tổ chức các độ lợi này thành đối tượng toán học cho phép công cụ đại số tuyến tính.
+
+Mọi thứ trong MIMO — dung lượng, beamforming, precoding — đều dẫn xuất từ H.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy nghĩ H như bảng định tuyến. Mỗi phần tử $h_{ij}$ cho bạn biết bao nhiêu tín hiệu từ anten phát j đến anten thu i. Nếu bạn biết H, bạn có thể dự đoán máy thu nào thấy gì cho bất kỳ tín hiệu phát nào.
+
+Với nhiều anten, kênh trở thành phép biến đổi, không chỉ là độ lợi vô hướng.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Mô hình hệ thống
+
+$$\mathbf{y} = \mathbf{H}\mathbf{x} + \mathbf{n}$$
+
+- $\mathbf{x}$ = vectơ tín hiệu phát ($N_t \times 1$)
+- $\mathbf{y}$ = vectơ tín hiệu thu ($N_r \times 1$)
+- $\mathbf{H}$ = ma trận kênh ($N_r \times N_t$)
+- $\mathbf{n}$ = vectơ nhiễu ($N_r \times 1$), thường $\mathcal{CN}(0, \sigma^2 \mathbf{I})$
+
+### Cấu trúc ma trận kênh
+
+$$\mathbf{H} = \begin{bmatrix} h_{11} & h_{12} & \cdots & h_{1N_t} \\ h_{21} & h_{22} & \cdots & h_{2N_t} \\ \vdots & \vdots & \ddots & \vdots \\ h_{N_r 1} & h_{N_r 2} & \cdots & h_{N_r N_t} \end{bmatrix}$$
+
+Phần tử $h_{ij}$: độ lợi phức từ anten TX j đến anten RX i.
+
+### Mô hình fading Rayleigh
+
+Cho tán xạ giàu (NLOS):
+
+$$h_{ij} \sim \mathcal{CN}(0, 1)$$
+
+Mỗi phần tử độc lập, Gauss phức.
+
+Tính chất:
+- $|h_{ij}|$ phân bố Rayleigh
+- $|h_{ij}|^2$ phân bố mũ
+- Pha đồng đều trên $[0, 2\pi)$
+
+### Mô hình fading Rician
+
+Cho LOS + đường tán xạ:
+
+$$h_{ij} = \sqrt{\frac{K}{K+1}} h_{ij}^{LOS} + \sqrt{\frac{1}{K+1}} h_{ij}^{NLOS}$$
+
+Hệ số K: tỷ số công suất LOS với công suất tán xạ.
+
+### Tương quan
+
+**Mô hình Kronecker:**
+$$\mathbf{H} = \mathbf{R}_r^{1/2} \mathbf{H}_w \mathbf{R}_t^{1/2}$$
+
+- $\mathbf{H}_w$ = ma trận Rayleigh i.i.d.
+- $\mathbf{R}_t$ = ma trận tương quan TX
+- $\mathbf{R}_r$ = ma trận tương quan RX
+
+Tương quan giảm bậc tự do hiệu dụng.
+
+### Tính chất chính
+
+| Tính chất | Biểu thức | Ý nghĩa |
+|-----------|-----------|---------|
+| Hạng | rank(H) | Luồng độc lập tối đa |
+| Norm Frobenius | $\|\mathbf{H}\|_F = \sqrt{\sum |h_{ij}|^2}$ | Tổng công suất kênh |
+| Số điều kiện | $\sigma_{max}/\sigma_{min}$ | Chất lượng kênh |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: MIMO 2×2**
+
+$$\mathbf{H} = \begin{bmatrix} 0.5 + 0.3j & -0.2 + 0.4j \\ 0.1 - 0.6j & 0.7 + 0.1j \end{bmatrix}$$
+
+Phát: $\mathbf{x} = [1, 1]^T$
+
+Thu (không nhiễu): $\mathbf{y} = \mathbf{H}\mathbf{x} = [0.3 + 0.7j, 0.8 - 0.5j]^T$
+
+Mỗi anten thu thấy tổng có trọng số của cả hai tín hiệu phát.
+
+**Ví dụ: Chuẩn hóa kênh**
+
+Cho so sánh công bằng, chuẩn hóa sao cho $\mathbb{E}[\|\mathbf{H}\|_F^2] = N_r N_t$.
+
+Cho Rayleigh i.i.d. với các phần tử phương sai đơn vị, điều này tự động.
+
+**Ví dụ: Hiệu ứng khoảng cách anten**
+
+ULA với khoảng cách d, bước sóng λ.
+
+Tương quan giữa các phần tử kề: $\rho \approx J_0(2\pi d/\lambda)$
+
+Ở d = λ/2: $\rho \approx 0$ (không tương quan)
+Ở d = λ/4: $\rho \approx 0.5$ (tương quan vừa)
+Ở d = λ/8: $\rho \approx 0.9$ (tương quan cao)
+
+**Ví dụ: Thiếu hạng**
+
+Kênh LOS với mảng song song:
+
+$$\mathbf{H} = \mathbf{a}_r \mathbf{a}_t^H$$
+
+Hạng = 1, bất kể kích thước mảng.
+
+Chỉ một luồng không gian khả thi — không có khuếch đại ghép kênh.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Nhầm chiều.** H là $N_r \times N_t$, không phải $N_t \times N_r$. Hàng là anten thu, cột là anten phát.
+
+2. **Bỏ qua chuẩn hóa.** Các bài báo khác nhau dùng chuẩn hóa khác nhau. Luôn kiểm tra H có công suất đơn vị mỗi phần tử hay ràng buộc tổng công suất.
+
+3. **Giả định độc lập.** Kênh thực có tương quan từ khoảng cách anten, hình học tán xạ, và ghép cặp tương hỗ.
+
+4. **Quên biến thiên thời gian.** H thay đổi với di động. Thời gian coherence xác định ước lượng H còn hiệu lực bao lâu.
+
+5. **Dùng sai mô hình.** Rayleigh giả định tán xạ giàu. Indoor LOS, liên kết vệ tinh, và mmWave thường cần mô hình Rician hoặc hình học.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 7.
+- Goldsmith, *Wireless Communications*, Chapter 10.
+- 3GPP TR 38.901, "Channel model for frequencies from 0.5 to 100 GHz."
+
+</section>

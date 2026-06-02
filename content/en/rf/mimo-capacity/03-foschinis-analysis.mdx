@@ -8,17 +8,170 @@ track: r5
 unit: mimo-capacity
 order: 3
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r5-mimo-capacity-02-singular-value-decomposition"]
+spiralRevisits: []
 title: "Foschini's capacity analysis"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The landmark result showing MIMO capacity scales linearly with antennas."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["mimo-capacity", "foschini", "telatar", "information-theory"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Foschini's capacity analysis
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why Foschini's analysis?
+
+In 1996, Foschini showed that MIMO capacity grows linearly with min(N_t, N_r) — not logarithmically like bandwidth or SNR. This was revolutionary: adding antennas multiplies capacity, not just adds to it. This insight launched the entire field of spatial multiplexing.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+SISO capacity hits a ceiling at high SNR — you can only extract log₂(1 + SNR) bits per symbol. But with N independent spatial channels (eigenmodes), you get N times that. More antennas = more parallel pipes = more total throughput.
+
+It's the difference between widening a single lane versus adding more lanes to a highway.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### MIMO capacity formula
+
+For channel H known at receiver:
+
+$$C = \log_2 \det\left(\mathbf{I}_{N_r} + \frac{\rho}{N_t} \mathbf{H}\mathbf{H}^H\right) \text{ bits/s/Hz}$$
+
+- $\rho = P/\sigma^2$ = total SNR
+- Factor $1/N_t$ normalizes for equal power per TX antenna
+
+Equivalently, using SVD:
+
+$$C = \sum_{i=1}^{r} \log_2\left(1 + \frac{\rho}{N_t} \sigma_i^2\right)$$
+
+where r = rank(H) and $\sigma_i$ are singular values.
+
+### Channel known at transmitter
+
+With CSI at TX, use waterfilling:
+
+$$C_{CSIT} = \sum_{i=1}^{r} \log_2\left(1 + \frac{\sigma_i^2 p_i}{\sigma^2}\right)$$
+
+with optimal $p_i$ from waterfilling algorithm.
+
+### High-SNR approximation
+
+At high SNR:
+
+$$C \approx r \cdot \log_2(\rho/N_t) + \log_2\left(\prod_{i=1}^r \sigma_i^2\right)$$
+
+First term: linear growth with rank (multiplexing gain)
+Second term: depends on channel quality
+
+### Multiplexing gain
+
+$$r^* = \lim_{\rho \to \infty} \frac{C(\rho)}{\log_2 \rho} = \min(N_t, N_r)$$
+
+At high SNR, capacity grows as $\min(N_t, N_r) \cdot \log_2(\rho)$.
+
+### Ergodic capacity (random channels)
+
+For i.i.d. Rayleigh fading:
+
+$$\bar{C} = \mathbb{E}_H[C] \approx \min(N_t, N_r) \cdot \log_2\left(1 + \frac{\rho \cdot \max(N_t, N_r)}{\min(N_t, N_r)}\right)$$
+
+Key insight: capacity scales linearly with $\min(N_t, N_r)$.
+
+### Outage capacity
+
+For slow fading, use outage probability:
+
+$$P_{out}(R) = P(C < R)$$
+
+Outage capacity at 10% outage: rate R such that $P_{out}(R) = 0.1$.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 4×4 MIMO vs. SISO**
+
+SNR = 20 dB (ρ = 100).
+
+SISO: $C_{SISO} = \log_2(1 + 100) = 6.7$ bits/s/Hz
+
+4×4 MIMO (i.i.d. Rayleigh, high SNR):
+$C_{MIMO} \approx 4 \cdot \log_2(100/4) = 4 \cdot 4.6 = 18.4$ bits/s/Hz
+
+2.7× capacity increase from 4× more antennas.
+
+**Example: Effect of antenna imbalance**
+
+2×4 system vs. 4×4 system at 20 dB SNR.
+
+2×4: $r^* = \min(2, 4) = 2$, so ~2× multiplexing gain
+4×4: $r^* = \min(4, 4) = 4$, so ~4× multiplexing gain
+
+The limiting factor is the smaller array.
+
+**Example: Capacity vs. SNR**
+
+4×4 MIMO capacity at different SNRs:
+
+| SNR (dB) | Capacity (bits/s/Hz) |
+|----------|---------------------|
+| 0 | ~4 |
+| 10 | ~12 |
+| 20 | ~22 |
+| 30 | ~32 |
+
+Roughly linear with SNR in dB at high SNR.
+
+**Example: Waterfilling gain**
+
+4×4 channel with singular values [2, 1, 0.5, 0.1].
+
+At 10 dB SNR:
+- Equal power: 11.2 bits/s/Hz
+- Waterfilling: 11.8 bits/s/Hz
+
+Modest gain — more significant at low SNR.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing multiplexing gain with array gain.** Multiplexing gain is multiple streams. Array gain is power focusing. Both increase capacity but differently.
+
+2. **Ignoring channel rank.** Capacity scales with rank, not antenna count. A 64×64 system with rank-2 channel behaves like 2×2.
+
+3. **Assuming perfect CSI.** Real systems have estimation errors. Capacity degrades with imperfect knowledge.
+
+4. **Forgetting correlation.** Correlated channels have effective rank < min(N_t, N_r). Capacity falls accordingly.
+
+5. **Misinterpreting ergodic vs. outage.** Ergodic is average over many channel realizations. Outage is for quasi-static channels where you can't average.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Foschini and Gans, "On Limits of Wireless Communications in a Fading Environment," Wireless Personal Comm., 1998.
+- Telatar, "Capacity of Multi-Antenna Gaussian Channels," European Trans. Telecomm., 1999.
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 8.
+
+</section>

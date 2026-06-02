@@ -8,17 +8,183 @@ track: r5
 unit: mimo-capacity
 order: 4
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r5-mimo-capacity-03-foschinis-analysis"]
+spiralRevisits: []
 title: "Dung lượng MIMO theo SNR"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Dung lượng hành xử như thế nào qua dải SNR."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["mimo-capacity", "snr", "diversity-multiplexing", "tradeoff"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Dung lượng MIMO theo SNR
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao nghiên cứu dung lượng vs. SNR?
+
+Hệ thống MIMO hành xử khác nhau ở SNR thấp và cao. Ở SNR thấp, diversity quan trọng nhất — dùng tất cả anten để cải thiện độ tin cậy. Ở SNR cao, ghép kênh thắng — dùng anten như kênh song song. Hiểu chuyển tiếp này là chìa khóa để chọn chế độ hoạt động đúng.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Ở SNR thấp, nhiễu chiếm ưu thế. Mỗi anten thêm giúp chống nhiễu bằng kết hợp tín hiệu. Ở SNR cao, nhiễu quản lý được — bây giờ nút cổ chai là bao nhiêu luồng độc lập bạn có thể nhét vào.
+
+Giống như hệ thống đường: trong thời tiết xấu (SNR thấp), bạn cần tất cả làn làm việc cùng nhau cho an toàn. Trong thời tiết tốt (SNR cao), bạn muốn thông lượng tối đa với làn song song.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Vùng SNR thấp
+
+Khi $\rho \ll 1$:
+
+$$C \approx \rho \cdot \mathbb{E}[\|\mathbf{H}\|_F^2] \cdot \log_2 e = \rho \cdot N_r N_t \cdot \log_2 e$$
+
+Dung lượng tỷ lệ tuyến tính với SNR. Khuếch đại mảng giúp: dùng tất cả anten kết hợp.
+
+### Vùng SNR cao
+
+Khi $\rho \gg 1$:
+
+$$C \approx \min(N_t, N_r) \cdot \log_2 \rho + O(1)$$
+
+Dung lượng tỷ lệ logarit với SNR. Khuếch đại ghép kênh chiếm ưu thế.
+
+### Vùng chuyển tiếp
+
+Điểm chuyển phụ thuộc cấu hình anten và kênh.
+
+Quy tắc ngón tay cái: chuyển tiếp quanh SNR = 0-10 dB.
+
+Dưới chuyển tiếp: beamforming (tất cả công suất vào một eigenmode)
+Trên chuyển tiếp: ghép kênh không gian (trải công suất qua các mode)
+
+### Đánh đổi diversity-multiplexing
+
+Kết quả cơ bản của Zheng và Tse:
+
+$$d(r) = (N_t - r)(N_r - r)$$
+
+- r = khuếch đại ghép kênh (tốc độ tỷ lệ như $r \cdot \log_2 \rho$)
+- d(r) = khuếch đại diversity (xác suất lỗi tỷ lệ như $\rho^{-d}$)
+
+Bạn không thể cực đại cả hai đồng thời:
+- $r = 0$: diversity đầy đủ $d = N_t N_r$
+- $r = \min(N_t, N_r)$: ghép kênh đầy đủ, $d = 0$
+
+### Điểm hoạt động thực tế
+
+| Ứng dụng | Dải SNR | Chiến lược |
+|----------|---------|------------|
+| Rìa cell | Thấp (< 5 dB) | Beamforming, diversity |
+| UE điển hình | Trung bình (5-15 dB) | 2-4 layer |
+| Gần cell | Cao (> 15 dB) | Ghép kênh tối đa |
+
+### Dung lượng với CSIT vs. không CSIT
+
+**Với CSIT:** waterfilling, ~0.5-2 dB khuếch đại ở SNR thấp-trung.
+
+**Không có CSIT:** công suất bằng, vẫn tốt ở SNR cao.
+
+Ở SNR rất thấp, CSIT cho phép beamforming → khuếch đại đáng kể.
+
+### Mở rộng anten ở SNR cố định
+
+Cố định tổng công suất và thêm anten:
+
+$$C \approx \min(N_t, N_r) \cdot \log_2\left(1 + \frac{\rho \cdot \max(N_t, N_r)}{N_t}\right)$$
+
+Thêm anten RX: khuếch đại mảng + khuếch đại ghép kênh
+Thêm anten TX: khuếch đại ghép kênh (với CSIT, cũng khuếch đại mảng)
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Beamforming SNR thấp**
+
+MIMO 4×4 ở SNR = -5 dB (ρ = 0.32).
+
+Với beamforming (tất cả công suất vào eigenmode mạnh nhất):
+$C \approx \log_2(1 + 4 \cdot 0.32) = 1.2$ bits/s/Hz
+
+Với ghép kênh công suất bằng:
+$C \approx 4 \cdot \log_2(1 + 0.08) = 0.45$ bits/s/Hz
+
+Beamforming thắng 2.7× ở SNR thấp.
+
+**Ví dụ: Ghép kênh SNR cao**
+
+MIMO 4×4 ở SNR = 30 dB (ρ = 1000).
+
+Với ghép kênh 4 luồng:
+$C \approx 4 \cdot \log_2(250) = 32$ bits/s/Hz
+
+Với beamforming:
+$C \approx \log_2(4000) = 12$ bits/s/Hz
+
+Ghép kênh thắng 2.7× ở SNR cao.
+
+**Ví dụ: Thích ứng rank 5G NR**
+
+UE báo CQI (chất lượng kênh) và RI (chỉ số rank).
+
+| CQI | SNR xấp xỉ | RI điển hình |
+|-----|------------|--------------|
+| 1-3 | < 0 dB | 1 |
+| 4-7 | 0-10 dB | 1-2 |
+| 8-12 | 10-20 dB | 2-4 |
+| 13-15 | > 20 dB | 4-8 |
+
+Hệ thống thích ứng layer theo điểm hoạt động.
+
+**Ví dụ: Đường cong đánh đổi diversity-multiplexing**
+
+MIMO 3×3:
+- Diversity đầy đủ: d = 9, r = 0
+- Cân bằng: d = 4, r = 1
+- Cân bằng: d = 1, r = 2
+- Ghép kênh đầy đủ: d = 0, r = 3
+
+Mã không-thời gian hoạt động trên đường cong này.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Luôn dùng layer tối đa.** Ở SNR thấp, ít layer với mã hóa tốt hơn vượt trội nhiều layer yếu.
+
+2. **Bỏ qua chuyển tiếp.** Chiến lược tối ưu thay đổi với SNR. Chiến lược cố định bỏ lỡ dung lượng.
+
+3. **Nhầm SNR mỗi luồng với tổng SNR.** Với N luồng, SNR mỗi luồng = tổng SNR / N (xấp xỉ). Mỗi luồng yếu hơn.
+
+4. **Quên ràng buộc thực tế.** Dung lượng lý tưởng giả định codebook Gauss. Hệ thống thực với constellation hữu hạn đạt trần.
+
+5. **Bỏ qua overhead ước lượng kênh.** Nhiều luồng cần nhiều pilot. Ở SNR thấp, overhead pilot có thể chiếm ưu thế.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Zheng and Tse, "Diversity and Multiplexing: A Fundamental Tradeoff in Multiple-Antenna Channels," IEEE Trans. IT, 2003.
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 9.
+- 3GPP TS 38.214, "NR Physical Layer Procedures for Data."
+
+</section>

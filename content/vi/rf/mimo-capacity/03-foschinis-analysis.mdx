@@ -8,17 +8,170 @@ track: r5
 unit: mimo-capacity
 order: 3
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r5-mimo-capacity-02-singular-value-decomposition"]
+spiralRevisits: []
 title: "Phân tích dung lượng của Foschini"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Kết quả mốc cho thấy dung lượng MIMO tỷ lệ tuyến tính với anten."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["mimo-capacity", "foschini", "telatar", "information-theory"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Phân tích dung lượng của Foschini
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao phân tích của Foschini?
+
+Năm 1996, Foschini cho thấy dung lượng MIMO tăng tuyến tính với min(N_t, N_r) — không phải logarit như băng thông hoặc SNR. Điều này cách mạng: thêm anten nhân dung lượng, không chỉ cộng vào. Hiểu biết này khởi động toàn bộ lĩnh vực ghép kênh không gian.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Dung lượng SISO đạt trần ở SNR cao — bạn chỉ có thể trích xuất log₂(1 + SNR) bit mỗi ký hiệu. Nhưng với N kênh không gian độc lập (eigenmode), bạn được N lần đó. Nhiều anten hơn = nhiều ống song song hơn = nhiều thông lượng tổng hơn.
+
+Đó là sự khác biệt giữa mở rộng một làn xe so với thêm nhiều làn vào đường cao tốc.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Công thức dung lượng MIMO
+
+Cho kênh H biết ở thu:
+
+$$C = \log_2 \det\left(\mathbf{I}_{N_r} + \frac{\rho}{N_t} \mathbf{H}\mathbf{H}^H\right) \text{ bits/s/Hz}$$
+
+- $\rho = P/\sigma^2$ = tổng SNR
+- Hệ số $1/N_t$ chuẩn hóa cho công suất bằng nhau mỗi anten TX
+
+Tương đương, dùng SVD:
+
+$$C = \sum_{i=1}^{r} \log_2\left(1 + \frac{\rho}{N_t} \sigma_i^2\right)$$
+
+trong đó r = rank(H) và $\sigma_i$ là giá trị kỳ dị.
+
+### Kênh biết ở phát
+
+Với CSI ở TX, dùng waterfilling:
+
+$$C_{CSIT} = \sum_{i=1}^{r} \log_2\left(1 + \frac{\sigma_i^2 p_i}{\sigma^2}\right)$$
+
+với $p_i$ tối ưu từ thuật toán waterfilling.
+
+### Xấp xỉ SNR cao
+
+Ở SNR cao:
+
+$$C \approx r \cdot \log_2(\rho/N_t) + \log_2\left(\prod_{i=1}^r \sigma_i^2\right)$$
+
+Term đầu: tăng tuyến tính với hạng (khuếch đại ghép kênh)
+Term thứ hai: phụ thuộc chất lượng kênh
+
+### Khuếch đại ghép kênh
+
+$$r^* = \lim_{\rho \to \infty} \frac{C(\rho)}{\log_2 \rho} = \min(N_t, N_r)$$
+
+Ở SNR cao, dung lượng tăng như $\min(N_t, N_r) \cdot \log_2(\rho)$.
+
+### Dung lượng ergodic (kênh ngẫu nhiên)
+
+Cho fading Rayleigh i.i.d.:
+
+$$\bar{C} = \mathbb{E}_H[C] \approx \min(N_t, N_r) \cdot \log_2\left(1 + \frac{\rho \cdot \max(N_t, N_r)}{\min(N_t, N_r)}\right)$$
+
+Hiểu biết chính: dung lượng tỷ lệ tuyến tính với $\min(N_t, N_r)$.
+
+### Dung lượng outage
+
+Cho fading chậm, dùng xác suất outage:
+
+$$P_{out}(R) = P(C < R)$$
+
+Dung lượng outage ở 10% outage: tốc độ R sao cho $P_{out}(R) = 0.1$.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: MIMO 4×4 vs. SISO**
+
+SNR = 20 dB (ρ = 100).
+
+SISO: $C_{SISO} = \log_2(1 + 100) = 6.7$ bits/s/Hz
+
+MIMO 4×4 (Rayleigh i.i.d., SNR cao):
+$C_{MIMO} \approx 4 \cdot \log_2(100/4) = 4 \cdot 4.6 = 18.4$ bits/s/Hz
+
+Tăng 2.7× dung lượng từ 4× nhiều anten hơn.
+
+**Ví dụ: Hiệu ứng mất cân bằng anten**
+
+Hệ thống 2×4 vs. hệ thống 4×4 ở SNR 20 dB.
+
+2×4: $r^* = \min(2, 4) = 2$, nên ~2× khuếch đại ghép kênh
+4×4: $r^* = \min(4, 4) = 4$, nên ~4× khuếch đại ghép kênh
+
+Yếu tố giới hạn là mảng nhỏ hơn.
+
+**Ví dụ: Dung lượng vs. SNR**
+
+Dung lượng MIMO 4×4 ở các SNR khác nhau:
+
+| SNR (dB) | Dung lượng (bits/s/Hz) |
+|----------|------------------------|
+| 0 | ~4 |
+| 10 | ~12 |
+| 20 | ~22 |
+| 30 | ~32 |
+
+Gần tuyến tính với SNR theo dB ở SNR cao.
+
+**Ví dụ: Khuếch đại waterfilling**
+
+Kênh 4×4 với giá trị kỳ dị [2, 1, 0.5, 0.1].
+
+Ở SNR 10 dB:
+- Công suất bằng: 11.2 bits/s/Hz
+- Waterfilling: 11.8 bits/s/Hz
+
+Khuếch đại khiêm tốn — đáng kể hơn ở SNR thấp.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Nhầm khuếch đại ghép kênh với khuếch đại mảng.** Khuếch đại ghép kênh là nhiều luồng. Khuếch đại mảng là tập trung công suất. Cả hai tăng dung lượng nhưng khác nhau.
+
+2. **Bỏ qua hạng kênh.** Dung lượng tỷ lệ với hạng, không phải số anten. Hệ thống 64×64 với kênh hạng-2 hành xử như 2×2.
+
+3. **Giả định CSI hoàn hảo.** Hệ thống thực có lỗi ước lượng. Dung lượng giảm với kiến thức không hoàn hảo.
+
+4. **Quên tương quan.** Kênh tương quan có hạng hiệu dụng < min(N_t, N_r). Dung lượng giảm tương ứng.
+
+5. **Hiểu sai ergodic vs. outage.** Ergodic là trung bình trên nhiều thực hiện kênh. Outage cho kênh quasi-static nơi bạn không thể trung bình.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Foschini and Gans, "On Limits of Wireless Communications in a Fading Environment," Wireless Personal Comm., 1998.
+- Telatar, "Capacity of Multi-Antenna Gaussian Channels," European Trans. Telecomm., 1999.
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 8.
+
+</section>

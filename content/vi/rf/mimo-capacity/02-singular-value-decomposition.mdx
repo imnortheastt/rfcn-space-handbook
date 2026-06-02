@@ -8,17 +8,171 @@ track: r5
 unit: mimo-capacity
 order: 2
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r5-mimo-capacity-01-channel-matrix"]
+spiralRevisits: []
 title: "Phân tích giá trị kỳ dị trong MIMO"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Phân tách kênh thành các ống song song độc lập."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["svd", "mimo", "eigenmode", "waterfilling"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Phân tích giá trị kỳ dị trong MIMO
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao SVD?
+
+Ma trận kênh H ghép cặp anten phát và thu theo cách phức tạp. SVD chéo hóa kênh — biến đổi kênh MIMO lộn xộn thành các ống SISO song song, độc lập. Mỗi ống có độ lợi riêng (giá trị kỳ dị), và bạn có thể tối ưu phân bổ công suất qua các ống.
+
+Đây là nền tảng lý thuyết cho truyền MIMO tối ưu.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+SVD tìm "trục tự nhiên" của kênh. Thay vì chống lại ghép cặp giữa anten, bạn phát dọc các trục này. Kênh trở thành tập hợp đường hầm độc lập — một số rộng (độ lợi cao), một số hẹp (độ lợi thấp).
+
+Giống như tìm hướng thớ gỗ: làm việc với nó, không chống lại.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Định nghĩa SVD
+
+Bất kỳ ma trận H nào có thể phân tách:
+
+$$\mathbf{H} = \mathbf{U} \mathbf{\Sigma} \mathbf{V}^H$$
+
+- $\mathbf{U}$: ma trận unitary $N_r \times N_r$ (vectơ riêng thu)
+- $\mathbf{\Sigma}$: ma trận chéo $N_r \times N_t$ của giá trị kỳ dị
+- $\mathbf{V}$: ma trận unitary $N_t \times N_t$ (vectơ riêng phát)
+
+Unitary: $\mathbf{U}^H\mathbf{U} = \mathbf{I}$, $\mathbf{V}^H\mathbf{V} = \mathbf{I}$
+
+### Giá trị kỳ dị
+
+$$\mathbf{\Sigma} = \text{diag}(\sigma_1, \sigma_2, ..., \sigma_r, 0, ..., 0)$$
+
+- $r = \text{rank}(\mathbf{H}) \leq \min(N_t, N_r)$
+- $\sigma_1 \geq \sigma_2 \geq ... \geq \sigma_r > 0$
+- $\sigma_i^2$ = trị riêng của $\mathbf{H}^H\mathbf{H}$ (hoặc $\mathbf{H}\mathbf{H}^H$)
+
+### Truyền eigenmode
+
+Phát: $\mathbf{x} = \mathbf{V}\mathbf{s}$ (precode với V)
+Thu: $\mathbf{U}^H\mathbf{y}$ (kết hợp với U)
+
+Hệ thống hiệu dụng:
+$$\tilde{\mathbf{y}} = \mathbf{U}^H\mathbf{H}\mathbf{V}\mathbf{s} + \mathbf{U}^H\mathbf{n} = \mathbf{\Sigma}\mathbf{s} + \tilde{\mathbf{n}}$$
+
+Kết quả: r kênh độc lập với độ lợi $\sigma_1, ..., \sigma_r$.
+
+### SNR eigenmode
+
+Cho luồng i với công suất $p_i$:
+
+$$\text{SNR}_i = \frac{\sigma_i^2 p_i}{\sigma^2}$$
+
+Ràng buộc tổng công suất: $\sum_i p_i = P$
+
+### Phân bổ công suất waterfilling
+
+Phân phối công suất tối ưu:
+
+$$p_i = \left(\mu - \frac{\sigma^2}{\sigma_i^2}\right)^+$$
+
+trong đó $(x)^+ = \max(0, x)$ và $\mu$ được chọn sao cho $\sum p_i = P$.
+
+Trực giác: đổ nước vào bình với độ cao đáy $\sigma^2/\sigma_i^2$. Kênh sâu hơn nhận nhiều công suất hơn.
+
+### Số điều kiện
+
+$$\kappa = \frac{\sigma_{max}}{\sigma_{min}} = \frac{\sigma_1}{\sigma_r}$$
+
+- $\kappa \approx 1$: điều kiện tốt, tất cả luồng tương tự
+- $\kappa \gg 1$: điều kiện xấu, luồng yếu khó dùng
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: SVD MIMO 2×2**
+
+$$\mathbf{H} = \begin{bmatrix} 1 & 1 \\ 1 & -1 \end{bmatrix}$$
+
+SVD: $\sigma_1 = \sqrt{2}$, $\sigma_2 = \sqrt{2}$
+
+Đây là kênh điều kiện tốt — cả hai eigenmode có độ lợi bằng nhau.
+
+$$\mathbf{V} = \frac{1}{\sqrt{2}}\begin{bmatrix} 1 & 1 \\ 1 & -1 \end{bmatrix}$$
+
+Precoding với V phát dọc hướng tổng và hiệu.
+
+**Ví dụ: Waterfilling**
+
+3 eigenmode: $\sigma_1^2 = 4$, $\sigma_2^2 = 1$, $\sigma_3^2 = 0.25$.
+
+Nhiễu: $\sigma^2 = 0.1$. Tổng công suất: P = 3.
+
+Nghịch đảo SNR: $0.1/4 = 0.025$, $0.1/1 = 0.1$, $0.1/0.25 = 0.4$
+
+Mức nước μ tìm số: μ ≈ 1.175
+
+Công suất: $p_1 = 1.15$, $p_2 = 1.075$, $p_3 = 0.775$
+
+Kênh yếu vẫn nhận công suất (trên ngưỡng).
+
+**Ví dụ: Kênh thiếu hạng**
+
+Kênh LOS: hạng = 1.
+
+Chỉ $\sigma_1 > 0$, tất cả $\sigma_i$ khác = 0.
+
+Chỉ một eigenmode khả dụng — beamforming đến hướng đó.
+
+**Ví dụ: Công suất bằng vs. waterfilling**
+
+Ở SNR cao: công suất bằng tiến đến dung lượng waterfilling.
+Ở SNR thấp: tập trung công suất vào eigenmode mạnh nhất.
+
+Waterfilling cung cấp 0.5-2 dB khuếch đại trong tình huống thực tế.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Giả định CSI đầy đủ.** Truyền eigenmode cần biết kênh ở phát. Trong FDD, điều này nghĩa là overhead phản hồi.
+
+2. **Quên khuếch đại nhiễu.** Eigenmode yếu có SNR thấp ngay cả với phân bổ công suất. Đôi khi tốt hơn không dùng chúng.
+
+3. **Nhầm SVD với phân tích trị riêng.** SVD áp dụng cho mọi ma trận. Phân tích trị riêng chỉ cho ma trận vuông. H thường không vuông.
+
+4. **Bỏ qua phức tạp thực hiện.** SVD cần phép toán ma trận ở tốc độ ký hiệu. Có thể không khả thi cho OFDM băng rộng.
+
+5. **Bỏ qua lỗi ước lượng kênh.** CSI không hoàn hảo nghĩa là U, V không hoàn hảo. Hiệu năng giảm dần nhưng tính trực giao eigenmode mất.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 7.
+- Goldsmith, *Wireless Communications*, Chapter 10.
+- Telatar, "Capacity of Multi-Antenna Gaussian Channels," European Trans. Telecomm., 1999.
+
+</section>

@@ -8,17 +8,183 @@ track: r5
 unit: mimo-capacity
 order: 4
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["rf-r5-mimo-capacity-03-foschinis-analysis"]
+spiralRevisits: []
 title: "MIMO capacity vs SNR"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "How capacity behaves across the SNR range."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["mimo-capacity", "snr", "diversity-multiplexing", "tradeoff"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# MIMO capacity vs SNR
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why study capacity vs. SNR?
+
+MIMO systems behave differently at low and high SNR. At low SNR, diversity matters most — use all antennas to improve reliability. At high SNR, multiplexing wins — use antennas as parallel channels. Understanding this transition is key to choosing the right operating mode.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+At low SNR, noise dominates. Every extra antenna helps fight noise by combining signals. At high SNR, noise is manageable — now the bottleneck is how many independent streams you can fit. 
+
+It's like a road system: in bad weather (low SNR), you need all lanes working together for safety. In good weather (high SNR), you want maximum throughput with parallel lanes.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Low-SNR regime
+
+When $\rho \ll 1$:
+
+$$C \approx \rho \cdot \mathbb{E}[\|\mathbf{H}\|_F^2] \cdot \log_2 e = \rho \cdot N_r N_t \cdot \log_2 e$$
+
+Capacity scales linearly with SNR. Array gain helps: use all antennas coherently.
+
+### High-SNR regime
+
+When $\rho \gg 1$:
+
+$$C \approx \min(N_t, N_r) \cdot \log_2 \rho + O(1)$$
+
+Capacity scales logarithmically with SNR. Multiplexing gain dominates.
+
+### Transition region
+
+The crossover depends on antenna configuration and channel.
+
+Rule of thumb: transition around SNR = 0-10 dB.
+
+Below transition: beamforming (all power to one eigenmode)
+Above transition: spatial multiplexing (spread power across modes)
+
+### Diversity-multiplexing tradeoff
+
+Zheng and Tse's fundamental result:
+
+$$d(r) = (N_t - r)(N_r - r)$$
+
+- r = multiplexing gain (rate scales as $r \cdot \log_2 \rho$)
+- d(r) = diversity gain (error probability scales as $\rho^{-d}$)
+
+You can't maximize both simultaneously:
+- $r = 0$: full diversity $d = N_t N_r$
+- $r = \min(N_t, N_r)$: full multiplexing, $d = 0$
+
+### Practical operating points
+
+| Application | SNR range | Strategy |
+|-------------|-----------|----------|
+| Cell edge | Low (< 5 dB) | Beamforming, diversity |
+| Typical UE | Medium (5-15 dB) | 2-4 layers |
+| Near cell | High (> 15 dB) | Max multiplexing |
+
+### Capacity with CSIT vs. no CSIT
+
+**With CSIT:** waterfilling, ~0.5-2 dB gain at low-medium SNR.
+
+**Without CSIT:** equal power, still good at high SNR.
+
+At very low SNR, CSIT enables beamforming → significant gain.
+
+### Antenna scaling at fixed SNR
+
+Fixing total power and adding antennas:
+
+$$C \approx \min(N_t, N_r) \cdot \log_2\left(1 + \frac{\rho \cdot \max(N_t, N_r)}{N_t}\right)$$
+
+Adding RX antennas: array gain + multiplexing gain
+Adding TX antennas: multiplexing gain (with CSIT, also array gain)
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Low-SNR beamforming**
+
+4×4 MIMO at SNR = -5 dB (ρ = 0.32).
+
+With beamforming (all power to strongest eigenmode):
+$C \approx \log_2(1 + 4 \cdot 0.32) = 1.2$ bits/s/Hz
+
+With equal power multiplexing:
+$C \approx 4 \cdot \log_2(1 + 0.08) = 0.45$ bits/s/Hz
+
+Beamforming wins by 2.7× at low SNR.
+
+**Example: High-SNR multiplexing**
+
+4×4 MIMO at SNR = 30 dB (ρ = 1000).
+
+With 4-stream multiplexing:
+$C \approx 4 \cdot \log_2(250) = 32$ bits/s/Hz
+
+With beamforming:
+$C \approx \log_2(4000) = 12$ bits/s/Hz
+
+Multiplexing wins by 2.7× at high SNR.
+
+**Example: 5G NR rank adaptation**
+
+UE reports CQI (channel quality) and RI (rank indicator).
+
+| CQI | Approximate SNR | Typical RI |
+|-----|-----------------|------------|
+| 1-3 | < 0 dB | 1 |
+| 4-7 | 0-10 dB | 1-2 |
+| 8-12 | 10-20 dB | 2-4 |
+| 13-15 | > 20 dB | 4-8 |
+
+System adapts layers to operating point.
+
+**Example: Diversity-multiplexing tradeoff curve**
+
+3×3 MIMO:
+- Full diversity: d = 9, r = 0
+- Balanced: d = 4, r = 1
+- Balanced: d = 1, r = 2
+- Full multiplexing: d = 0, r = 3
+
+Space-time codes operate on this curve.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Always using max layers.** At low SNR, fewer layers with better coding outperforms many weak layers.
+
+2. **Ignoring the transition.** The optimal strategy changes with SNR. Fixed strategies leave capacity on the table.
+
+3. **Confusing per-stream SNR with total SNR.** With N streams, per-stream SNR = total SNR / N (approximately). Each stream is weaker.
+
+4. **Forgetting practical constraints.** Ideal capacity assumes Gaussian codebooks. Real systems with finite constellations hit ceilings.
+
+5. **Overlooking channel estimation overhead.** More streams need more pilots. At low SNR, pilot overhead can dominate.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Zheng and Tse, "Diversity and Multiplexing: A Fundamental Tradeoff in Multiple-Antenna Channels," IEEE Trans. IT, 2003.
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 9.
+- 3GPP TS 38.214, "NR Physical Layer Procedures for Data."
+
+</section>

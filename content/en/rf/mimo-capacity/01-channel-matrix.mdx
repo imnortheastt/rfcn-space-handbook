@@ -8,17 +8,166 @@ track: r5
 unit: mimo-capacity
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
 title: "The MIMO channel matrix"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Modeling multi-antenna systems with matrix algebra."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["mimo", "channel-matrix", "spatial-multiplexing", "wireless"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# The MIMO channel matrix
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why the channel matrix?
+
+A SISO system has one path gain. A MIMO system with $N_t$ transmit and $N_r$ receive antennas has $N_t \times N_r$ path gains — one for each TX-RX antenna pair. The channel matrix H organizes these gains into a mathematical object that enables linear algebra tools.
+
+Everything in MIMO — capacity, beamforming, precoding — derives from H.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Think of H as a routing table. Each entry $h_{ij}$ tells you how much of the signal from transmit antenna j reaches receive antenna i. If you know H, you can predict what any receiver sees for any transmitted signal.
+
+With multiple antennas, the channel becomes a transformation, not just a scalar gain.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### System model
+
+$$\mathbf{y} = \mathbf{H}\mathbf{x} + \mathbf{n}$$
+
+- $\mathbf{x}$ = transmitted signal vector ($N_t \times 1$)
+- $\mathbf{y}$ = received signal vector ($N_r \times 1$)
+- $\mathbf{H}$ = channel matrix ($N_r \times N_t$)
+- $\mathbf{n}$ = noise vector ($N_r \times 1$), typically $\mathcal{CN}(0, \sigma^2 \mathbf{I})$
+
+### Channel matrix structure
+
+$$\mathbf{H} = \begin{bmatrix} h_{11} & h_{12} & \cdots & h_{1N_t} \\ h_{21} & h_{22} & \cdots & h_{2N_t} \\ \vdots & \vdots & \ddots & \vdots \\ h_{N_r 1} & h_{N_r 2} & \cdots & h_{N_r N_t} \end{bmatrix}$$
+
+Entry $h_{ij}$: complex gain from TX antenna j to RX antenna i.
+
+### Rayleigh fading model
+
+For rich scattering (NLOS):
+
+$$h_{ij} \sim \mathcal{CN}(0, 1)$$
+
+Each entry is independent, complex Gaussian.
+
+Properties:
+- $|h_{ij}|$ is Rayleigh distributed
+- $|h_{ij}|^2$ is exponential distributed
+- Phase is uniform on $[0, 2\pi)$
+
+### Rician fading model
+
+For LOS + scattered paths:
+
+$$h_{ij} = \sqrt{\frac{K}{K+1}} h_{ij}^{LOS} + \sqrt{\frac{1}{K+1}} h_{ij}^{NLOS}$$
+
+K-factor: ratio of LOS power to scattered power.
+
+### Correlation
+
+**Kronecker model:**
+$$\mathbf{H} = \mathbf{R}_r^{1/2} \mathbf{H}_w \mathbf{R}_t^{1/2}$$
+
+- $\mathbf{H}_w$ = i.i.d. Rayleigh matrix
+- $\mathbf{R}_t$ = TX correlation matrix
+- $\mathbf{R}_r$ = RX correlation matrix
+
+Correlation reduces effective degrees of freedom.
+
+### Key properties
+
+| Property | Expression | Meaning |
+|----------|------------|---------|
+| Rank | rank(H) | Max independent streams |
+| Frobenius norm | $\|\mathbf{H}\|_F = \sqrt{\sum |h_{ij}|^2}$ | Total channel power |
+| Condition number | $\sigma_{max}/\sigma_{min}$ | Channel quality |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: 2×2 MIMO**
+
+$$\mathbf{H} = \begin{bmatrix} 0.5 + 0.3j & -0.2 + 0.4j \\ 0.1 - 0.6j & 0.7 + 0.1j \end{bmatrix}$$
+
+Transmitted: $\mathbf{x} = [1, 1]^T$
+
+Received (noiseless): $\mathbf{y} = \mathbf{H}\mathbf{x} = [0.3 + 0.7j, 0.8 - 0.5j]^T$
+
+Each receive antenna sees a weighted sum of both transmitted signals.
+
+**Example: Channel normalization**
+
+For fair comparisons, normalize so $\mathbb{E}[\|\mathbf{H}\|_F^2] = N_r N_t$.
+
+For i.i.d. Rayleigh with unit variance entries, this is automatic.
+
+**Example: Antenna spacing effect**
+
+ULA with spacing d, wavelength λ.
+
+Correlation between adjacent elements: $\rho \approx J_0(2\pi d/\lambda)$
+
+At d = λ/2: $\rho \approx 0$ (uncorrelated)
+At d = λ/4: $\rho \approx 0.5$ (moderately correlated)
+At d = λ/8: $\rho \approx 0.9$ (highly correlated)
+
+**Example: Rank deficiency**
+
+LOS channel with parallel arrays:
+
+$$\mathbf{H} = \mathbf{a}_r \mathbf{a}_t^H$$
+
+Rank = 1, regardless of array sizes.
+
+Only one spatial stream possible — no multiplexing gain.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing dimensions.** H is $N_r \times N_t$, not $N_t \times N_r$. Rows are receive antennas, columns are transmit antennas.
+
+2. **Ignoring normalization.** Different papers use different normalizations. Always check whether H has unit power per entry or total power constraint.
+
+3. **Assuming independence.** Real channels have correlation from antenna spacing, scattering geometry, and mutual coupling.
+
+4. **Forgetting time variation.** H changes with mobility. Coherence time determines how long H estimate remains valid.
+
+5. **Using wrong model.** Rayleigh assumes rich scattering. Indoor LOS, satellite links, and mmWave often need Rician or geometric models.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Tse and Viswanath, *Fundamentals of Wireless Communication*, Chapter 7.
+- Goldsmith, *Wireless Communications*, Chapter 10.
+- 3GPP TR 38.901, "Channel model for frequencies from 0.5 to 100 GHz."
+
+</section>
