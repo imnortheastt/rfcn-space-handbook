@@ -27,11 +27,10 @@ Progress: 92/92 RF lessons published (100%)
 
 **Cross-domain bridges:**
 - [x] B1: From antenna to base station (EN+VI) — gNB architecture, fronthaul 7.2x, RF-network interface
-- [ ] B2: From satellite to UE
-- [ ] B3: From spectrum to service
+- [x] B2: From satellite to UE (EN+VI) — LEO 5G NTN, link budget, Doppler, timing advance, HARQ
+- [x] B3: From spectrum to service (EN+VI) — ITU framework, auctions, interference, economics
 
 Remaining for Phase 1:
-- [ ] Cross-domain bridges: B2, B3
 - [ ] Glossary expansion to ~300 terms
 - [ ] Public launch
 
@@ -255,7 +254,7 @@ Remaining for Phase 1:
 ### Phase 1 (Months 2–6)
 - 150 lessons total (~50 per domain), full bilingual parity
 - Five flagship widgets shipped
-- B1 cross-domain bridge (antenna → base station)
+- All three cross-domain bridges (B1, B2, B3) complete
 - Glossary: 300 terms, Citations: 300 entries
 - Public launch
 
