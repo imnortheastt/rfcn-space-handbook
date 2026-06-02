@@ -8,17 +8,146 @@ track: r0
 unit: complex-numbers-for-rf
 order: 4
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r0-complex-numbers-for-rf-02-impedance", "rf-r0-complex-numbers-for-rf-03-smith-chart-introduction"]
+spiralRevisits: []
 title: "Hệ số phản xạ và tham số S"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Đo mạng RF bằng sóng phản xạ và truyền qua."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["reflection-coefficient", "s-parameters", "return-loss", "insertion-loss", "network-analyzer"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Hệ số phản xạ và tham số S
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần tham số S?
+
+Ở tần số RF, bạn không thể dễ dàng đo điện áp và dòng điện — bước sóng quá ngắn và bản thân đầu dò làm nhiễu mạch. Thay vào đó, chúng ta đo **sóng truyền**: cái gì đi vào, cái gì dội lại, cái gì đi qua.
+
+Tham số S (tham số tán xạ) mô tả mạng RF hoàn toàn theo các sóng này. Mọi bộ khuếch đại, bộ lọc, cáp và anten đều được đặc trưng bởi tham số S. Máy phân tích mạng đo chúng trực tiếp. Nếu tổng trở là ngôn ngữ của mạch tập trung, tham số S là ngôn ngữ của hệ thống RF phân tán.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy tưởng tượng ném bóng vào tường. Một phần năng lượng dội lại (phản xạ); phần còn lại đi qua hoặc bị hấp thụ. Hệ số phản xạ $\Gamma$ là tỷ số của sóng phản xạ với sóng tới.
+
+Với mạng hai cổng (như bộ khuếch đại có đầu vào và đầu ra):
+
+- $S_{11}$: phản xạ tại cổng 1 (phối hợp đầu vào)
+- $S_{21}$: truyền từ cổng 1 sang cổng 2 (khuếch đại hoặc suy hao)
+- $S_{12}$: truyền từ cổng 2 sang cổng 1 (cách ly ngược)
+- $S_{22}$: phản xạ tại cổng 2 (phối hợp đầu ra)
+
+Bộ khuếch đại hoàn hảo có $S_{11} = S_{22} = 0$ (không phản xạ) và $|S_{21}|$ lớn (khuếch đại cao).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Hệ số phản xạ
+
+Với tải $Z_L$ trên đường dây có trở kháng đặc tính $Z_0$:
+
+$$\Gamma = \frac{Z_L - Z_0}{Z_L + Z_0}$$
+
+- $\Gamma = 0$: tải phối hợp ($Z_L = Z_0$), không phản xạ
+- $|\Gamma| = 1$: phản xạ toàn phần (hở hoặc ngắn mạch)
+- $0 < |\Gamma| < 1$: phản xạ một phần
+
+### Suy hao phản hồi và VSWR
+
+**Suy hao phản hồi** (tính bằng dB):
+$$\text{RL} = -20\log_{10}|\Gamma|$$
+
+Suy hao phản hồi cao hơn = phối hợp tốt hơn. Suy hao phản hồi 20 dB nghĩa là chỉ 1% công suất phản xạ.
+
+**VSWR**:
+$$\text{VSWR} = \frac{1 + |\Gamma|}{1 - |\Gamma|}$$
+
+VSWR 1:1 là hoàn hảo; 2:1 chấp nhận được cho nhiều hệ thống; 3:1 là kém.
+
+### Ma trận tham số S
+
+Với mạng N cổng, tham số S tạo thành ma trận N×N. Cho hai cổng:
+
+$$\begin{pmatrix} b_1 \\ b_2 \end{pmatrix} = \begin{pmatrix} S_{11} & S_{12} \\ S_{21} & S_{22} \end{pmatrix} \begin{pmatrix} a_1 \\ a_2 \end{pmatrix}$$
+
+trong đó $a_i$ = sóng tới tại cổng $i$, $b_i$ = sóng phản xạ tại cổng $i$.
+
+### Các chỉ số tham số S phổ biến
+
+| Tham số | Ý nghĩa | Lý tưởng cho bộ khuếch đại |
+|---------|---------|----------------------------|
+| $S_{11}$ | Phản xạ đầu vào | $\to 0$ (phối hợp tốt) |
+| $S_{21}$ | Khuếch đại thuận | Lớn (20–30 dB) |
+| $S_{12}$ | Cách ly ngược | $\to 0$ (−30 dB hoặc thấp hơn) |
+| $S_{22}$ | Phản xạ đầu ra | $\to 0$ (phối hợp tốt) |
+
+### Chuyển đổi giữa $Z$ và $\Gamma$
+
+$$\Gamma = \frac{Z - Z_0}{Z + Z_0}, \quad Z = Z_0\frac{1 + \Gamma}{1 - \Gamma}$$
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Suy hao phản hồi anten**
+
+Anten có $S_{11} = -15$ dB tại 2.4 GHz.
+
+Suy hao phản hồi: 15 dB
+$|\Gamma| = 10^{-15/20} = 0.178$
+Công suất phản xạ: $|\Gamma|^2 = 3.2\%$
+VSWR: $(1 + 0.178)/(1 - 0.178) = 1.43$
+
+Điều này chấp nhận được cho hầu hết ứng dụng.
+
+**Ví dụ: Khuếch đại của amplifier**
+
+LNA có $S_{21} = 18$ dB. Nghĩa là công suất đầu ra gấp $10^{18/10} = 63$ lần công suất đầu vào (thang tuyến tính).
+
+Nếu $S_{12} = -25$ dB, cách ly ngược tốt — tín hiệu rò ngược chỉ bằng $0.3\%$ tín hiệu thuận.
+
+**Ví dụ: Suy hao cáp**
+
+Cáp đồng trục có $S_{21} = -3$ dB tại 1 GHz. Một nửa công suất đầu vào đến đầu ra; một nửa bị mất do suy hao.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Trở kháng tham chiếu.** Tham số S được định nghĩa theo $Z_0$ (thường 50 Ω). Cùng một thiết bị có tham số S khác nhau trong hệ thống 75 Ω.
+
+2. **Phụ thuộc tần số.** Tham số S thay đổi theo tần số. Bộ lọc cho qua 1 GHz ($S_{21} \approx 0$ dB) có thể chặn 2 GHz ($S_{21} = -40$ dB). Luôn kiểm tra tần số.
+
+3. **Biên độ vs. giá trị phức.** $|S_{11}| = 0.2$ cho biết biên độ phản xạ. Giá trị phức đầy đủ $S_{11}$ cho biết cả pha — cần cho thiết kế mạng phối hợp.
+
+4. **Tích cực vs. thụ động.** Thiết bị thụ động có $|S_{21}| \leq 1$ (không tạo công suất). Bộ khuếch đại có $|S_{21}| > 1$. Bộ dao động có thể có $|S_{11}| > 1$ trong một số điều kiện.
+
+5. **Điều kiện đo.** Tham số S giả định tất cả cổng khác được kết cuối bằng $Z_0$. Nếu mạch thực tế của bạn có kết cuối khác, hành vi thay đổi.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Pozar, *Microwave Engineering*, Chương 4 — tham số S và phân tích mạng.
+- Gonzalez, *Microwave Transistor Amplifiers*, Chương 1 — cơ bản tham số S cho thiết bị tích cực.
+- Agilent Application Note 154, "S-Parameter Design" — đo đạc và thiết kế thực tế.
+
+</section>

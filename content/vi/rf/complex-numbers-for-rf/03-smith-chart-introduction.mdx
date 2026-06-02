@@ -8,17 +8,139 @@ track: r0
 unit: complex-numbers-for-rf
 order: 3
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["rf-r0-complex-numbers-for-rf-02-impedance"]
+spiralRevisits: []
 title: "Giới thiệu biểu đồ Smith"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Máy tính đồ họa của kỹ sư RF cho tổng trở và phối hợp."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["smith-chart", "impedance-matching", "normalized-impedance", "vswr"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Giới thiệu biểu đồ Smith
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần biểu đồ Smith?
+
+Trước khi có máy tính, kỹ sư RF cần giải bài toán phối hợp trở kháng bằng đồ họa. Philip Smith phát minh một biểu đồ ánh xạ tất cả tổng trở phức vào một vòng tròn đơn vị. Ngay cả ngày nay, với phần mềm mô phỏng khắp nơi, biểu đồ Smith vẫn là cách trực quan hóa tiêu chuẩn cho tổng trở, phản xạ và mạng phối hợp.
+
+Mọi máy phân tích mạng hiển thị kết quả trên biểu đồ Smith. Mọi datasheet anten đều có một biểu đồ Smith. Nếu bạn không đọc được biểu đồ Smith, bạn không nói được ngôn ngữ RF.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Biểu đồ Smith là mặt phẳng phức đã được biến đổi. Thay vì vẽ trực tiếp tổng trở $Z$, chúng ta vẽ **hệ số phản xạ** $\Gamma$, luôn nằm trong hoặc trên vòng tròn đơn vị.
+
+Các mốc chính:
+- **Tâm** ($\Gamma = 0$): phối hợp hoàn hảo (tải bằng trở kháng đặc tính)
+- **Mép phải** ($\Gamma = 1$): hở mạch
+- **Mép trái** ($\Gamma = -1$): ngắn mạch
+- **Nửa trên**: tải cảm kháng
+- **Nửa dưới**: tải dung kháng
+
+Di chuyển quanh biểu đồ tương ứng với thêm chiều dài đường truyền hoặc linh kiện phối hợp. Xoay theo chiều kim đồng hồ = di chuyển về phía nguồn dọc đường dây. Biểu đồ làm hiện ra những gì phương trình che giấu.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Tổng trở chuẩn hóa
+
+Để dùng biểu đồ Smith, trước tiên chuẩn hóa tổng trở theo trở kháng đặc tính $Z_0$ (thường 50 Ω):
+
+$$z = \frac{Z}{Z_0} = r + jx$$
+
+trong đó $r = R/Z_0$ và $x = X/Z_0$.
+
+### Hệ số phản xạ
+
+Hệ số phản xạ liên hệ với tổng trở chuẩn hóa:
+
+$$\Gamma = \frac{z - 1}{z + 1} = \frac{Z - Z_0}{Z + Z_0}$$
+
+Công thức này ánh xạ toàn bộ nửa phải của mặt phẳng phức $z$ (tất cả tổng trở thụ động) vào vòng tròn đơn vị.
+
+### Đọc biểu đồ
+
+- **Vòng tròn điện trở không đổi**: Đi qua mép phải ($\Gamma = 1$), tâm trên trục thực.
+- **Cung điện kháng không đổi**: Đường cong nối mép phải đến tâm.
+
+Để tìm $\Gamma$ từ $Z$: xác định giao điểm của vòng tròn $r$ và cung $x$.
+
+### Vòng tròn VSWR
+
+**Tỷ số sóng đứng điện áp** (VSWR) chỉ phụ thuộc $|\Gamma|$:
+
+$$\text{VSWR} = \frac{1 + |\Gamma|}{1 - |\Gamma|}$$
+
+Trên biểu đồ Smith, VSWR không đổi là vòng tròn tâm tại gốc. Bán kính bằng $|\Gamma|$.
+
+### Di chuyển dọc đường truyền
+
+Đường truyền không tổn hao có chiều dài điện $\theta$ xoay $\Gamma$ theo chiều kim đồng hồ góc $2\theta$:
+
+$$\Gamma_\text{in} = \Gamma_L e^{-j2\theta}$$
+
+Một vòng đầy đủ (360°) = nửa bước sóng của đường dây.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Tìm hệ số phản xạ**
+
+Tải: $Z_L = 100 + j50$ Ω, $Z_0 = 50$ Ω
+
+Chuẩn hóa: $z = 2 + j1$
+
+Trên biểu đồ Smith: xác định giao điểm của vòng tròn $r = 2$ và cung $x = 1$.
+
+Đọc được: $|\Gamma| \approx 0.45$, $\angle\Gamma \approx 27°$
+
+Kiểm tra bằng công thức:
+$$\Gamma = \frac{(2+j1) - 1}{(2+j1) + 1} = \frac{1+j1}{3+j1} = 0.4 + j0.2$$
+$$|\Gamma| = 0.447, \quad \angle\Gamma = 26.6°$$
+
+**Ví dụ: Phối hợp bằng stub**
+
+Để phối hợp tải không khớp, tìm điểm vòng tròn VSWR cố định giao với vòng tròn $r = 1$. Tại điểm đó, thêm phần tử phản kháng (stub hoặc linh kiện tập trung) để triệt tiêu điện kháng còn lại. Biểu đồ Smith cho thấy chính xác cần bao nhiêu chiều dài đường dây và điện kháng bao nhiêu.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Chuẩn hóa.** Biểu đồ giả định $Z_0$ cụ thể. Thay đổi $Z_0$ thay đổi vị trí tổng trở của bạn. Luôn chuẩn hóa trước.
+
+2. **Quy ước hướng.** Di chuyển về phía nguồn = theo chiều kim đồng hồ. Di chuyển về phía tải = ngược chiều kim đồng hồ. Nhầm lẫn và mạng phối hợp của bạn sẽ sai.
+
+3. **Biểu đồ dẫn nạp.** Xoay biểu đồ Smith 180° cho biểu đồ dẫn nạp. Một số bài toán dễ hơn với dẫn nạp (linh kiện song song). Biết bạn đang dùng loại nào.
+
+4. **Đường dây có tổn hao.** Với đường truyền có tổn hao, $|\Gamma|$ co lại khi bạn di chuyển về phía nguồn — bạn xoáy vào trong, không chỉ xoay.
+
+5. **Độ chính xác đọc.** Biểu đồ Smith vẽ tay chính xác khoảng 5%. Cho công việc chính xác, dùng mô phỏng. Biểu đồ là cho trực giác và thiết kế sơ bộ.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Pozar, *Microwave Engineering*, Chương 2 — trình bày chi tiết biểu đồ Smith.
+- Smith, P.H., "Transmission Line Calculator," Electronics, 1939 — bài báo gốc.
+- Gonzalez, *Microwave Transistor Amplifiers*, Chương 2 — thiết kế mạng phối hợp.
+
+</section>

@@ -8,17 +8,146 @@ track: r0
 unit: complex-numbers-for-rf
 order: 4
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r0-complex-numbers-for-rf-02-impedance", "rf-r0-complex-numbers-for-rf-03-smith-chart-introduction"]
+spiralRevisits: []
 title: "Reflection coefficient and S-parameters"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Measuring RF networks by what bounces back and passes through."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["reflection-coefficient", "s-parameters", "return-loss", "insertion-loss", "network-analyzer"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Reflection coefficient and S-parameters
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why S-parameters?
+
+At RF frequencies, you can't easily measure voltage and current — the wavelengths are too short and the probe itself disturbs the circuit. Instead, we measure **traveling waves**: what goes in, what bounces back, what passes through.
+
+S-parameters (scattering parameters) describe an RF network entirely in terms of these waves. Every amplifier, filter, cable, and antenna is characterized by its S-parameters. Network analyzers measure them directly. If impedance is the language of lumped circuits, S-parameters are the language of distributed RF systems.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Imagine throwing a ball at a wall. Some energy bounces back (reflection); the rest passes through or is absorbed. The reflection coefficient $\Gamma$ is the ratio of the reflected wave to the incident wave.
+
+For a two-port network (like an amplifier with input and output):
+
+- $S_{11}$: reflection at port 1 (input match)
+- $S_{21}$: transmission from port 1 to port 2 (gain or loss)
+- $S_{12}$: transmission from port 2 to port 1 (reverse isolation)
+- $S_{22}$: reflection at port 2 (output match)
+
+A perfect amplifier has $S_{11} = S_{22} = 0$ (no reflections) and large $|S_{21}|$ (high gain).
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Reflection coefficient
+
+For a load $Z_L$ on a line with characteristic impedance $Z_0$:
+
+$$\Gamma = \frac{Z_L - Z_0}{Z_L + Z_0}$$
+
+- $\Gamma = 0$: matched load ($Z_L = Z_0$), no reflection
+- $|\Gamma| = 1$: total reflection (open or short)
+- $0 < |\Gamma| < 1$: partial reflection
+
+### Return loss and VSWR
+
+**Return loss** (in dB):
+$$\text{RL} = -20\log_{10}|\Gamma|$$
+
+Higher return loss = better match. A return loss of 20 dB means only 1% of power reflects.
+
+**VSWR**:
+$$\text{VSWR} = \frac{1 + |\Gamma|}{1 - |\Gamma|}$$
+
+VSWR of 1:1 is perfect; 2:1 is acceptable for many systems; 3:1 is poor.
+
+### S-parameter matrix
+
+For an N-port network, S-parameters form an N×N matrix. For two ports:
+
+$$\begin{pmatrix} b_1 \\ b_2 \end{pmatrix} = \begin{pmatrix} S_{11} & S_{12} \\ S_{21} & S_{22} \end{pmatrix} \begin{pmatrix} a_1 \\ a_2 \end{pmatrix}$$
+
+where $a_i$ = incident wave at port $i$, $b_i$ = reflected wave at port $i$.
+
+### Common S-parameter metrics
+
+| Parameter | Meaning | Ideal for amplifier |
+|-----------|---------|---------------------|
+| $S_{11}$ | Input reflection | $\to 0$ (good match) |
+| $S_{21}$ | Forward gain | Large (20–30 dB) |
+| $S_{12}$ | Reverse isolation | $\to 0$ (−30 dB or less) |
+| $S_{22}$ | Output reflection | $\to 0$ (good match) |
+
+### Converting between $Z$ and $\Gamma$
+
+$$\Gamma = \frac{Z - Z_0}{Z + Z_0}, \quad Z = Z_0\frac{1 + \Gamma}{1 - \Gamma}$$
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Antenna return loss**
+
+An antenna has $S_{11} = -15$ dB at 2.4 GHz.
+
+Return loss: 15 dB
+$|\Gamma| = 10^{-15/20} = 0.178$
+Reflected power: $|\Gamma|^2 = 3.2\%$
+VSWR: $(1 + 0.178)/(1 - 0.178) = 1.43$
+
+This is acceptable for most applications.
+
+**Example: Amplifier gain**
+
+An LNA has $S_{21} = 18$ dB. This means the output power is $10^{18/10} = 63$ times the input power (in linear scale).
+
+If $S_{12} = -25$ dB, the reverse isolation is good — signal leaking backward is only $0.3\%$ of the forward signal.
+
+**Example: Cable loss**
+
+A coaxial cable has $S_{21} = -3$ dB at 1 GHz. Half the input power reaches the output; half is lost to attenuation.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Reference impedance.** S-parameters are defined relative to $Z_0$ (usually 50 Ω). The same device has different S-parameters in a 75 Ω system.
+
+2. **Frequency dependence.** S-parameters vary with frequency. A filter that passes 1 GHz ($S_{21} \approx 0$ dB) may block 2 GHz ($S_{21} = -40$ dB). Always check the frequency.
+
+3. **Magnitude vs. complex value.** $|S_{11}| = 0.2$ tells you the reflection magnitude. The full complex $S_{11}$ tells you the phase too — needed for matching network design.
+
+4. **Active vs. passive.** Passive devices have $|S_{21}| \leq 1$ (can't create power). Amplifiers have $|S_{21}| > 1$. Oscillators can have $|S_{11}| > 1$ under certain conditions.
+
+5. **Measurement conditions.** S-parameters assume all other ports are terminated in $Z_0$. If your actual circuit has different terminations, the behavior changes.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Pozar, *Microwave Engineering*, Chapter 4 — S-parameters and network analysis.
+- Gonzalez, *Microwave Transistor Amplifiers*, Chapter 1 — S-parameter fundamentals for active devices.
+- Agilent Application Note 154, "S-Parameter Design" — practical measurement and design.
+
+</section>

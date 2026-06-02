@@ -8,17 +8,139 @@ track: r0
 unit: complex-numbers-for-rf
 order: 3
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["rf-r0-complex-numbers-for-rf-02-impedance"]
+spiralRevisits: []
 title: "Smith chart introduction"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The RF engineer's graphical calculator for impedance and matching."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["smith-chart", "impedance-matching", "normalized-impedance", "vswr"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Smith chart introduction
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why the Smith chart?
+
+Before computers, RF engineers needed to solve impedance matching problems graphically. Philip Smith invented a chart that maps all possible complex impedances onto a unit circle. Even today, with simulation software everywhere, the Smith chart remains the standard visualization for impedance, reflection, and matching networks.
+
+Every network analyzer displays results on a Smith chart. Every antenna datasheet includes one. If you can't read a Smith chart, you can't speak RF.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+The Smith chart is a transformed complex plane. Instead of plotting impedance $Z$ directly, we plot the **reflection coefficient** $\Gamma$, which always lies inside or on the unit circle.
+
+Key landmarks:
+- **Center** ($\Gamma = 0$): perfect match (load equals characteristic impedance)
+- **Right edge** ($\Gamma = 1$): open circuit
+- **Left edge** ($\Gamma = -1$): short circuit
+- **Top half**: inductive loads
+- **Bottom half**: capacitive loads
+
+Moving around the chart corresponds to adding transmission line length or matching components. Clockwise rotation = moving toward the generator along a line. The chart makes visible what equations hide.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Normalized impedance
+
+To use the Smith chart, first normalize impedance by the characteristic impedance $Z_0$ (usually 50 Ω):
+
+$$z = \frac{Z}{Z_0} = r + jx$$
+
+where $r = R/Z_0$ and $x = X/Z_0$.
+
+### Reflection coefficient
+
+The reflection coefficient relates to normalized impedance:
+
+$$\Gamma = \frac{z - 1}{z + 1} = \frac{Z - Z_0}{Z + Z_0}$$
+
+This maps the entire right half of the complex $z$-plane (all passive impedances) into the unit circle.
+
+### Reading the chart
+
+- **Constant resistance circles**: Pass through the right edge ($\Gamma = 1$), centered on the real axis.
+- **Constant reactance arcs**: Curves connecting the right edge to the center.
+
+To find $\Gamma$ from $Z$: locate the intersection of the $r$ circle and $x$ arc.
+
+### VSWR circles
+
+The **voltage standing wave ratio** (VSWR) depends only on $|\Gamma|$:
+
+$$\text{VSWR} = \frac{1 + |\Gamma|}{1 - |\Gamma|}$$
+
+On the Smith chart, constant VSWR is a circle centered at the origin. The radius equals $|\Gamma|$.
+
+### Moving along a transmission line
+
+A lossless transmission line of electrical length $\theta$ rotates $\Gamma$ clockwise by $2\theta$:
+
+$$\Gamma_\text{in} = \Gamma_L e^{-j2\theta}$$
+
+One full rotation (360°) = half wavelength of line.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Finding reflection coefficient**
+
+Load: $Z_L = 100 + j50$ Ω, $Z_0 = 50$ Ω
+
+Normalized: $z = 2 + j1$
+
+On the Smith chart: locate intersection of $r = 2$ circle and $x = 1$ arc.
+
+Read off: $|\Gamma| \approx 0.45$, $\angle\Gamma \approx 27°$
+
+Verify by formula:
+$$\Gamma = \frac{(2+j1) - 1}{(2+j1) + 1} = \frac{1+j1}{3+j1} = 0.4 + j0.2$$
+$$|\Gamma| = 0.447, \quad \angle\Gamma = 26.6°$$
+
+**Example: Matching with a stub**
+
+To match a mismatched load, find where the constant-VSWR circle intersects the $r = 1$ circle. At that point, add a reactive element (stub or lumped component) to cancel the remaining reactance. The Smith chart shows exactly how much line length and what reactance is needed.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Normalization.** The chart assumes a specific $Z_0$. Changing $Z_0$ changes where your impedance plots. Always normalize first.
+
+2. **Direction convention.** Moving toward the generator = clockwise. Moving toward the load = counterclockwise. Get this wrong and your matching network fails.
+
+3. **Admittance chart.** Rotating the Smith chart 180° gives an admittance chart. Some problems are easier in admittance (parallel components). Know which you're using.
+
+4. **Lossy lines.** For lossy transmission lines, $|\Gamma|$ shrinks as you move toward the generator — you spiral inward, not just rotate.
+
+5. **Reading precision.** A hand-drawn Smith chart is accurate to maybe 5%. For precise work, use simulation. The chart is for intuition and first-pass design.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Pozar, *Microwave Engineering*, Chapter 2 — detailed Smith chart treatment.
+- Smith, P.H., "Transmission Line Calculator," Electronics, 1939 — the original paper.
+- Gonzalez, *Microwave Transistor Amplifiers*, Chapter 2 — matching network design.
+
+</section>

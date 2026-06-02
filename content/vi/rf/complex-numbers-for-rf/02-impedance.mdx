@@ -8,17 +8,131 @@ track: r0
 unit: complex-numbers-for-rf
 order: 2
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["rf-r0-complex-numbers-for-rf-01-phasors"]
+spiralRevisits: []
 title: "Tổng trở"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Điện trở phức — tại sao mạch RF cần nhiều hơn định luật Ohm."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["impedance", "reactance", "resistance", "ohm", "capacitor", "inductor"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tổng trở
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần tổng trở?
+
+Ở DC, tụ điện chặn dòng và cuộn cảm cho dòng qua tự do. Ở tần số cao, vai trò đảo ngược. Điện trở thuần không thể mô tả hành vi phụ thuộc tần số này. **Tổng trở** mở rộng định luật Ohm cho AC: $\tilde{V} = \tilde{I} Z$, trong đó $Z$ là số phức mã hóa cả biên độ và độ lệch pha.
+
+Mọi linh kiện RF — anten, bộ lọc, đường truyền — đều có tổng trở. Phối hợp tổng trở là cách bạn truyền công suất hiệu quả và tránh phản xạ.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Tổng trở $Z = R + jX$ có hai phần:
+
+- **Điện trở $R$** (phần thực): tiêu tán năng lượng thành nhiệt. Luôn dương.
+- **Điện kháng $X$** (phần ảo): lưu trữ và giải phóng năng lượng mà không tiêu tán.
+  - $X > 0$: cảm kháng (dòng trễ pha hơn áp)
+  - $X < 0$: dung kháng (dòng sớm pha hơn áp)
+
+Hãy nghĩ điện trở như ma sát và điện kháng như độ đàn hồi. Tải thuần trở hấp thụ công suất; tải thuần kháng đẩy công suất qua lại.
+
+Biên độ $|Z| = \sqrt{R^2 + X^2}$ cho biết tỷ lệ biên độ áp/dòng. Góc pha $\theta = \arctan(X/R)$ cho biết độ lệch pha giữa áp và dòng.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Tổng trở của các phần tử cơ bản
+
+| Phần tử | Tổng trở | Ở DC | Ở $\omega$ cao |
+|---------|----------|------|----------------|
+| Điện trở | $Z_R = R$ | $R$ | $R$ |
+| Tụ điện | $Z_C = \frac{1}{j\omega C} = -\frac{j}{\omega C}$ | $\infty$ (hở) | $\to 0$ (ngắn) |
+| Cuộn cảm | $Z_L = j\omega L$ | $0$ (ngắn) | $\to \infty$ (hở) |
+
+### Kết hợp nối tiếp và song song
+
+**Nối tiếp:** $Z_\text{total} = Z_1 + Z_2 + \cdots$
+
+**Song song:** $\frac{1}{Z_\text{total}} = \frac{1}{Z_1} + \frac{1}{Z_2} + \cdots$
+
+Hoặc dùng dẫn nạp $Y = 1/Z$ cho song song: $Y_\text{total} = Y_1 + Y_2 + \cdots$
+
+### Dẫn nạp
+
+Dẫn nạp $Y = G + jB$ trong đó:
+- $G$ = điện dẫn (phần thực)
+- $B$ = điện nạp (phần ảo)
+
+Hữu ích khi các linh kiện mắc song song.
+
+### Công suất trong tổng trở phức
+
+Công suất tức thời dao động, nhưng công suất trung bình chỉ phụ thuộc phần điện trở:
+
+$$P_\text{avg} = \frac{1}{2}|I|^2 R = \frac{1}{2}\text{Re}(\tilde{V}\tilde{I}^*)$$
+
+Công suất phản kháng (lưu trữ/trả lại, không tiêu tán):
+$$Q = \frac{1}{2}|I|^2 X$$
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Bộ lọc thông thấp RC**
+
+Điện trở $R$ nối tiếp với tụ $C$ nối đất. Áp vào $\tilde{V}_\text{in}$, áp ra lấy qua $C$.
+
+Tổng trở tụ: $Z_C = 1/(j\omega C)$
+
+Chia áp:
+$$\tilde{V}_\text{out} = \tilde{V}_\text{in} \cdot \frac{Z_C}{R + Z_C} = \tilde{V}_\text{in} \cdot \frac{1}{1 + j\omega RC}$$
+
+Ở $\omega$ thấp: $|\tilde{V}_\text{out}| \approx |\tilde{V}_\text{in}|$ (đi qua).
+Ở $\omega$ cao: $|\tilde{V}_\text{out}| \to 0$ (bị lọc).
+Tần số cắt: $\omega_c = 1/(RC)$, tại đó đầu ra bằng $1/\sqrt{2}$ đầu vào (−3 dB).
+
+**Ví dụ: Tổng trở tiếp điện anten**
+
+Dipole nửa bước sóng có tổng trở tiếp điện $Z \approx 73 + j42.5$ Ω tại cộng hưởng. Phần thực (73 Ω) đại diện điện trở bức xạ — công suất truyền đến anten được bức xạ. Phần ảo (42.5 Ω cảm kháng) có thể được triệt tiêu bằng tụ nối tiếp để phối hợp trở kháng.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Tổng trở phụ thuộc tần số.** Tổng trở tụ điện ở 1 MHz nhỏ hơn 100× so với ở 10 kHz. Luôn chỉ rõ tần số.
+
+2. **Điện trở ≠ biên độ tổng trở.** Phần tử thuần kháng có $R = 0$ nhưng $|Z| \neq 0$. Đừng nhầm lẫn hai khái niệm.
+
+3. **Pha quan trọng cho công suất.** Hai thiết bị có cùng $|Z|$ nhưng pha khác nhau cung cấp công suất thực khác nhau. Chỉ phần điện trở tiêu tán.
+
+4. **Phối hợp liên hợp phức.** Truyền công suất cực đại đòi hỏi $Z_\text{load} = Z_\text{source}^*$ (phối hợp liên hợp), không phải $Z_\text{load} = Z_\text{source}$.
+
+5. **Đơn vị.** Tổng trở tính bằng ohm (Ω). Dẫn nạp tính bằng siemens (S). Điện kháng và điện trở đều tính bằng ohm.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Pozar, *Microwave Engineering*, Chương 2 — tổng trở và đường truyền.
+- Alexander & Sadiku, *Fundamentals of Electric Circuits*, Chương 9 — phân tích tổng trở AC.
+
+</section>

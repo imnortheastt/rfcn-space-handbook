@@ -8,17 +8,133 @@ track: r0
 unit: complex-numbers-for-rf
 order: 1
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 8
+prerequisites: []
+spiralRevisits: []
 title: "Pha số"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Số phức như mũi tên quay — lối tắt cho phân tích tín hiệu hình sin."
+authors: ["tindang"]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["phasor", "complex-number", "sinusoid", "euler", "ac-analysis"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Pha số
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần pha số?
+
+Mọi tín hiệu RF đều là hình sin — hoặc tổng của các hình sin. Phân tích trực tiếp hình sin có nghĩa là vật lộn với đẳng thức lượng giác. Pha số thay thế sin và cos bằng hàm mũ phức, biến phép đạo hàm thành phép nhân và cộng sóng thành cộng vectơ.
+
+Toàn bộ lĩnh vực phân tích mạch AC, thiết kế bộ lọc và phối hợp trở kháng anten đều dựa trên một mẹo này: biểu diễn hình sin như số phức quay.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Một hình sin như $v(t) = V_0 \cos(\omega t + \phi)$ dao động liên tục. Nhưng thông tin thiết yếu của nó chỉ là hai số: biên độ $V_0$ và pha $\phi$. Pha số nắm bắt chính xác điều đó: một số phức $\tilde{V} = V_0 e^{j\phi}$.
+
+Hình dung một mũi tên quay (vectơ) trong mặt phẳng phức. Độ dài của nó là biên độ; góc của nó là pha. Khi thời gian trôi, mũi tên quay với tần số góc $\omega$. Hình chiếu lên trục thực vẽ ra sóng cosin.
+
+Cộng hai hình sin cùng tần số? Chỉ cần cộng pha số của chúng như số phức. Độ dài và góc mũi tên kết hợp tự nhiên — không cần đẳng thức lượng giác.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Công thức Euler
+
+Cầu nối giữa hàm mũ và hình sin:
+
+$$e^{j\theta} = \cos\theta + j\sin\theta$$
+
+Do đó:
+$$\cos\theta = \text{Re}(e^{j\theta}), \quad \sin\theta = \text{Im}(e^{j\theta})$$
+
+### Biểu diễn pha số
+
+Với tín hiệu hình sin:
+$$v(t) = V_0 \cos(\omega t + \phi)$$
+
+Pha số là:
+$$\tilde{V} = V_0 e^{j\phi} = V_0 \angle \phi$$
+
+Tín hiệu miền thời gian đầy đủ được khôi phục bằng:
+$$v(t) = \text{Re}(\tilde{V} e^{j\omega t})$$
+
+### Phép toán trở nên đơn giản
+
+| Miền thời gian | Miền pha số |
+|----------------|-------------|
+| $\frac{d}{dt}$ | $\times j\omega$ |
+| $\int dt$ | $\div j\omega$ |
+| Cộng hình sin cùng tần số | Cộng số phức |
+
+### Dạng chữ nhật vs. dạng cực
+
+- **Chữ nhật:** $\tilde{V} = a + jb$ (tốt cho phép cộng)
+- **Cực:** $\tilde{V} = V_0 \angle \phi$ hoặc $V_0 e^{j\phi}$ (tốt cho phép nhân)
+
+Chuyển đổi: $V_0 = \sqrt{a^2 + b^2}$, $\phi = \arctan(b/a)$
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Cộng hai điện áp**
+
+Hai nguồn áp mắc nối tiếp:
+- $v_1(t) = 10\cos(\omega t)$ → $\tilde{V}_1 = 10\angle 0°$
+- $v_2(t) = 5\cos(\omega t + 90°)$ → $\tilde{V}_2 = 5\angle 90° = 5j$
+
+Tổng pha số:
+$$\tilde{V}_\text{total} = 10 + 5j$$
+
+Biên độ: $\sqrt{10^2 + 5^2} = 11.18$ V
+Pha: $\arctan(5/10) = 26.6°$
+
+Kết quả: $v_\text{total}(t) = 11.18\cos(\omega t + 26.6°)$
+
+**Ví dụ: Quan hệ áp-dòng của tụ điện**
+
+Với tụ điện: $i = C\frac{dv}{dt}$
+
+Dạng pha số: $\tilde{I} = j\omega C \tilde{V}$
+
+Dòng điện sớm pha hơn điện áp 90° — hệ số $j$ xoay pha số.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Chỉ cùng tần số.** Cộng pha số chỉ hoạt động với hình sin cùng tần số. Trộn tín hiệu 1 kHz và 2 kHz cần phân tích pha số riêng hoặc phương pháp Fourier.
+
+2. **$j$ vs. $i$.** Kỹ sư dùng $j = \sqrt{-1}$ vì $i$ ký hiệu dòng điện. Nhà vật lý dùng $i$. Đừng trộn lẫn quy ước.
+
+3. **Đỉnh vs. RMS.** Pha số có thể biểu diễn biên độ đỉnh hoặc biên độ RMS — hãy nhất quán. Tính công suất thường dùng pha số RMS.
+
+4. **Tham chiếu pha.** Pha số là tương đối. Nói "$\tilde{V} = 10\angle 30°$" chỉ có nghĩa nếu bạn định nghĩa $0°$ là gì (thường là nguồn hoặc tín hiệu tham chiếu).
+
+5. **Tín hiệu DC.** Tín hiệu DC có $\omega = 0$ và không có pha — nó chỉ là hằng số thực. Phân tích pha số không thêm giá trị cho DC.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Hayt & Buck, *Engineering Electromagnetics*, Chương 11 — pha số trong ngữ cảnh điện từ.
+- Alexander & Sadiku, *Fundamentals of Electric Circuits*, Chương 9 — phân tích pha số AC.
+
+</section>
