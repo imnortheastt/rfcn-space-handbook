@@ -47,9 +47,64 @@ Multi-year roadmap for RF·CN·Space from Phase 0 (foundation) through Phase 4 (
 
 ## Phase 1 — Content Scaffold & Anchor Slice (Months 2–6)
 
-**Status:** RF CONTENT COMPLETE — 92/92 RF lessons published (100%)
+**Status:** RF CONTENT + UI/UX OVERHAUL COMPLETE
 
-**Goal:** Make the platform credibly usable for one complete reader journey per domain. Establish content patterns, prove Vietnamese-language depth.
+**Goal:** Make the platform credibly usable for one complete reader journey per domain. Establish content patterns, prove Vietnamese-language depth. Complete visual redesign with dark-first theme and interactive components.
+
+### Phase 1.2: UI/UX Overhaul (COMPLETE — v1 2026-06-04, v2 2026-06-05)
+
+#### v2: Content Display & Information Design (2026-06-05 — SHIPPED)
+
+Listing page redesign with data-join curriculum system. Lesson page restructure with numbered chapters and reading progress. Progress markers persisted to localStorage. New primitives: CodeBlockChrome, BackToTop, custom 404.
+
+**Data-Join Curriculum System:**
+- New `apps/web/src/lib/curriculum.ts` exports `buildDomainListing(lang, domain)` function
+- Joins curriculum.json tree with Astro `getCollection('lessons')` by matching curriculum `lesson.id` === frontmatter `slug`
+- Sorts by frontmatter `order`; "Coming soon" rows for unmatched lessons
+
+**Lesson Page Improvements:**
+- Numbered chapters: muted mono `0N` index + h2, hairline dividers, no decorative backgrounds
+- Lesson header redesign: title → description → LevelBadge + reading minutes
+- Reading progress bar: 3px teal scaleX (rAF-driven)
+- Visited progress stored to localStorage via script
+
+**New Components:**
+- `LessonList.astro` — track sections + unit headers
+- `LessonRow.astro` — order #, title, level, reading minutes
+- `ProgressMarkers.astro` — localStorage-backed visited checkmarks
+- `CodeBlockChrome.astro` — lang label + copy button
+- `BackToTop.astro` — scroll-to-top button
+- Custom `pages/404.astro`
+
+#### v1: Swiss Minimal Light-First Redesign (2026-06-04 — SHIPPED)
+
+Comprehensive visual overhaul superseding prior dark-first approach. New direction follows Vercel/Linear design principles: **light mode DEFAULT**, white (#ffffff) backgrounds, near-black (#111827) text, hairline borders (#e5e7eb), zero decorative shadows. Teal accent palette full-ramp (#0f766e light → #2dd4bf dark) replaces cyan. All typography migrated to Inter Variable.
+
+**Design Changes:**
+- Light mode as primary (was dark-first), dark mode kept as toggle with near-black bg (#0a0a0a, de-teal-tinted)
+- Typography: Inter Variable (latin + vietnamese subsets) replaces Space Grotesk + system fonts
+- Colors: Tailwind teal full ramp replacing cyan; lesson tier tokens re-derived as neutral grays (AA verified)
+- Visual style: Hairline borders only; NO decorative shadows; dark code blocks with dual-theme Shiki mapping
+- Responsive layout: 3-column grid (desktop) — 240px curriculum sidebar | 68ch prose | 200px ToC rail; ToC hides ≤1024px; mobile drawer for sidebar ≤1024px (off-canvas, backdrop, focus-trapped)
+- Homepage: Hero with 2 CTAs (primary "Start learning", secondary "Browse roadmap"); DomainCards with inline stroke-SVG line icons + per-domain lesson counts from curriculum.json
+
+**New Components:**
+- `apps/web/src/components/CommandPalette.astro` — ⌘K Pagefind-backed search modal (vanilla JS, focus-trapped, locale-filtered); `/search` stays no-JS fallback
+- `apps/web/src/components/TableOfContents.astro` — Right-rail "On this page" with IntersectionObserver scroll-spy; lesson meta badge
+
+**File Updates:**
+- `packages/ui/src/tokens.css` — Teal ramp, Inter Variable imports (bundler-resolved preloads), neutral grays
+- `apps/web/src/layouts/DocsLayout.astro`, `apps/web/src/layouts/BaseLayout.astro` — 3-column grid, off-canvas drawer ≤1024px
+- `apps/web/src/components/DocsSidebar.astro` — Drawer with focus-trap, Esc-to-close, backdrop
+- `apps/web/src/styles/global.css` — Cyan glows removed, inline code monochrome, Shiki dual-theme dark mapping
+- `apps/web/src/lib/i18n.ts` — ~15 new keys (palette + toc labels, en/vi); UIKeys type relaxed to Record<keyof typeof en, string>
+
+**Deliverables:**
+- 7 new Astro layout components (Header, Footer, Hero, DomainCard, FeatureHighlight, NavLink, HamburgerMenu) + 2 new interactive (CommandPalette, TableOfContents)
+- Updated DocsLayout, BaseLayout with 3-column grid + responsive behavior
+- ~1400 lines in `packages/ui/src/base.css` with light-first theme, no decorative shadows
+- CSS variable system for teal ramp + neutral grays; Inter Variable bundled with preloads
+- Lighthouse maintained ≥90, no performance regression
 
 ### Phase 1.0 Mechanical Scaffolding (COMPLETE)
 
@@ -69,11 +124,12 @@ Multi-year roadmap for RF·CN·Space from Phase 0 (foundation) through Phase 4 (
 
 ### Phase 1.1+ Content Authoring (RF COMPLETE — 100%)
 
-**Current Progress (2026-06-02):**
+**Current Progress (2026-06-04):**
 - RF domain: 92/92 lessons published (100%)
 - All RF tracks fully authored in EN+VI bilingual parity
+- Author signature standardized across all 534 MDX files (267 EN + 267 VI)
 
-**Completed Units This Session:**
+**Completed Units:**
 - mimo-capacity (4 lessons)
 - the-diversity-intuition (3 lessons)
 - practical-antenna-design (3 lessons)
@@ -83,7 +139,7 @@ Multi-year roadmap for RF·CN·Space from Phase 0 (foundation) through Phase 4 (
 - ml-detection-sphere-decoding (2 lessons)
 - spatial-multiplexing-vs-diversity-vs-beamforming (3 lessons)
 
-- [ ] Content authoring & publication
+- [x] Content authoring & publication (RF domain complete; Core Network & Space pending)
   - ~50 lessons per domain (~150 total)
   - Bilingual parity: 100% (every lesson EN + VI simultaneously)
   - Coverage:
@@ -97,6 +153,8 @@ Multi-year roadmap for RF·CN·Space from Phase 0 (foundation) through Phase 4 (
   - **B2:** Satellite to UE — LEO 5G NTN, link budget, Doppler compensation, timing advance, HARQ
   - **B3:** Spectrum to service — ITU framework, auctions, interference management, economics
 
+- [x] Glossary expansion: 300+ bilingual terms (Phase 1 target reached)
+
 - [ ] Five flagship interactive widgets shipped & tested
   1. **Link Budget Calculator** — RF domain
   2. **Antenna Pattern 3D** — RF domain (Three.js)
@@ -108,8 +166,6 @@ Multi-year roadmap for RF·CN·Space from Phase 0 (foundation) through Phase 4 (
   - Meet bundle budget (<150KB gzipped each)
   - Have accessibility (keyboard nav, aria-labels, reduced-motion)
   - Include unit tests (Vitest, >80% coverage)
-
-- [ ] Glossary expansion: ~300 terms (bilingual, comprehensive for L0–L2 content)
 
 - [ ] SEO & discoverability
   - hreflang tags auto-generated per lesson

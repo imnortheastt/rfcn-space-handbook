@@ -41,6 +41,72 @@
 
 ---
 
+## Curriculum Data-Join & Listing Architecture
+
+The listing page joins two data sources at build time and runtime:
+
+```
+curriculum.json (domain → track → unit → lesson tree)
+       ↓
+       ↓ Match by id
+       ↓
+Astro getCollection('lessons') (MDX frontmatter: slug, order, level, etc.)
+       ↓
+buildDomainListing(lang, domain) returns structured listing:
+  [
+    {
+      track: { ... },
+      units: [
+        {
+          unit: { ... },
+          lessons: [
+            { curriculum lesson, markdown metadata, order, level, estimatedReadingMinutes }
+          ]
+        }
+      ]
+    }
+  ]
+```
+
+**Flow:**
+1. User visits `/en/rf/` (or `/vi/core-network/`, etc.)
+2. Route handler calls `buildDomainListing('en', 'rf')`
+3. Function iterates curriculum.json tree for that domain
+4. For each lesson in curriculum, looks up matching MDX by `slug` field
+5. If match found: includes metadata (title, description, order, level, minutes)
+6. If no match: renders as muted unlinked "Coming soon" row
+7. Sorts rows by `order` frontmatter field
+8. Returns grouped structure: track → unit → lessons
+
+**Components:**
+- `LessonList.astro` consumes this structure, renders track headers + unit sections
+- `LessonRow.astro` renders individual lesson with level badge, reading minutes, hover-lift effect
+- Roadmap SVG (prior primary UI) now collapsed in `<details>` "visual curriculum map"
+
+---
+
+## Progress Markers & localStorage
+
+Reading progress persisted per lesson:
+
+```
+localStorage key: "rfcn:progress"
+Data structure: { "domain:slug": boolean, ... }
+Example: { "rf:decibels": true, "core-network:epc-intro": false }
+```
+
+**Flow:**
+1. `ProgressMarkers.astro` mounts on lesson page
+2. On component mount: reads localStorage["rfcn:progress"]
+3. Renders visited checkmarks for this domain:slug
+4. User clicks checkmark: toggle `visited` state + re-write localStorage
+5. On astro:after-swap (SPA-like navigation): reinit component, re-read localStorage
+
+**Script:**
+- Inline script at lesson-end writes `rfcn:progress` to localStorage on page leave (if user scrolled >50%)
+
+---
+
 ## Content Model
 
 Every lesson is an MDX file with structured YAML frontmatter:
@@ -67,7 +133,7 @@ spiralRevisits: [rf-r5-...]                # Lessons that revisit this deeper
 
 # Editorial
 title: "..."
-authors: [tindang]
+authors: [Crystal D.]
 publishedAt: 2026-06-14
 lastVerified: 2026-06-14
 
@@ -148,6 +214,8 @@ See `packages/i18n/` for implementation.
    Defers parse cost; Astro tree-shakes unused imports.
 
 7. **Accessibility:** WebGL widgets auto-pause if `prefers-reduced-motion` set.
+
+8. **Light-first theme:** All widgets render with light backgrounds, near-black text, and teal accents by default. Respects dark mode toggle via CSS variables inherited from `packages/ui/src/tokens.css`. Shiki dual-theme mapping for code blocks (var(--shiki-dark) + prefers-color-scheme).
 
 ### Widget Registry
 
@@ -319,8 +387,36 @@ pnpm test                 # Unit tests (Vitest)
 | `/data/citations.json` | Citation database | JSON | Yes — validated at build, rendered via `<Cite>` |
 | `/data/curriculum.json` | Curriculum graph (domains, tracks, units, lessons) | JSON | Yes — defines site nav, roadmap viz |
 | `/content/*/.../*.mdx` | Lesson content | MDX + YAML frontmatter | Yes — primary source |
-| `packages/ui/src/tokens.ts` | Design tokens (colors, fonts, spacing) | TS | Yes — exported to CSS vars + Tailwind config |
+| `packages/ui/src/tokens.css` | Design tokens (CSS variables, light-first + dark mode) | CSS | Yes — compiled to custom properties |
+| `packages/ui/src/base.css` | Global styles (sections, code, interactions) | CSS | Yes — ~1400 lines covering all layouts |
 | `.github/workflows/*.yml` | CI/CD tasks | YAML | Yes — GitHub Actions source of truth |
+
+---
+
+## Design System Evolution
+
+**Phase 0 baseline (v1.0.0):**
+- Teal primary (#0b5351), amber secondary (#d97706)
+- Inter body + IBM Plex Sans headings (via @fontsource)
+- OS-follow dark mode with manual override
+- Light background primary color scheme
+
+**Phase 1.2 intermediate (dev, before 2026-06-04):**
+- Dark-first theme: bg #0e1414, accent cyan #88e1e6
+- System fonts only (Inter fallback, no @fontsource)
+- Dark theme as canonical (print inverts)
+- 4px baseline grid for all spacing
+
+**Phase 1.2 final — Swiss Minimal Light-First (v1.2.0, 2026-06-04):**
+- Light-first theme PRIMARY: white bg #ffffff, near-black text #111827, hairline borders #e5e7eb
+- Dark mode TOGGLE: near-black bg #0a0a0a, de-teal-tinted (not cyan)
+- Full Tailwind teal ramp (#0f766e light → #2dd4bf dark) replaces cyan
+- Inter Variable (latin + vietnamese subsets, bundler-resolved preloads, no @fontsource)
+- NO decorative shadows — borders and strokes only
+- Lesson tier tokens as neutral grays (AA verified)
+- Shiki dual-theme mapping for code blocks (var(--shiki-dark) + prefers-color-scheme)
+- Expanded base.css (~1400 lines) covering light-first theme, responsive layouts (3-column grid ↔ mobile drawer), no-JS fallbacks
+- 4px baseline grid for all spacing (unchanged)
 
 ---
 
@@ -330,6 +426,8 @@ pnpm test                 # Unit tests (Vitest)
 |--------|-----------|---------|--------|
 | **Deploy host** | Cloudflare Pages | Vercel | Better git-integrated preview + simpler auth-free setup |
 | **Search** | Pagefind (same) | Pagefind | On-target |
+| **Color theme** | Light primary | Light-first (as of 2026-06-04) | Vercel/Linear-inspired Swiss minimalism, better accessibility, modern aesthetic |
+| **Fonts** | @fontsource imports | Inter Variable (bundler-resolved) | Faster load, fewer network requests, single variable font family, improved performance |
 
 ---
 

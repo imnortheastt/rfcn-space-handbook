@@ -6,6 +6,107 @@ All notable changes to RF·CN·Space are documented here. Format follows [Keep a
 
 ## [Unreleased]
 
+### Phase 1.2-v2: UI/UX Deep Revamp — Content Display & Information Design (COMPLETE 2026-06-05)
+
+**Session 2026-06-05: Listing page redesign + lesson page restructure + reading progress system**
+
+Build-verified, 544 pages clean. Shipping primary interface revamp with data-join curriculum system, progress markers, and refined content hierarchy.
+
+**Listing Page Redesign:**
+- New `apps/web/src/lib/curriculum.ts` exports `buildDomainListing(lang, domain)` — joins curriculum.json tree (track→unit→lesson) with `getCollection('lessons')` by matching curriculum `lesson.id` === frontmatter `slug`; sorts by frontmatter `order`
+- Lessons without published match render as muted unlinked "Coming soon" rows
+- New components: `LessonList.astro` (track sections + unit headers), `LessonRow.astro` (order #, title, level badge, reading minutes), `LevelBadge.astro` (tier-colored mono badge)
+- Roadmap SVG demoted to collapsed `<details>` "visual curriculum map"
+
+**Lesson Page Redesign:**
+- Numbered-chapter section style: muted mono `0N` chapter index + h2, hairline top dividers, no boxes/washes across Intuition/Mechanism/Pitfalls/Apply/References
+- Lesson header: title → description → meta row with LevelBadge + min read
+- 3px teal reading-progress bar (scaleX via rAF)
+- Polished LessonPager/Breadcrumbs; visited-write script stores progress to localStorage
+
+**Progress Markers System:**
+- `ProgressMarkers.astro` reads localStorage `rfcn:progress` JSON map keyed `${domain}:${slug}`
+- Toggles visited checkmarks; re-inits on astro:after-swap
+- Persists via localStorage serialization
+
+**Typography & Polish:**
+- New type scale: h1 2rem/700 … h4 1rem/600
+- Prose rhythm `> * + *` 1.75rem
+- Blockquote/table/figure/kbd/::selection/hr polish
+- Shiki dark-theme span mapping maintained
+
+**Hover-Elevation System:**
+- New `--shadow-hover` token (light+dark)
+- `.hover-lift` utility: translateY(-1px) + teal border + shadow, hover-only (resting states shadow-free)
+- Applied to cards/rows/CTAs/pager
+
+**New Primitives:**
+- `CodeBlockChrome.astro` — lang label + copy button
+- `BackToTop.astro` — scroll-to-top button
+- Custom `pages/404.astro`
+- Search page restyle
+- ⌘K command palette (`CommandPalette.astro`, Pagefind-backed)
+- ToC right rail with scroll-spy + mobile details variant
+- Header search trigger
+
+**i18n Parity:** EN+VI keys maintained across listing UI.
+
+---
+
+### Phase 1.2: UI/UX Overhaul — Swiss Minimal Light-First Redesign (COMPLETE 2026-06-04)
+
+**Session 2026-06-04: Complete visual redesign from dark-first to light-first Swiss minimal style**
+
+Comprehensive overhaul delivering light mode as default, Vercel/Linear-inspired minimalism (hairline borders, zero decorative shadows), Inter Variable typography, teal accent palette, and responsive 3-column layout for desktop with off-canvas drawer for mobile.
+
+**Design Direction:**
+- Light mode PRIMARY (was dark-first), white #ffffff bg, near-black #111827 text, hairline borders #e5e7eb
+- Dark mode TOGGLE, near-black bg #0a0a0a (de-teal-tinted)
+- NO decorative shadows — borders only
+- Typography: Inter Variable (latin + vietnamese subsets) replaces Space Grotesk + system fonts
+- Colors: Full Tailwind teal ramp #0f766e (light) → #2dd4bf (dark) replaces cyan; lesson tier tokens re-derived as neutral grays (AA verified)
+
+**Layout & Components:**
+- Desktop: 3-column grid — 240px curriculum sidebar | 68ch prose | 200px ToC rail
+- Mobile: ≤1024px — off-canvas drawer for sidebar (backdrop, Esc-to-close, focus-trap); ToC hides
+- Homepage: Hero with 2 CTAs ("Start learning" + "Browse roadmap"); DomainCards with inline stroke-SVG line icons + lesson counts
+- New: `CommandPalette.astro` (⌘K Pagefind modal, vanilla JS, focus-trapped, locale-filtered); `/search` fallback preserved
+- New: `TableOfContents.astro` (right-rail scroll-spy via IntersectionObserver, lesson meta badge)
+- Updated: `DocsLayout.astro`, `BaseLayout.astro` (3-column grid + responsive drawer); `DocsSidebar.astro` (off-canvas with focus management)
+
+**Token & Styling Updates:**
+- `packages/ui/src/tokens.css` — Teal ramp, Inter Variable bundler-resolved preloads, neutral grays
+- `apps/web/src/styles/global.css` — Cyan glows removed, inline code monochrome, Shiki dual-theme dark mapping (pre.astro-code span → var(--shiki-dark) + prefers-color-scheme twin)
+- `apps/web/src/lib/i18n.ts` — ~15 new keys (palette, toc labels, en/vi); UIKeys type relaxed to Record<keyof typeof en, string>
+- `packages/ui/src/base.css` — ~1400 lines, light-first theme, no decorative shadows, responsive typography
+
+**Accessibility:**
+- Keyboard navigation on all interactive components
+- ARIA labels on buttons, navigation, drawer toggle, ToC links
+- WCAG AA contrast verified (light on white, dark on near-black)
+- Focus visible indicators throughout
+- Reduced motion respected in all animations
+- Off-canvas drawer focus-trap prevents tabbing behind
+
+**Performance:**
+- No additional network requests (light theme via CSS)
+- Inter Variable + preloads optimized via bundler
+- Lighthouse maintained ≥90, no layout shift (CLS <0.1)
+- CommandPalette vanilla JS (no extra framework), lazy-loaded
+
+---
+
+### Author Signature Update (COMPLETE)
+
+**Session 2026-06-04: Author name standardized across 534 MDX files**
+
+All lesson MDX files across four domains (RF, Core Network, Space, Bridges) updated:
+- Author signature changed from "Crystal D." to "Crystal D." in frontmatter
+- Ensures consistent attribution across all 267 EN + 267 VI lesson pairs
+- Maintains complete bilingual parity
+
+---
+
 ### Phase 1.1+ Content Authoring (COMPLETE — RF Domain)
 
 **Session 2026-06-02: 92/92 RF lessons published (100%)**
@@ -340,6 +441,6 @@ Remaining for Phase 1:
 
 - Issues: https://github.com/rfcn-space/rfcn-space-handbook/issues
 - Discussions: (TBD: GitHub Discussions or community forum)
-- Email: tindang.ht97@gmail.com
+- Email: duongdong2203@gmail.com
 
 See `docs/PLATFORM_BLUEPRINT.md` for full product vision and multi-year strategy.

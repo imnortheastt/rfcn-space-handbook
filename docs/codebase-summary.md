@@ -139,10 +139,33 @@
 - **Validation:** `packages/citations/src/validate.ts` runs at build time to ensure cited keys exist
 
 ### Design Tokens
-- **File:** `packages/ui/src/tokens.ts` — color palette, typography (Inter + IBM Plex Sans), spacing, breakpoints
-- **Usage:** Exported as CSS custom properties and/or Tailwind config
-- **Dark mode:** OS-follow by default + manual override via CSP-compliant script
-- **Print:** Separate stylesheet handles print-friendly styles (no dark bg, readable fonts)
+- **File:** `packages/ui/src/tokens.ts` and `packages/ui/src/tokens.css` — color palette, typography, spacing, breakpoints
+- **Palette:** Light-first theme (PRIMARY) with bg #ffffff, near-black text #111827, hairline borders #e5e7eb; dark mode toggle with bg #0a0a0a; full Tailwind teal ramp (#0f766e light → #2dd4bf dark); lesson tier tokens as neutral grays (AA verified)
+- **Typography:** Inter Variable (latin + vietnamese subsets, bundler-resolved preloads); no system font fallbacks; monospace for code blocks
+- **Grid:** 4px baseline for spacing and alignment (margin, padding, gaps)
+- **Usage:** CSS custom properties (--color-bg, --color-text, --color-border, --color-teal-*) + Tailwind Arbitrary Values
+- **Light mode:** Default (not dark-first); respects prefers-color-scheme but light is primary
+- **Dark mode:** Toggle option with de-teal-tinted near-black bg; Shiki dual-theme mapping for code (var(--shiki-dark) + prefers-color-scheme)
+- **Visual style:** NO decorative shadows; borders only; hairline strokes (#e5e7eb light, #374151 dark)
+- **Print:** Light bg, dark text, no dark mode in print media
+
+### Layout Components
+- **Directory:** `apps/web/src/components/` (Astro components, not React)
+- **Header.astro** — Sticky header with hairline border, contains NavLink navigation
+- **NavLink.astro** — Navigation link with active state (used in header, footer)
+- **Hero.astro** — Homepage hero section with 2 CTAs ("Start learning" primary, "Browse roadmap" secondary)
+- **DomainCard.astro** — Domain landing card with inline stroke-SVG line icons, lesson/unit counts from curriculum.json
+- **FeatureHighlight.astro** — Feature showcase with icon, title, description, link
+- **Footer.astro** — Site footer with nav, social links, license attribution
+- **HamburgerMenu.astro** — Mobile menu toggle with off-canvas drawer (backdrop, Esc-to-close, focus-trapped)
+- **CommandPalette.astro** — ⌘K Pagefind-backed search modal (vanilla JS, focus-trapped, grouped by domain, locale-filtered); `/search` fallback (no-JS)
+- **TableOfContents.astro** — Right-rail "On this page" with IntersectionObserver scroll-spy, lesson meta badge; hides ≤1024px
+- **LessonList.astro** — Track sections with unit headers, powered by curriculum data-join
+- **LessonRow.astro** — Lesson row: order #, title, level badge, reading minutes; hover-lift styling
+- **LevelBadge.astro** — Tier-colored mono badge (L0–L5)
+- **ProgressMarkers.astro** — Visited checkmarks; reads/writes localStorage `rfcn:progress`
+- **CodeBlockChrome.astro** — Code block wrapper with lang label + copy button
+- **BackToTop.astro** — Scroll-to-top button (smooth scroll)
 
 ### Widget System
 - **Directory:** `packages/widgets/src/components/`
@@ -167,6 +190,13 @@
   - `deploy.yml` — on merge to main: Vercel deploy (preview + production)
   - `nightly-link-check.yml` — Lychee link checker for broken internal/external links
 - **Vercel config:** `vercel.json` — override build command, set environment variables
+
+### Curriculum Data-Join Library
+- **File:** `apps/web/src/lib/curriculum.ts`
+- **Export:** `buildDomainListing(lang: string, domain: string)` — joins curriculum.json tree (domain→track→unit→lesson) with Astro `getCollection('lessons')` by matching curriculum `lesson.id` === frontmatter `slug`
+- **Sorting:** By frontmatter `order` field
+- **Missing lessons:** Renders as muted unlinked "Coming soon" rows
+- **Used by:** `[lang]/[domain]/index.astro` (listing page) + LessonList component
 
 ### i18n System
 - **Utils:** `packages/i18n/src/`
