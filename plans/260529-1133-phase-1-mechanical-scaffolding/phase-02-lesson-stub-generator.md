@@ -53,19 +53,19 @@ Script that reads `data/curriculum.json` and produces ~2,000 MDX stub files (one
 5. Run validators — expect ~1,000 parityIds matched + ~2,000 files passing frontmatter.
 
 ## Todo List
-- [ ] status field added to schema (both places)
-- [ ] decibels pilot marked published
-- [ ] Astro route filters by status
-- [ ] generator scaffolded + implemented
-- [ ] gen:stubs script in root package.json
-- [ ] Generator produces ~2,000 files
-- [ ] Validators pass at scale
+- [x] status field added to schema (both places)
+- [x] decibels pilot marked published
+- [x] Astro route filters by status
+- [x] generator scaffolded + implemented
+- [x] gen:stubs script in root package.json
+- [x] Generator produces ~2,000 files
+- [x] Validators pass at scale
 
 ## Success Criteria
-- [ ] `pnpm validate:parity` reports ~1,000 parityIds matched
-- [ ] `pnpm validate:frontmatter` reports ~2,000 files passed
-- [ ] `pnpm --filter web build` exits 0 — only published lessons generate HTML
-- [ ] decibels lesson still renders at /en/ and /vi/
+- [x] `pnpm validate:parity` reports ~1,000 parityIds matched
+- [x] `pnpm validate:frontmatter` reports ~2,000 files passed
+- [x] `pnpm --filter web build` exits 0 — only published lessons generate HTML
+- [x] decibels lesson still renders at /en/ and /vi/
 
 ## Risk Assessment
 - **Build time blowup** (medium): 2,000 stubs * MDX compile = potentially slow. Mitigation: drafts excluded from getStaticPaths → no HTML generated → build time unaffected. Verify.

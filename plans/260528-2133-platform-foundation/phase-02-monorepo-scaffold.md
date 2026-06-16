@@ -75,21 +75,21 @@ pnpm workspaces + Turborepo + root TypeScript/ESLint/Prettier configs. Empty wor
 10. Run `pnpm install` to materialize lockfile + `node_modules`. Expect zero deps until per-package package.json files exist; just installs pnpm machinery.
 
 ## Todo List
-- [ ] pnpm-workspace.yaml
-- [ ] root package.json
-- [ ] turbo.json
-- [ ] tsconfig.base.json
-- [ ] .eslintrc.cjs + plugins listed in devDependencies of root package.json
-- [ ] .prettierrc + .prettierignore + prettier-plugin-astro
-- [ ] .editorconfig
-- [ ] empty workspace dirs + .gitkeep
-- [ ] `pnpm install` succeeds
+- [x] pnpm-workspace.yaml
+- [x] root package.json
+- [x] turbo.json
+- [x] tsconfig.base.json
+- [x] .eslintrc.cjs + plugins listed in devDependencies of root package.json
+- [x] .prettierrc + .prettierignore + prettier-plugin-astro
+- [x] .editorconfig
+- [x] empty workspace dirs + .gitkeep
+- [x] `pnpm install` succeeds
 
 ## Success Criteria
-- [ ] `pnpm install` exits 0
-- [ ] `pnpm -r build` exits 0 (no workspaces yet → no-op, expected)
-- [ ] `pnpm lint` exits 0 (no files yet → no-op)
-- [ ] Turbo cache dir `.turbo/` is gitignored
+- [x] `pnpm install` exits 0
+- [x] `pnpm -r build` exits 0 (no workspaces yet → no-op, expected)
+- [x] `pnpm lint` exits 0 (no files yet → no-op)
+- [x] Turbo cache dir `.turbo/` is gitignored
 
 ## Risk Assessment
 - **pnpm version mismatch** (low): pin `packageManager` field; Corepack handles per-repo version.

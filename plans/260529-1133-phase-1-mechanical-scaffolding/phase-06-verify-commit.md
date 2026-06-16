@@ -57,18 +57,18 @@ None new; modifies plan status files via `ck plan check`.
 5. **Update docs/project-changelog.md** — new unreleased entry summarizing the 5 commits.
 
 ## Todo List
-- [ ] Full validator + test + build sweep
-- [ ] Build time < 90s confirmed
-- [ ] 5 atomic commits staged
-- [ ] Stop at push gate
-- [ ] Roadmap + changelog updated
+- [x] Full validator + test + build sweep
+- [x] Build time < 90s confirmed
+- [x] 5 atomic commits staged
+- [x] Stop at push gate
+- [x] Roadmap + changelog updated
 
 ## Success Criteria
-- [ ] All validators green
-- [ ] All tests green
-- [ ] Build < 90s
-- [ ] 5 commits on local main, no push without user confirmation
-- [ ] docs/ reflects new state
+- [x] All validators green
+- [x] All tests green
+- [x] Build < 90s
+- [x] 5 commits on local main, no push without user confirmation
+- [x] docs/ reflects new state
 
 ## Risk Assessment
 - **Build time blowup** (medium): 2,000 MDX stubs even excluded from getStaticPaths still get parsed by content collection loader. Mitigation: if > 90s, add `draft: true` filter at the loader level (Astro 5 content layer supports it), not just the route level. If still slow, investigate Astro's per-entry caching.

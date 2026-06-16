@@ -93,18 +93,18 @@ Root `package.json` exposes top-level scripts: `pnpm validate:parity`, `pnpm val
    - diagrams: should print "no diagrams" and exit 0
 
 ## Todo List
-- [ ] tools/i18n-parity-check scaffold + implementation
-- [ ] tools/frontmatter-validator scaffold + implementation
-- [ ] tools/diagram-build scaffold + implementation
-- [ ] Root package.json scripts wired
-- [ ] All three smoke-pass against Phase 5 content
-- [ ] Negative test: temporarily delete `content/vi/.../decibels.mdx` → parity-check exits 1 with clear error → restore file
+- [x] tools/i18n-parity-check scaffold + implementation
+- [x] tools/frontmatter-validator scaffold + implementation
+- [x] tools/diagram-build scaffold + implementation
+- [x] Root package.json scripts wired
+- [x] All three smoke-pass against Phase 5 content
+- [x] Negative test: temporarily delete `content/vi/.../decibels.mdx` → parity-check exits 1 with clear error → restore file
 
 ## Success Criteria
-- [ ] `pnpm validate` exits 0 with current content
-- [ ] `pnpm validate:parity` correctly detects asymmetry when an EN lesson lacks VI sibling (negative-test confirmed)
-- [ ] `pnpm validate:frontmatter` correctly rejects an MDX with missing required field
-- [ ] Tools usable independently of CI (a contributor runs them locally pre-PR)
+- [x] `pnpm validate` exits 0 with current content
+- [x] `pnpm validate:parity` correctly detects asymmetry when an EN lesson lacks VI sibling (negative-test confirmed)
+- [x] `pnpm validate:frontmatter` correctly rejects an MDX with missing required field
+- [x] Tools usable independently of CI (a contributor runs them locally pre-PR)
 
 ## Risk Assessment
 - **Cross-package import of Zod schema** (medium): `tools/frontmatter-validator` importing from `apps/web/src/content/config.ts` couples tool to app. Mitigation: extract schema to `packages/content-schema` if it becomes a problem; defer until then (YAGNI).

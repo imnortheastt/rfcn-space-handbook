@@ -56,17 +56,17 @@ Expand the two data files to a useful baseline: ~50 bilingual glossary terms dra
 4. Validate: `pnpm validate:frontmatter` still green (it doesn't check data/*.json but make sure build still parses citations.json without Zod errors). Run a quick `node -e "const c=require('./data/citations.json'); const {citationsSchema}=require('@rfcn-space-handbook/citations'); citationsSchema.parse(c);"` to validate citation schema.
 
 ## Todo List
-- [ ] Glossary: +45 terms across 3 domains
-- [ ] Citations: +17 entries
-- [ ] glossary-review.json sidecar
-- [ ] Citations validate via Zod
-- [ ] Build still exits 0 (glossary auto-link runs against new terms)
+- [x] Glossary: +45 terms across 3 domains
+- [x] Citations: +17 entries
+- [x] glossary-review.json sidecar
+- [x] Citations validate via Zod
+- [x] Build still exits 0 (glossary auto-link runs against new terms)
 
 ## Success Criteria
-- [ ] data/glossary.json has ~50 entries
-- [ ] data/citations.json has ~20 entries, all valid against schema
-- [ ] data/glossary-review.json lists every entry needing VI review
-- [ ] No build regressions
+- [x] data/glossary.json has ~50 entries
+- [x] data/citations.json has ~20 entries, all valid against schema
+- [x] data/glossary-review.json lists every entry needing VI review
+- [x] No build regressions
 
 ## Risk Assessment
 - **Wrong citation metadata** (medium): I may misremember a 3GPP release number or ISBN. Mitigation: every citation has `verifiedAt` = "needs-verification"; mark a sidecar `data/citations-review.json` for human verification before any lesson cites them in published prose.

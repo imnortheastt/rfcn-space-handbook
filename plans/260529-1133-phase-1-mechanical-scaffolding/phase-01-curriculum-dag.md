@@ -70,19 +70,19 @@ Populate `data/curriculum.json` with the complete track/unit/lesson DAG from blu
 4. Validate: load curriculum.json, run through Zod, count entries. Expect roughly 290 RF lessons, 285 CN lessons, 290 Space lessons (per blueprint §5 estimates).
 
 ## Todo List
-- [ ] packages/curriculum-schema scaffold
-- [ ] Full RF DAG (11 tracks, ~290 lessons)
-- [ ] Full CN DAG (11 tracks, ~285 lessons)
-- [ ] Full Space DAG (12 tracks, ~290 lessons)
-- [ ] 3 bridges
-- [ ] Schema validation passes
+- [x] packages/curriculum-schema scaffold
+- [x] Full RF DAG (11 tracks, ~290 lessons)
+- [x] Full CN DAG (11 tracks, ~285 lessons)
+- [x] Full Space DAG (12 tracks, ~290 lessons)
+- [x] 3 bridges
+- [x] Schema validation passes
 
 ## Success Criteria
-- [ ] data/curriculum.json validates against schema
-- [ ] Total lesson count between 800 and 1,200 (blueprint says ~1,000)
-- [ ] Every lesson has EN + VI title
-- [ ] No duplicate IDs anywhere
-- [ ] Bridges reference real domain IDs
+- [x] data/curriculum.json validates against schema
+- [x] Total lesson count between 800 and 1,200 (blueprint says ~1,000)
+- [x] Every lesson has EN + VI title
+- [x] No duplicate IDs anywhere
+- [x] Bridges reference real domain IDs
 
 ## Risk Assessment
 - **VI titles wrong** (medium): I'm not a native Vietnamese RF engineer. Mitigation: lock the schema and IDs; flag every VI title with `vi_review_needed: true` in a sidecar file `data/curriculum-review.json` for human pass.

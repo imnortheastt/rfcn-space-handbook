@@ -84,19 +84,19 @@ Each package: `package.json` (name, version 0.0.0, type module, main `./src/inde
 8. Run `pnpm -r build`, expect all packages compile (TS check only, no actual bundling — Astro/Vite consumes sources directly).
 
 ## Todo List
-- [ ] packages/widgets scaffold + PolarPlot + test
-- [ ] packages/ui scaffold + tokens.css placeholder
-- [ ] packages/glossary scaffold + remark plugin + GlossaryTerm component + test
-- [ ] packages/citations scaffold + Cite component + bibliography collector + schema + test
-- [ ] packages/i18n scaffold + helpers + test
-- [ ] apps/web depends on all 5 via workspace:*
-- [ ] vitest configured + all tests pass
+- [x] packages/widgets scaffold + PolarPlot + test
+- [x] packages/ui scaffold + tokens.css placeholder
+- [x] packages/glossary scaffold + remark plugin + GlossaryTerm component + test
+- [x] packages/citations scaffold + Cite component + bibliography collector + schema + test
+- [x] packages/i18n scaffold + helpers + test
+- [x] apps/web depends on all 5 via workspace:*
+- [x] vitest configured + all tests pass
 
 ## Success Criteria
-- [ ] `pnpm -r build` exits 0
-- [ ] `pnpm test` runs and passes all package tests
-- [ ] Imports `import { PolarPlot } from '@rfcn-space-handbook/widgets'` resolve in apps/web
-- [ ] PolarPlot renders in dev when mounted in a test MDX file with sample data
+- [x] `pnpm -r build` exits 0
+- [x] `pnpm test` runs and passes all package tests
+- [x] Imports `import { PolarPlot } from '@rfcn-space-handbook/widgets'` resolve in apps/web
+- [x] PolarPlot renders in dev when mounted in a test MDX file with sample data
 
 ## Risk Assessment
 - **D3 SSR-safe import** (low): D3 has no DOM access at import time; safe to ship.

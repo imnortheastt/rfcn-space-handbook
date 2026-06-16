@@ -87,21 +87,21 @@ data/
    - Lang switcher in header jumps between the pair
 
 ## Todo List
-- [ ] data/glossary.json (5 terms)
-- [ ] data/citations.json (3 entries)
-- [ ] data/curriculum.json (skeleton)
-- [ ] content/en/rf/r0-foundations/_track.json + _unit.json
-- [ ] content/en/rf/r0-foundations/01-decibels.mdx
-- [ ] content/vi/rf/r0-foundations/_track.json + _unit.json
-- [ ] content/vi/rf/r0-foundations/01-decibels.mdx
-- [ ] Manual smoke both routes
+- [x] data/glossary.json (5 terms)
+- [x] data/citations.json (3 entries)
+- [x] data/curriculum.json (skeleton)
+- [x] content/en/rf/r0-foundations/_track.json + _unit.json
+- [x] content/en/rf/r0-foundations/01-decibels.mdx
+- [x] content/vi/rf/r0-foundations/_track.json + _unit.json
+- [x] content/vi/rf/r0-foundations/01-decibels.mdx
+- [x] Manual smoke both routes
 
 ## Success Criteria
-- [ ] `/en/rf/r0-foundations/decibels` renders fully (KaTeX, widget, glossary, citation)
-- [ ] `/vi/rf/r0-foundations/decibels` renders fully (Vietnamese diacritics correct, MDX components shared)
-- [ ] Lang switcher round-trips: `/en/.../decibels` ↔ `/vi/.../decibels`
-- [ ] Frontmatter schema validation passes
-- [ ] Built page transferred size budget respected (check Vercel preview or `astro build && du -sh dist/.../decibels.html`)
+- [x] `/en/rf/r0-foundations/decibels` renders fully (KaTeX, widget, glossary, citation)
+- [x] `/vi/rf/r0-foundations/decibels` renders fully (Vietnamese diacritics correct, MDX components shared)
+- [x] Lang switcher round-trips: `/en/.../decibels` ↔ `/vi/.../decibels`
+- [x] Frontmatter schema validation passes
+- [x] Built page transferred size budget respected (check Vercel preview or `astro build && du -sh dist/.../decibels.html`)
 
 ## Risk Assessment
 - **Vietnamese diacritic encoding** (low): all files UTF-8 (enforced by `.editorconfig`); double-check on Windows if any contributor uses it (CRLF / BOM).

@@ -126,22 +126,22 @@ lighthouserc.json                   # LHCI config
 8. Verify by opening a draft PR with all changes, watching CI run end-to-end green.
 
 ## Todo List
-- [ ] ci.yml with all checks
-- [ ] nightly-link-check.yml
-- [ ] dependabot.yml
-- [ ] vercel.json with headers, redirects, build command
-- [ ] .size-limit.json on widgets + size-limit script in root package.json
-- [ ] lighthouserc.json
-- [ ] README Vercel one-time setup section
-- [ ] Draft PR with everything → CI green
+- [x] ci.yml with all checks
+- [x] nightly-link-check.yml
+- [x] dependabot.yml
+- [x] vercel.json with headers, redirects, build command
+- [x] .size-limit.json on widgets + size-limit script in root package.json
+- [x] lighthouserc.json
+- [x] README Vercel one-time setup section
+- [x] Draft PR with everything → CI green
 
 ## Success Criteria
-- [ ] CI workflow runs and passes on a draft PR within < 5 min
-- [ ] LHCI mobile perf ≥85 on both sampled pages
-- [ ] Bundle size assertion green (PolarPlot ≤30KB, all chunks ≤150KB)
-- [ ] No broken links in lychee scan
-- [ ] Vercel preview URL appears in PR (post-`vercel link` user step)
-- [ ] CSP headers present in preview deployment response
+- [x] CI workflow runs and passes on a draft PR within < 5 min
+- [x] LHCI mobile perf ≥85 on both sampled pages
+- [x] Bundle size assertion green (PolarPlot ≤30KB, all chunks ≤150KB)
+- [x] No broken links in lychee scan
+- [x] Vercel preview URL appears in PR (post-`vercel link` user step)
+- [x] CSP headers present in preview deployment response
 
 ## Risk Assessment
 - **Playwright in CI** (medium): `rehype-mermaid` needs Playwright Chromium; install adds ~250MB + 30s. Mitigation: cache `~/.cache/ms-playwright`; if too slow, swap to `mmdc` external build step.

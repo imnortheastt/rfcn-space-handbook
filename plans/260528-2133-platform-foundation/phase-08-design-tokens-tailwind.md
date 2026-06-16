@@ -128,24 +128,24 @@ apps/web/
 7. Smoke: dev server `/en/rf/r0-foundations/decibels` looks polished. Toggle OS dark mode → site flips. Force `prefers-reduced-motion` in DevTools → PolarPlot static. Print preview → clean prose, widgets hidden.
 
 ## Todo List
-- [ ] tokens.css with @theme + colors + fonts + dark mode
-- [ ] base.css with resets + focus rings + reduced-motion override
-- [ ] print.css
-- [ ] global.css imports everything
-- [ ] @fontsource packages installed
-- [ ] BaseLayout loads global.css + dark-mode toggle script
-- [ ] LessonLayout + section components styled
-- [ ] LangSwitcher styled
-- [ ] Smoke: dark mode, reduced-motion, print preview, Vietnamese diacritics render correctly
+- [x] tokens.css with @theme + colors + fonts + dark mode
+- [x] base.css with resets + focus rings + reduced-motion override
+- [x] print.css
+- [x] global.css imports everything
+- [x] @fontsource packages installed
+- [x] BaseLayout loads global.css + dark-mode toggle script
+- [x] LessonLayout + section components styled
+- [x] LangSwitcher styled
+- [x] Smoke: dark mode, reduced-motion, print preview, Vietnamese diacritics render correctly
 
 ## Success Criteria
-- [ ] Pilot lesson renders with polished typography (Inter body, IBM Plex Mono for code, KaTeX math sized correctly)
-- [ ] Vietnamese page shows correct diacritics in IBM Plex Sans Vietnamese
-- [ ] Dark mode follows OS pref, no FOUC
-- [ ] `prefers-reduced-motion: reduce` disables widget animation
-- [ ] Print preview shows clean prose, widgets/nav hidden, links footnoted
-- [ ] CLS < 0.1 (verified by LHCI in Phase 7)
-- [ ] WCAG AA contrast on body text + accent on bg + muted on bg (verify with axe)
+- [x] Pilot lesson renders with polished typography (Inter body, IBM Plex Mono for code, KaTeX math sized correctly)
+- [x] Vietnamese page shows correct diacritics in IBM Plex Sans Vietnamese
+- [x] Dark mode follows OS pref, no FOUC
+- [x] `prefers-reduced-motion: reduce` disables widget animation
+- [x] Print preview shows clean prose, widgets/nav hidden, links footnoted
+- [x] CLS < 0.1 (verified by LHCI in Phase 7)
+- [x] WCAG AA contrast on body text + accent on bg + muted on bg (verify with axe)
 
 ## Risk Assessment
 - **Font payload size** (medium): Inter + IBM Plex Sans VN + Plex Mono ≈ 300-400KB even subsetted. Mitigation: only load weights 400 + 600 + 700; `font-display: swap`; defer mono variants to lessons with code blocks via per-page `<link rel="preload">`.

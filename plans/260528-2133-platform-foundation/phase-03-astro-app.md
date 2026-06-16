@@ -129,29 +129,29 @@ apps/web/
 18. Run `pnpm --filter @rfcn-space-handbook/web install` then `pnpm --filter @rfcn-space-handbook/web dev`. Manual smoke: `/` → `/en/` works, `/en/` renders placeholder.
 
 ## Todo List
-- [ ] apps/web/package.json with all deps
-- [ ] astro.config.mjs with i18n, integrations, Vercel adapter
-- [ ] tsconfig.json
-- [ ] src/content/config.ts (Zod schema)
-- [ ] BaseLayout + LessonLayout
-- [ ] 7 lesson-section components
-- [ ] LangSwitcher, Breadcrumbs, SearchBox
-- [ ] index.astro redirect
-- [ ] [lang]/index.astro
-- [ ] [lang]/[domain]/[...slug].astro
-- [ ] search.astro
-- [ ] lib/i18n.ts + lib/content-paths.ts
-- [ ] public/robots.txt + llms.txt + llms-full.txt
-- [ ] styles/global.css
-- [ ] dev server smokes / → /en/
+- [x] apps/web/package.json with all deps
+- [x] astro.config.mjs with i18n, integrations, Vercel adapter
+- [x] tsconfig.json
+- [x] src/content/config.ts (Zod schema)
+- [x] BaseLayout + LessonLayout
+- [x] 7 lesson-section components
+- [x] LangSwitcher, Breadcrumbs, SearchBox
+- [x] index.astro redirect
+- [x] [lang]/index.astro
+- [x] [lang]/[domain]/[...slug].astro
+- [x] search.astro
+- [x] lib/i18n.ts + lib/content-paths.ts
+- [x] public/robots.txt + llms.txt + llms-full.txt
+- [x] styles/global.css
+- [x] dev server smokes / → /en/
 
 ## Success Criteria
-- [ ] `pnpm --filter @rfcn-space-handbook/web dev` boots without errors
-- [ ] `/` redirects to `/en/`
-- [ ] `/en/` and `/vi/` render placeholder homepages
-- [ ] `/en/rf/r0-foundations/anything` returns 404 (no content yet) — *expected*
-- [ ] `pnpm --filter @rfcn-space-handbook/web build` succeeds, `dist/` exists, Pagefind index in `dist/pagefind/` (empty but present)
-- [ ] No console warnings about KaTeX or mermaid
+- [x] `pnpm --filter @rfcn-space-handbook/web dev` boots without errors
+- [x] `/` redirects to `/en/`
+- [x] `/en/` and `/vi/` render placeholder homepages
+- [x] `/en/rf/r0-foundations/anything` returns 404 (no content yet) — *expected*
+- [x] `pnpm --filter @rfcn-space-handbook/web build` succeeds, `dist/` exists, Pagefind index in `dist/pagefind/` (empty but present)
+- [x] No console warnings about KaTeX or mermaid
 
 ## Risk Assessment
 - **rehype-mermaid + Playwright in CI** (medium): Playwright install adds ~250MB. Mitigation: dedicated CI job with `npx playwright install chromium --with-deps` cached. Or fall back to `@mermaid-js/mermaid-cli` step.

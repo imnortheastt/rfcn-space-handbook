@@ -92,22 +92,22 @@ packages/widgets/src/
 8. Update `packages/widgets/.size-limit.json` to add the new widgets with appropriate budgets.
 
 ## Todo List
-- [ ] LinkBudget component + test
-- [ ] ModulationVisualizer component + test
-- [ ] FiveGCallFlow component + test
-- [ ] OrbitVisualizer component + test (dynamic three import)
-- [ ] Three.js added as dep
-- [ ] barrel updated with @experimental jsdoc tags
-- [ ] size-limit budgets updated
-- [ ] All tests green
+- [x] LinkBudget component + test
+- [x] ModulationVisualizer component + test
+- [x] FiveGCallFlow component + test
+- [x] OrbitVisualizer component + test (dynamic three import)
+- [x] Three.js added as dep
+- [x] barrel updated with @experimental jsdoc tags
+- [x] size-limit budgets updated
+- [x] All tests green
 
 ## Success Criteria
-- [ ] All 4 widgets render in vitest smoke tests
-- [ ] OrbitVisualizer chunk ≤150KB gz (will be close — Three.js ~120KB)
-- [ ] Others ≤50KB gz each
-- [ ] No `client:load` anywhere
-- [ ] Reduced-motion respected globally
-- [ ] `pnpm --filter web build` exits 0
+- [x] All 4 widgets render in vitest smoke tests
+- [x] OrbitVisualizer chunk ≤150KB gz (will be close — Three.js ~120KB)
+- [x] Others ≤50KB gz each
+- [x] No `client:load` anywhere
+- [x] Reduced-motion respected globally
+- [x] `pnpm --filter web build` exits 0
 
 ## Risk Assessment
 - **Bundle budget on OrbitVisualizer** (high): Three.js minified gzipped is ~130KB. Mitigation: import only modules used (`three/src/Three.Core` instead of full `three`); accept the budget reality and document it as the floor for any Three.js widget.

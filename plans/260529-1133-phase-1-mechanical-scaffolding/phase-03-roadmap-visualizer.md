@@ -45,19 +45,19 @@ Per-domain SVG roadmap showing tracks → units → lessons as a DAG. Renders at
 4. Verify in dev: `/en/rf/`, `/en/core-network/`, `/en/space/` + VI mirrors all render readable SVG roadmaps.
 
 ## Todo List
-- [ ] roadmap-layout.ts (pure layout fn)
-- [ ] RoadmapSvg.astro
-- [ ] [lang]/[domain]/index.astro
-- [ ] Homepage links to 3 domain roadmaps
-- [ ] Mobile responsive check
-- [ ] No JS shipped on roadmap pages
+- [x] roadmap-layout.ts (pure layout fn)
+- [x] RoadmapSvg.astro
+- [x] [lang]/[domain]/index.astro
+- [x] Homepage links to 3 domain roadmaps
+- [x] Mobile responsive check
+- [x] No JS shipped on roadmap pages
 
 ## Success Criteria
-- [ ] All 6 routes (`/{en,vi}/{rf,core-network,space}/`) render valid SVG
-- [ ] Published vs draft lessons visually distinct
-- [ ] Published lesson clicks navigate correctly
-- [ ] SVG file size < 100KB per page
-- [ ] Zero client-side JS on these routes
+- [x] All 6 routes (`/{en,vi}/{rf,core-network,space}/`) render valid SVG
+- [x] Published vs draft lessons visually distinct
+- [x] Published lesson clicks navigate correctly
+- [x] SVG file size < 100KB per page
+- [x] Zero client-side JS on these routes
 
 ## Risk Assessment
 - **Layout ugly with 290+ lessons per domain** (medium): a brute grid will be unreadable. Mitigation: collapse to track-level + units; lessons render as small dots that expand on hover via CSS only. Drill-in to a per-track page later if needed (out of scope).
