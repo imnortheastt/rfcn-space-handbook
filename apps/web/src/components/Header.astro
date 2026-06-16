@@ -1,0 +1,170 @@
+---
+/**
+ * Header — global sticky header with brand, domain navigation, and lang toggle.
+ *
+ * LangSwitcher requires a per-lesson parityId and cannot be used here directly.
+ * Instead we render a simple root-level lang toggle (en ↔ vi) that sends the
+ * user to the opposite locale's home page. Full in-page parity switching
+ * remains available inside lesson layouts via the existing LangSwitcher.
+ *
+ * HamburgerMenu handles mobile nav (< 768px) — domain-nav is hidden via CSS.
+ * CommandPalette provides ⌘K search — trigger button in header-actions.
+ */
+import NavLink from './NavLink.astro';
+import HamburgerMenu from './HamburgerMenu.astro';
+import ThemeToggle from './ThemeToggle.astro';
+import CommandPalette from './CommandPalette.astro';
+import { t } from '../lib/i18n';
+
+interface Props {
+  lang: 'en' | 'vi';
+}
+
+const { lang } = Astro.props;
+const oppositeLang = lang === 'en' ? 'vi' : 'en';
+const oppositeLangLabel = lang === 'en' ? 'VI' : 'EN';
+const oppositeLangHref = `/${oppositeLang}/`;
+---
+
+<a href="#main" class="skip-link">Skip to content</a>
+
+<header class="site-header">
+  <div class="header-inner">
+    <!-- Brand -->
+    <a href={`/${lang}/`} class="site-brand" aria-label="RFCN Space home">
+      <span class="site-title">RFCN Space</span>
+    </a>
+
+    <!-- Domain navigation (hidden on mobile — HamburgerMenu handles mobile nav) -->
+    <nav class="domain-nav" aria-label="Domain navigation">
+      <NavLink href={`/${lang}/rf/`} label="RF" />
+      <NavLink href={`/${lang}/core-network/`} label="Core Network" />
+      <NavLink href={`/${lang}/space/`} label="Space" />
+    </nav>
+
+    <!-- Header actions: search + theme toggle + lang toggle (desktop) + hamburger (mobile) -->
+    <div class="header-actions">
+      <!-- Search trigger: magnifier + ⌘K hint on desktop, icon-only on mobile -->
+      <button
+        class="header-search-btn"
+        id="cp-trigger"
+        type="button"
+        aria-label={t(lang, 'searchOpenLabel')}
+        aria-haspopup="dialog"
+      >
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.5"/>
+          <line x1="13" y1="13" x2="18" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+        <span class="header-search-label">{t(lang, 'searchOpenLabel')}</span>
+        <kbd class="header-search-kbd" aria-hidden="true">⌘K</kbd>
+      </button>
+
+      <ThemeToggle />
+
+      <a
+        href={oppositeLangHref}
+        class="header-lang-toggle"
+        hreflang={oppositeLang}
+        aria-label={`Switch to ${oppositeLang === 'vi' ? 'Vietnamese' : 'English'}`}
+      >
+        {oppositeLangLabel}
+      </a>
+
+      <!-- Hamburger + drawer rendered here; button visible only at ≤768px via CSS -->
+      <HamburgerMenu
+        lang={lang}
+        oppositeLang={oppositeLang}
+        oppositeLangLabel={oppositeLangLabel}
+        oppositeLangHref={oppositeLangHref}
+      />
+    </div>
+  </div>
+</header>
+
+<!-- Command palette modal (mounted here; renders hidden until triggered) -->
+<CommandPalette lang={lang} />
+
+<script>
+  function initSearchTrigger() {
+    const btn = document.getElementById('cp-trigger');
+    if (!btn) return;
+    if (btn.dataset.bound === '1') return;
+    btn.dataset.bound = '1';
+
+    btn.addEventListener('click', () => {
+      // Palette exposes its opener globally; typed via cast since the
+      // declaration lives in CommandPalette's separate script scope.
+      const cpOpen = (window as unknown as { __cpOpen?: (trigger: HTMLElement) => void }).__cpOpen;
+      if (typeof cpOpen === 'function') cpOpen(btn);
+    });
+  }
+
+  initSearchTrigger();
+  document.addEventListener('astro:after-swap', () => {
+    const btn = document.getElementById('cp-trigger');
+    if (btn) delete btn.dataset.bound;
+    initSearchTrigger();
+  });
+</script>
+
+<style>
+  /* ── Site header — white bg, hairline bottom border ──────────────────── */
+  .site-header {
+    background: var(--color-bg);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  /* ── Search trigger button ───────────────────────────────────────────── */
+  .header-search-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-1) var(--space-3);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 6px;
+    color: var(--color-muted);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    transition: border-color 0.15s ease, color 0.15s ease;
+  }
+
+  .header-search-btn:hover {
+    border-color: var(--color-accent-link);
+    color: var(--color-fg);
+    background: var(--color-surface-elevated);
+  }
+
+  .header-search-btn:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  .header-search-label {
+    /* Hide text on small screens; icon alone is sufficient */
+  }
+
+  .header-search-kbd {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 0 4px;
+    line-height: 1.6;
+  }
+
+  /* Mobile: hide text label and kbd hint — icon only */
+  @media (max-width: 768px) {
+    .header-search-label,
+    .header-search-kbd {
+      display: none;
+    }
+
+    .header-search-btn {
+      padding: var(--space-1) var(--space-2);
+    }
+  }
+</style>

@@ -28,9 +28,33 @@ const en = {
   breadcrumbHome: 'Home',
   foundErrorLabel: 'Found an error? Open an issue on GitHub',
   standardsBaselinePrefix: 'Standards baseline:',
+  tocLabel: 'On this page',
+  prevLesson: 'Previous',
+  nextLesson: 'Next',
+  // Command palette
+  searchOpenLabel: 'Search',
+  searchModalPlaceholder: 'Search lessons…',
+  searchNoResults: 'No results for',
+  searchDevFallback: 'Search is available in the production build',
+  searchHintNavigate: '↑↓ navigate',
+  searchHintOpen: '↵ open',
+  searchHintClose: 'esc close',
+  domainRf: 'RF',
+  domainCoreNetwork: 'Core Network',
+  domainSpace: 'Space',
+  groupPages: 'Pages',
+  unitLabel: 'Unit',
+  lessonsCount: 'lessons',
+  comingSoon: 'Coming soon',
+  visualMapToggle: 'View visual curriculum map',
+  minRead: 'min read',
+  visitedLabel: 'Visited',
 } as const;
 
-type UIKeys = typeof en;
+// Record<…, string> keeps the key-parity guarantee without `as const`
+// narrowing values to English string literals (which would force VI values
+// to equal the English text — a ts(2322) on every translated string).
+type UIKeys = Record<keyof typeof en, string>;
 
 export const ui = {
   en,
@@ -46,6 +70,27 @@ export const ui = {
     breadcrumbHome: 'Trang chủ',
     foundErrorLabel: 'Phát hiện lỗi? Mở issue trên GitHub',
     standardsBaselinePrefix: 'Tiêu chuẩn tham chiếu:',
+    tocLabel: 'Trong trang này',
+    prevLesson: 'Bài trước',
+    nextLesson: 'Bài tiếp theo',
+    // Command palette
+    searchOpenLabel: 'Tìm kiếm',
+    searchModalPlaceholder: 'Tìm bài học…',
+    searchNoResults: 'Không có kết quả cho',
+    searchDevFallback: 'Tìm kiếm khả dụng trong bản dựng production',
+    searchHintNavigate: '↑↓ điều hướng',
+    searchHintOpen: '↵ mở',
+    searchHintClose: 'esc đóng',
+    domainRf: 'RF',
+    domainCoreNetwork: 'Mạng lõi',
+    domainSpace: 'Không gian',
+    groupPages: 'Trang',
+    unitLabel: 'Đơn vị',
+    lessonsCount: 'bài học',
+    comingSoon: 'Sắp ra mắt',
+    visualMapToggle: 'Xem bản đồ chương trình trực quan',
+    minRead: 'phút đọc',
+    visitedLabel: 'Đã xem',
   } satisfies UIKeys,
 } as const;
 

@@ -1,0 +1,272 @@
+---
+/**
+ * DocsSidebar — persistent documentation navigation sidebar.
+ * Loads curriculum.json and renders track/unit/lesson tree for current domain.
+ * Highlights current path with accent color.
+ * Tablet (769–1024px): off-canvas collapsible via .is-collapsed class toggled from DocsLayout.
+ * localStorage keys:
+ *   sidebar-collapsed          — boolean, sidebar panel open/closed on tablet
+ *   sidebar-details-{id}       — boolean, each <details> open state
+ */
+import curriculum from '../../../../data/curriculum.json';
+import { lessonPath } from '../lib/content-paths';
+
+interface Props {
+  lang: 'en' | 'vi';
+  domain: 'rf' | 'core-network' | 'space';
+  currentPath?: string;
+}
+
+const { lang, domain, currentPath } = Astro.props;
+const domainData = curriculum.domains[domain as keyof typeof curriculum.domains];
+const tracks = domainData?.tracks || [];
+---
+
+<aside class="docs-sidebar" id="docs-sidebar">
+  <nav class="sidebar-nav" aria-label="Documentation navigation">
+    {tracks.map((track, ti) => (
+      <details
+        class="sidebar-track"
+        open
+        data-sidebar-detail={`track-${ti}`}
+      >
+        <summary class="sidebar-track-title">
+          <svg class="sidebar-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+            <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          {track.title[lang as 'en' | 'vi'] || track.title.en}
+        </summary>
+        {track.units && track.units.length > 0 && (
+          <ul class="sidebar-units">
+            {track.units.map((unit, ui) => (
+              <li class="sidebar-unit-item">
+                <details
+                  class="sidebar-unit"
+                  open
+                  data-sidebar-detail={`unit-${ti}-${ui}`}
+                >
+                  <summary class="sidebar-unit-title">
+                    <svg class="sidebar-chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                    {unit.title[lang as 'en' | 'vi'] || unit.title.en}
+                  </summary>
+                  {unit.lessons && unit.lessons.length > 0 && (
+                    <ul class="sidebar-lessons">
+                      {unit.lessons.map((lesson) => {
+                        const href = lessonPath(lang, domain, lesson.id);
+                        const isActive =
+                          currentPath?.replace(/\/$/, '') === href;
+                        return (
+                          <li>
+                            <a
+                              href={href}
+                              class:list={['sidebar-lesson', { active: isActive }]}
+                              aria-current={isActive ? 'page' : undefined}
+                            >
+                              {lesson.title[lang as 'en' | 'vi'] || lesson.title.en}
+                            </a>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </details>
+              </li>
+            ))}
+          </ul>
+        )}
+      </details>
+    ))}
+  </nav>
+</aside>
+
+<script>
+  /**
+   * Restores sidebar collapsed state and details open/closed state from localStorage.
+   * Runs before first paint to avoid flash via inline data attributes already set.
+   */
+  function restoreSidebarState() {
+    const sidebar = document.getElementById('docs-sidebar');
+    if (!sidebar) return;
+
+    // Restore tablet collapsed state
+    const collapsed = localStorage.getItem('sidebar-collapsed') === 'true';
+    if (collapsed) {
+      sidebar.classList.add('is-collapsed');
+    }
+
+    // Restore each <details> open state — override SSR default of open=true
+    const detailEls = sidebar.querySelectorAll<HTMLDetailsElement>('[data-sidebar-detail]');
+    detailEls.forEach((el) => {
+      const key = `sidebar-details-${el.dataset.sidebarDetail}`;
+      const stored = localStorage.getItem(key);
+      if (stored !== null) {
+        el.open = stored === 'true';
+      }
+      // Persist on toggle
+      el.addEventListener('toggle', () => {
+        localStorage.setItem(key, String(el.open));
+      });
+    });
+  }
+
+  restoreSidebarState();
+  document.addEventListener('astro:after-swap', restoreSidebarState);
+</script>
+
+<style>
+  .docs-sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 4rem;
+    height: calc(100vh - 4rem);
+    overflow-y: auto;
+    overflow-x: hidden;
+    border-right: 1px solid var(--color-border);
+    background: var(--color-bg);
+    padding: var(--space-4);
+    transition: transform 0.2s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .docs-sidebar {
+      transition: none;
+    }
+  }
+
+  .sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .sidebar-track {
+    border: none;
+  }
+
+  .sidebar-track-title {
+    font-weight: 600;
+    font-size: var(--font-size-sm);
+    color: var(--color-fg);
+    cursor: pointer;
+    padding: var(--space-2) 0;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .sidebar-track-title::marker,
+  .sidebar-track-title::-webkit-details-marker {
+    display: none;
+  }
+
+  .sidebar-chevron {
+    flex-shrink: 0;
+    transition: transform 0.15s ease;
+  }
+
+  details[open] > summary .sidebar-chevron {
+    transform: rotate(90deg);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-chevron {
+      transition: none;
+    }
+  }
+
+  .sidebar-units {
+    list-style: none;
+    margin: 0;
+    padding-left: var(--space-3);
+  }
+
+  .sidebar-unit-item {
+    margin-bottom: var(--space-1);
+  }
+
+  .sidebar-unit {
+    border: none;
+  }
+
+  .sidebar-unit-title {
+    font-size: var(--font-size-sm);
+    color: var(--color-muted);
+    cursor: pointer;
+    padding: var(--space-1) 0;
+    list-style: none;
+    display: flex;
+    align-items: center;
+    gap: var(--space-1);
+  }
+
+  .sidebar-unit-title::marker,
+  .sidebar-unit-title::-webkit-details-marker {
+    display: none;
+  }
+
+  .sidebar-unit-title .sidebar-chevron {
+    width: 14px;
+    height: 14px;
+  }
+
+  .sidebar-lessons {
+    list-style: none;
+    margin: 0;
+    padding-left: var(--space-3);
+  }
+
+  .sidebar-lesson {
+    display: block;
+    padding: 0.4rem var(--space-2);
+    color: var(--color-muted);
+    text-decoration: none;
+    font-size: var(--font-size-sm);
+    border-left: 2px solid transparent;
+    transition: color 0.15s ease, background-color 0.15s ease;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sidebar-lesson {
+      transition: none;
+    }
+  }
+
+  .sidebar-lesson:hover {
+    color: var(--color-fg);
+    background-color: var(--color-surface);
+  }
+
+  .sidebar-lesson:focus-visible {
+    outline: var(--focus-ring);
+    outline-offset: 2px;
+  }
+
+  .sidebar-lesson.active {
+    color: var(--color-accent-link);
+    background-color: var(--color-accent-50);
+    border-left: 2px solid var(--color-accent-link);
+    font-weight: 500;
+  }
+
+  /* Mobile + tablet (≤1024px): off-canvas drawer, collapsed by default on mobile */
+  @media (max-width: 1024px) {
+    .docs-sidebar {
+      position: fixed;
+      top: 4rem;
+      left: 0;
+      z-index: 200;
+      height: calc(100vh - 4rem);
+      border-right: 1px solid var(--color-border);
+      background: var(--color-bg);
+      transform: translateX(0);
+    }
+
+    .docs-sidebar.is-collapsed {
+      transform: translateX(-100%);
+    }
+  }
+</style>

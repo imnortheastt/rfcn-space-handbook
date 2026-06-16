@@ -1,0 +1,611 @@
+---
+/**
+ * CommandPalette — ⌘K search modal backed by Pagefind.
+ *
+ * A11y: focus trap (Tab/Shift+Tab), inert siblings, Esc/backdrop close,
+ * restore focus to trigger, body overflow lock, re-init on astro:after-swap.
+ * Copied from HamburgerMenu.astro proven pattern.
+ *
+ * Pagefind is lazy-imported on first open; in dev (no /pagefind/pagefind.js)
+ * a graceful fallback message with a link to /search is shown.
+ */
+import { t } from '../lib/i18n';
+
+interface Props {
+  lang: 'en' | 'vi';
+}
+
+const { lang } = Astro.props;
+
+const strings = {
+  placeholder:    t(lang, 'searchModalPlaceholder'),
+  noResults:      t(lang, 'searchNoResults'),
+  devFallback:    t(lang, 'searchDevFallback'),
+  hintNavigate:   t(lang, 'searchHintNavigate'),
+  hintOpen:       t(lang, 'searchHintOpen'),
+  hintClose:      t(lang, 'searchHintClose'),
+  domainRf:       t(lang, 'domainRf'),
+  domainCore:     t(lang, 'domainCoreNetwork'),
+  domainSpace:    t(lang, 'domainSpace'),
+  groupPages:     t(lang, 'groupPages'),
+};
+---
+
+<!-- Command palette modal — hidden until triggered -->
+<div
+  class="cp-wrapper"
+  id="command-palette"
+  role="dialog"
+  aria-modal="true"
+  aria-label={t(lang, 'searchOpenLabel')}
+  hidden
+>
+  <!-- Backdrop: click closes -->
+  <div class="cp-backdrop" id="cp-backdrop" aria-hidden="true"></div>
+
+  <!-- Panel -->
+  <div class="cp-panel" id="cp-panel">
+    <!-- Search input row -->
+    <div class="cp-input-row">
+      <svg class="cp-icon-search" width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+        <circle cx="8.5" cy="8.5" r="5.5" stroke="currentColor" stroke-width="1.5"/>
+        <line x1="13" y1="13" x2="18" y2="18" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <input
+        type="search"
+        class="cp-input"
+        id="cp-input"
+        placeholder={strings.placeholder}
+        autocomplete="off"
+        spellcheck="false"
+        aria-autocomplete="list"
+        aria-controls="cp-results"
+      />
+      <kbd class="cp-esc-hint" aria-hidden="true">esc</kbd>
+    </div>
+
+    <!-- Visually-hidden live region for result count announcements -->
+    <div
+      class="cp-sr-only"
+      id="cp-announcer"
+      role="status"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
+
+    <!-- Results region -->
+    <div
+      class="cp-results"
+      id="cp-results"
+      role="listbox"
+      aria-label={t(lang, 'searchOpenLabel')}
+    ></div>
+
+    <!-- Footer hints -->
+    <div class="cp-footer" aria-hidden="true">
+      <span>{strings.hintNavigate}</span>
+      <span class="cp-footer-dot">·</span>
+      <span>{strings.hintOpen}</span>
+      <span class="cp-footer-dot">·</span>
+      <span>{strings.hintClose}</span>
+    </div>
+  </div>
+</div>
+
+<script define:vars={{ lang, strings }}>
+  // Focusable elements for focus trap (same selector as HamburgerMenu)
+  const FOCUSABLE_SELECTORS =
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  // Domain slug → i18n label map (built from server-rendered strings)
+  const DOMAIN_LABELS = {
+    rf:           strings.domainRf,
+    'core-network': strings.domainCore,
+    space:        strings.domainSpace,
+  };
+
+  // Module-level state — survive re-init calls across view transitions
+  let pagefind = null;
+  let pagefindLoadAttempted = false;
+  let debounceTimer = null;
+
+  function initCommandPalette() {
+    const wrapper  = document.getElementById('command-palette');
+    const backdrop = document.getElementById('cp-backdrop');
+    const panel    = document.getElementById('cp-panel');
+    const input    = document.getElementById('cp-input');
+    const results  = document.getElementById('cp-results');
+    const announcer = document.getElementById('cp-announcer');
+
+    if (!wrapper || !panel || !input || !results) return;
+
+    // Guard double-binding: tag the panel to skip if already bound
+    if (panel.dataset.bound === '1') return;
+    panel.dataset.bound = '1';
+
+    let triggerEl = null; // element that opened the palette — restore focus on close
+
+    // ── Collect sibling inert targets (same strategy as HamburgerMenu) ───
+    function getSiblingInertTargets() {
+      return Array.from(document.body.children).filter(
+        (el) => el !== wrapper && !el.contains(wrapper)
+      );
+    }
+
+    // ── Focus trap ────────────────────────────────────────────────────────
+    function trapFocus(e) {
+      if (e.key !== 'Tab') return;
+      const focusable = Array.from(
+        panel.querySelectorAll(FOCUSABLE_SELECTORS)
+      ).filter((el) => !el.closest('[hidden]') && el.offsetParent !== null);
+
+      if (focusable.length === 0) { e.preventDefault(); return; }
+
+      const first = focusable[0];
+      const last  = focusable[focusable.length - 1];
+
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
+
+    // ── Open ──────────────────────────────────────────────────────────────
+    async function openPalette(trigger) {
+      triggerEl = trigger || document.activeElement;
+      wrapper.hidden = false;
+      document.body.style.overflow = 'hidden';
+
+      getSiblingInertTargets().forEach((el) => {
+        el.inert = true;
+        el.setAttribute('aria-hidden', 'true');
+      });
+
+      panel.addEventListener('keydown', trapFocus);
+
+      requestAnimationFrame(() => {
+        wrapper.classList.add('is-open');
+        input.focus();
+      });
+
+      // Lazy-load Pagefind on first open
+      if (!pagefindLoadAttempted) {
+        pagefindLoadAttempted = true;
+        try {
+          // Runtime-only import; not resolvable at build time
+          const pf = await import(/* @vite-ignore */ '/pagefind/pagefind.js');
+          await pf.init();
+          pagefind = pf;
+        } catch {
+          pagefind = null;
+        }
+      }
+    }
+
+    // ── Close ─────────────────────────────────────────────────────────────
+    function closePalette() {
+      wrapper.classList.remove('is-open');
+      document.body.style.overflow = '';
+
+      getSiblingInertTargets().forEach((el) => {
+        el.inert = false;
+        el.removeAttribute('aria-hidden');
+      });
+
+      panel.removeEventListener('keydown', trapFocus);
+
+      // Clear state
+      input.value = '';
+      results.innerHTML = '';
+      if (announcer) announcer.textContent = '';
+
+      setTimeout(() => {
+        wrapper.hidden = true;
+      }, 180);
+
+      // Restore focus to trigger
+      if (triggerEl && typeof triggerEl.focus === 'function') {
+        triggerEl.focus();
+      }
+    }
+
+    // ── Render helpers ────────────────────────────────────────────────────
+
+    /** Extract domain slug from a URL like /en/core-network/… → "core-network" */
+    function domainFromUrl(url) {
+      const parts = url.replace(/^\//, '').split('/');
+      // parts[0] = lang, parts[1] = domain slug
+      return parts[1] || '';
+    }
+
+    /** Render grouped results into #cp-results */
+    function renderResults(groups) {
+      const frag = document.createDocumentFragment();
+      let optionIndex = 0;
+
+      for (const [domain, items] of Object.entries(groups)) {
+        if (items.length === 0) continue;
+
+        // Group header
+        const header = document.createElement('div');
+        header.className = 'cp-group-header';
+        header.textContent = DOMAIN_LABELS[domain] || strings.groupPages;
+        frag.appendChild(header);
+
+        for (const item of items) {
+          const a = document.createElement('a');
+          a.href       = item.url;
+          a.role       = 'option';
+          a.className  = 'cp-option';
+          a.id = 'cp-option-' + optionIndex;
+          a.dataset.idx = String(optionIndex++);
+          a.setAttribute('aria-selected', 'false');
+
+          const title = document.createElement('div');
+          title.className   = 'cp-option-title';
+          title.textContent = item.meta?.title || item.url;
+
+          const excerpt = document.createElement('div');
+          excerpt.className = 'cp-option-excerpt';
+          // Pagefind's excerpt is generated server-side during `pagefind --site dist`.
+          // It contains only plain text with <mark>…</mark> wrappers for matched terms.
+          // No user-controlled input reaches this field; assigning innerHTML is safe here.
+          excerpt.innerHTML = item.excerpt || '';
+
+          a.appendChild(title);
+          if (item.excerpt) a.appendChild(excerpt);
+          frag.appendChild(a);
+        }
+      }
+
+      results.innerHTML = '';
+      results.appendChild(frag);
+    }
+
+    // ── Keyboard navigation in results ────────────────────────────────────
+    function getOptions() {
+      return Array.from(results.querySelectorAll('.cp-option'));
+    }
+
+    function setActive(el) {
+      getOptions().forEach((opt) => {
+        opt.classList.remove('is-active');
+        opt.setAttribute('aria-selected', 'false');
+      });
+      if (el) {
+        el.classList.add('is-active');
+        el.setAttribute('aria-selected', 'true');
+        el.scrollIntoView({ block: 'nearest' });
+        input.setAttribute('aria-activedescendant', el.id || '');
+      }
+    }
+
+    function activeOption() {
+      return results.querySelector('.cp-option.is-active');
+    }
+
+    panel.addEventListener('keydown', (e) => {
+      const opts = getOptions();
+      if (opts.length === 0) return;
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        const cur = activeOption();
+        const idx = cur ? Number(cur.dataset.idx) : -1;
+        setActive(opts[(idx + 1) % opts.length]);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        const cur = activeOption();
+        const idx = cur ? Number(cur.dataset.idx) : 0;
+        setActive(opts[(idx - 1 + opts.length) % opts.length]);
+      } else if (e.key === 'Enter') {
+        const cur = activeOption();
+        if (cur) { e.preventDefault(); location.assign(cur.href); }
+      }
+    });
+
+    // Mouse hover sets active
+    results.addEventListener('mouseover', (e) => {
+      const opt = e.target.closest('.cp-option');
+      if (opt) setActive(opt);
+    });
+
+    // Click navigates
+    results.addEventListener('click', (e) => {
+      const opt = e.target.closest('.cp-option');
+      if (opt) { e.preventDefault(); closePalette(); location.assign(opt.href); }
+    });
+
+    // ── Search handler ─────────────────────────────────────────────────────
+    async function runSearch(query) {
+      const q = query.trim();
+
+      if (!q) {
+        results.innerHTML = '';
+        if (announcer) announcer.textContent = '';
+        return;
+      }
+
+      if (!pagefind) {
+        // Dev fallback — no /pagefind/pagefind.js available
+        results.innerHTML =
+          '<div class="cp-dev-fallback">' +
+          escHtml(strings.devFallback) +
+          ' — <a href="/search">open search</a>' +
+          '</div>';
+        return;
+      }
+
+      try {
+        const search = await pagefind.search(q);
+        const topResults = search.results.slice(0, 10);
+        const dataArr = await Promise.all(topResults.map((r) => r.data()));
+
+        // Filter to current lang by URL prefix
+        const filtered = dataArr.filter((d) => d.url.startsWith('/' + lang + '/'));
+
+        if (filtered.length === 0) {
+          results.innerHTML =
+            '<div class="cp-no-results">' + strings.noResults + ' "' + escHtml(q) + '"</div>';
+          if (announcer) announcer.textContent = strings.noResults + ' ' + q;
+          return;
+        }
+
+        // Group by domain slug
+        const groups = {};
+        for (const d of filtered) {
+          const domain = domainFromUrl(d.url);
+          if (!groups[domain]) groups[domain] = [];
+          groups[domain].push(d);
+        }
+
+        renderResults(groups);
+
+        // Set first option active
+        const first = results.querySelector('.cp-option');
+        if (first) setActive(first);
+
+        // Announce count
+        if (announcer) {
+          announcer.textContent = filtered.length + ' result' + (filtered.length === 1 ? '' : 's');
+        }
+      } catch (err) {
+        results.innerHTML = '<div class="cp-no-results">Search error. Please try again.</div>';
+      }
+    }
+
+    // Simple HTML escape for user query in messages
+    function escHtml(str) {
+      return str.replace(/[&<>"']/g, (c) =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]
+      );
+    }
+
+    // Debounced input handler
+    input.addEventListener('input', () => {
+      clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => runSearch(input.value), 120);
+    });
+
+    // ── Close triggers ────────────────────────────────────────────────────
+    backdrop?.addEventListener('click', closePalette);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !wrapper.hidden) {
+        closePalette();
+      }
+    });
+
+    // ── Global open shortcut: ⌘K / Ctrl+K ────────────────────────────────
+    document.addEventListener('keydown', (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        if (wrapper.hidden) {
+          openPalette(document.activeElement);
+        } else {
+          closePalette();
+        }
+      }
+    });
+
+    // ── Expose open function for the trigger button in Header ─────────────
+    window.__cpOpen = (trigger) => openPalette(trigger);
+  }
+
+  // Init on first load and after Astro view transitions
+  initCommandPalette();
+  document.addEventListener('astro:after-swap', () => {
+    // Reset bound flag so re-init can rebind on new DOM
+    const panel = document.getElementById('cp-panel');
+    if (panel) delete panel.dataset.bound;
+    initCommandPalette();
+  });
+</script>
+
+<style>
+  /* ── Wrapper (full-screen overlay) ───────────────────────────────────── */
+  .cp-wrapper {
+    position: fixed;
+    inset: 0;
+    z-index: 9000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 15vh;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+  }
+
+  .cp-wrapper.is-open {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* ── Backdrop ─────────────────────────────────────────────────────────── */
+  .cp-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+  }
+
+  /* ── Panel ────────────────────────────────────────────────────────────── */
+  .cp-panel {
+    position: relative;
+    z-index: 1;
+    width: min(560px, calc(100vw - 2rem));
+    max-height: 70vh;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+
+  /* ── Input row ────────────────────────────────────────────────────────── */
+  .cp-input-row {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-3) var(--space-4);
+    border-bottom: 1px solid var(--color-border);
+    flex-shrink: 0;
+  }
+
+  .cp-icon-search {
+    color: var(--color-muted);
+    flex-shrink: 0;
+  }
+
+  .cp-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: var(--color-fg);
+    font-family: var(--font-sans);
+    font-size: var(--font-size-base);
+    line-height: var(--leading-base);
+  }
+
+  /* Remove browser default search input decorations */
+  .cp-input::-webkit-search-decoration,
+  .cp-input::-webkit-search-cancel-button {
+    display: none;
+  }
+
+  .cp-esc-hint {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    color: var(--color-muted);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    padding: 1px 6px;
+    flex-shrink: 0;
+  }
+
+  /* ── Results ──────────────────────────────────────────────────────────── */
+  .cp-results {
+    flex: 1;
+    overflow-y: auto;
+    padding: var(--space-2) 0;
+    min-height: 0;
+  }
+
+  /* ── Group header ─────────────────────────────────────────────────────── */
+  .cp-group-header {
+    padding: var(--space-2) var(--space-4) var(--space-1);
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    color: var(--color-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  /* ── Result option ────────────────────────────────────────────────────── */
+  .cp-option {
+    display: block;
+    padding: var(--space-2) var(--space-4);
+    text-decoration: none;
+    color: var(--color-fg);
+    border-left: 2px solid transparent;
+    cursor: pointer;
+  }
+
+  .cp-option.is-active {
+    background: var(--color-surface);
+    border-left-color: var(--color-accent-500);
+  }
+
+  .cp-option-title {
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    line-height: var(--leading-tight);
+  }
+
+  .cp-option-excerpt {
+    font-size: var(--font-size-xs);
+    color: var(--color-muted);
+    margin-top: var(--space-1);
+    line-height: var(--leading-base);
+    /* Clamp to 2 lines */
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* Pagefind wraps matched terms in <mark> — style with accent tint */
+  .cp-option-excerpt mark {
+    background: var(--color-accent-100);
+    color: inherit;
+    border-radius: 2px;
+    padding: 0 1px;
+  }
+
+  /* ── Empty / dev fallback messages ───────────────────────────────────── */
+  .cp-no-results,
+  .cp-dev-fallback {
+    padding: var(--space-6) var(--space-4);
+    font-size: var(--font-size-sm);
+    color: var(--color-muted);
+    text-align: center;
+  }
+
+  .cp-dev-fallback a {
+    color: var(--color-accent-link);
+    text-decoration: underline;
+  }
+
+  /* ── Footer hint bar ──────────────────────────────────────────────────── */
+  .cp-footer {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    border-top: 1px solid var(--color-border);
+    font-size: var(--font-size-xs);
+    color: var(--color-muted);
+    flex-shrink: 0;
+  }
+
+  .cp-footer-dot {
+    opacity: 0.4;
+  }
+
+  /* ── Visually hidden (live region) ───────────────────────────────────── */
+  .cp-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+</style>

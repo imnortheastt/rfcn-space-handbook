@@ -1,0 +1,40 @@
+<!-- No props — pure client-side script that reads localStorage and marks visited lessons -->
+<script>
+  const STORAGE_KEY = 'rfcn:progress';
+
+  function applyProgress(): void {
+    let visited: Record<string, boolean> = {};
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) visited = JSON.parse(raw) as Record<string, boolean>;
+    } catch {
+      // localStorage unavailable or corrupted — silently skip
+      return;
+    }
+
+    const rows = document.querySelectorAll<HTMLElement>('[data-lesson-slug]');
+    for (const row of rows) {
+      const slug = row.dataset.lessonSlug;
+      const domain = row.dataset.domain;
+      if (!slug || !domain) continue;
+
+      const key = `${domain}:${slug}`;
+      const check = row.querySelector<HTMLElement>('.progress-check');
+      if (!check) continue;
+
+      if (visited[key]) {
+        check.hidden = false;
+        row.dataset.visited = 'true';
+      } else {
+        check.hidden = true;
+        delete row.dataset.visited;
+      }
+    }
+  }
+
+  // Run on initial load
+  applyProgress();
+
+  // Re-run after Astro view transitions
+  document.addEventListener('astro:after-swap', applyProgress);
+</script>

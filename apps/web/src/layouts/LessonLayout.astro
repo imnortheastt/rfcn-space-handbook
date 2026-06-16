@@ -1,8 +1,13 @@
 ---
 import type { CollectionEntry } from 'astro:content';
-import BaseLayout from './BaseLayout.astro';
+import type { MarkdownHeading } from 'astro';
+import DocsLayout from './DocsLayout.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import LangSwitcher from '../components/LangSwitcher.astro';
+import TableOfContents from '../components/TableOfContents.astro';
+import LessonPager from '../components/LessonPager.astro';
+import LevelBadge from '../components/LevelBadge.astro';
+import BackToTop from '../components/BackToTop.astro';
 import { t } from '../lib/i18n';
 import { lessonPath } from '../lib/content-paths';
 import BibliographyCollector from '@rfcn-space-handbook/citations/bibliography.astro';
@@ -16,9 +21,11 @@ interface Props {
   citations?: CitationsDB;
   /** Ordered list of citation IDs as they appeared in lesson content */
   citedIds?: string[];
+  /** Headings extracted from render() for TOC */
+  headings?: MarkdownHeading[];
 }
 
-const { entry, alternateUrl, citations = [], citedIds = [] } = Astro.props;
+const { entry, alternateUrl, citations = [], citedIds = [], headings = [] } = Astro.props;
 const { data } = entry;
 const lang = data.lang;
 
@@ -30,54 +37,388 @@ const canonicalUrl = new URL(
 const githubIssueUrl = `https://github.com/rfcn-space/handbook/issues/new?title=Error+in+${encodeURIComponent(data.id)}&body=Lesson:+${encodeURIComponent(canonicalUrl)}`;
 ---
 
-<BaseLayout
+<DocsLayout
   lang={lang}
+  domain={data.domain}
   title={data.title}
   description={data.description}
   canonicalUrl={canonicalUrl}
   alternateUrl={alternateUrl}
+  currentPath={Astro.url.pathname}
+  ogType="article"
 >
+  {/* Reading progress bar — 3px fixed top, transform-based, rAF-throttled JS */}
+  <div class="reading-progress" id="reading-progress" aria-hidden="true"></div>
+
   <header class="lesson-header">
     <Breadcrumbs lang={lang} domain={data.domain} track={data.track} unit={data.unit} title={data.title} />
     <LangSwitcher lang={lang} parityId={data.parityId} parityException={data.parityException} />
   </header>
 
-  <main class="lesson-main" id="main-content">
-    <!-- Standards baseline banner (FR-11) -->
+  {/* Mobile TOC — shown above content on narrow viewports; hidden at ≥1025px */}
+  <div class="toc-mobile-wrapper">
+    <TableOfContents
+      headings={headings}
+      lang={lang}
+      level={data.level}
+      readingMinutes={data.estimatedReadingMinutes}
+    />
+  </div>
+
+  <main
+    class="lesson-main"
+    id="main-content"
+    data-lesson-slug={data.slug}
+    data-domain={data.domain}
+  >
+    {/* Standards baseline banner */}
     {data.standards && data.standards.length > 0 && (
       <aside class="standards-banner" aria-label="Standards baseline">
         <strong>{t(lang, 'standardsBaselinePrefix')}</strong>{' '}
-        {data.standards.map((s) => s.id).join(', ')}
+        {data.standards.map((s: string | { id: string }) => (typeof s === 'string' ? s : s.id)).join(', ')}
       </aside>
     )}
 
-    <!-- Research frontier badge -->
+    {/* Research frontier badge */}
     {data.researchFrontier && (
       <aside class="frontier-badge" aria-label="Research frontier content">
         Research frontier
       </aside>
     )}
 
-    <!-- Lesson metadata -->
+    {/* Lesson header: meta row → h1 → subtitle → divider */}
     <div class="lesson-meta">
-      <span class="lesson-level">{data.level}</span>
+      <LevelBadge level={data.level} />
       <span class="lesson-time">{data.estimatedReadingMinutes} min read</span>
+      {data.standards && data.standards.length > 0 && (
+        <span class="lesson-standards-inline">
+          {data.standards.map((s: string | { id: string }) => (typeof s === 'string' ? s : s.id)).join(' · ')}
+        </span>
+      )}
+      <span class="lesson-meta-actions">
+        <a class="lesson-issue-link" href={githubIssueUrl} target="_blank" rel="noopener noreferrer">
+          {t(lang, 'foundErrorLabel')}
+        </a>
+      </span>
     </div>
 
     <h1>{data.title}</h1>
     {data.subtitle && <p class="lesson-subtitle">{data.subtitle}</p>}
 
-    <!-- Main MDX content via slot — section components wrap the MDX regions -->
-    <slot />
+    <hr class="lesson-header-rule" aria-hidden="true" />
 
-    <!-- References section — populated when lesson page passes citations + citedIds -->
+    {/* Main MDX content */}
+    <div class="lesson-prose">
+      <slot />
+    </div>
+
+    {/* References */}
     <BibliographyCollector citations={citations} citedIds={citedIds} />
 
-    <!-- "Found an error" footer (FR-12) -->
-    <footer class="lesson-footer">
-      <a href={githubIssueUrl} target="_blank" rel="noopener noreferrer">
-        {t(lang, 'foundErrorLabel')}
-      </a>
-    </footer>
+    {/* Prev/Next navigation */}
+    <LessonPager domain={data.domain} slug={data.slug} lang={lang} />
+
+    <BackToTop />
   </main>
-</BaseLayout>
+
+  {/* Desktop TOC — occupies DocsLayout's right grid column via slot="toc" */}
+  <TableOfContents
+    slot="toc"
+    headings={headings}
+    lang={lang}
+    level={data.level}
+    readingMinutes={data.estimatedReadingMinutes}
+  />
+</DocsLayout>
+
+<script>
+  // Reading-progress bar: rAF-throttled scroll → transform: scaleX().
+  // Re-initialised on astro:after-swap for view transitions.
+  function initProgressBar() {
+    const bar = document.getElementById('reading-progress') as HTMLElement | null;
+    if (!bar) return;
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+    let rafId = 0;
+    function update() {
+      const doc = document.documentElement;
+      const scrolled = doc.scrollTop || document.body.scrollTop;
+      const total = doc.scrollHeight - doc.clientHeight;
+      const ratio = total > 0 ? scrolled / total : 0;
+      bar!.style.transform = `scaleX(${ratio})`;
+    }
+
+    function onScroll() {
+      if (rafId) return;
+      rafId = requestAnimationFrame(() => {
+        update();
+        rafId = 0;
+      });
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    update();
+  }
+
+  initProgressBar();
+  document.addEventListener('astro:after-swap', initProgressBar);
+</script>
+
+<script>
+  // Visited-marker: writes domain:slug = 1 into localStorage key 'rfcn:progress'.
+  // Enables domain index to mark visited lessons without server state.
+  function markVisited() {
+    const main = document.getElementById('main-content');
+    if (!main) return;
+    const slug = main.dataset.lessonSlug;
+    const domain = main.dataset.domain;
+    if (!slug || !domain) return;
+    try {
+      const raw = localStorage.getItem('rfcn:progress') ?? '{}';
+      const progress = JSON.parse(raw) as Record<string, number>;
+      progress[`${domain}:${slug}`] = 1;
+      localStorage.setItem('rfcn:progress', JSON.stringify(progress));
+    } catch {
+      // localStorage unavailable (private mode, quota) — silently skip
+    }
+  }
+
+  markVisited();
+  document.addEventListener('astro:after-swap', markVisited);
+</script>
+
+<script>
+  // Inject hover-visible anchor links into h2/h3 inside .lesson-prose.
+  // rehype-slug provides the id attribute; we append the # link here.
+  function injectAnchorLinks() {
+    const prose = document.querySelector('.lesson-prose');
+    if (!prose) return;
+    const headings = prose.querySelectorAll<HTMLElement>('h2[id], h3[id]');
+    headings.forEach((heading) => {
+      if (heading.querySelector('.anchor-link')) return; // idempotent
+      const link = document.createElement('a');
+      link.href = `#${heading.id}`;
+      link.className = 'anchor-link';
+      link.setAttribute('aria-label', `Link to section: ${heading.textContent?.trim() ?? ''}`);
+      link.textContent = '#';
+      heading.insertBefore(link, heading.firstChild);
+    });
+  }
+
+  injectAnchorLinks();
+  document.addEventListener('astro:after-swap', injectAnchorLinks);
+</script>
+
+<style>
+  /* ------------------------------------------------------------------ */
+  /* Reading progress bar — 3px fixed top, transform-origin left        */
+  /* Width = 100% always; scaleX(ratio) drives visual progress.         */
+  /* base.css .reading-progress sets position/height/bg/z-index.        */
+  /* ------------------------------------------------------------------ */
+  .reading-progress {
+    width: 100%;
+    transform: scaleX(0);
+    transform-origin: left center;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Chapter counter — scoped to .lesson-main                            */
+  /* counter-increment on each section; content on .chapter-index::before */
+  /* ------------------------------------------------------------------ */
+  .lesson-main {
+    counter-reset: chapter;
+  }
+
+  .lesson-main section {
+    counter-increment: chapter;
+  }
+
+  /* .lesson-hook is the lead section — reset its increment so it is    */
+  /* not counted; Intuition starts at 01.                               */
+  .lesson-main .lesson-hook {
+    counter-increment: none;
+  }
+
+  .lesson-main section .chapter-header .chapter-index::before {
+    content: counter(chapter, decimal-leading-zero) " \2014 ";
+    font-family: var(--font-mono);
+    font-size: 0.8125rem;
+    color: var(--color-muted);
+    letter-spacing: 0.08em;
+  }
+
+  /* Pitfalls chapter-index inherits vermillion from base.css rule */
+
+  /* ------------------------------------------------------------------ */
+  /* chapter-header layout                                               */
+  /* ------------------------------------------------------------------ */
+  .lesson-main section .chapter-header {
+    margin-bottom: 1.25rem;
+  }
+
+  .lesson-main section .chapter-header h2 {
+    margin: 0;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Lesson header: meta row                                             */
+  /* ------------------------------------------------------------------ */
+  .lesson-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    color: var(--color-muted);
+    margin-bottom: 0.75rem;
+  }
+
+  .lesson-time {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .lesson-standards-inline {
+    font-size: 0.8125rem;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    letter-spacing: 0.04em;
+  }
+
+  .lesson-meta-actions {
+    margin-left: auto;
+  }
+
+  .lesson-issue-link {
+    font-size: 0.8125rem;
+    color: var(--color-muted);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .lesson-issue-link:hover {
+    color: var(--color-accent-link);
+    text-decoration: underline;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* h1 title                                                            */
+  /* ------------------------------------------------------------------ */
+  .lesson-main h1 {
+    font-size: 2rem;
+    font-weight: 700;
+    letter-spacing: -0.015em;
+    margin: 0 0 0.5rem;
+    line-height: var(--leading-tight);
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Subtitle                                                            */
+  /* ------------------------------------------------------------------ */
+  .lesson-subtitle {
+    font-size: 1.0625rem;
+    color: var(--color-muted);
+    margin: 0 0 1rem;
+    line-height: 1.55;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Hairline divider below header block                                 */
+  /* ------------------------------------------------------------------ */
+  .lesson-header-rule {
+    border: none;
+    border-top: 1px solid var(--color-border);
+    margin: 1.25rem 0 2rem;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* TOC mobile wrapper                                                  */
+  /* ------------------------------------------------------------------ */
+  .toc-mobile-wrapper {
+    display: block;
+  }
+
+  .toc-mobile-wrapper :global(.toc-rail) {
+    display: none !important;
+  }
+
+  .toc-mobile-wrapper :global(.toc-mobile) {
+    display: block !important;
+  }
+
+  @media (min-width: 1025px) {
+    .toc-mobile-wrapper {
+      display: none;
+    }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Desktop TOC slot                                                    */
+  /* ------------------------------------------------------------------ */
+  :global(.docs-toc-col .toc-mobile) {
+    display: none !important;
+  }
+
+  :global(.docs-toc-col .toc-rail) {
+    display: block !important;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Anchor links on h2/h3 in lesson prose                               */
+  /* ------------------------------------------------------------------ */
+  .lesson-prose :global(h2),
+  .lesson-prose :global(h3) {
+    position: relative;
+  }
+
+  .lesson-prose :global(h2 .anchor-link),
+  .lesson-prose :global(h3 .anchor-link) {
+    position: absolute;
+    inset-inline-start: -1.4rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--color-accent-link);
+    text-decoration: none;
+    font-weight: 400;
+    opacity: 0;
+    transition: opacity 0.15s;
+    padding: 0 0.25rem;
+    font-size: 0.9em;
+  }
+
+  .lesson-prose :global(h2:hover .anchor-link),
+  .lesson-prose :global(h3:hover .anchor-link),
+  .lesson-prose :global(h2:focus-within .anchor-link),
+  .lesson-prose :global(h3:focus-within .anchor-link) {
+    opacity: 1;
+  }
+
+  .lesson-prose :global(.anchor-link:focus-visible) {
+    opacity: 1;
+    outline: 2px solid var(--color-accent-link);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* KaTeX display overflow on mobile                                     */
+  /* ------------------------------------------------------------------ */
+  .lesson-prose :global(.katex-display) {
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* Reduced-motion guards                                               */
+  /* ------------------------------------------------------------------ */
+  @media (prefers-reduced-motion: reduce) {
+    .reading-progress {
+      display: none !important;
+    }
+
+    .lesson-prose :global(.anchor-link) {
+      transition: none;
+    }
+  }
+</style>

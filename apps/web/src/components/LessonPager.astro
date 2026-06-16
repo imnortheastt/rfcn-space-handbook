@@ -1,0 +1,153 @@
+---
+/**
+ * LessonPager — prev/next navigation cards at the foot of a lesson.
+ *
+ * Derives order from curriculum.json via getPrevNext().
+ * Uses lessonPath() for hrefs. Gracefully handles first/last lesson.
+ * Polish: hover-lift utility, arrow translateX on hover (CSS only).
+ */
+import { getPrevNext } from '../lib/lesson-order';
+import { lessonPath } from '../lib/content-paths';
+import type { Locale } from '../lib/i18n';
+
+interface Props {
+  domain: string;
+  slug: string;
+  lang: Locale;
+}
+
+const { domain, slug, lang } = Astro.props;
+const { prev, next } = getPrevNext(domain, slug);
+
+const prevLabel = lang === 'vi' ? 'Bài trước' : 'Previous';
+const nextLabel = lang === 'vi' ? 'Bài tiếp theo' : 'Next';
+---
+
+{(prev || next) && (
+  <nav class="lesson-pager" aria-label={lang === 'vi' ? 'Điều hướng bài học' : 'Lesson navigation'}>
+    <div class="pager-slot pager-prev">
+      {prev && (
+        <a class="pager-card hover-lift" href={lessonPath(lang, domain, prev.id)}>
+          <span class="pager-arrow pager-arrow--prev" aria-hidden="true">←</span>
+          <span class="pager-label">{prevLabel}</span>
+          <span class="pager-title">{prev.title[lang]}</span>
+        </a>
+      )}
+    </div>
+
+    <div class="pager-slot pager-next">
+      {next && (
+        <a class="pager-card pager-card--next hover-lift" href={lessonPath(lang, domain, next.id)}>
+          <span class="pager-arrow pager-arrow--next" aria-hidden="true">→</span>
+          <span class="pager-label">{nextLabel}</span>
+          <span class="pager-title">{next.title[lang]}</span>
+        </a>
+      )}
+    </div>
+  </nav>
+)}
+
+<style>
+  .lesson-pager {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-top: 3rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--color-border);
+  }
+
+  .pager-slot {
+    display: flex;
+  }
+
+  .pager-prev {
+    justify-content: flex-start;
+  }
+
+  .pager-next {
+    justify-content: flex-end;
+  }
+
+  .pager-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.875rem 1rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    text-decoration: none;
+    color: inherit;
+    background: var(--color-surface, transparent);
+    max-width: 280px;
+    width: 100%;
+    /* hover-lift handles border-color + shadow + translateY transitions */
+  }
+
+  .pager-card--next {
+    align-items: flex-end;
+    text-align: right;
+  }
+
+  .pager-card:focus-visible {
+    outline: 2px solid var(--color-accent-link);
+    outline-offset: 2px;
+  }
+
+  /* Arrow shifts 2px right (prev: left) on card hover — CSS only */
+  .pager-arrow {
+    font-size: 1rem;
+    color: var(--color-accent-link);
+    line-height: 1;
+    display: inline-block;
+    transition: transform 0.15s ease;
+  }
+
+  .pager-card:hover .pager-arrow--next {
+    transform: translateX(2px);
+  }
+
+  .pager-card:hover .pager-arrow--prev {
+    transform: translateX(-2px);
+  }
+
+  .pager-label {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--color-muted);
+  }
+
+  .pager-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--color-fg);
+    line-height: 1.4;
+  }
+
+  @media (max-width: 600px) {
+    .lesson-pager {
+      grid-template-columns: 1fr;
+    }
+
+    .pager-next {
+      justify-content: flex-start;
+    }
+
+    .pager-card--next {
+      align-items: flex-start;
+      text-align: left;
+    }
+
+    .pager-card {
+      max-width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .pager-arrow {
+      transition: none;
+    }
+  }
+</style>

@@ -5,10 +5,12 @@
       document.documentElement.classList.add('theme-dark');
     } else if (stored === 'light') {
       document.documentElement.classList.add('theme-light');
+    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
+      // OS prefers dark, no stored preference — add class so CSS knows
+      document.documentElement.classList.add('theme-dark');
     }
-    // No stored preference — let CSS @media prefers-color-scheme handle it.
-    // No class added; tokens.css dark override fires via OS query.
+    // Default: no class = light theme (CSS default)
   } catch (_) {
-    // localStorage blocked (private browsing, permissions policy) — OS pref wins.
+    // localStorage blocked (private browsing, permissions policy) — OS pref wins via CSS @media.
   }
 })();

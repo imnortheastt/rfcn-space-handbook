@@ -1,0 +1,110 @@
+---
+import LessonRow from './LessonRow.astro';
+import ProgressMarkers from './ProgressMarkers.astro';
+import type { TrackView } from '../lib/curriculum';
+import { t } from '../lib/i18n';
+import type { Locale } from '../lib/i18n';
+
+interface Props {
+  tracks: TrackView[];
+  lang: Locale;
+  domain: string;
+}
+
+const { tracks, lang, domain } = Astro.props;
+const unitLabel = t(lang, 'unitLabel');
+const lessonsCountLabel = t(lang, 'lessonsCount');
+---
+
+<div class="lesson-list">
+  {tracks.map((track) => (
+    <section class="track-section" aria-labelledby={`track-${track.id}`}>
+      <h2 class="track-title" id={`track-${track.id}`}>{track.title}</h2>
+
+      {track.units.map((unit, unitIdx) => (
+        <div class="unit-block">
+          <div class="unit-header">
+            <span class="unit-label">
+              {unitLabel} {unitIdx + 1} · {unit.title}
+            </span>
+            <span class="unit-count">
+              {unit.lessonCount} {lessonsCountLabel}
+            </span>
+          </div>
+
+          <ol class="lesson-rows" aria-label={unit.title}>
+            {unit.lessons.map((lesson, lessonIdx) => (
+              <LessonRow
+                lesson={lesson}
+                lang={lang}
+                domain={domain}
+                index={lessonIdx + 1}
+              />
+            ))}
+          </ol>
+        </div>
+      ))}
+    </section>
+  ))}
+</div>
+
+<ProgressMarkers />
+
+<style>
+  .lesson-list {
+    display: flex;
+    flex-direction: column;
+    gap: 3rem;
+  }
+
+  .track-section {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+
+  .track-title {
+    font-size: var(--font-size-xl);
+    font-weight: 700;
+    color: var(--color-fg);
+    margin: 0;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--color-accent-link);
+  }
+
+  .unit-block {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .unit-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 0.5rem 0 0.625rem;
+  }
+
+  .unit-label {
+    font-size: 0.9375rem;
+    font-weight: 600;
+    color: var(--color-fg);
+  }
+
+  .unit-count {
+    font-size: var(--font-size-sm);
+    color: var(--color-muted);
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .lesson-rows {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+</style>

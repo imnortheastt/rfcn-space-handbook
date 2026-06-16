@@ -16,7 +16,7 @@ const lessons = defineCollection({
     slug: z.string(),
     lang: z.enum(['en', 'vi']),
     parityId: z.string(),
-    domain: z.enum(['rf', 'core-network', 'space']),
+    domain: z.enum(['rf', 'core-network', 'space', 'bridges']),
     track: z.string(),
     unit: z.string(),
     order: z.number().int().nonnegative(),
@@ -40,13 +40,16 @@ const lessons = defineCollection({
     // ── Standards & citations ─────────────────────────────────────────────
     standards: z
       .array(
-        z.object({
-          id: z.string(),
-          title: z.string().optional(),
-          cite: z.string(),
-        }),
+        z.union([
+          z.string(),
+          z.object({
+            id: z.string(),
+            title: z.string().optional(),
+            cite: z.string(),
+          }),
+        ]),
       )
-      .optional(),
+      .default([]),
 
     // ── Frontier flag ─────────────────────────────────────────────────────
     // Set true for 6G/NTN/NewSpace frontier lessons — triggers a visual badge

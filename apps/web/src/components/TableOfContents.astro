@@ -1,0 +1,267 @@
+---
+/**
+ * TableOfContents — sticky right-rail TOC for lesson pages.
+ *
+ * ≥1280px: renders as a sticky aside in the right grid column (.toc-rail).
+ * <1280px: renders as a <details> summary above the content area (.toc-mobile).
+ *
+ * Scroll-spy via IntersectionObserver highlights the active heading.
+ * Re-initialises on astro:after-swap for view transitions.
+ * Gracefully degrades with no JS — anchor links still work.
+ */
+import type { MarkdownHeading } from 'astro';
+
+interface Props {
+  headings: MarkdownHeading[];
+  lang: 'en' | 'vi';
+  level?: string;
+  readingMinutes?: number;
+}
+
+const { headings, lang, level, readingMinutes } = Astro.props;
+
+// Only depth 2 and 3
+const filtered: MarkdownHeading[] = headings.filter(
+  (h: MarkdownHeading) => h.depth === 2 || h.depth === 3,
+);
+
+const label = lang === 'vi' ? 'Trong trang này' : 'On this page';
+const minLabel = lang === 'vi' ? 'phút đọc' : 'min read';
+---
+
+{filtered.length > 0 && (
+  <>
+    {/* Desktop: sticky right rail — shown at ≥1280px from LessonLayout */}
+    <aside
+      class="toc-rail"
+      aria-label={label}
+      id="toc-rail"
+    >
+      {/* Meta block: level badge + reading time */}
+      {(level || readingMinutes) && (
+        <div class="toc-meta">
+          {level && <span class="toc-level-badge">{level}</span>}
+          {readingMinutes && (
+            <span class="toc-reading-time">{readingMinutes} {minLabel}</span>
+          )}
+        </div>
+      )}
+
+      <p class="toc-heading">{label}</p>
+      <ul class="toc-list">
+        {filtered.map((h) => (
+          <li class={`toc-item toc-depth-${h.depth}`}>
+            <a class="toc-link" href={`#${h.slug}`} data-toc-id={h.slug}>
+              {h.text}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </aside>
+
+    {/* Mobile: <details> above content — shown at <1280px from LessonLayout */}
+    <details class="toc-mobile">
+      <summary class="toc-mobile-summary">{label}</summary>
+      <ul class="toc-mobile-list">
+        {filtered.map((h) => (
+          <li class={`toc-item toc-depth-${h.depth}`}>
+            <a class="toc-link" href={`#${h.slug}`}>
+              {h.text}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </details>
+  </>
+)}
+
+<script>
+  // Scroll-spy: highlight the TOC link whose heading is closest to viewport top.
+  // Only activates the desktop rail (toc-rail); mobile links get no spy.
+  // Re-initialises on astro:after-swap for view transitions.
+  function initTocSpy() {
+    const rail = document.getElementById('toc-rail');
+    if (!rail) return;
+
+    const links = Array.from(rail.querySelectorAll<HTMLAnchorElement>('a[data-toc-id]'));
+    if (links.length === 0) return;
+
+    const headingIds = links.map((a) => a.dataset.tocId!);
+    const headingEls = headingIds
+      .map((id) => document.getElementById(id))
+      .filter((el): el is HTMLElement => el !== null);
+
+    if (headingEls.length === 0) return;
+
+    let activeId: string | null = null;
+
+    function setActive(id: string | null) {
+      if (id === activeId) return;
+      activeId = id;
+      links.forEach((a) => {
+        if (a.dataset.tocId === id) {
+          a.classList.add('toc-link--active');
+          a.setAttribute('aria-current', 'true');
+        } else {
+          a.classList.remove('toc-link--active');
+          a.removeAttribute('aria-current');
+        }
+      });
+    }
+
+    // Find the last heading that has scrolled above the 30% mark of the viewport.
+    function updateActive() {
+      const threshold = window.innerHeight * 0.3;
+      let current: string | null = null;
+      for (const el of headingEls) {
+        if (el.getBoundingClientRect().top <= threshold) {
+          current = el.id;
+        }
+      }
+      setActive(current ?? headingEls[0]?.id ?? null);
+    }
+
+    // IntersectionObserver is universal in modern browsers; without JS the
+    // plain anchor links still work, so no scroll-listener fallback needed.
+    const observer = new IntersectionObserver(
+      () => updateActive(),
+      { rootMargin: '-10% 0px -70% 0px', threshold: 0 },
+    );
+    headingEls.forEach((el) => observer.observe(el));
+
+    updateActive();
+  }
+
+  initTocSpy();
+  document.addEventListener('astro:after-swap', initTocSpy);
+</script>
+
+<style>
+  /* ---------- shared ---------- */
+  .toc-list,
+  .toc-mobile-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  .toc-item.toc-depth-3 {
+    padding-inline-start: 1rem;
+  }
+
+  /* Default transparent left border prevents layout shift on active state */
+  .toc-link {
+    display: block;
+    padding-block: 0.35rem;
+    padding-inline: 0.5rem;
+    padding-inline-start: 0.625rem;
+    border-inline-start: 2px solid transparent;
+    font-size: 0.8125rem;
+    line-height: 1.8;
+    color: var(--color-muted);
+    text-decoration: none;
+    transition: color 0.15s, background-color 0.15s;
+    border-radius: 2px;
+  }
+
+  .toc-link:hover {
+    color: var(--color-fg);
+  }
+
+  .toc-link--active {
+    color: var(--color-accent-link);
+    border-inline-start-color: var(--color-accent-link);
+    background-color: var(--color-accent-50);
+    font-weight: 500;
+  }
+
+  .toc-link:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+    border-radius: 2px;
+  }
+
+  /* ---------- desktop rail ---------- */
+  .toc-rail {
+    display: none; /* hidden by default; LessonLayout shows it at ≥1280px */
+    position: sticky;
+    top: 5rem;
+    max-height: calc(100vh - 6rem);
+    overflow-y: auto;
+    width: 200px;
+    padding: var(--space-6) var(--space-4);
+    font-size: var(--font-size-sm);
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-border) transparent;
+  }
+
+  /* ---------- meta block ---------- */
+  .toc-meta {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding-bottom: var(--space-3);
+    margin-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
+    flex-wrap: wrap;
+  }
+
+  .toc-level-badge {
+    display: inline-block;
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    color: var(--color-accent-link);
+    background-color: var(--color-accent-50);
+    padding: 0.125rem 0.375rem;
+    border-radius: 4px;
+    border: 1px solid var(--color-accent-200);
+  }
+
+  .toc-reading-time {
+    font-size: var(--font-size-xs);
+    color: var(--color-muted);
+  }
+
+  .toc-heading {
+    font-size: var(--font-size-xs);
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--color-muted);
+    margin: 0 0 0.75rem 0;
+  }
+
+  /* ---------- mobile details ---------- */
+  .toc-mobile {
+    display: block; /* shown by default; LessonLayout hides at ≥1280px */
+    margin-bottom: 1.5rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+    background: var(--color-surface);
+  }
+
+  .toc-mobile-summary {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    cursor: pointer;
+    list-style: none;
+    padding: 0.25rem 0;
+    color: var(--color-fg);
+  }
+
+  .toc-mobile-summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .toc-mobile-list {
+    margin-top: 0.5rem;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .toc-link {
+      transition: none;
+    }
+  }
+</style>

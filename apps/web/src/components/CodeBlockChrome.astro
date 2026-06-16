@@ -1,0 +1,136 @@
+---
+/**
+ * CodeBlockChrome — adds language label + copy button to every pre.astro-code.
+ * Pure client-side enhancement; no server markup emitted.
+ * Re-initialises on astro:after-swap (idempotent via data-enhanced guard).
+ */
+---
+
+<script>
+  const COPY_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`;
+  const CHECK_SVG = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>`;
+
+  function enhanceCodeBlocks() {
+    const blocks = document.querySelectorAll<HTMLElement>('pre.astro-code:not([data-enhanced])');
+
+    blocks.forEach((pre) => {
+      pre.dataset.enhanced = 'true';
+
+      // Detect language: Astro/Shiki sets data-language on <pre>
+      const lang = pre.dataset.language || 'code';
+
+      // Build wrapper
+      const frame = document.createElement('div');
+      frame.className = 'code-frame';
+
+      // Build header
+      const header = document.createElement('div');
+      header.className = 'code-frame-header';
+
+      const label = document.createElement('span');
+      label.className = 'code-lang';
+      label.textContent = lang.toLowerCase();
+
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'code-copy';
+      copyBtn.type = 'button';
+      copyBtn.setAttribute('aria-label', 'Copy code');
+      copyBtn.innerHTML = COPY_SVG + '<span class="code-copy-text">Copy</span>';
+
+      copyBtn.addEventListener('click', async () => {
+        const text = pre.innerText;
+        try {
+          await navigator.clipboard.writeText(text);
+          copyBtn.innerHTML = CHECK_SVG + '<span class="code-copy-text">Copied</span>';
+          copyBtn.setAttribute('aria-label', 'Copied');
+          setTimeout(() => {
+            copyBtn.innerHTML = COPY_SVG + '<span class="code-copy-text">Copy</span>';
+            copyBtn.setAttribute('aria-label', 'Copy code');
+          }, 1500);
+        } catch {
+          // clipboard unavailable — silently ignore
+        }
+      });
+
+      header.appendChild(label);
+      header.appendChild(copyBtn);
+
+      // Insert frame: replace pre in DOM, put pre inside frame
+      pre.parentNode!.insertBefore(frame, pre);
+      frame.appendChild(header);
+      frame.appendChild(pre);
+    });
+  }
+
+  enhanceCodeBlocks();
+  document.addEventListener('astro:after-swap', enhanceCodeBlocks);
+</script>
+
+<style is:global>
+  .code-frame {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-block: var(--space-4);
+  }
+
+  .code-frame-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.5rem 1rem;
+    background: var(--color-surface);
+    border-bottom: 1px solid var(--color-border);
+  }
+
+  .code-lang {
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    text-transform: lowercase;
+    letter-spacing: 0.02em;
+  }
+
+  .code-copy {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    background: transparent;
+    border: none;
+    border-radius: 4px;
+    color: var(--color-muted);
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: color 0.15s ease;
+  }
+
+  .code-copy:hover {
+    color: var(--color-fg);
+  }
+
+  .code-copy:focus-visible {
+    box-shadow: var(--focus-ring);
+    outline: none;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .code-copy {
+      transition: none;
+    }
+  }
+
+  /* Override pre styles inside frame — frame owns the border/radius */
+  .code-frame pre.astro-code {
+    border: none !important;
+    border-radius: 0 !important;
+    margin-block: 0 !important;
+  }
+
+  @media print {
+    .code-copy {
+      display: none;
+    }
+  }
+</style>

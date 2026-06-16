@@ -1,7 +1,11 @@
 ---
 import BaseLayout from '../../layouts/BaseLayout.astro';
-import { SUPPORTED_LOCALES, t } from '../../lib/i18n';
+import Hero from '../../components/Hero.astro';
+import DomainCard from '../../components/DomainCard.astro';
+import FeatureHighlight from '../../components/FeatureHighlight.astro';
+import { SUPPORTED_LOCALES } from '../../lib/i18n';
 import type { Locale } from '../../lib/i18n';
+import curriculumRaw from '../../../../../data/curriculum.json';
 
 export function getStaticPaths() {
   return SUPPORTED_LOCALES.map((lang) => ({ params: { lang } }));
@@ -10,6 +14,103 @@ export function getStaticPaths() {
 const { lang } = Astro.params as { lang: Locale };
 const oppositeLang = lang === 'en' ? 'vi' : 'en';
 const alternateUrl = new URL(`/${oppositeLang}/`, Astro.site ?? Astro.url.origin).href;
+
+// Compute lesson counts per domain using same reduce pattern as domain index page
+function countLessons(domain: string): number {
+  const domainData = (curriculumRaw as any).domains[domain];
+  const tracks = domainData?.tracks ?? [];
+  return tracks.reduce(
+    (sum: number, t: any) =>
+      sum + (t.units ?? []).reduce((s: number, u: any) => s + (u.lessons ?? []).length, 0),
+    0
+  );
+}
+
+const lessonCounts = {
+  rf: countLessons('rf'),
+  'core-network': countLessons('core-network'),
+  space: countLessons('space'),
+};
+
+const domains = {
+  en: [
+    {
+      title: 'RF Fundamentals',
+      description: 'Decibels, antennas, propagation, and signal processing basics',
+      href: `/${lang}/rf/`,
+      domain: 'rf' as const,
+      countLabel: 'lessons',
+    },
+    {
+      title: 'Core Network',
+      description: '4G/5G architecture, protocols, and mobility management',
+      href: `/${lang}/core-network/`,
+      domain: 'core-network' as const,
+      countLabel: 'lessons',
+    },
+    {
+      title: 'Space Systems',
+      description: 'Satellite communications, orbits, and link budgets',
+      href: `/${lang}/space/`,
+      domain: 'space' as const,
+      countLabel: 'lessons',
+    },
+  ],
+  vi: [
+    {
+      title: 'Cơ bản RF',
+      description: 'Decibel, anten, truyền sóng và xử lý tín hiệu cơ bản',
+      href: `/${lang}/rf/`,
+      domain: 'rf' as const,
+      countLabel: 'bài học',
+    },
+    {
+      title: 'Core Network',
+      description: 'Kiến trúc 4G/5G, giao thức và quản lý di động',
+      href: `/${lang}/core-network/`,
+      domain: 'core-network' as const,
+      countLabel: 'bài học',
+    },
+    {
+      title: 'Hệ thống Không gian',
+      description: 'Thông tin vệ tinh, quỹ đạo và tính toán link budget',
+      href: `/${lang}/space/`,
+      domain: 'space' as const,
+      countLabel: 'bài học',
+    },
+  ],
+} as const;
+
+const features = {
+  en: [
+    {
+      title: 'Bilingual',
+      description: 'Full content in English and Vietnamese side-by-side',
+    },
+    {
+      title: 'Math-Friendly',
+      description: 'LaTeX equations rendered inline and in display mode',
+    },
+    {
+      title: 'Open Source',
+      description: 'MIT licensed — read, fork, and contribute on GitHub',
+    },
+  ],
+  vi: [
+    {
+      title: 'Song ngữ',
+      description: 'Nội dung đầy đủ bằng tiếng Anh và tiếng Việt',
+    },
+    {
+      title: 'Thân thiện toán học',
+      description: 'Công thức LaTeX hiển thị inline và dạng block',
+    },
+    {
+      title: 'Mã nguồn mở',
+      description: 'Giấy phép MIT — đọc, fork và đóng góp trên GitHub',
+    },
+  ],
+} as const;
 ---
 
 <BaseLayout
@@ -17,24 +118,61 @@ const alternateUrl = new URL(`/${oppositeLang}/`, Astro.site ?? Astro.url.origin
   title={lang === 'en' ? 'RF · Core Network · Space Handbook' : 'Sổ tay RF · Mạng lõi · Vũ trụ'}
   alternateUrl={alternateUrl}
 >
-  <main>
-    <h1>
-      {lang === 'en'
-        ? 'RF · Core Network · Space — Open Learning Platform'
-        : 'RF · Mạng lõi · Vũ trụ — Nền tảng học tập mở'}
-    </h1>
-    <p>
-      {lang === 'en'
-        ? 'A bilingual Vietnamese & English technical handbook for RF engineering, core network architecture, and space engineering.'
-        : 'Sổ tay kỹ thuật song ngữ Việt–Anh về kỹ thuật RF, kiến trúc mạng lõi và kỹ thuật vũ trụ.'}
-    </p>
-    <nav aria-label="Domains">
-      <ul>
-        <li><a href={`/${lang}/rf/`}>RF Engineering</a></li>
-        <li><a href={`/${lang}/core-network/`}>Core Network</a></li>
-        <li><a href={`/${lang}/space/`}>Space Engineering</a></li>
-      </ul>
-    </nav>
-    <a href={`/${lang}/search`}>{t(lang, 'searchPlaceholder')}</a>
-  </main>
+  <Hero lang={lang} />
+
+  <section class="domain-cards" aria-label={lang === 'en' ? 'Learning domains' : 'Lĩnh vực học tập'}>
+    {domains[lang].map((d) => (
+      <DomainCard
+        title={d.title}
+        description={d.description}
+        href={d.href}
+        domain={d.domain}
+        count={lessonCounts[d.domain]}
+        countLabel={d.countLabel}
+      />
+    ))}
+  </section>
+
+  <section class="features-section" aria-label={lang === 'en' ? 'Features' : 'Tính năng'}>
+    <div class="features-grid">
+      {features[lang].map((f) => (
+        <FeatureHighlight title={f.title} description={f.description} />
+      ))}
+    </div>
+  </section>
 </BaseLayout>
+
+<style>
+  .domain-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: var(--space-6);
+    padding: var(--space-12) var(--space-4);
+    max-width: 1000px;
+    margin-inline: auto;
+  }
+
+  .features-section {
+    padding: var(--space-12) var(--space-4);
+    max-width: 1000px;
+    margin-inline: auto;
+  }
+
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: var(--space-6);
+  }
+
+  .features-grid :global(.feature-highlight) {
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    border-top: 1px solid var(--color-border);
+  }
+
+  @media (min-width: 640px) {
+    .features-grid {
+      grid-template-columns: repeat(3, 1fr);
+    }
+  }
+</style>

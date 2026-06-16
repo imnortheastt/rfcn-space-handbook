@@ -1,7 +1,10 @@
 ---
-import BaseLayout from '../../../layouts/BaseLayout.astro';
+import DocsLayout from '../../../layouts/DocsLayout.astro';
 import RoadmapSvg from '../../../components/roadmap-svg.astro';
+import LessonList from '../../../components/LessonList.astro';
 import { computeLayout } from '../../../lib/roadmap-layout';
+import { buildDomainListing } from '../../../lib/curriculum';
+import { t } from '../../../lib/i18n';
 import type { Locale } from '../../../lib/i18n';
 import curriculumRaw from '../../../../../../data/curriculum.json';
 
@@ -20,62 +23,187 @@ const { lang, domain } = Astro.params as { lang: Locale; domain: Domain };
 
 const domainData = (curriculumRaw as any).domains[domain];
 const tracks = domainData?.tracks ?? [];
+
 const layout = computeLayout(tracks, lang, domain);
 
+const listing = await buildDomainListing(lang, domain);
+
+// Derive totals from listing for accuracy
+const totalLessons = listing.reduce(
+  (sum, track) =>
+    sum + track.units.reduce((s, unit) => s + unit.lessonCount, 0),
+  0
+);
+const totalTracks = listing.length;
+
 const domainTitles: Record<Domain, Record<Locale, string>> = {
-  'rf':           { en: 'RF Engineering Roadmap',      vi: 'Lộ trình Kỹ thuật RF' },
-  'core-network': { en: 'Core Network Roadmap',        vi: 'Lộ trình Mạng lõi' },
-  'space':        { en: 'Space Engineering Roadmap',   vi: 'Lộ trình Kỹ thuật Vũ trụ' },
+  'rf':           { en: 'RF Engineering',      vi: 'Kỹ thuật RF' },
+  'core-network': { en: 'Core Network',         vi: 'Mạng lõi' },
+  'space':        { en: 'Space Engineering',    vi: 'Kỹ thuật Vũ trụ' },
+};
+
+const domainDescriptions: Record<Domain, Record<Locale, string>> = {
+  'rf':           {
+    en: "From Maxwell’s equations to phased arrays — the complete RF engineering curriculum.",
+    vi: 'Từ phương trình Maxwell đến mảng anten pha — chương trình kỹ thuật RF toàn diện.',
+  },
+  'core-network': {
+    en: 'Control plane, user plane, mobility, and carrier-grade operations.',
+    vi: 'Mặt phẳng điều khiển, mặt phẳng người dùng, di động và vận hành cấp nhà mạng.',
+  },
+  'space':        {
+    en: 'Orbital mechanics, link budgets, and satellite systems engineering.',
+    vi: 'Cơ học quỹ đạo, ngân sách tuyến và kỹ thuật hệ thống vệ tinh.',
+  },
 };
 
 const pageTitle = domainTitles[domain][lang];
+const pageDescription = domainDescriptions[domain][lang];
 const oppositeLang = lang === 'en' ? 'vi' : 'en';
 const alternateUrl = new URL(`/${oppositeLang}/${domain}/`, Astro.site ?? Astro.url.origin).href;
+const breadcrumbHome = t(lang, 'breadcrumbHome');
+const tracksLabel = lang === 'en' ? 'tracks' : 'nhóm';
+const lessonsLabel = t(lang, 'lessonsCount');
+const visualMapToggle = t(lang, 'visualMapToggle');
 ---
 
-<BaseLayout lang={lang} title={pageTitle} alternateUrl={alternateUrl}>
-  <main>
-    <nav aria-label="Breadcrumb">
-      <a href={`/${lang}/`}>{lang === 'en' ? 'Home' : 'Trang chủ'}</a>
-      {' › '}
-      <span>{pageTitle}</span>
-    </nav>
+<DocsLayout lang={lang} domain={domain} title={pageTitle} alternateUrl={alternateUrl}>
+  <nav aria-label="Breadcrumb">
+    <a href={`/${lang}/`}>{breadcrumbHome}</a>
+    {' › '}
+    <span>{pageTitle}</span>
+  </nav>
 
-    <h1>{pageTitle}</h1>
-    <p>
-      {lang === 'en'
-        ? `${tracks.length} tracks · scroll horizontally to explore all units and lessons.`
-        : `${tracks.length} nhóm chủ đề · cuộn ngang để xem toàn bộ đơn vị và bài học.`}
-    </p>
+  <h1>{pageTitle}</h1>
+  <p class="domain-description">{pageDescription}</p>
 
-    <RoadmapSvg layout={layout} lang={lang} />
-  </main>
-</BaseLayout>
+  <div class="domain-stats">
+    <span class="stat-badge">
+      <span class="stat-number">{totalTracks}</span>
+      <span class="stat-label">{tracksLabel}</span>
+    </span>
+    <span class="stat-badge">
+      <span class="stat-number">{totalLessons}</span>
+      <span class="stat-label">{lessonsLabel}</span>
+    </span>
+  </div>
+
+  <LessonList tracks={listing} lang={lang} domain={domain} />
+
+  <details class="visual-map">
+    <summary class="visual-map-toggle">{visualMapToggle}</summary>
+    <div class="visual-map-content">
+      <RoadmapSvg layout={layout} lang={lang} />
+    </div>
+  </details>
+</DocsLayout>
 
 <style>
-  main {
-    padding: 1.5rem;
-    max-width: 100%;
-  }
   h1 {
-    font-size: var(--font-size-2xl, 1.5rem);
+    font-size: var(--font-size-2xl);
     font-weight: 700;
-    color: var(--color-fg, #0e1414);
-    margin: 0.5rem 0 0.25rem;
+    color: var(--color-fg);
+    margin: 0.75rem 0 0.5rem;
   }
-  p {
-    color: var(--color-muted, #5b6766);
-    font-size: var(--font-size-sm, 0.875rem);
-    margin-bottom: 1rem;
+
+  .domain-description {
+    color: var(--color-muted);
+    font-size: var(--font-size-base);
+    margin-bottom: 1.25rem;
+    max-width: 60ch;
   }
-  nav {
-    font-size: var(--font-size-sm, 0.875rem);
-    color: var(--color-muted, #5b6766);
-    margin-bottom: 0.5rem;
+
+  .domain-stats {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
   }
+
+  .stat-badge {
+    display: flex;
+    align-items: baseline;
+    gap: 0.375rem;
+    background: var(--color-surface-elevated);
+    padding: 0.5rem 0.75rem;
+    border-radius: 6px;
+    border: 1px solid var(--color-border);
+  }
+
+  .stat-number {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--color-accent-link);
+  }
+
+  .stat-label {
+    font-size: var(--font-size-sm);
+    color: var(--color-muted);
+  }
+
+  nav[aria-label="Breadcrumb"] {
+    font-size: var(--font-size-sm);
+    color: var(--color-muted);
+    margin-bottom: 0.75rem;
+  }
+
   nav a {
-    color: var(--color-accent-500, #0b5351);
+    color: var(--color-muted);
     text-decoration: none;
+    transition: color 0.15s;
   }
-  nav a:hover { text-decoration: underline; }
+
+  nav a:hover {
+    color: var(--color-accent-link);
+    text-decoration: underline;
+  }
+
+  /* ── Visual map collapsible ── */
+  .visual-map {
+    margin-top: 3rem;
+    border: 1px solid var(--color-border);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+
+  .visual-map-toggle {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.875rem 1.25rem;
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--color-fg);
+    background: var(--color-surface);
+    cursor: pointer;
+    list-style: none;
+    user-select: none;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+
+  .visual-map-toggle::-webkit-details-marker {
+    display: none;
+  }
+
+  .visual-map-toggle::before {
+    content: '▸';
+    font-size: 0.75rem;
+    color: var(--color-muted);
+    transition: transform 0.15s ease;
+    display: inline-block;
+  }
+
+  .visual-map[open] .visual-map-toggle::before {
+    transform: rotate(90deg);
+  }
+
+  .visual-map-toggle:hover {
+    background: var(--color-surface-elevated);
+    color: var(--color-accent-link);
+  }
+
+  .visual-map-content {
+    padding: 1.5rem 1rem;
+    border-top: 1px solid var(--color-border);
+    background: var(--color-bg);
+  }
 </style>

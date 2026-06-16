@@ -7,6 +7,7 @@ import vercel from '@astrojs/vercel';
 import remarkMath from 'remark-math';
 import rehypeKatex from 'rehype-katex';
 import rehypeMermaid from 'rehype-mermaid';
+import rehypeSlug from 'rehype-slug';
 import { remarkGlossaryAutoLink } from '@rfcn-space-handbook/glossary';
 import { fileURLToPath } from 'node:url';
 import { join, dirname } from 'node:path';
@@ -44,6 +45,7 @@ export default defineConfig({
     // glossary auto-link runs first (before remarkMath) so term text is not inside math nodes
     remarkPlugins: [glossaryRemarkPlugin, remarkMath],
     rehypePlugins: [
+      rehypeSlug,
       [rehypeKatex, { output: 'htmlAndMathml' }],
       [rehypeMermaid, { strategy: 'pre-mermaid' }],
     ],

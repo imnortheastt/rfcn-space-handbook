@@ -1,0 +1,214 @@
+---
+/**
+ * HamburgerMenu — mobile nav drawer, slide-in from right.
+ * Shown at max-width: 768px when .domain-nav is hidden.
+ * A11y: focus trap (Tab/Shift+Tab), inert background, autofocus close, restore focus on dismiss, Esc closes.
+ */
+interface Props {
+  lang: 'en' | 'vi';
+  oppositeLang: 'en' | 'vi';
+  oppositeLangLabel: string;
+  oppositeLangHref: string;
+}
+
+const { lang, oppositeLang, oppositeLangLabel, oppositeLangHref } = Astro.props;
+---
+
+<!-- Hamburger toggle button — visible only on mobile -->
+<button
+  class="hamburger"
+  id="hamburger-btn"
+  aria-label="Toggle navigation menu"
+  aria-expanded="false"
+  aria-controls="mobile-nav-drawer"
+  type="button"
+>
+  <span class="hamburger-line" aria-hidden="true"></span>
+  <span class="hamburger-line" aria-hidden="true"></span>
+  <span class="hamburger-line" aria-hidden="true"></span>
+</button>
+
+<!-- Mobile nav drawer — slide in from right -->
+<div
+  class="mobile-nav-drawer"
+  id="mobile-nav-drawer"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Navigation menu"
+  hidden
+>
+  <!-- Backdrop -->
+  <div class="mobile-nav-backdrop" id="mobile-nav-backdrop" aria-hidden="true"></div>
+
+  <!-- Drawer panel -->
+  <nav class="mobile-nav-panel" aria-label="Mobile navigation">
+    <div class="mobile-nav-header">
+      <span class="mobile-nav-title">Menu</span>
+      <button
+        class="mobile-nav-close"
+        id="mobile-nav-close"
+        aria-label="Close navigation menu"
+        type="button"
+      >
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+          <line x1="4" y1="4" x2="16" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+          <line x1="16" y1="4" x2="4" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        </svg>
+      </button>
+    </div>
+
+    <ul class="mobile-nav-list" role="list">
+      <li>
+        <a href={`/${lang}/rf/`} class="mobile-nav-link">RF</a>
+      </li>
+      <li>
+        <a href={`/${lang}/core-network/`} class="mobile-nav-link">Core Network</a>
+      </li>
+      <li>
+        <a href={`/${lang}/space/`} class="mobile-nav-link">Space</a>
+      </li>
+    </ul>
+
+    <div class="mobile-nav-footer">
+      <a
+        href={oppositeLangHref}
+        class="mobile-lang-toggle"
+        hreflang={oppositeLang}
+        aria-label={`Switch to ${oppositeLang === 'vi' ? 'Vietnamese' : 'English'}`}
+      >
+        {oppositeLangLabel}
+      </a>
+    </div>
+  </nav>
+</div>
+
+<script>
+  // Focusable elements selector used for focus trap
+  const FOCUSABLE_SELECTORS =
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
+
+  function initHamburger() {
+    const btn = document.getElementById('hamburger-btn') as HTMLButtonElement | null;
+    const drawer = document.getElementById('mobile-nav-drawer') as HTMLElement | null;
+    const closeBtn = document.getElementById('mobile-nav-close') as HTMLButtonElement | null;
+    const backdrop = document.getElementById('mobile-nav-backdrop') as HTMLElement | null;
+    const panel = drawer?.querySelector('.mobile-nav-panel') as HTMLElement | null;
+
+    if (!btn || !drawer || !panel) return;
+
+    // Collect sibling elements of the drawer's top-level container (body children)
+    // that should be inert while the drawer is open.
+    function getSiblingInertTargets(): Element[] {
+      // Target the docs-container and header — everything rendered in <body>
+      // except the drawer itself and its ancestor site-header.
+      return Array.from(document.body.children).filter(
+        (el) => el !== drawer && !el.contains(drawer)
+      );
+    }
+
+    function trapFocus(e: KeyboardEvent) {
+      if (e.key !== 'Tab') return;
+      const focusable = Array.from(
+        panel!.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTORS)
+      ).filter((el) => !el.closest('[hidden]') && el.offsetParent !== null);
+
+      if (focusable.length === 0) { e.preventDefault(); return; }
+
+      const first = focusable[0] as HTMLElement;
+      const last = focusable[focusable.length - 1] as HTMLElement;
+
+      if (e.shiftKey) {
+        // Shift+Tab: if focus would leave first, wrap to last
+        if (document.activeElement === first) {
+          e.preventDefault();
+          last.focus();
+        }
+      } else {
+        // Tab: if focus would leave last, wrap to first
+        if (document.activeElement === last) {
+          e.preventDefault();
+          first.focus();
+        }
+      }
+    }
+
+    function openMenu() {
+      drawer!.hidden = false;
+      // Allow hidden→visible transition to play
+      requestAnimationFrame(() => {
+        drawer!.classList.add('is-open');
+      });
+      btn!.setAttribute('aria-expanded', 'true');
+      document.body.style.overflow = 'hidden';
+
+      // Mark sibling content inert (with aria-hidden fallback for older browsers)
+      getSiblingInertTargets().forEach((el) => {
+        (el as HTMLElement & { inert?: boolean }).inert = true;
+        el.setAttribute('aria-hidden', 'true');
+      });
+
+      // Autofocus close button after transition starts
+      requestAnimationFrame(() => {
+        closeBtn?.focus();
+      });
+
+      // Attach focus trap
+      panel!.addEventListener('keydown', trapFocus);
+    }
+
+    function closeMenu() {
+      drawer!.classList.remove('is-open');
+      btn!.setAttribute('aria-expanded', 'false');
+      document.body.style.overflow = '';
+
+      // Remove inert from siblings
+      getSiblingInertTargets().forEach((el) => {
+        (el as HTMLElement & { inert?: boolean }).inert = false;
+        el.removeAttribute('aria-hidden');
+      });
+
+      // Detach focus trap
+      panel!.removeEventListener('keydown', trapFocus);
+
+      // Hide after CSS transition completes (200ms)
+      setTimeout(() => {
+        drawer!.hidden = true;
+      }, 220);
+
+      // Restore focus to trigger button
+      btn?.focus();
+    }
+
+    btn.addEventListener('click', () => {
+      const isOpen = btn.getAttribute('aria-expanded') === 'true';
+      isOpen ? closeMenu() : openMenu();
+    });
+
+    closeBtn?.addEventListener('click', closeMenu);
+    backdrop?.addEventListener('click', closeMenu);
+
+    // Close on Escape key — listener on document so it fires even if focus escapes
+    document.addEventListener('keydown', (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && btn.getAttribute('aria-expanded') === 'true') {
+        closeMenu();
+      }
+    });
+
+    // Close when a nav link is clicked (navigation happening)
+    drawer.querySelectorAll('.mobile-nav-link').forEach((link) => {
+      link.addEventListener('click', closeMenu);
+    });
+
+    // Close when viewport widens past 768px (desktop)
+    const mq = window.matchMedia('(min-width: 769px)');
+    mq.addEventListener('change', (e) => {
+      if (e.matches && btn.getAttribute('aria-expanded') === 'true') {
+        closeMenu();
+      }
+    });
+  }
+
+  // Init on first load and after Astro view transitions
+  initHamburger();
+  document.addEventListener('astro:after-swap', initHamburger);
+</script>

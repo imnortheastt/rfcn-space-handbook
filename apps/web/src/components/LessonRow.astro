@@ -1,0 +1,154 @@
+---
+import LevelBadge from './LevelBadge.astro';
+import type { LessonView } from '../lib/curriculum';
+import { t } from '../lib/i18n';
+import type { Locale } from '../lib/i18n';
+
+interface Props {
+  lesson: LessonView;
+  lang: Locale;
+  domain: string;
+  index: number;
+}
+
+const { lesson, lang, domain, index } = Astro.props;
+const num = String(index).padStart(2, '0');
+const visitedLabel = t(lang, 'visitedLabel');
+const comingSoon = t(lang, 'comingSoon');
+const minReadLabel = t(lang, 'minRead');
+---
+
+{lesson.published ? (
+  <li>
+    <a
+      href={lesson.href}
+      class="lesson-row hover-lift"
+      data-lesson-slug={lesson.slug}
+      data-domain={domain}
+    >
+      <span class="row-num" aria-hidden="true">{num}</span>
+      <span class="row-title">{lesson.title}</span>
+      <span class="row-meta">
+        <LevelBadge level={lesson.level} />
+        <span class="row-minutes">{lesson.minutes} {minReadLabel}</span>
+        <span class="progress-check" hidden aria-label={visitedLabel}>✓</span>
+      </span>
+    </a>
+  </li>
+) : (
+  <li class="lesson-row lesson-row--unpublished" aria-disabled="true">
+    <span class="row-num" aria-hidden="true">{num}</span>
+    <span class="row-title">{lesson.title}</span>
+    <span class="row-meta">
+      <LevelBadge level={lesson.level} />
+      <span class="row-coming-soon">{comingSoon}</span>
+    </span>
+  </li>
+)}
+
+<style>
+  li {
+    list-style: none;
+  }
+
+  .lesson-row {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.875rem 1.25rem;
+    border-bottom: 1px solid var(--color-border);
+    text-decoration: none;
+    color: var(--color-fg);
+    background: var(--color-bg);
+    transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease, transform 0.15s ease;
+  }
+
+  li:last-child .lesson-row {
+    border-bottom: none;
+  }
+
+  /* Published row hover — use background + inset border on hover
+     instead of transform on a flush list row, which looks jarring */
+  a.lesson-row:hover {
+    background: var(--color-surface);
+    border-color: var(--color-accent-link);
+    box-shadow: inset 2px 0 0 var(--color-accent-link), var(--shadow-hover);
+    transform: none;
+  }
+
+  a.lesson-row:focus-visible {
+    outline: none;
+    box-shadow: var(--focus-ring);
+  }
+
+  .lesson-row--unpublished {
+    opacity: 0.55;
+    cursor: default;
+  }
+
+  .row-num {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    color: var(--color-muted);
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .row-title {
+    font-size: 0.9375rem;
+    font-weight: 500;
+    color: var(--color-fg);
+    line-height: var(--leading-tight);
+  }
+
+  .lesson-row--unpublished .row-title {
+    color: var(--color-muted);
+  }
+
+  .row-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-shrink: 0;
+  }
+
+  .row-minutes {
+    font-size: var(--font-size-sm);
+    color: var(--color-muted);
+    white-space: nowrap;
+  }
+
+  .row-coming-soon {
+    font-size: var(--font-size-sm);
+    color: var(--color-muted);
+    white-space: nowrap;
+    font-style: italic;
+  }
+
+  .progress-check {
+    color: var(--color-accent-link);
+    font-weight: 700;
+    font-size: var(--font-size-sm);
+    line-height: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .lesson-row {
+      transition: none;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .lesson-row {
+      grid-template-columns: 2rem 1fr;
+      grid-template-rows: auto auto;
+      padding: 0.75rem 1rem;
+    }
+
+    .row-meta {
+      grid-column: 2;
+      margin-top: 0.25rem;
+    }
+  }
+</style>
