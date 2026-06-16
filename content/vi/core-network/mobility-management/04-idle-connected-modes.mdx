@@ -8,17 +8,390 @@ track: n3
 unit: mobility-management
 order: 4
 level: L3
-estimatedReadingMinutes: 5
-title: "Che do ranh va ket noi"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-mobility-management-01-registration"]
+spiralRevisits: ["core-network-n4-power-saving-01-drx"]
+title: "Che Do Idle va Connected"
+description: "Trang thai RRC va CM — cach UE tiet kiem pin trong khi van co the lien lac duoc."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 38.331", "3GPP TS 24.501"]
+tags: ["rrc", "cm", "idle", "connected", "drx", "paging"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Che do ranh va ket noi
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Dien thoai cua ban khong phat song lien tuc. Khi ban khong dung du lieu, no vao **che do idle** de tiet kiem pin — nhung van dang ky de cuoc goi va tin nhan co the den duoc.
+
+Hieu idle vs connected giai thich tai sao "luon ket noi" khong co nghia la "luon phat song."
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Hai may trang thai
+
+```
+May trang thai UE 5G:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Quan ly Ket noi (CM) - lop NAS, AMF                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  CM-IDLE ◄───────────────────► CM-CONNECTED    │    │
+│  │                                                  │    │
+│  │  Khong co ket noi     Ket noi bao hieu NAS     │    │
+│  │  bao hieu NAS         dang hoat dong voi AMF   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Trang thai RRC (Radio) - lop AS, gNB                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  RRC_IDLE ◄──► RRC_INACTIVE ◄──► RRC_CONNECTED │    │
+│  │                                                  │    │
+│  │  Khong co     RRC tam dung      Ket noi RRC    │    │
+│  │  context RRC  (giu UE context)  dang hoat dong │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### So sanh trang thai
+
+| Trang thai | Radio | Core | Pin | Do tre |
+|------------|-------|------|-----|--------|
+| **RRC_IDLE** | Tat | Da dang ky | Tot nhat | Cao (paging) |
+| **RRC_INACTIVE** | Tat | Connected | Tot | Trung binh |
+| **RRC_CONNECTED** | Bat | Connected | Toi nhat | Tot nhat |
+
+### Khi nao ban o moi trang thai
+
+```
+Chuyen doi Trang thai trong Su dung Hang ngay:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Sang: Dien thoai trong tui                             │
+│  ┌──────────────────────────────────┐                   │
+│  │ RRC_IDLE / CM-IDLE               │                   │
+│  │ - Radio tat, tiet kiem pin       │                   │
+│  │ - Mang biet TA (vung) cua ban    │                   │
+│  │ - Cuoc goi den → paging          │                   │
+│  └──────────────────────────────────┘                   │
+│                                                          │
+│  Ban mo ung dung:                                       │
+│  ┌──────────────────────────────────┐                   │
+│  │ RRC_CONNECTED / CM-CONNECTED     │                   │
+│  │ - Radio bat, du lieu dang chay   │                   │
+│  │ - gNB biet cell chinh xac cua ban│                   │
+│  │ - Handover neu ban di chuyen     │                   │
+│  └──────────────────────────────────┘                   │
+│                                                          │
+│  App chay nen (tinh nang 5G NR):                        │
+│  ┌──────────────────────────────────┐                   │
+│  │ RRC_INACTIVE / CM-CONNECTED      │                   │
+│  │ - Radio tat, context duoc giu    │                   │
+│  │ - Phuc hoi nhanh khi can         │                   │
+│  │ - Tot cho luu luong bursty       │                   │
+│  └──────────────────────────────────┘                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Trang thai RRC chi tiet
+
+```
+May trang thai RRC:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                   ┌──────────────┐                      │
+│                   │  RRC_IDLE    │                      │
+│                   │              │                      │
+│                   │ - Khong ctx  │                      │
+│                   │ - Chon lai   │                      │
+│                   │   cell       │                      │
+│                   │ - Paging DRX │                      │
+│                   └──────┬───────┘                      │
+│                          │                               │
+│            RRC Setup  ▼  │  ▲  RRC Release              │
+│                          │  │                            │
+│                   ┌──────┴───────┐                      │
+│                   │RRC_CONNECTED │                      │
+│                   │              │                      │
+│                   │ - RRC hoat   │                      │
+│                   │   dong       │                      │
+│                   │ - Handover   │                      │
+│                   │ - C-DRX      │                      │
+│                   └──────┬───────┘                      │
+│                          │                               │
+│      RRC Suspend  ▼  │  ▲  RRC Resume                   │
+│                          │  │                            │
+│                   ┌──────┴───────┐                      │
+│                   │RRC_INACTIVE  │◄── MOI trong 5G      │
+│                   │              │                      │
+│                   │ - Ctx tai gNB│                      │
+│                   │ - RAN paging │                      │
+│                   │ - I-DRX      │                      │
+│                   └──────────────┘                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Trang thai CM
+
+```
+May trang thai CM:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  CM-DEREGISTERED ────► CM-IDLE ────► CM-CONNECTED      │
+│        │                  │               │              │
+│        │                  │               │              │
+│        │  Registration    │  Service      │              │
+│        │  Accept          │  Request      │              │
+│        │                  │               │              │
+│        ▼                  ▼               ▼              │
+│                                                          │
+│  CM-DEREGISTERED: UE chua dang ky                       │
+│  - Khong lien ket AMF                                   │
+│  - Phai dang ky truoc moi thu                           │
+│                                                          │
+│  CM-IDLE: Da dang ky nhung khong co ket noi bao hieu   │
+│  - AMF biet UE ton tai                                  │
+│  - AMF biet tracking area cua UE                        │
+│  - Khong co N1/N2 hoat dong cho UE nay                 │
+│                                                          │
+│  CM-CONNECTED: Ket noi bao hieu dang hoat dong         │
+│  - N1 (UE-AMF) da thiet lap                            │
+│  - N2 (gNB-AMF) context cho UE nay                     │
+│  - Co the trao doi tin nhan NAS                         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Paging trong che do idle
+
+```
+Luong Paging (cuoc goi MT den UE idle):
+
+Mang                AMF              gNBs            UE
+(den)                │                 │              │
+    │                 │                 │              │
+    │  Cuoc goi MT    │                 │              │
+    │  cho SUPI xyz   │                 │              │
+    │────────────────►│                 │              │
+    │                 │                 │              │
+    │          ┌──────┴──────┐          │              │
+    │          │ UE trong    │          │              │
+    │          │ CM-IDLE     │          │              │
+    │          │ TAI list    │          │              │
+    │          │ cuoi cung   │          │              │
+    │          └──────┬──────┘          │              │
+    │                 │                 │              │
+    │                 │  Paging         │              │
+    │                 │  (5G-S-TMSI)    │              │
+    │                 │────────────────►│              │
+    │                 │  (den tat ca    │              │
+    │                 │   gNB trong     │              │
+    │                 │   TAI list)     │              │
+    │                 │                 │              │
+    │                 │                 │  Paging msg  │
+    │                 │                 │  tren PCH    │
+    │                 │                 │─────────────►│
+    │                 │                 │              │
+    │                 │                 │          ┌───┴───┐
+    │                 │                 │          │ UE    │
+    │                 │                 │          │ thuc  │
+    │                 │                 │          │ day   │
+    │                 │                 │          └───┬───┘
+    │                 │                 │              │
+    │                 │                 │  Service Req │
+    │                 │                 │◄─────────────│
+    │                 │                 │              │
+```
+
+### Trang thai RRC_INACTIVE
+
+```
+RRC_INACTIVE (sang tao 5G NR):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Van de voi RRC_IDLE:                                   │
+│  - Thiet lap RRC day du mat ~10-50ms                   │
+│  - Context phai xay dung lai tu dau                    │
+│  - Xau cho luu luong IoT bursty                        │
+│                                                          │
+│  Giai phap: RRC_INACTIVE                                │
+│  - Context UE luu tai gNB "neo"                        │
+│  - Radio tat (nhu idle), nhung context san sang        │
+│  - Phuc hoi chi mat ~2-10ms                            │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │      gNB-anchor                                 │    │
+│  │   ┌────────────┐                                │    │
+│  │   │ UE Context │ ◄── Luu tru, san sang phuc hoi│    │
+│  │   │ - Security │                                │    │
+│  │   │ - Bearer   │                                │    │
+│  │   │ - I-RNTI   │                                │    │
+│  │   └────────────┘                                │    │
+│  │                                                  │    │
+│  │      UE (radio tat)                             │    │
+│  │   ┌────────────┐                                │    │
+│  │   │ I-RNTI     │ ◄── ID phuc hoi               │    │
+│  │   │ Ctx luu tru│                                │    │
+│  │   └────────────┘                                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Khi UE co du lieu:                                     │
+│  UE gui RRC Resume Request voi I-RNTI                  │
+│  gNB lay context (local hoac tu anchor)                │
+│  Ket noi phuc hoi trong vai mili giay                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### DRX (Nhan khong lien tuc)
+
+```
+Cau hinh DRX:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Paging DRX (che do Idle):                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Thoi gian ──────────────────────────────►       │    │
+│  │                                                  │    │
+│  │  │▓│    │    │    │▓│    │    │    │▓│          │    │
+│  │   │              │              │               │    │
+│  │   └── Thuc day ──┘              │               │    │
+│  │       cho paging                └── Ngu phan   │    │
+│  │       occasion                      lon thoi gian    │
+│  │                                                  │    │
+│  │  Chu ky: 320ms - 2.56s (mang cau hinh)          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Connected DRX (C-DRX):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  │▓▓▓│   │▓▓▓│   │▓▓▓│   │▓▓▓│                  │    │
+│  │    │       │       │       │                    │    │
+│  │    └───────┴───────┴───────┘                    │    │
+│  │    Thoi gian bat (giam sat PDCCH)               │    │
+│  │                                                  │    │
+│  │  Chu ky ngan: 2-640 slot                        │    │
+│  │  Chu ky dai: 10-10240 slot                      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Inactive DRX (I-DRX):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Tuong tu paging DRX nhung paging cap RAN      │    │
+│  │  Cau hinh boi RRC Release voi suspend          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Chi bao trang thai:**
+
+| Trang thai | CM | RRC | Hoat dong UE |
+|------------|-----|-----|--------------|
+| Tat | - | - | Tat nguon |
+| Tim kiem | DEREG | IDLE | Tim mang |
+| Dang ky idle | IDLE | IDLE | Cho paging |
+| Tam dung | CONN | INACTIVE | San sang phuc hoi nhanh |
+| Hoat dong | CONN | CONNECTED | Truyen du lieu |
+
+**Timer:**
+
+| Timer | Muc dich | Gia tri thuong gap |
+|-------|----------|-------------------|
+| T3512 | Dang ky dinh ky | 54 phut |
+| Paging DRX | Chu ky che do idle | 1.28s |
+| Khong hoat dong | CONNECTED→INACTIVE | 2-10s |
+| T380 | INACTIVE→IDLE | 10-60s |
+
+**Debug:**
+
+```bash
+# Bo loc Wireshark cho thay doi trang thai RRC
+nr-rrc.rrcSetup || nr-rrc.rrcRelease || nr-rrc.rrcResume
+
+# Kiem tra paging
+ngap.procedureCode == 29  # Thu tuc Paging
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Nham lan trang thai CM va RRC.** CM la lop NAS (AMF). RRC la lop AS (gNB). Chung chuyen doi doc lap.
+
+2. **Bo qua RRC_INACTIVE.** Trang thai dac trung 5G nay cung cap tiet kiem do tre lon cho IoT. Khong dung no la lang phi.
+
+3. **Paging DRX qua dai.** Chu ky paging dai tiet kiem pin nhung tang thoi gian thiet lap cuoc goi MT.
+
+4. **C-DRX qua gay gat.** Thoi gian bat DRX rat ngan co the bo lo co hoi lap lich.
+
+5. **Timer INACTIVE khong khop.** Neu T380 het truoc khi du lieu den, UE chuyen sang IDLE va mat loi ich phuc hoi nhanh.
+
+6. **Quen RAN paging.** Trong INACTIVE, RAN paging UE (khong phai CN paging). Khac voi paging che do idle.
+
+7. **TAI list qua nho.** Trong che do idle, UE tu do chon lai cell trong TAI list. Danh sach nho gay TAU thuong xuyen.
+
+8. **Khong cau hinh I-RNTI dung cach.** Tinh duy nhat cua I-RNTI rat quan trong de RRC_INACTIVE hoat dong chinh xac.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 38.331, "NR RRC Protocol"
+- 3GPP TS 24.501, "NAS for 5GS"
+- 3GPP TS 38.304, "UE Procedures in Idle Mode"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Dang ky](/vi/core-network/mobility-management/registration/) — vao RM-REGISTERED
+- [Handover](/vi/core-network/mobility-management/handover/) — di dong trong che do connected
+- [DRX chi tiet](/vi/core-network/power-saving/drx/) — co che tiet kiem nang luong
+
+</section>

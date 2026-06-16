@@ -8,17 +8,358 @@ track: n6
 unit: o-ran-architecture
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "O-DU — Don vi phan tan"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n6-o-ran-architecture-01-o-cu"]
+spiralRevisits: []
+title: "O-DU — Don vi Phan tan"
+description: "Don vi Phan tan O-RAN — RLC, MAC, scheduler, high-PHY, va xu ly thoi gian thuc lam cho 5G hoat dong."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG4.CUS", "3GPP TS 38.321", "3GPP TS 38.322"]
+tags: ["o-ran", "5g", "du", "mac", "rlc", "scheduler"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# O-DU — Don vi phan tan
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+O-DU la noi cac quyet dinh mili giay xay ra. Moi 0.5ms, no quyet dinh UE nao duoc khoi tai nguyen nao. Moi 1ms, no xu ly truyen lai HARQ.
+
+Hieu O-DU la can thiet vi day la noi hieu nang 5G duoc tao ra hoac pha vo — do tre, throughput, va hieu qua pho deu phu thuoc vao nhung gi xay ra o day.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Vi tri O-DU trong ngan xep
+
+```
+O-DU trong Ngan xep Giao thuc:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Tu CU (interface F1):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PDCP PDU (tu CU-UP)                             │    │
+│  │ Tin nhan RRC (qua CU-CP)                        │    │
+│  └────────────────────┬────────────────────────────┘    │
+│                       │                                  │
+│                       ▼                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                    O-DU                          │    │
+│  │                                                  │    │
+│  │  ┌───────────────────────────────────────────┐  │    │
+│  │  │ RLC (Radio Link Control)                  │  │    │
+│  │  │ - Phan doan / Lap ghep lai                │  │    │
+│  │  │ - Truyen lai ARQ                          │  │    │
+│  │  │ - Giao theo thu tu                        │  │    │
+│  │  └───────────────────────────────────────────┘  │    │
+│  │                       │                          │    │
+│  │  ┌───────────────────────────────────────────┐  │    │
+│  │  │ MAC (Medium Access Control)               │  │    │
+│  │  │ - Lap lich (moi TTI)                      │  │    │
+│  │  │ - Quan ly HARQ                            │  │    │
+│  │  │ - Ghep kenh                               │  │    │
+│  │  │ - Xu ly truy cap ngau nhien               │  │    │
+│  │  └───────────────────────────────────────────┘  │    │
+│  │                       │                          │    │
+│  │  ┌───────────────────────────────────────────┐  │    │
+│  │  │ High-PHY                                  │  │    │
+│  │  │ - Xao tron / Giai xao tron                │  │    │
+│  │  │ - Dieu che / Giai dieu che                │  │    │
+│  │  │ - Anh xa lop                              │  │    │
+│  │  │ - Precoding                               │  │    │
+│  │  └───────────────────────────────────────────┘  │    │
+│  │                                                  │    │
+│  └────────────────────┬────────────────────────────┘    │
+│                       │ Open Fronthaul                  │
+│                       ▼                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                    O-RU                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Yeu cau thoi gian thuc
+
+```
+Rang buoc Thoi gian O-DU:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Thang Thoi gian     │ Xay ra gi                        │
+│  ────────────────────┼──────────────────────────────────│
+│                      │                                  │
+│  0.5 ms (slot)       │ Quyet dinh scheduler             │
+│                      │ - UE nao duoc lap lich           │
+│                      │ - PRB nao duoc cap phat          │
+│                      │ - MCS nao su dung                │
+│                      │                                  │
+│  1 ms (subframe)     │ Xu ly phan hoi HARQ              │
+│                      │ - ACK/NACK tu UE                 │
+│                      │ - Quyet dinh truyen lai          │
+│                      │                                  │
+│  ~4 ms               │ Vong HARQ                        │
+│                      │ - Truyen → UE giai ma → ACK →    │
+│                      │   DU xu ly → truyen lai          │
+│                      │                                  │
+│  10 ms (frame)       │ Ranh gioi radio frame            │
+│                      │ - Tang SFN                       │
+│                      │                                  │
+│  O-DU phai hoan thanh xu ly trong deadline nghiem ngat  │
+│  Lo deadline = mat goi hoac xung dot                    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Hoat dong scheduler
+
+```
+Vong Quyet dinh MAC Scheduler:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Moi slot (0.5ms):                                      │
+│                                                          │
+│  1. Thu thap dau vao:                                   │
+│     ├── Trang thai buffer (bao nhieu data moi UE)      │
+│     ├── Bao cao CQI (chat luong kenh moi UE)           │
+│     ├── Trang thai HARQ (truyen lai dang cho)          │
+│     └── Yeu cau QoS (uu tien, do tre)                  │
+│                                                          │
+│  2. Cap phat tai nguyen:                                │
+│     ┌─────────────────────────────────────────────┐    │
+│     │ PRB kha dung: 273 (100 MHz, FR1)            │    │
+│     │                                              │    │
+│     │ UE1: PRB 0-50   (traffic cao, CQI tot)      │    │
+│     │ UE2: PRB 51-80  (VoNR, dam bao)             │    │
+│     │ UE3: PRB 81-100 (CQI kem, MCS vung chac)    │    │
+│     │ [PRB con lai cho UE khac hoac du tru]       │    │
+│     │                                              │    │
+│     └─────────────────────────────────────────────┘    │
+│                                                          │
+│  3. Tao DCI (Downlink Control Information):            │
+│     - Bitmap cap phat tai nguyen                       │
+│     - Chi so MCS                                       │
+│     - ID tien trinh HARQ                               │
+│     - Chi bao du lieu moi (NDI)                        │
+│                                                          │
+│  4. Gui den High-PHY de truyen                         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac che do RLC
+
+```
+Cac Che do Hoat dong RLC:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Transparent Mode (TM):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Khong phan doan, khong ARQ                      │    │
+│  │ Dung cho: Broadcast (SIB), Paging               │    │
+│  │ Overhead: Khong                                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Unacknowledged Mode (UM):                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Phan doan: Co                                   │    │
+│  │ ARQ: Khong (khong truyen lai)                  │    │
+│  │ Dung cho: VoNR, video thoi gian thuc           │    │
+│  │ Ly do: Truyen lai them do tre                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Acknowledged Mode (AM):                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Phan doan: Co                                   │    │
+│  │ ARQ: Co (truyen lai khi RLC NACK)              │    │
+│  │ Dung cho: Du lieu, bao hieu                     │    │
+│  │ Dam bao: Giao theo thu tu, tin cay             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  RLC AM bat nhung gi HARQ bo lo                        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Hoat dong HARQ
+
+```
+Luong HARQ (Hybrid ARQ):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  DU (Truyen)                   UE (Nhan)                │
+│  │                              │                       │
+│  │ Truyen ban dau              │                       │
+│  │ (HARQ process 0, NDI=0)     │                       │
+│  │─────────────────────────────►│                       │
+│  │                              │                       │
+│  │                              │ Giai ma thu           │
+│  │                              │ (kiem tra CRC)        │
+│  │                              │                       │
+│  │ ◄─────────── NACK ───────────│ That bai             │
+│  │                              │                       │
+│  │ Truyen lai                  │                       │
+│  │ (HARQ process 0, NDI=0,     │                       │
+│  │  RV=1, bit khac)            │                       │
+│  │─────────────────────────────►│                       │
+│  │                              │                       │
+│  │                              │ Ket hop mem           │
+│  │                              │ (ket hop voi lan 1)   │
+│  │                              │                       │
+│  │ ◄─────────── ACK ────────────│ Thanh cong            │
+│  │                              │                       │
+│  │ Du lieu moi tiep theo       │                       │
+│  │ (HARQ process 0, NDI=1)     │                       │
+│  │─────────────────────────────►│                       │
+│  │                              │                       │
+│                                                          │
+│  16 tien trinh HARQ song song cho phep pipeline        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Interface fronthaul
+
+```
+O-DU den O-RU (Open Fronthaul):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Control Plane (C-Plane):                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Thong tin lap lich                              │    │
+│  │ - Mo ta section                                 │    │
+│  │ - Trong so beamforming                          │    │
+│  │ - Cap phat PRB                                  │    │
+│  │                                                  │    │
+│  │ Thoi gian: ~200-300 µs truoc khi truyen        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  User Plane (U-Plane):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Mau IQ (mien tan so)                            │    │
+│  │ - Sau FFT/IFFT tai diem chia                   │    │
+│  │ - Da nen (vd: 9-bit moi I, Q)                  │    │
+│  │                                                  │    │
+│  │ Thoi gian: Nghiem ngat, thang hang ranh symbol │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Synchronization (S-Plane):                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PTP (IEEE 1588) cho dong bo thoi gian          │    │
+│  │ Do chinh xac yeu cau: ±1.5 µs cho TDD          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Management (M-Plane):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ NETCONF/YANG cho cau hinh O-RU                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Can nhac trien khai O-DU:**
+
+| Yeu to | Edge (gan RU) | Tap trung |
+|--------|---------------|-----------|
+| Do tre fronthaul | < 100 µs | < 250 µs |
+| Bang thong fronthaul | Thap hon | Cao hon (gop) |
+| Gop chung compute | Khong | Chia se giua cell |
+| Ban kinh loi | Mot cell | Nhieu cell |
+
+**Debug O-DU:**
+
+```bash
+# Theo doi scheduler
+grep "sched_decision" /var/log/du/mac.log
+
+# Thong ke HARQ
+mac-cli show harq stats
+
+# Trang thai buffer RLC
+rlc-cli show buffer-status --ue-id 1234
+
+# Thoi gian fronthaul
+fh-cli show timing-advance
+
+# Kiem tra su dung PRB
+mac-cli show prb-utilization --interval 1s
+```
+
+**Chi so hieu nang chinh:**
+
+| Chi so | Muc tieu | Nghiem trong |
+|--------|----------|--------------|
+| Chu ky scheduler | < 100 µs | > 200 µs |
+| RTT HARQ | 4-8 ms | > 16 ms |
+| Ty le truyen lai RLC | < 1% | > 5% |
+| Su dung PRB | 60-80% | > 95% |
+| Jitter fronthaul | < 10 µs | > 50 µs |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Lo deadline scheduler.** Neu scheduler khong the quyet dinh kip thoi, slot bi lang phi. Dung thuat toan xac dinh.
+
+2. **Tran buffer HARQ.** Qua nhieu tien trinh HARQ dang cho can kiet bo nho. Giam sat su dung HARQ.
+
+3. **Timeout lap ghep RLC.** Segment bi thieu timeout va kich hoat truyen lai. Dat timer phu hop.
+
+4. **Bien thien tre fronthaul.** Jitter gay den muon. O-RU bo goi den muon.
+
+5. **Phan manh PRB.** Lap lich kem de lai khoang trong trong cap phat PRB. Giam hieu qua pho.
+
+6. **CQI cu.** Su dung CQI cu dan den chon MCS sai. Dam bao phan hoi kenh moi.
+
+7. **Chuyen doi UL/DL.** Chuyen doi TDD them phuc tap. Khoang bao ve phai duoc ton trong.
+
+8. **Phoi hop MIMO da nguoi dung.** MU-MIMO yeu cau lap lich phoi hop. Ghep cap UE sai lang phi dung luong.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- 3GPP TS 38.321, "Medium Access Control (MAC) Protocol"
+- 3GPP TS 38.322, "Radio Link Control (RLC) Protocol"
+- 3GPP TS 38.211, "Physical Channels and Modulation"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [O-RU](/vi/core-network/o-ran-architecture/o-ru/) — Don vi Vo tuyen
+- [O-CU](/vi/core-network/o-ran-architecture/o-cu/) — Don vi Trung tam
+- [Yeu cau fronthaul](/vi/core-network/functional-splits/fronthaul-requirements/) — nhu cau truyen tai
+
+</section>

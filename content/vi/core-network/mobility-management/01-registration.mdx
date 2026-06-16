@@ -8,17 +8,399 @@ track: n3
 unit: mobility-management
 order: 1
 level: L2
-estimatedReadingMinutes: 5
-title: "Thu tuc dang ky"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-network-functions-overview-01-amf"]
+spiralRevisits: ["core-network-n3-session-management-deep-dive-01-pdu-session-establishment"]
+title: "Thu Tuc Dang Ky"
+description: "Cach UE tu gioi thieu voi mang — dang ky ban dau, dang ky di dong, va cap nhat dinh ky."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.502", "3GPP TS 24.501"]
+tags: ["registration", "5g", "amf", "mobility"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Thu tuc dang ky
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Truoc khi dien thoai co the goi dien, gui du lieu, hoac lam bat cu dieu gi huu ich tren mang 5G, no phai **dang ky**. Dang ky noi voi mang: "Toi ton tai, xac thuc toi, va theo doi toi o dau."
+
+Thu tuc nay xay ra moi khi ban bat dien thoai, di chuyen den vung moi, hoac dinh ky khi o che do nghi. Hieu dang ky la nen tang de debug van de ket noi.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Dang ky dat duoc gi
+
+```
+Muc tieu Dang ky:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE bat nguon hoac di chuyen den vung moi               │
+│                   │                                      │
+│                   ▼                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │            Thu tuc Dang ky                       │    │
+│  │                                                  │    │
+│  │  1. XAC THUC                                    │    │
+│  │     "Chung minh ban la thue bao that"           │    │
+│  │                                                  │    │
+│  │  2. KICH HOAT BAO MAT                           │    │
+│  │     "Thiet lap ma hoa/toan ven"                 │    │
+│  │                                                  │    │
+│  │  3. DANG KY                                     │    │
+│  │     "Ghi lai ban o dau"                         │    │
+│  │                                                  │    │
+│  │  4. CAU HINH                                    │    │
+│  │     "Day la slice duoc phep cua ban, v.v."      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                   │                                      │
+│                   ▼                                      │
+│  UE la RM-REGISTERED, co the yeu cau dich vu           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac loai dang ky
+
+| Loai | Trigger | Muc dich |
+|------|---------|----------|
+| **Ban dau** | Bat nguon, lap SIM | Dang ky lan dau hoac moi |
+| **Di dong** | Vao RA/TA moi | Cap nhat vi tri voi mang |
+| **Dinh ky** | Timer het han | Xac nhan UE van song |
+| **Khan cap** | Goi khan cap | Dang ky gioi han khong co SIM |
+
+### Dang ky vs PDU Session
+
+```
+Quy trinh hai buoc:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Buoc 1: Dang ky (bai nay)                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ "Xin chao mang, toi o day, xac thuc toi"        │    │
+│  │                                                  │    │
+│  │ Ket qua: UE da dang ky, AMF biet                │    │
+│  │ CHUA CO DU LIEU — chi dang ky                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                          │                               │
+│                          ▼                               │
+│  Buoc 2: Thiet lap PDU Session (unit tiep theo)        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ "Cho toi dia chi IP, toi muon du lieu"          │    │
+│  │                                                  │    │
+│  │ Ket qua: IP duoc gan, co the gui/nhan du lieu   │    │
+│  │ BAY GIO DA KET NOI                              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cac chuc nang mang tham gia
+
+```
+Thanh phan Dang ky:
+
+┌──────┐    ┌──────┐    ┌──────┐    ┌──────┐    ┌──────┐
+│  UE  │    │ gNB  │    │ AMF  │    │ AUSF │    │ UDM  │
+└──┬───┘    └──┬───┘    └──┬───┘    └──┬───┘    └──┬───┘
+   │           │           │           │           │
+   │  RRC/NAS  │   NGAP    │   SBI     │   SBI     │
+   │◄─────────►│◄─────────►│◄─────────►│◄─────────►│
+   │           │           │           │           │
+   │  Radio    │  N2 intf  │ Core NF   │ Auth/Data │
+   │           │           │           │           │
+```
+
+### Luong dang ky ban dau
+
+```
+Dang ky ban dau:
+
+UE                gNB                AMF               AUSF/UDM
+│                  │                  │                    │
+│ RRC Connection   │                  │                    │
+│ Setup            │                  │                    │
+│─────────────────►│                  │                    │
+│                  │                  │                    │
+│ Registration     │                  │                    │
+│ Request          │                  │                    │
+│ (SUCI, 5GMM cap) │                  │                    │
+│─────────────────►│                  │                    │
+│                  │                  │                    │
+│                  │ Initial UE Msg   │                    │
+│                  │ (NAS container)  │                    │
+│                  │─────────────────►│                    │
+│                  │                  │                    │
+│                  │                  │ Nausf_UEAuth      │
+│                  │                  │ (SUCI → SUPI)      │
+│                  │                  │───────────────────►│
+│                  │                  │                    │
+│                  │                  │ Auth Vector        │
+│                  │                  │ (RAND, AUTN,       │
+│                  │                  │  HXRES*, KAUSF)    │
+│                  │                  │◄───────────────────│
+│                  │                  │                    │
+│ Auth Request     │                  │                    │
+│ (RAND, AUTN)     │◄─────────────────│                    │
+│◄─────────────────│                  │                    │
+│                  │                  │                    │
+│    ┌─────────────┴─────────────┐    │                    │
+│    │ UE xac nhan AUTN           │    │                    │
+│    │ UE tinh RES*               │    │                    │
+│    └─────────────┬─────────────┘    │                    │
+│                  │                  │                    │
+│ Auth Response    │                  │                    │
+│ (RES*)           │                  │                    │
+│─────────────────►│─────────────────►│                    │
+│                  │                  │                    │
+│                  │                  │ Xac minh RES*      │
+│                  │                  │───────────────────►│
+│                  │                  │                    │
+│                  │                  │ Auth xac nhan      │
+│                  │                  │◄───────────────────│
+│                  │                  │                    │
+│ Security Mode    │                  │                    │
+│ Command          │◄─────────────────│                    │
+│◄─────────────────│                  │                    │
+│                  │                  │                    │
+│ Security Mode    │                  │                    │
+│ Complete         │                  │                    │
+│─────────────────►│─────────────────►│                    │
+│                  │                  │                    │
+│                  │                  │ Nudm_UECM_Reg      │
+│                  │                  │ (dang ky tai AMF)  │
+│                  │                  │───────────────────►│
+│                  │                  │                    │
+│                  │                  │ Nudm_SDM_Get       │
+│                  │                  │ (lay thue bao)     │
+│                  │                  │───────────────────►│
+│                  │                  │                    │
+│ Registration     │                  │                    │
+│ Accept           │◄─────────────────│                    │
+│ (5G-GUTI, NSSAI) │                  │                    │
+│◄─────────────────│                  │                    │
+│                  │                  │                    │
+│ Registration     │                  │                    │
+│ Complete         │                  │                    │
+│─────────────────►│─────────────────►│                    │
+│                  │                  │                    │
+```
+
+### Trang thai dang ky
+
+```
+Trang thai Quan ly Dang ky (RM):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│        ┌──────────────────┐                             │
+│        │  RM-DEREGISTERED │                             │
+│        │                  │                             │
+│        │  UE khong duoc   │                             │
+│        │  mang biet       │                             │
+│        └────────┬─────────┘                             │
+│                 │                                        │
+│                 │ Registration Accept                    │
+│                 ▼                                        │
+│        ┌──────────────────┐                             │
+│        │  RM-REGISTERED   │                             │
+│        │                  │                             │
+│        │  UE duoc biet,   │                             │
+│        │  co 5G-GUTI, co  │                             │
+│        │  the yeu cau DV  │                             │
+│        └────────┬─────────┘                             │
+│                 │                                        │
+│                 │ Deregistration / Timer het han         │
+│                 │ / Deregistration ngam dinh             │
+│                 ▼                                        │
+│        ┌──────────────────┐                             │
+│        │  RM-DEREGISTERED │                             │
+│        └──────────────────┘                             │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### IE chinh trong dang ky
+
+```
+IE Registration Request:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Bat buoc:                                              │
+│  ├── 5GS registration type                              │
+│  │   (initial / mobility / periodic / emergency)        │
+│  ├── 5GS mobile identity                                │
+│  │   (SUCI cho initial, 5G-GUTI cho mobility)          │
+│  └── UE security capability                             │
+│                                                          │
+│  Tuy chon (thuong dung):                                │
+│  ├── Requested NSSAI (slice UE muon)                   │
+│  ├── Last visited registered TAI                        │
+│  ├── UE status (co update type)                        │
+│  ├── S1 UE network capability (cho 4G interop)         │
+│  └── PDU session status (danh sach session dang hoat dong)│
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+IE Registration Accept:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dau ra chinh:                                          │
+│  ├── 5G-GUTI (danh tinh tam thoi moi)                  │
+│  ├── Allowed NSSAI (slice duoc phe duyet)              │
+│  ├── TAI list (vung theo doi khong can dang ky lai)    │
+│  ├── Gia tri T3512 (timer dang ky dinh ky)             │
+│  └── Configured NSSAI (cho HPLMN)                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Dang ky di dong
+
+```
+Cap nhat Dang ky Di dong:
+
+UE di chuyen tu TAI_A den TAI_B (khong trong TAI list):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TAI List tu Registration Accept:                       │
+│  [TAI_A, TAI_C, TAI_D]                                  │
+│                                                          │
+│  UE di chuyen den TAI_B (KHONG trong list)             │
+│           │                                              │
+│           ▼                                              │
+│  UE kich hoat Mobility Registration Update              │
+│  - 5GS reg type: mobility registration                  │
+│  - Mobile identity: 5G-GUTI (khong phai SUCI)          │
+│  - Last visited TAI: TAI_A                              │
+│           │                                              │
+│           ▼                                              │
+│  AMF cap nhat UDM voi vi tri moi                        │
+│  Tra ve TAI list moi bao gom TAI_B                     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Dang ky dinh ky
+
+```
+Dang ky Dinh ky:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Timer T3512 (tu Registration Accept):                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Gia tri thong thuong: 54 phut (3240 giay)       │    │
+│  │                                                  │    │
+│  │ Muc dich: Mang biet UE van co the lien lac      │    │
+│  │ Neu timer het ma khong cap nhat: dereg ngam     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Thoi gian bieu:                                        │
+│  ────────────────────────────────────────────────────   │
+│  0         54 phut      108 phut     162 phut          │
+│  │          │              │              │             │
+│  ▼          ▼              ▼              ▼             │
+│  Reg     Cap nhat       Cap nhat       Cap nhat        │
+│  Accept   dinh ky       dinh ky        dinh ky         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tham so dang ky pho bien:**
+
+| Tham so | Gia tri | Muc dich |
+|---------|---------|----------|
+| T3512 | 54 phut | Timer dang ky dinh ky |
+| T3502 | 12 giay | Thu lai sau khi reg bi tu choi |
+| Kich thuoc TAI list | 16-64 TAI | Giam cap nhat di dong |
+
+**Xu ly su co dang ky:**
+
+| Trieu chung | Nguyen nhan co the | Kiem tra |
+|-------------|-------------------|----------|
+| Reg tu choi (cause 3) | UE bat hop phap | SIM bi chan/khong hop le |
+| Reg tu choi (cause 5) | IMEI khong chap nhan | Thiet bi trong danh sach den |
+| Reg tu choi (cause 11) | PLMN khong cho phep | Cau hinh roaming |
+| Reg het thoi gian | AUSF/UDM khong the lien lac | Ket noi core |
+| Dang ky lap lai | TAI list qua nho | Mo rong TAI list |
+
+**Lenh debug:**
+
+```bash
+# Bo loc Wireshark cho NAS registration
+nas-5gs.mm.message_type == 0x41 || nas-5gs.mm.message_type == 0x42
+
+# tcpdump cho N2 (NGAP)
+tcpdump -i any port 38412 -w registration.pcap
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Nham lan SUCI vs 5G-GUTI.** Dang ky ban dau dung SUCI (SUPI ma hoa). Mobility/periodic dung 5G-GUTI. Gui sai loai ID gay that bai.
+
+2. **TAI list qua nho.** Neu TAI list khong bao phu pattern di chuyen cua UE, cap nhat mobility qua nhieu.
+
+3. **T3512 qua ngan.** Timer dinh ky qua gay lang phi pin UE va tai nguyen mang.
+
+4. **Thieu NSSAI.** Neu UE khong yeu cau slice, slice mac dinh duoc dung. Co the khong phu hop nhu cau dich vu UE.
+
+5. **AMF cu khong the lien lac.** Khi di dong, AMF moi lien he AMF cu de lay context. Neu AMF cu chet, chuyen context that bai.
+
+6. **Timeout xac thuc.** AUSF/UDM phan hoi cham gay timeout dang ky. Giam sat do tre SBI.
+
+7. **SIM/credential khong khop.** K/OPc trong UDR phai khop USIM. Bat ky sai lech = auth that bai = reg tu choi.
+
+8. **Bo qua nguyen nhan tu choi.** Cac nguyen nhan tu choi khac nhau can xu ly khac nhau. Dung xu ly tat ca reject giong nhau.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.502, "Procedures for 5GS"
+- 3GPP TS 24.501, "NAS protocol for 5GS"
+- 3GPP TS 23.501, "System architecture for 5GS"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Huy dang ky](/vi/core-network/mobility-management/deregistration/) — roi khoi mang
+- [Handover](/vi/core-network/mobility-management/handover/) — di chuyen lien mach
+- [Thiet lap PDU session](/vi/core-network/session-management-deep-dive/pdu-session-establishment/) — co ket noi du lieu
+
+</section>

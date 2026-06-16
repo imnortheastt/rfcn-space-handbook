@@ -8,17 +8,389 @@ track: n3
 unit: session-management-deep-dive
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "PDU session establishment"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 14
+prerequisites: ["core-network-n3-mobility-management-01-registration", "core-network-n3-network-functions-overview-02-smf"]
+spiralRevisits: ["core-network-n4-qos-01-5qi"]
+title: "PDU Session Establishment"
+description: "Getting data connectivity — the complete flow from request to IP address assignment."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.502", "3GPP TS 24.501"]
+tags: ["pdu-session", "5g", "smf", "upf", "dnn"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# PDU session establishment
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Registration gets you on the network. But to actually use data — browse the web, stream video, send messages — you need a **PDU session**. This is when you get an IP address and the network sets up the data path.
+
+Every time you open an app that needs internet, a PDU session makes it work.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What a PDU session provides
+
+```
+PDU Session = Data Connectivity:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Before PDU Session:                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ UE is registered (has 5G-GUTI)                  │    │
+│  │ But NO IP address, NO data path                 │    │
+│  │ Can only do signaling (NAS messages)            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  After PDU Session:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ UE has IP address (e.g., 10.0.0.5)             │    │
+│  │ Data path: UE → gNB → UPF → Internet           │    │
+│  │ QoS rules applied (5QI, AMBR)                  │    │
+│  │ Can send/receive user data                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### PDU session parameters
+
+| Parameter | What it means | Example |
+|-----------|---------------|---------|
+| **DNN** | Data Network Name (like APN) | "internet", "ims" |
+| **S-NSSAI** | Slice identifier | SST=1 (eMBB) |
+| **PDU type** | IP version | IPv4, IPv6, IPv4v6 |
+| **SSC mode** | Session continuity | Mode 1, 2, or 3 |
+
+### Multiple sessions possible
+
+```
+UE with Multiple PDU Sessions:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE (smartphone)                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  PDU Session 1: Internet browsing               │    │
+│  │  - DNN: "internet"                              │    │
+│  │  - S-NSSAI: SST=1 (eMBB)                       │    │
+│  │  - IP: 10.0.1.5                                │    │
+│  │                                                  │    │
+│  │  PDU Session 2: Voice over 5G                  │    │
+│  │  - DNN: "ims"                                   │    │
+│  │  - S-NSSAI: SST=1                              │    │
+│  │  - IP: 10.0.2.10                               │    │
+│  │                                                  │    │
+│  │  PDU Session 3: Enterprise VPN                 │    │
+│  │  - DNN: "corp.acme.com"                        │    │
+│  │  - S-NSSAI: SST=1, SD=0x000001                 │    │
+│  │  - IP: 172.16.0.50                             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Network functions involved
+
+```
+PDU Session Establishment Participants:
+
+UE ◄──► gNB ◄──► AMF ◄──► SMF ◄──► UPF ◄──► DN
+                  │        │
+                  │        └──► PCF (policy)
+                  │        └──► UDM (subscription)
+                  │
+                  └──► NSSF (slice selection, if needed)
+```
+
+### Full establishment flow
+
+```
+PDU Session Establishment:
+
+UE           gNB          AMF          SMF          UPF         PCF
+│             │            │            │            │           │
+│ PDU Session │            │            │            │           │
+│ Est Request │            │            │            │           │
+│ (DNN, NSSAI)│            │            │            │           │
+│────────────►│            │            │            │           │
+│             │            │            │            │           │
+│             │ UL NAS     │            │            │           │
+│             │ Transport  │            │            │           │
+│             │───────────►│            │            │           │
+│             │            │            │            │           │
+│             │      ┌─────┴─────┐      │            │           │
+│             │      │ Select SMF │     │            │           │
+│             │      │ based on   │     │            │           │
+│             │      │ DNN, NSSAI │     │            │           │
+│             │      └─────┬─────┘      │            │           │
+│             │            │            │            │           │
+│             │            │ Nsmf_PDU   │            │           │
+│             │            │ Session    │            │           │
+│             │            │ CreateSM   │            │           │
+│             │            │ Context    │            │           │
+│             │            │───────────►│            │           │
+│             │            │            │            │           │
+│             │            │            │ Get sub    │           │
+│             │            │            │ data (UDM) │           │
+│             │            │            │◄──────────►│           │
+│             │            │            │            │           │
+│             │            │            │ Get policy │           │
+│             │            │            │───────────────────────►│
+│             │            │            │            │           │
+│             │            │            │ PCC rules  │           │
+│             │            │            │◄───────────────────────│
+│             │            │            │            │           │
+│             │            │            │ Select UPF │           │
+│             │            │            │───────────►│           │
+│             │            │            │            │           │
+│             │            │            │ N4 Session │           │
+│             │            │            │ Est (PFCP) │           │
+│             │            │            │───────────►│           │
+│             │            │            │            │           │
+│             │            │            │ N4 Session │           │
+│             │            │            │ Est Resp   │           │
+│             │            │            │◄───────────│           │
+│             │            │            │            │           │
+│             │            │ SM Context │            │           │
+│             │            │ Created    │            │           │
+│             │            │◄───────────│            │           │
+│             │            │            │            │           │
+│             │ N2 PDU Sess│            │            │           │
+│             │ Resource   │            │            │           │
+│             │ Setup Req  │            │            │           │
+│             │◄───────────│            │            │           │
+│             │            │            │            │           │
+│ RRC Reconfig│            │            │            │           │
+│ (DRB setup) │            │            │            │           │
+│◄────────────│            │            │            │           │
+│             │            │            │            │           │
+│ RRC Reconfig│            │            │            │           │
+│ Complete    │            │            │            │           │
+│────────────►│            │            │            │           │
+│             │            │            │            │           │
+│             │ N2 PDU Sess│            │            │           │
+│             │ Resource   │            │            │           │
+│             │ Setup Resp │            │            │           │
+│             │───────────►│            │            │           │
+│             │            │            │            │           │
+│             │            │ Update SM  │            │           │
+│             │            │ Context    │            │           │
+│             │            │───────────►│            │            │
+│             │            │            │            │           │
+│ PDU Session │            │            │            │           │
+│ Est Accept  │            │            │            │           │
+│ (IP address)│            │            │            │           │
+│◄────────────│◄───────────│◄───────────│            │           │
+│             │            │            │            │           │
+```
+
+### Key messages
+
+```
+PDU Session Establishment Request (UE → AMF):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Message Type: PDU Session Establishment Request        │
+│                                                          │
+│  Contents:                                              │
+│  ├── PDU session ID: 1-15 (UE chooses)                 │
+│  ├── Request type: initial / existing / modification   │
+│  ├── S-NSSAI: SST=1                                    │
+│  ├── DNN: "internet"                                   │
+│  ├── PDU session type: IPv4 / IPv6 / IPv4v6           │
+│  ├── SSC mode: 1 / 2 / 3                               │
+│  └── Extended protocol config options:                 │
+│      ├── DNS server request                            │
+│      └── P-CSCF request (for IMS)                     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+PDU Session Establishment Accept (Network → UE):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Message Type: PDU Session Establishment Accept         │
+│                                                          │
+│  Contents:                                              │
+│  ├── PDU session ID: 1                                  │
+│  ├── Selected PDU session type: IPv4                   │
+│  ├── Selected SSC mode: 1                               │
+│  ├── Authorized QoS rules:                             │
+│  │   ├── QRI 1: default rule, 5QI=9                    │
+│  │   └── QRI 2: video, 5QI=7                           │
+│  ├── Session AMBR: 100 Mbps DL / 50 Mbps UL           │
+│  ├── PDU address: 10.0.0.5                             │
+│  └── Extended protocol config options:                 │
+│      └── DNS: 8.8.8.8, 8.8.4.4                        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### SMF selection
+
+```
+SMF Selection by AMF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  AMF selects SMF based on:                              │
+│                                                          │
+│  1. DNN (Data Network Name)                             │
+│     - "internet" → SMF-A                                │
+│     - "ims" → SMF-B (specialized for VoNR)             │
+│     - "enterprise.acme" → SMF-C                        │
+│                                                          │
+│  2. S-NSSAI (Slice)                                     │
+│     - SST=1 → general SMF pool                         │
+│     - SST=2 (URLLC) → low-latency SMF                  │
+│                                                          │
+│  3. UE location (TAI)                                   │
+│     - Local SMF preferred for edge deployment          │
+│                                                          │
+│  4. Load balancing                                      │
+│     - NRF provides SMF capacity info                   │
+│                                                          │
+│  AMF queries NRF:                                       │
+│  GET /nnrf-disc/v1/nf-instances?                       │
+│      target-nf-type=SMF&                               │
+│      dnn=internet&                                      │
+│      snssai={"sst":1}                                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### UPF selection
+
+```
+UPF Selection by SMF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SMF selects UPF based on:                              │
+│                                                          │
+│  1. DNN support                                         │
+│     - UPF must connect to requested data network       │
+│                                                          │
+│  2. UE location                                         │
+│     - Prefer UPF close to gNB (for low latency)        │
+│     - Edge UPF for URLLC                               │
+│                                                          │
+│  3. SSC mode requirements                               │
+│     - Mode 1: select stable UPF (IP preserved)         │
+│     - Mode 3: may select multiple UPFs                 │
+│                                                          │
+│  4. Capacity and load                                   │
+│     - Avoid overloaded UPFs                            │
+│                                                          │
+│  After selection, SMF establishes N4 session:          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PFCP Session Establishment Request              │    │
+│  │ - PDR rules (detection)                         │    │
+│  │ - FAR rules (forwarding action)                 │    │
+│  │ - QER rules (QoS enforcement)                   │    │
+│  │ - URR rules (usage reporting)                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Common DNN configurations:**
+
+| DNN | Purpose | Typical settings |
+|-----|---------|------------------|
+| internet | General data | IPv4v6, SSC mode 1 |
+| ims | Voice/video calls | IPv6, dedicated 5QI |
+| mms | Multimedia messaging | IPv4, low priority |
+| enterprise | Corporate access | IPv4, VPN tunnel |
+
+**Debugging PDU session:**
+
+```bash
+# Wireshark filter for PDU session messages
+nas-5gs.sm.message_type == 0xc1 || nas-5gs.sm.message_type == 0xc2
+
+# Check SMF selection
+curl "https://nrf.5gc/nnrf-disc/v1/nf-instances?target-nf-type=SMF&dnn=internet"
+
+# PFCP session on N4
+pfcp.message_type == 1 || pfcp.message_type == 2
+```
+
+**Common issues:**
+
+| Issue | Check |
+|-------|-------|
+| No SMF found | DNN/NSSAI supported? NRF reachable? |
+| N4 failure | UPF reachable? PFCP port open? |
+| No IP assigned | IP pool configured? Pool exhausted? |
+| Session reject | Subscription allows DNN? Policy reject? |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **DNN not in subscription.** UE requests DNN="enterprise" but subscription only allows "internet". Session rejected.
+
+2. **NSSAI mismatch.** UE requests slice not in Allowed NSSAI. Must use allowed slice or re-register.
+
+3. **IP pool exhaustion.** UPF runs out of IP addresses. Sessions fail until IPs are released.
+
+4. **N4 timeout.** SMF can't reach UPF on N4 interface. Check network connectivity and PFCP port 8805.
+
+5. **Policy rejection.** PCF denies session based on policy (time of day, data cap, etc.).
+
+6. **SSC mode incompatibility.** UE requests SSC mode 3, but network only supports mode 1 for this DNN.
+
+7. **Missing QoS rules.** Session established but no QoS rules → traffic dropped or best-effort only.
+
+8. **GBR session without resources.** Requesting guaranteed bitrate when network is congested → rejection.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.502, "Procedures for 5GS"
+- 3GPP TS 24.501, "NAS protocol for 5GS"
+- 3GPP TS 29.502, "SMF Services"
+- 3GPP TS 29.244, "PFCP Protocol"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [PDU session modification](/en/core-network/session-management-deep-dive/pdu-session-modification/) — changing active sessions
+- [QoS flows](/en/core-network/session-management-deep-dive/qos-flows/) — traffic differentiation
+- [UPF selection](/en/core-network/session-management-deep-dive/upf-selection/) — choosing the right UPF
+
+</section>

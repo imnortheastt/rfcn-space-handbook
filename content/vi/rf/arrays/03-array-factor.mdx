@@ -8,17 +8,183 @@ track: r2
 unit: arrays
 order: 3
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r2-arrays-01-linear-array"]
+spiralRevisits: []
 title: "Hệ số mảng"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Cốt lõi toán học của pattern anten mảng."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["array-factor", "pattern-multiplication", "steering-vector", "weighting", "taper"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Hệ số mảng
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần hệ số mảng?
+
+Hệ số mảng là khái niệm trung tâm trong lý thuyết anten mảng. Nó tách pattern thành hai phần độc lập: phần tử làm gì (pattern phần tử) và sắp xếp làm gì (hệ số mảng).
+
+Sự tách này mạnh mẽ — có nghĩa bạn có thể phân tích hành vi mảng mà không cần biết phần tử cụ thể, sau đó nhân với pattern phần tử. Hiểu sâu hệ số mảng mở khóa tất cả thiết kế mảng.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hình dung thay mỗi phần tử anten bằng nguồn điểm đẳng hướng. Pattern bức xạ bạn có được là hệ số mảng — nó chỉ nắm bắt hiệu ứng của vị trí và kích thích phần tử, không phải đặc tính phần tử.
+
+Hệ số mảng là bộ lọc không gian. Nó xác định hướng nào nhận giao thoa tăng cường (đỉnh) và hướng nào nhận giao thoa triệt tiêu (điểm không). Pattern phần tử định hình mỗi đóng góp riêng lẻ.
+
+Pattern cuối cùng = hệ số mảng × pattern phần tử. Đây là **nhân pattern**.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Định nghĩa tổng quát
+
+Với $N$ phần tử ở vị trí $\mathbf{r}_n$ với trọng số phức $w_n$:
+
+$$AF(\mathbf{\hat{r}}) = \sum_{n=1}^{N} w_n \, e^{jk\mathbf{\hat{r}} \cdot \mathbf{r}_n}$$
+
+trong đó $\mathbf{\hat{r}}$ là vector đơn vị theo hướng quan sát và $k = 2\pi/\lambda$.
+
+### Vector lái
+
+Đáp ứng mảng với sóng phẳng từ hướng $\mathbf{\hat{r}}$:
+
+$$\mathbf{a}(\mathbf{\hat{r}}) = \begin{bmatrix} e^{jk\mathbf{\hat{r}} \cdot \mathbf{r}_1} \\ e^{jk\mathbf{\hat{r}} \cdot \mathbf{r}_2} \\ \vdots \\ e^{jk\mathbf{\hat{r}} \cdot \mathbf{r}_N} \end{bmatrix}$$
+
+Khi đó:
+$$AF(\mathbf{\hat{r}}) = \mathbf{w}^H \mathbf{a}(\mathbf{\hat{r}})$$
+
+trong đó $\mathbf{w} = [w_1, w_2, \ldots, w_N]^T$.
+
+### Hệ số mảng ULA
+
+Với mảng tuyến tính đều dọc trục z với khoảng cách $d$:
+
+$$AF(\theta) = \sum_{n=0}^{N-1} w_n \, e^{jnkd\cos\theta}$$
+
+Với trọng số đều ($w_n = 1$) và tiến pha $\beta$:
+
+$$AF(\theta) = \frac{\sin\left(\frac{N\psi}{2}\right)}{\sin\left(\frac{\psi}{2}\right)}, \quad \psi = kd\cos\theta + \beta$$
+
+### Tính chất chính
+
+**Vị trí đỉnh:** $\psi = 0$, tức $\cos\theta_{peak} = -\beta/(kd)$
+
+**Vị trí điểm không:** $\psi = \pm 2\pi m/N$ với $m = 1, 2, \ldots, N-1$
+
+**Độ rộng chùm 3 dB:** $\Delta\psi_{3dB} \approx 2.78/N$
+
+**Thùy phụ đầu tiên:** ở $\psi \approx 4.49/N$, mức = $-13.3$ dB
+
+### Nhân pattern
+
+Pattern tổng:
+$$E_{total}(\theta,\phi) = E_{element}(\theta,\phi) \times AF(\theta,\phi)$$
+
+Hợp lệ khi:
+- Tất cả phần tử giống hệt
+- Phần tử không tương tác (không ghép nối tương hỗ)
+- Quan sát vùng xa
+
+### Độ dốc biên độ
+
+Trọng số không đều $w_n$ điều khiển mức thùy phụ:
+
+| Độ dốc | Thùy phụ đầu | Hệ số độ rộng chùm |
+|--------|--------------|---------------------|
+| Đều | −13.3 dB | 1.0 |
+| Cosine | −23 dB | 1.36 |
+| Hamming | −43 dB | 1.36 |
+| Taylor (n̄=4) | −25 dB | 1.13 |
+| Chebyshev | Gợn đều | Thay đổi |
+
+Thùy phụ thấp hơn = thùy chính rộng hơn. Đây là đánh đổi cơ bản.
+
+### Độ dốc pha
+
+Pha tiến dần $\beta$ lái chùm:
+- $\beta = 0$: broadside
+- $\beta = -kd$: endfire
+- $\beta = -kd\sin\theta_0$: chùm lái đến $\theta_0$
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Tính vị trí điểm không**
+
+ULA 8 phần tử, $d = \lambda/2$, broadside ($\beta = 0$).
+
+Điểm không ở: $\psi = 2\pi m / 8 = m\pi/4$
+
+Với điểm không đầu tiên: $kd\cos\theta = \pi/4$, nên $\cos\theta = \lambda/(4d) = 0.5$, $\theta = 60°$.
+
+**Ví dụ: Lái chùm**
+
+Lái chùm đến $\theta_0 = 30°$ từ broadside.
+
+Pha cần: $\beta = -kd\cos(90° - 30°) = -kd\sin(30°) = -kd/2$
+
+Với $d = \lambda/2$: $\beta = -\pi/2 = -90°$.
+
+Mỗi phần tử tiến 90° so với phần tử kế.
+
+**Ví dụ: Độ dốc Taylor**
+
+Với thùy phụ −25 dB với n̄ = 4:
+
+Trọng số (đối xứng, 8 phần tử): [0.58, 0.79, 0.94, 1.0, 1.0, 0.94, 0.79, 0.58]
+
+Độ rộng chùm tăng hệ số 1.13 so với đều.
+
+**Ví dụ: Hệ số mảng theo dB**
+
+$AF_{dB}(\theta) = 20\log_{10}|AF(\theta)| - 20\log_{10}|AF_{max}|$
+
+Với mảng đều 10 phần tử, đỉnh là $|AF_{max}| = 10$.
+
+Ở thùy phụ đầu tiên: $|AF| \approx 2.17$, nên mức thùy phụ = $20\log_{10}(2.17/10) = -13.3$ dB.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Giới hạn nhân pattern.** Giả định phần tử giống hệt không ghép nối. Mảng thực vi phạm cả hai — phần tử biên khác với phần tử giữa.
+
+2. **Vùng nhìn thấy.** Hệ số mảng định nghĩa cho tất cả $\psi$, nhưng chỉ $|\cos\theta| \leq 1$ là vật lý. Thùy cách tử xuất hiện khi các đỉnh khác vào không gian nhìn thấy.
+
+3. **Chuẩn hóa.** Hệ số mảng thường chuẩn hóa đỉnh = 1 hoặc N. Cẩn thận khi kết hợp với pattern phần tử.
+
+4. **Tham chiếu pha.** Hệ số mảng phụ thuộc điểm tham chiếu pha được chọn. Thường là tâm mảng, nhưng đôi khi phần tử đầu.
+
+5. **Biên độ vs. pattern công suất.** Hệ số mảng là pattern điện áp/trường. Pattern công suất là $|AF|^2$. Thùy phụ theo dB: dùng $20\log|AF|$ không phải $10\log|AF|$.
+
+6. **Hiệu suất độ dốc.** Độ dốc biên độ giảm tăng ích mảng. Hiệu suất độ dốc = (tăng ích có độ dốc)/(tăng ích đều). Thường 0.8–0.95.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Balanis, *Antenna Theory*, Chương 6 — suy dẫn hệ số mảng.
+- Van Trees, *Optimum Array Processing*, Chương 2 — góc nhìn xử lý tín hiệu.
+- Harris, "On the use of windows for harmonic analysis" — hàm độ dốc.
+
+</section>

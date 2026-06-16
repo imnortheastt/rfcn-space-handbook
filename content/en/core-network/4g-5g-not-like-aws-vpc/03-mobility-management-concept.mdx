@@ -1,24 +1,341 @@
 ---
-id: core-network-n0-4g-5g-not-like-aws-vpc-03-mobility-management-concept-en
+id: core-network-n1-4g-5g-not-like-aws-vpc-03-mobility-management-concept-en
 slug: mobility-management-concept
 lang: en
-parityId: core-network-n0-4g-5g-not-like-aws-vpc-03-mobility-management-concept
+parityId: core-network-n1-4g-5g-not-like-aws-vpc-03-mobility-management-concept
 domain: core-network
-track: n0
+track: n1
 unit: 4g-5g-not-like-aws-vpc
 order: 3
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n1-4g-5g-not-like-aws-vpc-02-user-plane-control-plane-separation"]
+spiralRevisits: ["core-network-n3-mobility-management-01-registration"]
 title: "Mobility management concept"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "How mobile networks track devices, handle movement, and keep sessions alive during handover."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 23.501", "3GPP TS 23.502"]
+tags: ["mobility", "handover", "registration", "5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Mobility management concept
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Your phone seamlessly switches between cell towers as you drive down the highway. A video call continues without dropping. How?
+
+Mobility management is the core problem mobile networks solve. Understanding it explains why mobile architectures look the way they do — and why patterns from stationary cloud computing don't apply.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The three mobility problems
+
+**1. Location tracking:** Where is the device right now? Which cell tower can reach it?
+
+**2. Reachability:** Someone wants to call this device. How does the network find it and wake it up?
+
+**3. Session continuity:** The device is in the middle of a video call and moves to a new cell. How does the session survive?
+
+### States of a mobile device
+
+A device isn't always "connected." It transitions between states to save battery:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│    ┌──────────┐                       ┌──────────┐     │
+│    │   OFF    │──── Power on ────────►│REGISTERED│     │
+│    │          │◄─── Power off ────────│          │     │
+│    └──────────┘                       └────┬─────┘     │
+│                                            │           │
+│                          ┌─────────────────┴───────────┐
+│                          │                             │
+│                          ▼                             ▼
+│                   ┌──────────┐                  ┌──────────┐
+│                   │   IDLE   │◄────────────────►│CONNECTED │
+│                   │          │    Activity      │          │
+│                   └──────────┘                  └──────────┘
+│                         │                             │
+│                   No radio                      Active radio
+│                   connection                    connection
+│                         │                             │
+│                   Battery                       Data flowing
+│                   saving                              │
+│                                                       │
+└─────────────────────────────────────────────────────────┘
+```
+
+**IDLE (RRC_INACTIVE):** Device is registered but not actively transmitting. Network knows roughly where it is (tracking area) but not exactly which cell.
+
+**CONNECTED (RRC_CONNECTED):** Device has an active radio connection. Network knows exactly which cell. Data can flow.
+
+### Tracking Areas
+
+The network doesn't track individual cells while a device is idle — that would be too much signaling. Instead, it uses **tracking areas**.
+
+```
+┌───────────────────────────────────────────────────────┐
+│                    Tracking Area 1                     │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐         │
+│  │Cell │  │Cell │  │Cell │  │Cell │  │Cell │         │
+│  │  1  │  │  2  │  │  3  │  │  4  │  │  5  │         │
+│  └─────┘  └─────┘  └─────┘  └─────┘  └─────┘         │
+│                                                       │
+│  Device can move freely without notifying network     │
+└───────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────┐
+│                    Tracking Area 2                     │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐         │
+│  │Cell │  │Cell │  │Cell │  │Cell │  │Cell │         │
+│  │  6  │  │  7  │  │  8  │  │  9  │  │ 10  │         │
+│  └─────┘  └─────┘  └─────┘  └─────┘  └─────┘         │
+│                                                       │
+│  When device enters here, it sends Tracking Area Update│
+└───────────────────────────────────────────────────────┘
+```
+
+**Trade-off:**
+- Large tracking areas → less signaling, but paging storms when device is called
+- Small tracking areas → more signaling, but efficient paging
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Registration
+
+When a device powers on or enters a new network, it must register.
+
+```
+┌─────┐                    ┌─────┐                    ┌─────┐
+│ UE  │                    │ AMF │                    │ UDM │
+└──┬──┘                    └──┬──┘                    └──┬──┘
+   │                          │                          │
+   │ ─── Registration Req ───►│                          │
+   │     (SUCI, capabilities) │                          │
+   │                          │                          │
+   │                          │ ─── Authentication ─────►│
+   │                          │                          │
+   │◄── Auth Challenge ───────│                          │
+   │                          │                          │
+   │ ─── Auth Response ──────►│                          │
+   │                          │                          │
+   │                          │◄── Auth Confirmed ───────│
+   │                          │                          │
+   │◄── Registration Accept ──│                          │
+   │     (5G-GUTI, TA list)   │                          │
+```
+
+**Result:**
+- Device gets a temporary ID (5G-GUTI)
+- Network knows which AMF is serving this device
+- Device knows which tracking areas it can roam in
+
+### Tracking Area Update (TAU)
+
+When a device moves to a new tracking area while idle, it notifies the network.
+
+```
+┌─────┐                    ┌─────┐
+│ UE  │                    │ AMF │
+└──┬──┘                    └──┬──┘
+   │                          │
+   │  Device detects new TA   │
+   │                          │
+   │ ─── TA Update Request ──►│
+   │     (current TA)         │
+   │                          │
+   │◄── TA Update Accept ─────│
+   │     (new TA list)        │
+```
+
+**Why this matters:**
+- Network always knows (roughly) where to find the device
+- Paging only needs to go to one tracking area, not the whole network
+
+### Paging
+
+Someone calls you. Your phone is idle. How does the network find it?
+
+```
+┌─────┐                    ┌─────┐                    ┌─────┐
+│Caller│                   │ AMF │                    │ UE  │
+└──┬──┘                    └──┬──┘                    └──┬──┘
+   │                          │                          │
+   │ ─── Incoming call ──────►│                          │
+   │                          │                          │
+   │                          │  Look up: UE is in TA 1  │
+   │                          │                          │
+   │                          │ ─── Paging (all cells ──►│
+   │                          │     in TA 1)             │
+   │                          │                          │
+   │                          │◄── Paging Response ──────│
+   │                          │    (I'm at cell 3)       │
+   │                          │                          │
+   │◄─────────────────────────│◄──── Call setup ─────────│
+```
+
+**Paging in action:**
+1. Network identifies which tracking area the device is in
+2. All cells in that tracking area broadcast a paging message
+3. Device wakes up, responds with its exact cell
+4. Call setup proceeds
+
+### Handover
+
+The device is in an active call and moves to a new cell. The session must survive.
+
+**Intra-gNB handover** (same base station, different cell):
+- Handled locally by the gNB
+- Very fast (&lt;20ms interruption)
+- No core network involvement
+
+**Inter-gNB handover** (different base stations):
+
+```
+┌─────┐          ┌─────────┐          ┌─────────┐          ┌─────┐
+│ UE  │          │Source   │          │Target   │          │ AMF │
+│     │          │  gNB    │          │  gNB    │          │     │
+└──┬──┘          └────┬────┘          └────┬────┘          └──┬──┘
+   │                  │                    │                  │
+   │  Measurement     │                    │                  │
+   │  reports show    │                    │                  │
+   │  target is better│                    │                  │
+   │                  │                    │                  │
+   │                  │ ─ Handover Req ───►│                  │
+   │                  │                    │                  │
+   │                  │◄─ Handover Ack ────│                  │
+   │                  │   (ready)          │                  │
+   │                  │                    │                  │
+   │◄─ HO Command ────│                    │                  │
+   │                  │                    │                  │
+   │ ══════════════ Switch to target ═════►│                  │
+   │                  │                    │                  │
+   │                  │                    │ ─ Path Switch ──►│
+   │                  │                    │                  │
+   │                  │                    │◄─ Path Switch ───│
+   │                  │                    │    Ack           │
+```
+
+**Key insight:** During handover, the UPF (user plane) may not change. Only the radio connection switches. This is why CUPS matters — the anchor point stays stable.
+
+### Session continuity options
+
+5G offers different levels of session continuity:
+
+| Mode | Behavior | Use case |
+|------|----------|----------|
+| **SSC Mode 1** | Session anchor (UPF) never changes | Real-time apps, enterprise |
+| **SSC Mode 2** | Network can release and re-establish | Best-effort apps |
+| **SSC Mode 3** | New session before old ends (make-before-break) | Seamless mobility |
+
+**SSC Mode 1 (most common):**
+```
+┌──────────────────────────────────────────────────────────┐
+│                                                          │
+│   gNB A ──────┐                  ┌────── gNB C           │
+│               │                  │                       │
+│               ▼                  ▼                       │
+│         ┌─────────────────────────────┐                  │
+│         │           UPF               │◄─── Anchor stays │
+│         └─────────────────────────────┘     fixed        │
+│                      │                                   │
+│                      ▼                                   │
+│                  Internet                                │
+│                                                          │
+│   UE moves: gNB A → gNB B → gNB C                       │
+│   UPF never changes. IP address stays same.             │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Designing for mobility:**
+
+| Application | Latency tolerance | Session continuity | Recommended |
+|-------------|-------------------|-------------------|-------------|
+| VoIP/Video | &lt;150ms | Critical | SSC Mode 1 |
+| Web browsing | Seconds OK | Nice to have | SSC Mode 2 |
+| IoT telemetry | Seconds OK | Not critical | SSC Mode 2 |
+| Gaming | &lt;50ms | Critical | SSC Mode 1 + edge UPF |
+
+**Capacity planning for mobility:**
+
+- **Handover rate:** Urban areas with fast-moving users (highways) have high handover rates
+- **Paging load:** Large tracking areas reduce TAU signaling but increase paging load
+- **AMF sizing:** AMF handles all mobility signaling — scale based on mobility events, not throughput
+
+**Debugging mobility issues:**
+
+1. **Dropped calls during handover:**
+   - Check handover timing (measurement reports, handover command)
+   - Verify target cell is ready before handover
+   - Check UPF path switch timing
+
+2. **Delayed call setup:**
+   - Check paging success rate
+   - Verify tracking area configuration
+   - Look for paging storms (too many devices in one TA)
+
+3. **IP address changes unexpectedly:**
+   - Verify SSC mode configuration
+   - Check if UPF reselection is occurring
+   - Review SMF session management
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming WiFi-style handover works.** WiFi handover is simple — reconnect to new AP. Mobile handover is coordinated, with state transfer. Different problem.
+
+2. **Ignoring tracking area design.** Poor TA planning causes either excessive TAU signaling or paging storms. It's a capacity planning issue, not just configuration.
+
+3. **Treating mobility as edge case.** In mobile networks, mobility is the normal case. Design for it first.
+
+4. **Forgetting idle mode.** Most devices are idle most of the time. Idle mode mobility (TAU, paging) dominates signaling load.
+
+5. **Over-relying on IP for identity.** IP addresses change. Use SUPI/5G-GUTI for device identity, not IP.
+
+6. **Assuming handover is instant.** Even good handovers have ~20-50ms interruption. Real-time apps must buffer or tolerate this.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System architecture for the 5G System"
+- 3GPP TS 23.502, "Procedures for the 5G System"
+- 3GPP TS 38.300, "NR and NG-RAN Overall Description"
+- Sauter, *From GSM to LTE-Advanced Pro and 5G*, Wiley, 2021
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Registration procedure](/en/core-network/mobility-management/registration/) — detailed registration flow
+- [Handover procedure](/en/core-network/mobility-management/handover/) — inter-gNB handover mechanics
+- [Idle and connected modes](/en/core-network/mobility-management/idle-connected-modes/) — state machine details
+
+</section>

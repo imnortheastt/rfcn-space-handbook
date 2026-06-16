@@ -9,16 +9,443 @@ unit: reading-tles-and-sgp4
 order: 2
 level: L3
 estimatedReadingMinutes: 5
-title: "Lan truyen SGP4 va widget phan tich"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "Lan truyen SGP4 va Trinh phan tich"
+description: "Thuat toan chuan de du doan vi tri ve tinh tu TLE: cach SGP4 hoat dong, gioi han do chinh xac, va trien khai thuc te."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["sgp4", "lan-truyen", "co-hoc-quy-dao", "theo-doi-ve-tinh", "python"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Lan truyen SGP4 va widget phan tich
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+TLE vo dung neu khong co trinh lan truyen. SGP4 (Simplified General Perturbations 4) la thuat toan de chuyen TLE thanh vi tri ve tinh tai bat ky thoi diem nao. Moi bo dieu khien tram mat dat, he thong tranh va cham, va trinh theo doi ve tinh deu su dung no. Thuat toan co san cong khai, da duoc thu nghiem tu nhung nam 1970, va co gioi han do chinh xac da biet — thuong la 1 km/ngay tang truong sai so cho ve tinh LEO.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### SGP4 lam gi
+
+```
+SGP4: TLE → Vi tri tai Bat ky Thoi diem nao
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DAU VAO:                                                           │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  TLE (tu Space-Track/CelesTrak)                               │ │
+│  │  + Thoi gian muc tieu (vd: "2024-01-01 15:30:00 UTC")         │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                         │                                           │
+│                         ▼                                           │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                   THUAT TOAN SGP4                              │ │
+│  │                                                                 │ │
+│  │  1. Phan tich phan tu TLE                                     │ │
+│  │  2. Tinh thoi gian tu epoch (phut)                            │ │
+│  │  3. Ap dung mo hinh nhieu loan:                               │ │
+│  │     - Thanh phan the ky (hieu ung keo J2 theo thoi gian)      │ │
+│  │     - Thanh phan tuan hoan (dao dong ngan/dai ky)             │ │
+│  │  4. Xu ly truong hop dac biet (khong gian sau vs gan trai dat)│ │
+│  │  5. Chuyen phan tu trung binh sang vi tri/van toc tuc thoi   │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                         │                                           │
+│                         ▼                                           │
+│  DAU RA:                                                            │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  Vi tri: X, Y, Z trong TEME (True Equator Mean Equinox) [km]  │ │
+│  │  Van toc: Vx, Vy, Vz trong TEME [km/s]                        │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Gan trai dat vs khong gian sau
+
+```
+Lua chon SGP4 vs SDP4:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Quyet dinh dua tren chu ky quy dao:                               │
+│                                                                      │
+│  Chu ky < 225 phut:  SGP4 (gan trai dat)                           │
+│  Chu ky ≥ 225 phut:  SDP4 (khong gian sau)                         │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                               │   │
+│  │                         ╭────────╮                           │   │
+│  │                        ╱  GEO    ╲   ← SDP4                 │   │
+│  │              ╭────────╱   ~1440   ╲────────╮                │   │
+│  │             ╱         │  phut/vong │        ╲               │   │
+│  │            ╱          ╰────────────╯         ╲              │   │
+│  │           ╱                                   ╲             │   │
+│  │     ╭────╱                                     ╲────╮       │   │
+│  │    ╱  MEO    ← nguong ~225 phut (do cao ~5900 km)           │   │
+│  │   ╱                                                  ╲      │   │
+│  │  ┌──────────────────────────────────────────────────────┐   │   │
+│  │  │     LEO (90-120 phut)  ← SGP4                        │   │   │
+│  │  │     ISS, Starlink, hau het ve tinh                   │   │   │
+│  │  └──────────────────────────────────────────────────────┘   │   │
+│  │                        Trai Dat                             │   │
+│  │                                                               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  SDP4 them nhieu loan trong luc mat trang/mat troi cho quy dao     │
+│  do cao noi cac hieu ung nay tro nen dang ke.                      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Mo hinh nhieu loan
+
+```
+SGP4 Tinh den Gi:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DO DET TRAI DAT (J2, J3, J4):                                     │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  Trai dat phong o xich dao → trong luc khong cau              │ │
+│  │                                                                 │ │
+│  │  Anh huong len quy dao:                                        │ │
+│  │    • RAAN troi ve phia tay (tien dong nut)                     │ │
+│  │    • Goc can diem xoay                                         │ │
+│  │    • Chuyen dong trung binh thay doi nhe                       │ │
+│  │                                                                 │ │
+│  │  J2 chiem uu the (~1000 lan manh hon J3, J4)                   │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  LUC KEO KHI QUYEN (B*):                                           │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  Cho ve tinh LEO, khi quyen lam cham ve tinh                   │ │
+│  │                                                                 │ │
+│  │  B* = (Cd × A × ρ) / (2 × m) ≈ he so keo                      │ │
+│  │                                                                 │ │
+│  │  Anh huong:                                                     │ │
+│  │    • Ban truc lon co lai                                       │ │
+│  │    • Quy dao tron lai                                          │ │
+│  │    • Cuoi cung tai nhap                                        │ │
+│  │                                                                 │ │
+│  │  Bien dong lon theo hoat dong mat troi!                        │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  SGP4 KHONG MO HINH:                                               │
+│  • Dieu dong (TLE cu sau khi dot dong co)                          │
+│  • Ap luc buc xa mat troi (dang ke cho dien tich/khoi luong lon)   │
+│  • Bien doi mat do khi quyen chi tiet                              │
+│  • Hieu ung tuong doi tong quat                                    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### He toa do
+
+```
+He Toa do Dau ra SGP4:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SGP4 xuat ra trong TEME (True Equator, Mean Equinox):             │
+│                                                                      │
+│                    ▲ Z (Cuc Bac)                                    │
+│                    │                                                 │
+│                    │                                                 │
+│                    │      ╱ Y                                       │
+│                    │    ╱                                           │
+│                    │  ╱                                             │
+│                    │╱                                               │
+│   ─────────────────┼──────────────────► X (Diem Xuan phan TB)      │
+│                   ╱│                                                │
+│                 ╱  │                                                │
+│               ╱    │                                                │
+│                                                                      │
+│  TEME lay Trai Dat lam tam, co dinh voi diem xuan phan TB ngay do. │
+│                                                                      │
+│  CHUYEN DOI THONG DUNG:                                            │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  TEME → ITRS (He Tham chieu Mat dat Quoc te)                  │ │
+│  │    Can cho: vi/kinh do/do cao, vet mat dat                    │ │
+│  │    Yeu cau: goc quay Trai Dat (thoi gian sao)                 │ │
+│  │                                                                 │ │
+│  │  TEME → GCRS (He Tham chieu Thien van Dia tam)               │ │
+│  │    Can cho: quan sat theo doi sao, dinh huong chinh xac       │ │
+│  │    Yeu cau: ma tran tien dong/chuong dong                     │ │
+│  │                                                                 │ │
+│  │  TEME → Dia phuong (lay nguoi quan sat lam tam)               │ │
+│  │    Can cho: phuong vi/goc nang tu tram mat dat                │ │
+│  │    Yeu cau: vi tri nguoi quan sat + thoi gian sao             │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Do chinh xac va gioi han
+
+```
+Ho so Do chinh xac SGP4:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TANG TRUONG SAI SO THEO THOI GIAN:                                │
+│                                                                      │
+│  Sai so Vi tri (km)                                                 │
+│       ▲                                                             │
+│    10 │                                          ╱                  │
+│       │                                        ╱                    │
+│     8 │                                      ╱                      │
+│       │                                    ╱                        │
+│     6 │                                  ╱                          │
+│       │                                ╱                            │
+│     4 │                              ╱                              │
+│       │                            ╱                                │
+│     2 │                          ╱                                  │
+│       │                        ╱                                    │
+│     1 │──────────────────────╱                                      │
+│       │_____________________╱_________________________________      │
+│       └───┬───┬───┬───┬───┬───┬───┬───┬───┬───► Ngay tu Epoch     │
+│           1   2   3   4   5   6   7   8   9  10                    │
+│                                                                      │
+│  TOC DO SAI SO DIEN HINH:                                          │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  LEO (400 km):    ~1 km/ngay (bat dinh luc keo khi quyen)     │ │
+│  │  MEO (20000 km):  ~0.5 km/ngay                                │ │
+│  │  GEO (36000 km):  ~1-5 km/ngay (ap luc buc xa mat troi)       │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TAI EPOCH (t=0): ~1 km do chinh xac vi tri (sai so fit TLE)       │
+│                                                                      │
+│  QUY TAC CHUNG:                                                     │
+│    • TLE moi (&lt;24h): vi tri chinh xac ~1-2 km                      │
+│    • TLE 3 ngay: ~3-5 km sai so                                    │
+│    • TLE 1 tuan: ~7-10 km sai so (co the bo lo giao nhau)          │
+│    • Sau dieu dong: TLE KHONG HOP LE cho den khi cap nhat          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Lan truyen SGP4 voi Python (dung thu vien sgp4):**
+
+```python
+from sgp4.api import Satrec, jday
+from sgp4.api import WGS84
+from datetime import datetime, timedelta
+import math
+
+def lan_truyen_tle(dong1, dong2, thoi_gian_muc_tieu):
+    """
+    Lan truyen TLE den thoi gian muc tieu dung SGP4.
+    
+    Tra ve vi tri (km) va van toc (km/s) trong TEME.
+    """
+    ve_tinh = Satrec.twoline2rv(dong1, dong2, WGS84)
+    
+    jd, fr = jday(thoi_gian_muc_tieu.year, thoi_gian_muc_tieu.month, 
+                  thoi_gian_muc_tieu.day, thoi_gian_muc_tieu.hour,
+                  thoi_gian_muc_tieu.minute, thoi_gian_muc_tieu.second)
+    
+    ma_loi, vi_tri, van_toc = ve_tinh.sgp4(jd, fr)
+    
+    if ma_loi != 0:
+        loi = {
+            1: "phan tu trung binh, ecc >= 1.0 hoac ecc < -0.001",
+            2: "chuyen dong trung binh nho hon 0.0",
+            3: "phan tu nhieu, ecc < 0.0 hoac ecc > 1.0",
+            4: "ban thong so nho hon 0.0",
+            5: "phan tu epoch la duoi quy dao",
+            6: "ve tinh da roi"
+        }
+        raise ValueError(f"Loi SGP4 {ma_loi}: {loi.get(ma_loi, 'khong biet')}")
+    
+    return vi_tri, van_toc
+
+def teme_sang_lla(vi_tri, thoi_gian):
+    """
+    Chuyen vi tri TEME sang vi do, kinh do, do cao.
+    Chuyen doi don gian (bo qua chuong dong).
+    """
+    x, y, z = vi_tri
+    
+    gmst = thoi_gian_sao_greenwich(thoi_gian)
+    
+    x_ecef = x * math.cos(gmst) + y * math.sin(gmst)
+    y_ecef = -x * math.sin(gmst) + y * math.cos(gmst)
+    z_ecef = z
+    
+    a = 6378.137
+    b = 6356.752
+    e2 = 1 - (b/a)**2
+    
+    kinh_do = math.atan2(y_ecef, x_ecef)
+    
+    p = math.sqrt(x_ecef**2 + y_ecef**2)
+    vi_do = math.atan2(z_ecef, p * (1 - e2))
+    
+    for _ in range(5):
+        N = a / math.sqrt(1 - e2 * math.sin(vi_do)**2)
+        vi_do = math.atan2(z_ecef + e2 * N * math.sin(vi_do), p)
+    
+    N = a / math.sqrt(1 - e2 * math.sin(vi_do)**2)
+    do_cao = p / math.cos(vi_do) - N
+    
+    return math.degrees(vi_do), math.degrees(kinh_do), do_cao
+
+def thoi_gian_sao_greenwich(thoi_gian):
+    """Tinh GMST bang radian."""
+    jd = (thoi_gian - datetime(2000, 1, 1, 12)).total_seconds() / 86400 + 2451545.0
+    T = (jd - 2451545.0) / 36525.0
+    
+    gmst_do = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + \
+              0.000387933 * T**2 - T**3 / 38710000.0
+    gmst_do = gmst_do % 360
+    
+    return math.radians(gmst_do)
+
+def tinh_vet_mat_dat(dong1, dong2, thoi_gian_bat_dau, thoi_luong_phut, buoc_phut=1):
+    """
+    Tinh vet mat dat ve tinh theo thoi gian.
+    """
+    vet = []
+    hien_tai = thoi_gian_bat_dau
+    ket_thuc = thoi_gian_bat_dau + timedelta(minutes=thoi_luong_phut)
+    
+    while hien_tai <= ket_thuc:
+        try:
+            vi_tri, van_toc = lan_truyen_tle(dong1, dong2, hien_tai)
+            vi_do, kinh_do, do_cao = teme_sang_lla(vi_tri, hien_tai)
+            
+            vet.append({
+                "thoi_gian": hien_tai.isoformat(),
+                "vi_do": vi_do,
+                "kinh_do": kinh_do,
+                "do_cao_km": do_cao,
+                "toc_do_km_s": math.sqrt(van_toc[0]**2 + van_toc[1]**2 + van_toc[2]**2)
+            })
+        except ValueError as e:
+            print(f"Loi lan truyen tai {hien_tai}: {e}")
+            break
+        
+        hien_tai += timedelta(minutes=buoc_phut)
+    
+    return vet
+
+print("Demo Lan truyen SGP4")
+print("=" * 70)
+
+dong1 = "1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9993"
+dong2 = "2 25544  51.6400 247.4627 0006703 130.5360 325.0288 15.72125391463537"
+
+print("\n1. Lan truyen Don")
+print("-" * 70)
+
+muc_tieu = datetime(2024, 1, 1, 15, 30, 0)
+vi_tri, van_toc = lan_truyen_tle(dong1, dong2, muc_tieu)
+
+print(f"  Thoi gian muc tieu: {muc_tieu.isoformat()} UTC")
+print(f"\n  Vi tri (TEME):")
+print(f"    X: {vi_tri[0]:>12.3f} km")
+print(f"    Y: {vi_tri[1]:>12.3f} km")
+print(f"    Z: {vi_tri[2]:>12.3f} km")
+print(f"\n  Van toc (TEME):")
+print(f"    Vx: {van_toc[0]:>11.6f} km/s")
+print(f"    Vy: {van_toc[1]:>11.6f} km/s")
+print(f"    Vz: {van_toc[2]:>11.6f} km/s")
+
+vi_do, kinh_do, do_cao = teme_sang_lla(vi_tri, muc_tieu)
+print(f"\n  Vi tri mat dat:")
+print(f"    Vi do:    {vi_do:>8.4f}°")
+print(f"    Kinh do:  {kinh_do:>8.4f}°")
+print(f"    Do cao:   {do_cao:>8.2f} km")
+
+toc_do = math.sqrt(van_toc[0]**2 + van_toc[1]**2 + van_toc[2]**2)
+print(f"\n  Toc do: {toc_do:.3f} km/s ({toc_do * 3600:.0f} km/h)")
+
+print("\n2. Can nhac Do chinh xac")
+print("-" * 70)
+print("""
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  Tuoi TLE        │ Sai so Dien hinh│ Truong hop Su dung         │
+  │  ────────────────┼─────────────────┼──────────────────────────  │
+  │  < 24 gio        │ 1-2 km          │ Theo doi, dinh huong anten │
+  │  1-3 ngay        │ 3-5 km          │ Du doan so bo              │
+  │  > 1 tuan        │ 10+ km          │ Chi giao duc               │
+  │  Sau dieu dong   │ KHONG HOP LE    │ Doi TLE moi                │
+  └──────────────────────────────────────────────────────────────────┘
+  
+  Luon su dung TLE moi nhat co san!
+""")
+```
+
+**Cong thuc chinh:**
+
+| Tham so | Cong thuc |
+|---------|-----------|
+| Thoi gian tu epoch | Δt = t - t_epoch (phut) |
+| Chuyen dong trung binh | n = 2π / T (rad/phut) |
+| GMST | θ = 280.46° + 360.985647°×JD + ... |
+| Goc nang | el = arcsin(u / khoang_cach) |
+| Phuong vi | az = atan2(e, -s) |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Su dung TLE voi trinh lan truyen sai.** TLE CHI hop le voi SGP4/SDP4. Su dung trinh lan truyen Kepler hoac so cho ket qua sai.
+
+2. **Bo qua he toa do.** SGP4 xuat ra TEME, khong phai ECEF hay ECI. Ban phai chuyen doi cho vet mat dat hoac quan sat sao.
+
+3. **Lan truyen qua xa epoch.** Sai so tang ~1 km/ngay. TLE 1 tuan tuoi co the lech 10+ km. Luon lay TLE moi.
+
+4. **Quen dieu dong ve tinh.** Sau khi dot dong co day, TLE khong hop le. Theo doi TLE moi sau dieu dong.
+
+5. **Lan lon he thoi gian.** SGP4 su dung UTC. Tron lan thoi gian GPS hoac TAI ma khong chuyen doi them vai giay sai so (7+ km cho ISS).
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Vallado et al., "Revisiting Spacetrack Report #3" — trien khai SGP4 uy tin
+- CelesTrak, "NORAD Two-Line Element Set Format" — dac ta TLE
+- Thu vien `python-sgp4` cua Brandon Rhodes — trien khai chat luong san xuat
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Dinh dang TLE](/vi/space/reading-tles-and-sgp4/tle-format/) — hieu du lieu dau vao
+- [Danh gia Giao nhau](/vi/space/conjunction-assessment/) — dung SGP4 cho tranh va cham
+- [Lap lich Tram Mat dat](/vi/space/ground-station-scheduling/) — du doan luot bay qua ve tinh
+
+</section>

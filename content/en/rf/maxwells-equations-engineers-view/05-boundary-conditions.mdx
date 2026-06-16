@@ -8,12 +8,12 @@ track: r0
 unit: maxwells-equations-engineers-view
 order: 5
 level: L3
-estimatedReadingMinutes: 7
+estimatedReadingMinutes: 14
 prerequisites: ["rf-r0-maxwells-equations-engineers-view-04-wave-equation"]
 spiralRevisits: []
 title: "Boundary conditions"
 description: "Field behavior at material interfaces."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,11 @@ status: published
 
 ## Why boundary conditions?
 
-Whenever electromagnetic waves hit a material interface — antenna to air, substrate to metal, waveguide wall — the fields must satisfy boundary conditions. These conditions determine reflection, transmission, and surface currents.
+Every real RF system contains material interfaces: metal traces on dielectric substrates, connector launches from coax to PCB, antenna radiating into air, waveguide walls that confine modes. At every interface, the electromagnetic field cannot behave arbitrarily — Maxwell's equations impose four specific conditions on how field components cross the boundary.
 
-Every RF problem with real materials involves boundary conditions.
+These conditions are not additional physics. They are Maxwell's equations applied to a limit: an infinitely thin surface. They determine reflection coefficients, transmission coefficients, standing wave ratios, and surface currents that cause conductor losses. Without them, you cannot analyze a transmission line, design a matching network, or explain why a microstrip antenna has its resonant frequency.
+
+Boundary conditions are where Maxwell's abstract equations become the practical design rules of RF engineering.
 
 </section>
 
@@ -37,9 +39,33 @@ Every RF problem with real materials involves boundary conditions.
 
 ## Intuition
 
-Fields can't jump arbitrarily at an interface — physics imposes constraints. Some field components must be continuous (tangential E); others can jump by the amount of surface charge or current.
+### Why some components are continuous
 
-Think of it like water flow: velocity tangent to a wall is continuous, but pressure normal to the wall determines the force.
+Imagine Faraday's law applied to a tiny rectangular loop straddling an interface. The loop has width $\Delta w$ (crossing the boundary) and length $\Delta l$ (parallel to the surface). As the loop thickness $\Delta w \to 0$:
+
+$$\oint \mathbf{E} \cdot d\mathbf{l} = -\frac{d\Phi_B}{dt}$$
+
+The magnetic flux $\Phi_B$ through the loop goes to zero (area → 0) unless $\mathbf{B}$ is infinitely large, which is unphysical. So the circulation integral must go to zero. The only terms that survive are the tangential $\mathbf{E}$ contributions on each side of the interface:
+
+$$E_{t1}\,\Delta l - E_{t2}\,\Delta l = 0 \quad \Rightarrow \quad E_{t1} = E_{t2}$$
+
+Tangential $\mathbf{E}$ must be continuous. A jump in tangential $\mathbf{E}$ would require an infinite time-varying $\mathbf{B}$ — unphysical.
+
+Similarly, applying Gauss's law for $\mathbf{B}$ to a thin pillbox gives $B_{n1} = B_{n2}$: normal $\mathbf{B}$ is always continuous because there are no magnetic charges to create a jump.
+
+### Why some components can jump
+
+Normal $\mathbf{D}$ can jump — because real electric surface charges $\sigma_s$ exist. The pillbox version of Gauss's law gives:
+
+$$D_{n1} - D_{n2} = \sigma_s$$
+
+On a conductor surface, charges redistribute freely. The surface charge density $\sigma_s$ is whatever value is needed to make $\mathbf{E} = 0$ inside the conductor.
+
+Tangential $\mathbf{H}$ can jump — because real surface currents $\mathbf{K}$ (A/m) exist. At a perfect conductor surface, the surface current $\mathbf{K}$ supports the magnetic field outside while $\mathbf{H} = 0$ inside.
+
+### A useful mnemonic
+
+"Tangential E and normal B are always continuous. Everything else can jump if surface sources are present."
 
 </section>
 
@@ -47,71 +73,74 @@ Think of it like water flow: velocity tangent to a wall is continuous, but press
 
 ## Mechanism
 
-### Tangential electric field
+### The four boundary conditions
+
+| Component | General condition | At perfect conductor | At dielectric interface (no sources) |
+|-----------|-------------------|---------------------|--------------------------------------|
+| Tangential $\mathbf{E}$ | $E_{t1} = E_{t2}$ | $E_{t} = 0$ | $E_{t1} = E_{t2}$ |
+| Normal $\mathbf{D}$ | $D_{n1} - D_{n2} = \sigma_s$ | $D_{n} = \sigma_s$ | $D_{n1} = D_{n2}$ |
+| Tangential $\mathbf{H}$ | $\hat{\mathbf{n}} \times (\mathbf{H}_1 - \mathbf{H}_2) = \mathbf{K}$ | $H_{t} = K$ | $H_{t1} = H_{t2}$ |
+| Normal $\mathbf{B}$ | $B_{n1} = B_{n2}$ | $B_{n} = 0$ | $B_{n1} = B_{n2}$ |
+
+$\hat{\mathbf{n}}$ points from medium 2 into medium 1. $\sigma_s$ is surface charge density (C/m²). $\mathbf{K}$ is surface current density (A/m).
+
+### Derivation: tangential E (Faraday's law)
+
+Apply Faraday's law to a thin rectangular loop of height $\delta \to 0$ and length $\Delta l$ straddling the interface:
+
+$$\oint \mathbf{E} \cdot d\mathbf{l} = E_{t1}\Delta l - E_{t2}\Delta l + O(\delta) = -\frac{d}{dt}\iint_S \mathbf{B}\cdot d\mathbf{A}$$
+
+Right side: $|B|\,\Delta l\,\delta \to 0$ as $\delta \to 0$. Left side must also vanish:
 
 $$E_{t1} = E_{t2}$$
 
-Tangential E is continuous across any interface.
+### Derivation: normal D (Gauss's law)
 
-From Faraday's law: if E_t jumped, there would be infinite $\partial B/\partial t$ in zero thickness.
+Apply Gauss's law to a thin pillbox of height $\delta \to 0$ and cross-section area $\Delta A$:
 
-### Normal electric displacement
+$$\oint \mathbf{D}\cdot d\mathbf{A} = (D_{n1} - D_{n2})\Delta A = Q_\text{enc} = \sigma_s \Delta A$$
 
 $$D_{n1} - D_{n2} = \sigma_s$$
 
-Normal D jumps by surface charge density.
+### Reflection and transmission at normal incidence
 
-From Gauss's law applied to thin pillbox.
+For a plane wave incident normally from medium 1 (impedance $\eta_1$) onto medium 2 (impedance $\eta_2$):
 
-### Tangential magnetic field
-
-$$H_{t1} - H_{t2} = K$$
-
-Tangential H jumps by surface current density K (A/m).
-
-From Ampere's law applied to thin rectangular loop.
-
-### Normal magnetic flux
-
-$$B_{n1} = B_{n2}$$
-
-Normal B is continuous (no magnetic charges).
-
-### Summary table
-
-| Component | Condition |
-|-----------|-----------|
-| $E_t$ | Continuous |
-| $D_n$ | Jumps by $\sigma_s$ |
-| $H_t$ | Jumps by $K$ |
-| $B_n$ | Continuous |
-
-### Perfect conductor
-
-Inside: E = 0, H = 0.
-
-At surface:
-- $E_t = 0$ (tangential E vanishes)
-- $H_t = K$ (surface current supports tangential H)
-- $D_n = \sigma_s$ (surface charge supports normal D)
-- $B_n = 0$ (no normal B)
-
-### Dielectric interface (no charges or currents)
-
-$$\frac{\tan\theta_1}{\tan\theta_2} = \frac{\epsilon_1}{\epsilon_2}$$
-
-Field lines bend at dielectric boundaries.
-
-### Reflection coefficient
-
-For normal incidence from medium 1 to medium 2:
+Continuity of tangential $\mathbf{E}$ and $\mathbf{H}$ at the interface gives:
 
 $$\Gamma = \frac{\eta_2 - \eta_1}{\eta_2 + \eta_1}$$
 
-where $\eta = \sqrt{\mu/\epsilon}$.
+$$\tau = \frac{2\eta_2}{\eta_2 + \eta_1} = 1 + \Gamma$$
 
-Transmission coefficient:
-$$T = 1 + \Gamma = \frac{2\eta_2}{\eta_2 + \eta_1}$$
+- $\Gamma$ = voltage reflection coefficient (amplitude ratio, can be negative)
+- $\tau$ = voltage transmission coefficient
+- Power reflection: $|\Gamma|^2$
+- Power transmission: $1 - |\Gamma|^2 = \tau^2 \eta_1/\eta_2$
+
+### Field bending at dielectric interface
+
+At an interface between two dielectrics with no free charges ($\sigma_s = 0$, $\mathbf{K} = 0$):
+
+- Tangential $\mathbf{E}$ is continuous: $E_{t1} = E_{t2}$
+- Normal $\mathbf{D}$ is continuous: $\varepsilon_1 E_{n1} = \varepsilon_2 E_{n2}$
+
+If $\varepsilon_2 > \varepsilon_1$, the normal component is compressed in medium 2 relative to medium 1. The field lines bend toward the normal — the angle with the normal decreases:
+
+$$\frac{\tan\theta_1}{\tan\theta_2} = \frac{\varepsilon_1}{\varepsilon_2}$$
+
+This is the electromagnetic analog of Snell's law.
+
+### Perfect electric conductor (PEC) boundary
+
+Inside a PEC: $\mathbf{E} = 0$, $\mathbf{H} = 0$. At the surface (medium 1 = PEC, medium 2 = outside):
+
+$$\mathbf{E}_t = 0 \quad \text{(no tangential E at surface)}$$
+
+$$\mathbf{D}_n = \sigma_s \quad \text{(normal D equals surface charge)}$$
+
+$$\hat{\mathbf{n}} \times \mathbf{H} = \mathbf{K} \quad \text{(surface current supports H outside)}$$
+
+$$\mathbf{B}_n = 0 \quad \text{(no normal B at surface)}$$
 
 </section>
 
@@ -119,51 +148,63 @@ $$T = 1 + \Gamma = \frac{2\eta_2}{\eta_2 + \eta_1}$$
 
 ## Apply
 
-**Example: Air-to-conductor**
+### Example 1: Total reflection at a perfect conductor
 
-Wave in air hits perfect conductor.
+A plane wave in air ($\eta_1 = 377\,\Omega$) hits a perfect conductor ($\eta_2 = 0$).
 
-$\eta_{air} = 377\ \Omega$, $\eta_{conductor} = 0$.
+$$\Gamma = \frac{0 - 377}{0 + 377} = -1$$
 
-$\Gamma = (0 - 377)/(0 + 377) = -1$.
+$|\Gamma| = 1$: 100% of power is reflected. The negative sign means the reflected $\mathbf{E}$ is 180° out of phase with the incident $\mathbf{E}$ at the surface — required to make $E_t = 0$ at the conductor.
 
-Total reflection, 180° phase shift. Standing wave forms.
+The superposition of incident and reflected waves creates a standing wave. Nodes of $\mathbf{E}$ (where $\mathbf{E} = 0$) occur at the surface and every $\lambda/2$ away. Anti-nodes of $\mathbf{E}$ occur at $\lambda/4$ from the surface.
 
-**Example: Air-to-dielectric**
+This is the physics of a shorted transmission line, a cavity resonator, and a dipole antenna driven against a ground plane.
 
-Wave from air ($\epsilon_r = 1$) to glass ($\epsilon_r = 4$).
+### Example 2: Air-to-FR4 dielectric interface
 
-$\eta_{air} = 377\ \Omega$, $\eta_{glass} = 377/\sqrt{4} = 188.5\ \Omega$.
+A wave in air ($\varepsilon_r = 1$, $\eta_1 = 377\,\Omega$) hits a bare FR4 substrate ($\varepsilon_r = 4.4$, $\mu_r = 1$).
 
-$\Gamma = (188.5 - 377)/(188.5 + 377) = -0.33$.
+$$\eta_2 = \frac{377}{\sqrt{4.4}} \approx 179.6\,\Omega$$
 
-33% power reflected, 67% transmitted.
+$$\Gamma = \frac{179.6 - 377}{179.6 + 377} = \frac{-197.4}{556.6} \approx -0.355$$
 
-**Example: Microstrip line**
+Power reflection: $|\Gamma|^2 = 0.126$ → 12.6% of incident power reflected.
 
-Metal trace on dielectric substrate.
+Power transmission: $1 - 0.126 = 87.4$%.
 
-At metal surface: $E_t = 0$, surface current K flows.
+This 12.6% reflection loss occurs at every air-substrate interface in a PCB antenna. A patch antenna on FR4 has lower radiation efficiency partly because of this mismatch (plus substrate loss). Rogers substrates with lower $\varepsilon_r$ (e.g., 2.2) have $\eta_2 = 254\,\Omega$ → $\Gamma = -0.195$ → only 3.8% reflected.
 
-At dielectric interface: E and H continuous (no surface charges).
+### Example 3: Microstrip effective permittivity from boundary conditions
 
-Fields exist both above and below trace — the effective $\epsilon_r$ is between 1 and substrate $\epsilon_r$.
+A microstrip line has a metal trace on top of FR4, with air above. The fields exist in both media — partly in FR4 (below the trace) and partly in air (above). Neither boundary condition is fully applied: the wave "sees" an average medium.
 
-**Example: Waveguide walls**
+The effective permittivity is approximately:
 
-Metal walls force $E_t = 0$.
+$$\varepsilon_{eff} = \frac{\varepsilon_r + 1}{2} + \frac{\varepsilon_r - 1}{2}\frac{1}{\sqrt{1 + 12\,h/w}}$$
 
-Only certain field patterns (modes) satisfy this everywhere.
+where $h$ is the substrate thickness and $w$ is the trace width. For FR4 ($\varepsilon_r = 4.4$) and a 50 Ω line where $w/h \approx 2$:
 
-TE and TM modes have different cutoff frequencies.
+$$\varepsilon_{eff} \approx \frac{5.4}{2} + \frac{3.4}{2} \cdot \frac{1}{\sqrt{1+6}} \approx 2.7 + 0.64 \approx 3.34$$
 
-**Example: Antenna on ground plane**
+Phase velocity: $v = c/\sqrt{3.34} = 0.547c$. This is why microstrip has a velocity factor of ~55%, not 48% (which you would get for a fully embedded line in FR4). The boundary conditions at the air-dielectric interface directly determine the wave speed.
 
-Image theory: conductor acts as mirror.
+### Example 4: Waveguide mode cutoff from boundary conditions
 
-Horizontal dipole at height h has image at depth h with opposite current.
+A rectangular waveguide has perfectly conducting walls at $x = 0$, $x = a$, $y = 0$, $y = b$.
 
-Pattern doubles in forward hemisphere.
+Boundary condition: $E_t = 0$ at all conductor surfaces.
+
+For the TE$_{10}$ mode (dominant mode), $E_y$ is the only field component. Applying $E_y = 0$ at $x = 0$ and $x = a$:
+
+$$E_y(x) = E_0 \sin\left(\frac{\pi x}{a}\right)$$
+
+This $\sin(\pi x/a)$ is the only function that satisfies $E_y = 0$ at both walls. The wave number in $x$ is fixed: $k_x = \pi/a$.
+
+For propagation in $z$ to exist, we need $k_z^2 = k^2 - k_x^2 > 0$:
+
+$$k > \frac{\pi}{a} \quad \Rightarrow \quad f > f_c = \frac{c}{2a}$$
+
+For standard WR-90 waveguide ($a = 22.86$ mm): $f_c = c/(2 \times 0.02286) = 6.56$ GHz. Below this, no propagation — purely evanescent fields. This is the boundary condition determining waveguide cutoff.
 
 </section>
 
@@ -171,17 +212,15 @@ Pattern doubles in forward hemisphere.
 
 ## Pitfalls
 
-1. **Confusing E and D.** E_t is continuous; D_n has jump. Don't mix up tangential and normal, E and D.
+1. **Mixing up which component is continuous.** Memory tool: tangential **E** and normal **B** are always continuous (they come from the "curl" equations with no source terms). Normal **D** and tangential **H** can jump (they come from "curl" equations where sources — charges and currents — appear). One sentence: "E_t and B_n are holy; D_n and H_t can jump."
 
-2. **Ignoring surface currents.** On good conductors, H_t is supported by surface current K. This current is real and causes loss.
+2. **Confusing voltage reflection coefficient and power reflection coefficient.** $\Gamma$ is the amplitude (voltage) reflection coefficient. Reflected power is $|\Gamma|^2$. Return loss in dB = $-20\log_{10}|\Gamma|$, not $-10\log_{10}|\Gamma|$. This factor-of-2 mistake in dB is extremely common.
 
-3. **Assuming continuity everywhere.** Fields are continuous in homogeneous regions. At interfaces, apply boundary conditions explicitly.
+3. **Forgetting that real conductors have finite conductivity.** A PEC has $E_t = 0$ exactly. A real conductor (copper, aluminum) has small but nonzero $E_t$ at its surface, which drives the surface current and causes resistive loss. This is why conductor Q in a cavity resonator is finite, and why transmission line attenuation increases with frequency due to increasing surface resistance $R_s = 1/(\sigma\delta_s) \propto \sqrt{f}$.
 
-4. **Forgetting finite conductivity.** Real metals have skin depth. Fields penetrate slightly, surface current has thickness, and there's loss.
+4. **Applying the dielectric interface Snell-like formula to metals.** The angle formula $\tan\theta_1/\tan\theta_2 = \varepsilon_1/\varepsilon_2$ applies to static or quasi-static fields at lossless dielectric interfaces. For lossy materials or for wave propagation (not just field direction), use the full Fresnel equations with complex $\varepsilon$.
 
-5. **Confusing reflection coefficient for power vs. amplitude.** $\Gamma$ is amplitude ratio. Power reflection is $|\Gamma|^2$.
-
-6. **Wrong sign convention.** Different books use different conventions for $\Gamma$. Be consistent within your analysis.
+5. **Ignoring the effective permittivity for planar structures.** When fields exist in two dielectric regions (air and substrate in microstrip), you cannot use just the substrate $\varepsilon_r$ or just $\varepsilon_r = 1$. The actual phase velocity is determined by the weighted average set by the boundary conditions at the dielectric interface. Use $\varepsilon_{eff}$ formulas from microwave CAD references for accurate results.
 
 </section>
 
@@ -189,8 +228,8 @@ Pattern doubles in forward hemisphere.
 
 ## References
 
-- Griffiths, *Introduction to Electrodynamics*, Chapter 7.
-- Pozar, *Microwave Engineering*, Chapter 1.
-- Balanis, *Advanced Engineering Electromagnetics*, Chapter 5.
+- Griffiths, *Introduction to Electrodynamics*, Chapter 7 — derivation of all four boundary conditions with proofs.
+- Pozar, *Microwave Engineering*, Chapter 1 — engineering application of boundary conditions to transmission lines and waveguides.
+- Balanis, *Advanced Engineering Electromagnetics*, Chapter 5 — systematic treatment of reflection, transmission, and Fresnel equations.
 
 </section>

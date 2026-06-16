@@ -8,17 +8,376 @@ track: s7
 unit: satcom-link-in-one-diagram
 order: 1
 level: L2
-estimatedReadingMinutes: 5
-title: "Tong quan tuyen satcom"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 11
+prerequisites: []
+spiralRevisits: []
+title: "Tong quan Lien ket Satcom"
+description: "Duong truyen thong tin ve tinh hoan chinh tu may phat den may thu — EIRP, suy hao khong gian tu do, G/T, va C/N0 tinh dau cuoi voi so lieu thuc te."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-04"
+standards: []
+tags: ["satcom", "ngan-sach-lien-ket", "duong-len", "duong-xuong", "eirp", "g-tren-t", "c-n0", "suy-hao-khong-gian"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tong quan tuyen satcom
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Mot lien ket ve tinh la mot chuoi. Moi dB mat trong kenh truyen phai duoc bu dap o phia phat hoac phia thu — va khong co khoang phuc hoi mien phi. Vat ly la bat bien: cong suat trai dai tren mot mat cau ngay cang lon, va may thu chi thu duoc phan nho bia cua no duoc chup boi khau do anten.
+
+Hieu duoc chuoi dau cuoi nay — EIRP phat ra, suy hao khong gian tu do xuyen qua, G/T thu vao — cho phep ban tra loi ba cau hoi thuc te trong vong hai phut:
+
+1. Lien ket nay co dong voi bien do yeu cau khong?
+2. Tham so nao thay doi dem lai cai thien nhieu nhat tren moi dong?
+3. Tai sao lien ket bi loi hom nay trong khi hom qua van hoat dong?
+
+Moi he thong thuc te — VINASAT, Starlink, Inmarsat, lien ket TT&C cua ve tinh du bao thoi tiet — deu duoc phan tich bang khung nay.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Buc tranh toan canh
+
+```
+Chuoi Lien ket Satcom — Dau cuoi den Dau cuoi
+
+PHIA PHAT             KENH TRUYEN              PHIA THU
+┌─────────────┐   ┌──────────────────┐   ┌──────────────────────┐
+│ P_tx (HPA)  │   │                  │   │  Anten   G_rx        │
+│ vi du 10 W  │   │  Suy hao         │   │  (chao hoac mang     │
+│ = +10 dBW   │   │  khong gian      │   │   pha tuyen)         │
+│     |       │   │  tu do           │   │       |              │
+│     v       │   │  L_fs = 205 dB   │   │       v              │
+│ ┌────────┐  │   │  (GEO, 12 GHz)   │   │  ┌───────────────┐  │
+│ │ Suy hao│  │   │                  │   │  │  LNA          │  │
+│ │ cap    │  │==▶│  + Hap thu       │▶==│  │  T_nhieu      │  │
+│ │ -0.5dB │  │   │    khi quyen     │   │  └──────┬────────┘  │
+│ └────────┘  │   │    0.3-2 dB      │   │         |           │
+│     |       │   │                  │   │  T_sys = T_ant       │
+│     v       │   │  + Suy hao mua   │   │        + T_lna       │
+│  Anten      │   │    0-20 dB       │   │        + T_cap       │
+│  G_tx       │   │                  │   │                      │
+│             │   │  + Suy hao       │   │  G/T = G_rx - 10log(T_sys)
+│             │   │    huong chum    │   │                      │
+└─────────────┘   └──────────────────┘   └──────────────────────┘
+
+EIRP = P_tx(dBW) + G_tx(dBi) - L_cap(dB)
+
+PHUONG TRINH LIEN KET:
+C/N0 [dBHz] = EIRP [dBW] - L_tong [dB] + G/T [dB/K] + 228.6 [dBW/K/Hz]
+```
+
+### Dong gop cua moi khoi
+
+**EIRP — Cong suat ban xa dang dang huong hieu dung**
+
+Tich cua cong suat may phat va do loi anten, theo huong cua chum:
+
+$$\text{EIRP} = P_{tx} \cdot G_{tx} \quad \text{[W.don vi]}$$
+
+Theo dB: $\text{EIRP [dBW]} = P_{tx}\text{[dBW]} + G_{tx}\text{[dBi]}$
+
+Gia tri dien hinh:
+- Duong xuong ve tinh LEO (bang Ka, chum diem): 45–58 dBW
+- Duong xuong ve tinh GEO (bang Ku): 48–55 dBW
+- Tram mat dat gateway lon (duong len): 70–82 dBW
+- Thiet bi cam tay kieu Iridium: 7 dBW (5 W)
+
+**Suy hao duong truyen khong gian tu do (FSPL)**
+
+Cong suat tin hieu trai dat tren mat cau co dien tich $4\pi d^2$. Anten thu chi chup duoc khau do hieu dung $A_e$ cua no:
+
+$$L_{fs} = \left(\frac{4\pi d}{\lambda}\right)^2 = \left(\frac{4\pi d f}{c}\right)^2$$
+
+Theo dB: $L_{fs} = 20\log_{10}(d) + 20\log_{10}(f) + 92.4$ [dB, $d$ tinh bang km, $f$ tinh bang GHz]
+
+| Quy dao | Khoang cach | Ku-band (12 GHz) | Ka-band (20 GHz) | L-band (1.5 GHz) |
+|---------|-------------|-------------------|-------------------|-------------------|
+| LEO 550 km | 550–2200 km | 175–186 dB | 181–192 dB | 160–171 dB |
+| MEO 20200 km | 20200–26000 km | 196–198 dB | 202–204 dB | 181–183 dB |
+| GEO 35786 km | 37500–41700 km | 205–206 dB | 211–212 dB | 190–191 dB |
+
+**G/T — Tieu chi chat luong he thu**
+
+G/T ket hop do loi anten thu $G_{rx}$ va nhiet do nhieu he thong $T_{sys}$:
+
+$$G/T \text{ [dB/K]} = G_{rx}\text{[dBi]} - 10\log_{10}(T_{sys}\text{[K]})$$
+
+Nhiet do nhieu he thong la tong cua tat ca cac dong gop nhieu quy ve cong anten:
+
+$$T_{sys} = T_{ant} + T_{cap} + T_{LNA} + T_{backend}$$
+
+Gia tri dien hinh:
+- Thiet bi VSAT 2.4 m chuyen nghiep: 12–18 dB/K
+- Gateway lon (chao 9 m, LNA lanh): 28–35 dB/K
+- Thiet bi dien thoai cam tay: -5 den +2 dB/K
+- Ve tinh LEO (thu tren bo): 2–8 dB/K
+
+**C/N0 — Mat do cong suat song mang tren nhieu**
+
+Tieu chi chat luong lien ket co ban, doc lap voi bang thong dieu che:
+
+$$C/N_0 \text{ [dBHz]} = \text{EIRP} - L_{tong} + G/T + 228.6$$
+
+Hang so 228.6 la $-10\log_{10}(k_B)$ trong do $k_B = 1.38 \times 10^{-23}$ J/K (hang so Boltzmann).
+
+De tinh C/N (ty le tin hieu/nhieu trong bang thong $B$):
+
+$$C/N \text{ [dB]} = C/N_0 - 10\log_{10}(B)$$
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Co che hoat dong
+
+### Ngan sach cong suat tin hieu — tung buoc
+
+Theo doi tung dB tu dau ra cua bo khuyech dai cong suat den dau vao cua bo giai dieu che:
+
+```
+Ngan sach tin hieu tung buoc (vi du duong xuong GEO Ku-band)
+
+  Cong suat dau ra HPA ve tinh:          +50.0 dBW   (100 W)
+  Suy hao ong dan song / loc dau ra:      -0.8 dB
+  Do loi anten phat (chum diem):         +48.0 dBi
+  ────────────────────────────────────────────────
+  EIRP:                                  +97.2 dBW   ← Ve tinh ban xa day
+
+  Suy hao duong truyen tu do (38500 km, 12 GHz): -205.7 dB
+  Hap thu khi quyen (troi quang):                 -0.3 dB
+  Bien do suy hao mua (kha dung 99.5%):           -3.0 dB
+  Suy hao huong chum (ve tinh + mat dat):         -0.5 dB
+  Suy hao phan cuc khong khop:                    -0.2 dB
+  ────────────────────────────────────────────────
+  Tong suy hao duong truyen:                    -209.7 dB
+
+  Do loi anten thu (1.2 m, 12 GHz):      +38.6 dBi
+  Nhiet do nhieu he thong (120K):          20.8 dBK
+  G/T:                                   +17.8 dB/K
+  ────────────────────────────────────────────────
+  C/N0 = 97.2 - 209.7 + 17.8 + 228.6 = 133.9 dBHz
+
+  Bang thong transponder: 36 MHz = 75.6 dBHz
+  C/N = 133.9 - 75.6 = 58.3 dB
+
+  C/N yeu cau cho DVB-S2 8PSK 2/3 (Es/N0 ~ 7.0 dB): ~7.0 dB
+  Bien do lien ket: 58.3 - 7.0 = 51.3 dB  (dong tot)
+```
+
+### Noi tiep nhiet do nhieu
+
+Voi chuoi may thu co cac linh kien noi tiep:
+
+$$T_{sys} = T_{ant} + \frac{T_{cap}}{G_{ant}} + T_{LNA} + \frac{T_2}{G_{LNA}} + \cdots$$
+
+LNA chiem uu the vi no den truoc. LNA 50 K lam giam nhiet do nhieu he thong nhieu hon viec tang gap doi kich thuoc chao voi cung muc cai thien G/T.
+
+**Vi du — tram VSAT nho:**
+- Nhiet do nhieu anten (huong vao GEO, 12 GHz): $T_{ant} = 35$ K
+- Suy hao dau tiep song / OMT (0.2 dB): $T_{cap} = 14$ K
+- Nhiet do nhieu LNA: $T_{LNA} = 40$ K
+- Do loi LNA: 45 dB (x31623)
+- Thiet bi backend: $T_{back} = 500$ K (khong dang ke sau do loi LNA cao)
+
+$T_{sys} = 35 + 14 + 40 + 500/31623 \approx 89$ K — $10\log_{10}(89) = 19.5$ dBK
+
+Voi anten 38.6 dBi: $G/T = 38.6 - 19.5 = 19.1$ dB/K
+
+### Danh doi tan so
+
+Tan so cao hon co nghia la anten nho hon voi cung do loi, nhung suy hao duong truyen va suy hao mua cao hon:
+
+```
+Danh doi Tan so vs He thong
+
+  Bang   Tan so  FSPL      Suy hao mua  Duong kinh anten  Su dung
+         (GHz)   (GEO)                  (G=40dBi)
+  ────────────────────────────────────────────────────────────
+  L      1.5    190 dB    khong dang ke  3.2 m   Inmarsat, Iridium
+  S      2.4    194 dB    < 0.1 dB       2.0 m   GPS, TDRSS
+  C      6/4    198 dB    < 0.3 dB       1.3 m   VINASAT bang C
+  Ku    14/12   205 dB    2-8 dB         0.7 m   VSAT, truyen hinh DTH
+  Ka    30/20   211 dB    5-25 dB        0.4 m   HTS, Starlink Ka
+  Q/V   47/40   217 dB    10-40 dB       0.25 m  HTS thu nghiem
+```
+
+Bang thap hon chong chiu duoc mua nhung can chao lon. Bang Ka cho phep mang pha tuyen nho nhung yeu cau bien do suy hao mua 8–15 dB o vung nhiet doi.
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cong cu tinh ngan sach lien ket day du:**
+
+```python
+import math
+
+def fspl_db(distance_km: float, freq_ghz: float) -> float:
+    """Suy hao duong truyen tu do (dB). Khoang cach bang km, tan so bang GHz."""
+    return 20*math.log10(distance_km) + 20*math.log10(freq_ghz) + 92.4
+
+def antenna_gain_db(diameter_m: float, freq_ghz: float,
+                    efficiency: float = 0.6) -> float:
+    """Do loi chao parabol (dBi)."""
+    wavelength_m = 0.3 / freq_ghz
+    gain_linear = efficiency * (math.pi * diameter_m / wavelength_m) ** 2
+    return 10 * math.log10(gain_linear)
+
+def system_noise_temp(t_ant_k: float, t_lna_k: float,
+                      t_feed_k: float = 15.0, t_back_k: float = 500.0,
+                      g_lna_db: float = 45.0) -> float:
+    """Nhiet do nhieu he thong noi tiep (K)."""
+    g_lna = 10 ** (g_lna_db / 10)
+    return t_ant_k + t_feed_k + t_lna_k + t_back_k / g_lna
+
+def link_budget(
+    p_tx_dbw: float,
+    g_tx_dbi: float,
+    l_feed_tx_db: float,
+    distance_km: float,
+    freq_ghz: float,
+    l_atm_db: float,
+    l_rain_db: float,
+    l_point_db: float,
+    g_rx_dbi: float,
+    t_sys_k: float,
+) -> dict:
+    """
+    Ngan sach lien ket ve tinh day du.
+    Tra ve dict voi tat ca gia tri trung gian va C/N0.
+    """
+    k_db = -228.6  # dBW/K/Hz (hang so Boltzmann)
+    eirp = p_tx_dbw + g_tx_dbi - l_feed_tx_db
+    l_fs = fspl_db(distance_km, freq_ghz)
+    l_total = l_fs + l_atm_db + l_rain_db + l_point_db
+    g_over_t = g_rx_dbi - 10 * math.log10(t_sys_k)
+    c_n0 = eirp - l_total + g_over_t - k_db
+    return {
+        "EIRP_dBW":     eirp,
+        "FSPL_dB":      l_fs,
+        "L_tong_dB":    l_total,
+        "G_rx_dBi":     g_rx_dbi,
+        "T_sys_K":      t_sys_k,
+        "G_tren_T_dBK": g_over_t,
+        "C_N0_dBHz":    c_n0,
+    }
+
+def in_ngan_sach(nhan: str, ket_qua: dict,
+                 bang_thong_mhz: float, cn_yeu_cau_db: float) -> None:
+    bw_db = 10 * math.log10(bang_thong_mhz * 1e6)
+    cn = ket_qua["C_N0_dBHz"] - bw_db
+    bien_do = cn - cn_yeu_cau_db
+    print(f"\n{'='*55}")
+    print(f"  {nhan}")
+    print(f"{'='*55}")
+    for k, v in ket_qua.items():
+        print(f"  {k:<24} {v:+8.2f}")
+    print(f"  {'Bang thong':<24} {bang_thong_mhz:.0f} MHz ({bw_db:.1f} dBHz)")
+    print(f"  {'C/N':<24} {cn:+8.2f} dB")
+    print(f"  {'C/N yeu cau':<24} {cn_yeu_cau_db:+8.2f} dB")
+    print(f"  {'Bien do':<24} {bien_do:+8.2f} dB  {'OK' if bien_do >= 0 else 'THAT BAI'}")
+
+# --- Vi du 1: Duong xuong GEO Ku-band VSAT ---
+r1 = link_budget(
+    p_tx_dbw=20.0,
+    g_tx_dbi=48.0,
+    l_feed_tx_db=0.8,
+    distance_km=38500,
+    freq_ghz=12.0,
+    l_atm_db=0.3,
+    l_rain_db=3.0,
+    l_point_db=0.5,
+    g_rx_dbi=38.6,
+    t_sys_k=89.0,
+)
+in_ngan_sach("GEO Ku-band VSAT duong xuong (kha dung 99.5%)",
+             r1, bang_thong_mhz=36, cn_yeu_cau_db=7.0)
+
+# --- Vi du 2: Duong xuong LEO Ka-band (kieu Starlink) ---
+t_sys_leo = system_noise_temp(t_ant_k=30, t_lna_k=35, t_feed_k=10)
+g_rx_leo  = antenna_gain_db(diameter_m=0.48, freq_ghz=19.7)
+r2 = link_budget(
+    p_tx_dbw=17.0,
+    g_tx_dbi=35.0,
+    l_feed_tx_db=1.0,
+    distance_km=900,
+    freq_ghz=19.7,
+    l_atm_db=0.5,
+    l_rain_db=4.0,
+    l_point_db=1.0,
+    g_rx_dbi=g_rx_leo,
+    t_sys_k=t_sys_leo,
+)
+in_ngan_sach("LEO Ka-band thiet bi chao (kha dung 99%)",
+             r2, bang_thong_mhz=250, cn_yeu_cau_db=10.0)
+```
+
+**Cac quy tac nhanh — hay nho thuoc:**
+
+| Quy tac | Gia tri |
+|---------|---------|
+| Boltzmann $k_B$ | $-228.6$ dBW/K/Hz |
+| FSPL tai GEO, Ku-band 12 GHz | ~205 dB |
+| FSPL tai LEO 550 km, Ka-band 20 GHz | ~182 dB |
+| Tang gap doi khoang cach them | 6 dB suy hao |
+| Tang gap doi tan so them | 6 dB suy hao |
+| Tang gap doi duong kinh chao them | 6 dB do loi |
+| Tang EIRP 1 dB = tang C/N0 1 dB | (doi chieu tuyen tinh) |
+| Giam 10 K o nen 100 K them | ~0.4 dB G/T |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Nhung bay an
+
+1. **Quen dau cua hang so Boltzmann.** Phuong trinh lien ket la $C/N_0 = \text{EIRP} - L + G/T - k_B$. Vi $k_B = -228.6$ dBW/K/Hz, nen so hang nay cong them 228.6 dB. Bo qua no se cho C/N0 thap hon ~230 dB.
+
+2. **Nham lan don vi dB.** EIRP tinh bang dBW, G/T tinh bang dB/K, suy hao la dB khong co don vi, C/N0 la dBHz. Hay ghi nhan tung tham so hoac ban se cong tao voi le.
+
+3. **C/N0 so voi C/N.** C/N0 duoc chuan hoa theo Hz. C/N = C/N0 tru bang thong nhieu tinh bang dBHz. Lien ket C/N0 = 90 dBHz voi bang thong 36 MHz chi co C/N = 90 - 75.6 = 14.4 dB.
+
+4. **Troi quang so voi ngan sach kha dung.** Luon chi ro bien do suy hao mua va muc tieu kha dung (99.0%, 99.5%, 99.9%). Ngan sach thieu thong tin nay la khong hoan chinh o vung nhiet doi noi suy hao Ku/Ka co the vuot 20 dB.
+
+5. **Nhiet do nhieu anten thay doi theo huong.** Anten nhin vao mat dat nong (chan troi) thay khoang 290 K. Huong vao bau troi lanh thay 5–50 K. G/T thay doi dang ke theo goc ngong — hay dung goc ngong thuc te cua tram.
+
+6. **Bo qua nhieu giao thoa.** C/N gia dinh chi co nhieu nhiet. He thong thuc te co nhieu giao thoa tu ve tinh ke can, kenh dong kenh, ro phan cuc cheo. Tieu chi chinh xac la C/(N+I).
+
+7. **Suy hao day cap o ca hai phia.** Suy hao cap/ong dan song giua PA va anten o phia phat lam giam EIRP. O phia thu, suy hao giua anten va LNA them nhieu — luon dat LNA gan dau tiep song nhat co the.
+
+8. **Phan cuc khong khop.** 0.2–1 dB dien hinh voi he thong can chinh. Phan cuc sai (vong/thang trai) gay mat mat 20–30 dB — tham hoa va de xay ra khi lap dat dau tiep song khong dung.
+
+</section>
+
+<section class="lesson-references">
+
+## Tai lieu tham khao
+
+- Maral, G. & Bousquet, M., "Satellite Communications Systems", ban 5 — Chuong 5
+- Ippolito, L., "Satellite Communications Systems Engineering", ban 2 — Chuong 4
+- Roddy, D., "Satellite Communications", ban 4 — Chuong 12
+- ITU-R P.618 — Du lieu truyen song can cho he thong Trai Dat-khong gian
+- ETSI EN 302 307 — Tieu chuan DVB-S2 (nguong dieu che)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Buoc tiep theo
+
+- [Khai niem Duong len/Duong xuong](/vi/space/satcom-link-in-one-diagram/uplink-downlink-concepts/) — dieu khien cong suat duong len va SFD
+- [EIRP Chuyen sau](/vi/space/link-budget-master-class/eirp/) — backoff HPA, phi tuyen, OBO
+- [G/T Chuyen sau](/vi/space/link-budget-master-class/g-over-t/) — chuoi nhieu, chon LNA
+- [Buoc tinh ngan sach Ka-band LEO](/vi/space/practical-link-budget-walkthroughs/ka-band-leo-downlink/) — vi du so day du
+
+</section>

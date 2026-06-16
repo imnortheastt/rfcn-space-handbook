@@ -8,17 +8,494 @@ track: n3
 unit: network-functions-overview
 order: 5
 level: L3
-estimatedReadingMinutes: 5
-title: "NRF, NSSF, PCF, NEF — Kham pha, phan lat, chinh sach, phoi lo"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 14
+prerequisites: ["core-network-n3-why-sba-architectural-shift-02-sba-design-principles"]
+spiralRevisits: ["core-network-n4-network-slicing-01-overview"]
+title: "NRF, NSSF, PCF, NEF — Kham Pha, Slice, Policy, Expose"
+description: "Dan dien vien phu cua 5G — kham pha dich vu, chon slice, dieu khien policy, va expose API."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 23.502"]
+tags: ["nrf", "nssf", "pcf", "nef", "5g", "slicing", "policy"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# NRF, NSSF, PCF, NEF — Kham pha, phan lat, chinh sach, phoi lo
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+AMF, SMF, va UPF la "nhan vat chinh" cua 5G. Nhung chung can **ha tang ho tro** de hoat dong.
+
+**NRF** cho phep kham pha dich vu. **NSSF** chon network slice. **PCF** thuc thi policy. **NEF** expose API cho ung dung ben ngoai. Khong co chung, kien truc SBA se sup do.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Bon chuc nang ho tro
+
+```
+NF ho tro trong 5G:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐ │
+│  │   NRF   │   │  NSSF   │   │   PCF   │   │   NEF   │ │
+│  │         │   │         │   │         │   │         │ │
+│  │ Kham pha│   │  Chon   │   │ Dieu    │   │ Expose  │ │
+│  │ dich vu │   │ Slice   │   │khien pol│   │  API    │ │
+│  └────┬────┘   └────┬────┘   └────┬────┘   └────┬────┘ │
+│       │             │             │             │       │
+│       └─────────────┼─────────────┼─────────────┘       │
+│                     │             │                      │
+│                     ▼             ▼                      │
+│              ┌───────────────────────┐                  │
+│              │  AMF │ SMF │ UPF │ ... │                 │
+│              │  (NF tieu thu)         │                  │
+│              └───────────────────────┘                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+| Chuc nang | Muc dich mot dong |
+|-----------|-------------------|
+| **NRF** | "SMF phuc vu DNN X o dau?" |
+| **NSSF** | "UE nay nen dung slice nao?" |
+| **PCF** | "QoS va quy tac nao ap dung cho session nay?" |
+| **NEF** | "App ben ngoai noi chuyen voi mang 5G the nao?" |
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+---
+
+## NRF — Network Repository Function
+
+### NRF lam gi
+
+NRF la **dang ky dich vu** cho 5G SBA. Moi NF dang ky dich vu voi NRF; nguoi tieu thu kham pha dich vu bang cach truy van NRF.
+
+```
+Dang ky dich vu NRF:
+
+┌─────────────────────────────────────────────────────────┐
+│                         NRF                              │
+│                                                          │
+│  NF da dang ky:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ NF: AMF-001                                      │    │
+│  │   Type: AMF                                      │    │
+│  │   Services: [Namf_Communication, Namf_Location]  │    │
+│  │   Address: https://amf1.5gc.operator.vn         │    │
+│  │   PLMN: 452-02                                   │    │
+│  │   Slice: [SST=1, SST=2]                         │    │
+│  │   TAI: [TAI1, TAI2, TAI3]                       │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ NF: SMF-001                                      │    │
+│  │   Type: SMF                                      │    │
+│  │   Services: [Nsmf_PDUSession]                   │    │
+│  │   DNN: [internet, ims]                          │    │
+│  │   ...                                            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Thao tac NRF
+
+```
+Dich vu NRF (Nnrf):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nnrf_NFManagement:                                     │
+│  ├── NFRegister         (NF tham gia mang)             │
+│  ├── NFUpdate           (NF thay doi profile)          │
+│  ├── NFDeregister       (NF roi di)                    │
+│  └── NFStatusSubscribe  (theo doi thay doi)            │
+│                                                          │
+│  Nnrf_NFDiscovery:                                      │
+│  └── NFDiscover         (tim NF khop tieu chi)         │
+│                                                          │
+│  Nnrf_AccessToken:                                      │
+│  └── AccessTokenRequest (token OAuth2 cho NF-to-NF)    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Vi du kham pha
+
+```
+AMF kham pha SMF:
+
+AMF                         NRF
+ │                           │
+ │  NFDiscover Request       │
+ │  - Target NF Type: SMF    │
+ │  - DNN: "internet"        │
+ │  - S-NSSAI: SST=1         │
+ │  - TAI: khop vi tri UE    │
+ │──────────────────────────►│
+ │                           │
+ │                      ┌────┴────┐
+ │                      │ Tim kiem│
+ │                      │ registry│
+ │                      └────┬────┘
+ │                           │
+ │  NFDiscover Response      │
+ │  - SMF-001: https://...   │
+ │  - SMF-002: https://...   │
+ │◄──────────────────────────│
+ │                           │
+```
+
+---
+
+## NSSF — Network Slice Selection Function
+
+### NSSF lam gi
+
+NSSF giup chon **network slice** phu hop cho UE. Cac slice khac nhau phuc vu muc dich khac nhau (eMBB, URLLC, mMTC).
+
+```
+Khai niem Network Slicing:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│        Mang 5G vat ly                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ Slice 1 (SST=1): eMBB                   │   │    │
+│  │  │ AMF-A, SMF-A, UPF-A                     │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ Slice 2 (SST=2): URLLC                  │   │    │
+│  │  │ AMF-B, SMF-B, UPF-B (edge)              │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ Slice 3 (SST=3): mMTC                   │   │    │
+│  │  │ AMF-C, SMF-C, UPF-C                     │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  NSSF quyet dinh: "UE X duoc Slice 1 + Slice 2"        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Dich vu NSSF
+
+```
+Dich vu NSSF (Nnssf):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nnssf_NSSelection:                                     │
+│  └── NSSelectionGet        (chon slice cho UE)         │
+│                                                          │
+│  Nnssf_NSSAIAvailability:                               │
+│  ├── NSSAIAvailabilityPut  (anh xa TA → slice)         │
+│  ├── NSSAIAvailabilityDelete                            │
+│  └── NSSAIAvailabilitySubscribe                         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Luong chon slice
+
+```
+Chon Slice:
+
+UE              AMF              NSSF
+│                │                │
+│ Registration   │                │
+│ NSSAI yeu cau  │                │
+│ [SST=1, SST=2] │                │
+│───────────────►│                │
+│                │                │
+│                │ NSSelectionGet │
+│                │ - SUPI         │
+│                │ - NSSAI yeu cau│
+│                │ - TAI          │
+│                │───────────────►│
+│                │                │
+│                │         ┌──────┴──────┐
+│                │         │ Kiem tra:   │
+│                │         │ - Thue bao  │
+│                │         │ - TA ho tro │
+│                │         │ - Policy    │
+│                │         └──────┬──────┘
+│                │                │
+│                │ NSSAI cho phep │
+│                │ [SST=1]        │
+│                │ Target AMF Set │
+│                │◄───────────────│
+│                │                │
+```
+
+---
+
+## PCF — Policy Control Function
+
+### PCF lam gi
+
+PCF cung cap **quy tac policy** cho AMF (policy truy cap) va SMF (policy session). No quyet dinh QoS, quy tac tinh cuoc, va xu ly luu luong.
+
+```
+PCF trong khung Policy:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ┌─────────┐                          │
+│                    │   UDR   │ (du lieu policy)         │
+│                    └────▲────┘                          │
+│                         │                                │
+│                    ┌────┴────┐                          │
+│                    │   PCF   │                          │
+│                    └────┬────┘                          │
+│                         │                                │
+│           ┌─────────────┼─────────────┐                 │
+│           │             │             │                  │
+│           ▼             ▼             ▼                  │
+│      ┌─────────┐   ┌─────────┐   ┌─────────┐           │
+│      │   AMF   │   │   SMF   │   │   AF    │           │
+│      │         │   │         │   │(qua NEF)│           │
+│      │ Policy  │   │ Policy  │   │ Yeu cau │           │
+│      │ truy cap│   │ session │   │ App     │           │
+│      └─────────┘   └─────────┘   └─────────┘           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Dich vu PCF
+
+```
+Dich vu PCF (Npcf):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Npcf_AMPolicyControl:                                  │
+│  ├── Create             (policy truy cap cho UE)       │
+│  ├── Update                                             │
+│  └── Delete                                             │
+│                                                          │
+│  Npcf_SMPolicyControl:                                  │
+│  ├── Create             (policy session cho PDU)       │
+│  ├── Update                                             │
+│  ├── Delete                                             │
+│  └── UpdateNotify       (trigger thay doi policy)      │
+│                                                          │
+│  Npcf_PolicyAuthorization:                              │
+│  └── Create             (AF yeu cau QoS)               │
+│                                                          │
+│  Npcf_BDTPolicyControl:                                 │
+│  └── Create             (chuyen du lieu nen)           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Vi du quyet dinh policy
+
+```
+Policy Session:
+
+SMF                         PCF
+ │                           │
+ │  SM Policy Create         │
+ │  - SUPI                   │
+ │  - DNN: "internet"        │
+ │  - S-NSSAI: SST=1         │
+ │  - UE IP: 10.0.0.5        │
+ │──────────────────────────►│
+ │                           │
+ │                      ┌────┴────┐
+ │                      │ Danh gia│
+ │                      │ quy tac │
+ │                      └────┬────┘
+ │                           │
+ │  SM Policy Decision       │
+ │  - PCC Rules:             │
+ │    - QoS: 5QI=9, MBR=100M │
+ │    - Tinh cuoc: tra truoc │
+ │  - Session AMBR           │
+ │◄──────────────────────────│
+ │                           │
+```
+
+---
+
+## NEF — Network Exposure Function
+
+### NEF lam gi
+
+NEF la **API gateway** giua ung dung ben ngoai va 5G core. No expose kha nang mang mot cach an toan va bao mat.
+
+```
+NEF nhu API Gateway:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  The gioi ben ngoai        │      5G Core               │
+│                              │                          │
+│  ┌─────────┐                │                          │
+│  │ IoT App │────┐           │                          │
+│  └─────────┘    │           │                          │
+│                  │           │                          │
+│  ┌─────────┐    │    ┌──────┴─────┐    ┌─────────┐    │
+│  │ Video   │────┼───►│    NEF     │───►│   PCF   │    │
+│  │ Service │    │    │            │    └─────────┘    │
+│  └─────────┘    │    │ - Xac thuc │                    │
+│                  │    │ - Dich     │    ┌─────────┐    │
+│  ┌─────────┐    │    │ - Uy quyen │───►│   UDM   │    │
+│  │ Traffic │────┘    │            │    └─────────┘    │
+│  │ Mgmt    │         └──────┬─────┘                    │
+│  └─────────┘                │          ┌─────────┐    │
+│                              │         │   AMF   │    │
+│                              │         └─────────┘    │
+│                              │                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Dich vu NEF
+
+```
+Dich vu NEF (Nnef):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Expose ben ngoai (cho AF):                             │
+│  ├── MonitoringEvent       (vi tri UE, kha nang truy cap)│
+│  ├── DeviceTriggering      (danh thuc thiet bi IoT)    │
+│  ├── ParameterProvision    (dat tham so UE)            │
+│  ├── TrafficInfluence      (route luu luong den edge)  │
+│  └── ChargeableParty       (tai tro su dung du lieu)   │
+│                                                          │
+│  Dich vu noi bo:                                        │
+│  └── AFSessionWithQoS      (QoS cho app cu the)        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Vi du anh huong luu luong
+
+```
+Yeu cau anh huong luu luong:
+
+AF (Video CDN)              NEF                  PCF/SMF
+     │                       │                      │
+     │  Traffic Influence    │                      │
+     │  - Nhom UE: tat ca    │                      │
+     │  - App: video.cdn.com │                      │
+     │  - Route den: edge-upf│                      │
+     │──────────────────────►│                      │
+     │                       │                      │
+     │                  ┌────┴────┐                 │
+     │                  │ Xac thuc│                 │
+     │                  │ Uy quyen AF              │
+     │                  └────┬────┘                 │
+     │                       │                      │
+     │                       │  Npcf/Nsmf trigger   │
+     │                       │  Route luu luong video│
+     │                       │  den edge UPF        │
+     │                       │─────────────────────►│
+     │                       │                      │
+     │  200 OK               │                      │
+     │◄──────────────────────│                      │
+     │                       │                      │
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cau hinh NRF:**
+
+| Tham so | Muc dich |
+|---------|----------|
+| PLMN ID | Danh tinh mang |
+| NRF peer | Cho giao tiep NRF-to-NRF |
+| Cau hinh OAuth2 | Uy quyen dua tren token |
+
+**Cau hinh NSSF:**
+
+| Tham so | Muc dich |
+|---------|----------|
+| S-NSSAI ho tro | Slice kha dung |
+| Anh xa TA-NSSAI | Slice nao trong vung nao |
+| Thong tin AMF set | AMF dich moi slice |
+
+**Cau hinh PCF:**
+
+| Tham so | Muc dich |
+|---------|----------|
+| Endpoint UDR | Kho du lieu policy |
+| Policy mac dinh | Quy tac du phong |
+| Quy tac tinh cuoc | Tinh cuoc online/offline |
+
+**Cau hinh NEF:**
+
+| Tham so | Muc dich |
+|---------|----------|
+| Danh sach AF cho phep | App ben ngoai duoc phep |
+| Gioi han API | Rate limiting |
+| Pham vi expose | Kha nang nao duoc expose |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **NRF la diem loi duy nhat.** NRF hong dung discovery. Trien khai instance NRF du phong.
+
+2. **Phuc tap NSSF.** Logic chon slice co the phuc tap. Bat dau don gian, them quy tac dan.
+
+3. **Qua tai PCF.** Moi session truy van PCF. Giam sat va scale phu hop.
+
+4. **Lo hong bao mat NEF.** Expose API mang cho app ben ngoai yeu cau uy quyen nghiem ngat. Kiem tra truy cap AF.
+
+5. **Cache ket qua NRF.** Du lieu discovery cu gay routing den NF chet. Dat TTL phu hop.
+
+6. **Bo qua tinh nhat quan NSSAI.** NSSAI yeu cau, cho phep, va cau hinh phai phu hop. Khong khop gay that bai chon slice.
+
+7. **Split brain PCF-UDR.** Du lieu policy trong UDR va trang thai runtime PCF phai dong bo.
+
+8. **Gioi han toc do NEF.** AF ben ngoai co the lam ngap NEF voi request. Trien khai throttling tu ngay dau.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.501, "System architecture for 5G System"
+- 3GPP TS 29.510, "NRF Services"
+- 3GPP TS 29.531, "NSSF Services"
+- 3GPP TS 29.512, "PCF Services"
+- 3GPP TS 29.522, "NEF Services"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Network slicing](/vi/core-network/network-slicing/overview/) — di sau vao slicing
+- [Khung policy](/vi/core-network/policy-and-charging/policy-framework/) — quy tac PCC chi tiet
+- [Nguyen tac thiet ke SBI](/vi/core-network/why-sba-architectural-shift/sba-design-principles/) — cach NF giao tiep
+
+</section>

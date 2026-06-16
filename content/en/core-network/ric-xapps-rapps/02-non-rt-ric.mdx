@@ -8,17 +8,450 @@ track: n6
 unit: ric-xapps-rapps
 order: 2
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n6-ric-xapps-rapps-01-near-rt-ric"]
+spiralRevisits: []
 title: "Non-RT RIC"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Non-Real-Time RAN Intelligent Controller: A1 policy, ML model lifecycle, and rApp framework for strategic RAN optimization."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG2.A1AP", "O-RAN.WG2.Non-RT-RIC-Arch"]
+tags: ["o-ran", "ric", "non-rt-ric", "a1", "rapps", "smo"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Non-RT RIC
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Near-RT RIC handles fast decisions. Non-RT RIC handles the strategic layer — training ML models, generating policies, and managing the RAN lifecycle.
+
+Non-RT RIC is part of the SMO and provides the intelligence that guides Near-RT RIC behavior. Understanding both is essential for complete O-RAN deployment.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Non-RT RIC position
+
+```
+Non-RT RIC in SMO:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │           Service Management and Orchestration    │  │
+│  │                       (SMO)                       │  │
+│  │                                                    │  │
+│  │  ┌─────────────────────────────────────────────┐  │  │
+│  │  │              Non-RT RIC                     │  │  │
+│  │  │              (>1s control loop)             │  │  │
+│  │  │                                              │  │  │
+│  │  │  ┌─────────┐ ┌─────────┐ ┌─────────┐        │  │  │
+│  │  │  │ rApp 1  │ │ rApp 2  │ │ rApp 3  │  ...   │  │  │
+│  │  │  │ (Policy)│ │ (ML)    │ │ (Enrich)│        │  │  │
+│  │  │  └─────────┘ └─────────┘ └─────────┘        │  │  │
+│  │  │                                              │  │  │
+│  │  │  ┌─────────────────────────────────────┐    │  │  │
+│  │  │  │ Non-RT RIC Framework                │    │  │  │
+│  │  │  │ - A1 Policy Management              │    │  │  │
+│  │  │  │ - ML Model Management               │    │  │  │
+│  │  │  │ - Data Enrichment                   │    │  │  │
+│  │  │  │ - R1 Interface (rApps)              │    │  │  │
+│  │  │  └─────────────────────────────────────┘    │  │  │
+│  │  │                                              │  │  │
+│  │  └─────────────────────────────────────────────┘  │  │
+│  │                                                    │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────┐   │  │
+│  │  │ OAM         │  │ Network     │  │ Service  │   │  │
+│  │  │ Functions   │  │ Functions   │  │ Catalog  │   │  │
+│  │  └─────────────┘  └─────────────┘  └──────────┘   │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                        │ A1                             │
+│                        ▼                                │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │              Near-RT RIC                          │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Control loop comparison
+
+```
+Non-RT vs Near-RT Control Loops:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Non-RT RIC (>1 second):                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐          │    │
+│  │  │ Collect │→ │ Analyze │→ │ Generate│          │    │
+│  │  │ History │  │ Trends  │  │ Policy  │          │    │
+│  │  └─────────┘  └─────────┘  └─────────┘          │    │
+│  │       │                           │              │    │
+│  │       │     ┌─────────┐          │              │    │
+│  │       └────►│ Train ML├──────────┘              │    │
+│  │             │ Model   │                          │    │
+│  │             └─────────┘                          │    │
+│  │                                                  │    │
+│  │  Time scale: Minutes to hours                   │    │
+│  │  Actions: Policy updates, model deployment      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                     │                                   │
+│                     │ A1 (Policy/ML Model)              │
+│                     ▼                                   │
+│  Near-RT RIC (10ms-1s):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐          │    │
+│  │  │ Receive │→ │ Apply   │→ │ Execute │          │    │
+│  │  │ E2 Data │  │ Model   │  │ Action  │          │    │
+│  │  └─────────┘  └─────────┘  └─────────┘          │    │
+│  │                                                  │    │
+│  │  Time scale: Milliseconds to seconds            │    │
+│  │  Actions: Control decisions, real-time optimize │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### A1 interface
+
+```
+A1 Interface (Non-RT RIC to Near-RT RIC):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  A1 Services:                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ A1-P (Policy Management):                       │    │
+│  │ ┌─────────────────────────────────────────┐     │    │
+│  │ │ PUT /A1-P/v2/policytypes/{policyTypeId}/ │     │    │
+│  │ │     policies/{policyId}                   │     │    │
+│  │ │                                           │     │    │
+│  │ │ {                                         │     │    │
+│  │ │   "policyId": "qos-policy-001",           │     │    │
+│  │ │   "policyTypeId": "ORAN_QoS_1.0",         │     │    │
+│  │ │   "scope": {                              │     │    │
+│  │ │     "cellId": "cell-001",                 │     │    │
+│  │ │     "sliceId": {"sst": 1}                 │     │    │
+│  │ │   },                                      │     │    │
+│  │ │   "qosObjectives": {                      │     │    │
+│  │ │     "minThroughput": 100000000            │     │    │
+│  │ │   }                                       │     │    │
+│  │ │ }                                         │     │    │
+│  │ └─────────────────────────────────────────┘     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ A1-EI (Enrichment Information):                 │    │
+│  │ - UE context data                               │    │
+│  │ - External data (traffic predictions)           │    │
+│  │ - Location enrichment                           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ A1-ML (ML Model Management):                    │    │
+│  │ - Deploy trained models to Near-RT RIC          │    │
+│  │ - Model versioning                              │    │
+│  │ - Model performance feedback                    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Non-RT RIC functions
+
+```
+Non-RT RIC Functional Components:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  A1 Policy Management Function                  │    │
+│  │  - Create/update/delete A1 policies             │    │
+│  │  - Policy type registration                     │    │
+│  │  - Policy status tracking                       │    │
+│  │  - Policy conflict detection                    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ML Model Management Function                   │    │
+│  │  - Model catalog (trained models)               │    │
+│  │  - Model training pipeline integration          │    │
+│  │  - Model deployment to Near-RT RIC              │    │
+│  │  - A/B testing support                          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Data Collection and Analytics                  │    │
+│  │  - Historical PM data collection                │    │
+│  │  - Data lake integration                        │    │
+│  │  - Analytics for rApps                          │    │
+│  │  - Trend analysis                               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Enrichment Information Provider                │    │
+│  │  - External data sources integration            │    │
+│  │  - UE profiling                                 │    │
+│  │  - Geo-location services                        │    │
+│  │  - Traffic forecasting                          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### rApp framework
+
+```
+rApp Framework (R1 Interface):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  rApp Architecture:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐          │    │
+│  │  │ rApp 1  │  │ rApp 2  │  │ rApp 3  │          │    │
+│  │  │ Policy  │  │ ML Trn  │  │ Enrich  │          │    │
+│  │  └────┬────┘  └────┬────┘  └────┬────┘          │    │
+│  │       │            │            │               │    │
+│  │       └────────────┼────────────┘               │    │
+│  │                    │                            │    │
+│  │                    ▼                            │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │           R1 Interface (APIs)           │   │    │
+│  │  │  - Data Services                        │   │    │
+│  │  │  - A1 Policy Services                   │   │    │
+│  │  │  - ML Model Services                    │   │    │
+│  │  │  - Notification Services                │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                    │                            │    │
+│  │                    ▼                            │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │         Non-RT RIC Framework            │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  R1 Service Examples:                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  GET /r1/data/pm-history?cell={cellId}&hours=24 │    │
+│  │  POST /r1/a1/policies                           │    │
+│  │  PUT /r1/ml/models/{modelId}/deploy             │    │
+│  │  POST /r1/enrichment/subscribe                  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### ML model lifecycle
+
+```
+ML Model Lifecycle in Non-RT RIC:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌──────┐    ┌──────┐    ┌──────┐    ┌──────┐          │
+│  │Collect│ → │ Train │ → │Validate│ → │Deploy │         │
+│  │ Data │    │ Model │    │ Model │    │ Model │         │
+│  └──────┘    └──────┘    └──────┘    └──────┘          │
+│      │           │           │           │              │
+│      ▼           ▼           ▼           ▼              │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │                                                   │   │
+│  │  1. Data Collection:                             │   │
+│  │     - Collect PM data from Near-RT RIC           │   │
+│  │     - Store in data lake                         │   │
+│  │     - Feature engineering                        │   │
+│  │                                                   │   │
+│  │  2. Model Training:                              │   │
+│  │     - rApp triggers training pipeline            │   │
+│  │     - Use historical data                        │   │
+│  │     - Hyperparameter tuning                      │   │
+│  │                                                   │   │
+│  │  3. Model Validation:                            │   │
+│  │     - Test on holdout data                       │   │
+│  │     - Compare against baseline                   │   │
+│  │     - A/B testing in shadow mode                 │   │
+│  │                                                   │   │
+│  │  4. Model Deployment:                            │   │
+│  │     - Push to Near-RT RIC via A1-ML              │   │
+│  │     - xApp loads and uses model                  │   │
+│  │     - Monitor inference performance              │   │
+│  │                                                   │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                          │
+│  Feedback Loop:                                         │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │                                                   │   │
+│  │  Near-RT RIC (xApp) ──► Model performance        │   │
+│  │                         metrics                   │   │
+│  │           │                                       │   │
+│  │           ▼                                       │   │
+│  │  Non-RT RIC (rApp) ──► Retrain if degraded       │   │
+│  │                                                   │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**A1 policy types:**
+
+| Policy Type | Purpose | Scope |
+|-------------|---------|-------|
+| QoS | Throughput/latency targets | Cell, slice, UE |
+| Traffic Steering | Load balancing rules | Cell, TA |
+| Resource | PRB allocation guidance | Cell, slice |
+| Energy Saving | Power management | Cell, site |
+
+**OSC Non-RT RIC components:**
+
+```bash
+# Deploy OSC Non-RT RIC
+helm install nonrtric oran-sc/nonrtric
+
+# Check rApp manager
+kubectl get pods -n nonrtric | grep rappmanager
+
+# Register A1 policy type
+curl -X PUT http://a1-pms:8081/policytype \
+  -H "Content-Type: application/json" \
+  -d '{
+    "policyTypeId": "ORAN_QoS_1.0",
+    "policySchema": {...}
+  }'
+
+# Create A1 policy
+curl -X PUT http://a1-pms:8081/policy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "policyId": "qos-001",
+    "policyTypeId": "ORAN_QoS_1.0",
+    "ricId": "ric-1",
+    "policyData": {
+      "scope": {"cellId": "cell-001"},
+      "qosObjectives": {"minThroughput": 100000000}
+    }
+  }'
+
+# Check policy status
+curl http://a1-pms:8081/policy/qos-001/status
+```
+
+**rApp development:**
+
+```python
+# rApp example: Traffic prediction
+from nonrtric_sdk import RAppClient
+
+client = RAppClient()
+
+# Get historical PM data
+pm_data = client.get_pm_history(
+    cell_id="cell-001",
+    metrics=["prb_util", "throughput"],
+    hours=168  # 1 week
+)
+
+# Train model
+model = train_traffic_prediction(pm_data)
+
+# Deploy to Near-RT RIC
+client.deploy_model(
+    model_id="traffic-pred-v1",
+    model=model,
+    target_xapp="traffic-steering-xapp"
+)
+
+# Create A1 policy based on prediction
+if predicted_congestion():
+    client.create_policy(
+        policy_type="ORAN_TrafficSteering_1.0",
+        policy_data={"action": "balance_load"}
+    )
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **A1 policy not enforced.** Near-RT RIC receives policy but xApp ignores it. Check xApp A1 handling.
+
+2. **Stale ML model.** Model trained on old data doesn't fit current conditions. Schedule regular retraining.
+
+3. **Policy conflict.** Multiple rApps create conflicting policies. Use policy conflict detection.
+
+4. **Data pipeline lag.** PM data arrives too late for timely decisions. Optimize data collection pipeline.
+
+5. **Model too large.** Near-RT RIC can't load model within memory constraints. Compress or simplify model.
+
+6. **Missing feedback.** No metrics on model performance after deployment. Implement monitoring.
+
+7. **R1 API version mismatch.** rApp uses outdated R1 API. Check compatibility with Non-RT RIC version.
+
+8. **Enrichment data stale.** External data (predictions) not updated frequently. Check enrichment provider.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- O-RAN Alliance WG2, "Non-RT RIC Architecture"
+- O-RAN Alliance WG2, "A1 Interface Specification"
+- O-RAN Alliance WG2, "Non-RT RIC and A1 Interface: Use Cases and Requirements"
+- O-RAN SC, "Non-RT RIC Documentation"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [rApps](/en/core-network/ric-xapps-rapps/rapps/) — rApp development
+- [Near-RT RIC](/en/core-network/ric-xapps-rapps/near-rt-ric/) — faster control loop
+- [xApps](/en/core-network/ric-xapps-rapps/xapps/) — consuming A1 policies
+
+</section>

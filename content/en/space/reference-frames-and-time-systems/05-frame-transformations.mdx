@@ -8,17 +8,547 @@ track: s1
 unit: reference-frames-and-time-systems
 order: 5
 level: L3
-estimatedReadingMinutes: 5
-title: "Frame transformations"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Frame Transformations — ECI ↔ ECEF ↔ Topocentric"
+description: "Converting coordinates between inertial, Earth-fixed, and local observer frames."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["eci", "ecef", "topocentric", "enu", "azel", "rotation-matrix"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Frame transformations
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+A satellite's state vector comes from an orbit propagator in ECI. Your ground antenna sits at fixed geodetic coordinates in ECEF. To point the antenna, you need azimuth and elevation in the local topocentric frame. These three frames — ECI, ECEF, topocentric — each serve a purpose, and you need to move between them constantly. Get the transformation wrong and your antenna points at empty sky, your ground track plot drifts across continents, or your collision screening misses a conjunction.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The transformation chain
+
+```
+Frame Transformation Pipeline:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                      ORBIT PROPAGATOR                               │
+│                           │                                         │
+│                           ▼                                         │
+│                    ┌─────────────┐                                  │
+│                    │    ECI      │  Inertial frame                  │
+│                    │  (J2000)    │  Stars don't move                │
+│                    └──────┬──────┘                                  │
+│                           │                                         │
+│          Earth rotation   │   R_z(θ_GMST)                          │
+│          (sidereal time)  │   + polar motion                       │
+│                           ▼                                         │
+│                    ┌─────────────┐                                  │
+│                    │   ECEF      │  Earth-fixed frame              │
+│                    │  (WGS84)    │  Ground doesn't move            │
+│                    └──────┬──────┘                                  │
+│                           │                                         │
+│          Observer         │   Translation + rotation               │
+│          location         │   by geodetic (lat, lon, alt)         │
+│                           ▼                                         │
+│                    ┌─────────────┐                                  │
+│                    │ TOPOCENTRIC │  Local observer frame           │
+│                    │  (ENU/AzEl) │  Horizon-relative               │
+│                    └─────────────┘                                  │
+│                                                                      │
+│  REVERSE: Az/El → ECEF → ECI for orbit determination               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key rotation matrices
+
+```
+The Three Core Rotations:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ROTATION ABOUT X-AXIS:                                             │
+│                                                                      │
+│         ┌  1      0        0    ┐                                   │
+│  R_x =  │  0    cos(θ)   sin(θ) │    (positive = right-hand rule)  │
+│         └  0   -sin(θ)   cos(θ) ┘                                   │
+│                                                                      │
+│  ROTATION ABOUT Y-AXIS:                                             │
+│                                                                      │
+│         ┌  cos(θ)   0   -sin(θ) ┐                                   │
+│  R_y =  │    0      1      0    │                                   │
+│         └  sin(θ)   0    cos(θ) ┘                                   │
+│                                                                      │
+│  ROTATION ABOUT Z-AXIS:                                             │
+│                                                                      │
+│         ┌  cos(θ)   sin(θ)   0  ┐                                   │
+│  R_z =  │ -sin(θ)   cos(θ)   0  │                                   │
+│         └    0        0      1  ┘                                   │
+│                                                                      │
+│  NOTE: These are for rotating VECTORS (active rotation).           │
+│        For rotating FRAMES (passive), use the transpose.           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Topocentric frame orientations
+
+```
+ENU vs NED vs AzEl:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ENU (East-North-Up):                 NED (North-East-Down):        │
+│                                                                      │
+│         Up (Z)                              North (X)               │
+│          │                                    │                     │
+│          │                                    │                     │
+│          │     North (Y)                      │     East (Y)        │
+│          │    /                               │    /                │
+│          │   /                                │   /                 │
+│          │  /                                 │  /                  │
+│          │ /                                  │ /                   │
+│          └────────── East (X)                └────────── Down (Z)  │
+│                                                                      │
+│  CONVERSION: NED = [0 1 0; 1 0 0; 0 0 -1] × ENU                    │
+│                                                                      │
+│  AZIMUTH-ELEVATION (from ENU):                                      │
+│                                                                      │
+│          Zenith                                                     │
+│            │                                                        │
+│            │ elevation (90° = up)                                   │
+│            │  /                                                     │
+│            │ /                                                      │
+│            │/                                                       │
+│     N ─────┼───── E                                                 │
+│           /│                                                        │
+│          / │                                                        │
+│         /  │                                                        │
+│        azimuth (0°=N, 90°=E, clockwise)                            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### ECI to ECEF transformation
+
+```
+ECI → ECEF: The Earth Rotation
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SIMPLIFIED (good to ~1 km):                                        │
+│                                                                      │
+│    r_ECEF = R_z(θ_GMST) × r_ECI                                    │
+│                                                                      │
+│  where θ_GMST = Greenwich Mean Sidereal Time (from UT1)            │
+│                                                                      │
+│  ─────────────────────────────────────────────────────────────────  │
+│                                                                      │
+│  FULL TRANSFORMATION (sub-meter accuracy):                          │
+│                                                                      │
+│    r_ECEF = W × R × N × P × r_ECI                                  │
+│                                                                      │
+│  where:                                                             │
+│    P = Precession matrix (Earth's axis precesses over 26,000 yrs)  │
+│    N = Nutation matrix (short-period wobble, ~18.6 year cycle)     │
+│    R = Earth rotation matrix (GMST + equation of equinoxes)        │
+│    W = Polar motion matrix (x_p, y_p from IERS)                    │
+│                                                                      │
+│  ORDER MATTERS: Apply right-to-left (P first, then N, R, W)        │
+│                                                                      │
+│  VELOCITY TRANSFORMATION:                                           │
+│                                                                      │
+│    v_ECEF = R × v_ECI - ω_E × r_ECEF                               │
+│                                                                      │
+│  where ω_E = [0, 0, 7.292115×10⁻⁵] rad/s (Earth rotation rate)    │
+│                                                                      │
+│  The cross product accounts for the rotating frame.                │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ECEF to topocentric (ENU)
+
+```
+ECEF → ENU: Local Observer Frame
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  STEP 1: Compute observer position in ECEF                         │
+│                                                                      │
+│    Given observer at geodetic (φ, λ, h):                           │
+│                                                                      │
+│    N = a / √(1 - e² sin²φ)                                         │
+│    X_obs = (N + h) cos(φ) cos(λ)                                   │
+│    Y_obs = (N + h) cos(φ) sin(λ)                                   │
+│    Z_obs = (N(1-e²) + h) sin(φ)                                    │
+│                                                                      │
+│  STEP 2: Compute relative position                                 │
+│                                                                      │
+│    Δr_ECEF = r_target_ECEF - r_obs_ECEF                            │
+│                                                                      │
+│  STEP 3: Rotate to ENU                                             │
+│                                                                      │
+│    r_ENU = R_ECEF_to_ENU × Δr_ECEF                                 │
+│                                                                      │
+│              ┌ -sin(λ)        cos(λ)        0      ┐               │
+│    R_ENU =   │ -sin(φ)cos(λ) -sin(φ)sin(λ)  cos(φ) │               │
+│              └  cos(φ)cos(λ)  cos(φ)sin(λ)  sin(φ) ┘               │
+│                                                                      │
+│    where φ = observer latitude, λ = observer longitude             │
+│                                                                      │
+│  RESULT: r_ENU = [E, N, U] (east, north, up in meters)            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ENU to azimuth/elevation
+
+```
+ENU → Azimuth/Elevation/Range
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Given r_ENU = [E, N, U]:                                          │
+│                                                                      │
+│  RANGE:                                                             │
+│    ρ = √(E² + N² + U²)                                             │
+│                                                                      │
+│  ELEVATION:                                                         │
+│    El = arcsin(U / ρ)                  [range: -90° to +90°]       │
+│                                                                      │
+│    or equivalently:                                                 │
+│    El = arctan(U / √(E² + N²))                                     │
+│                                                                      │
+│  AZIMUTH (measured clockwise from North):                          │
+│    Az = arctan2(E, N)                  [range: 0° to 360°]         │
+│                                                                      │
+│    NOTE: arctan2(y, x) gives angle from +x toward +y               │
+│          Here x=N, y=E → angle from North toward East              │
+│                                                                      │
+│  REVERSE (Az/El/Range → ENU):                                      │
+│    E = ρ × cos(El) × sin(Az)                                       │
+│    N = ρ × cos(El) × cos(Az)                                       │
+│    U = ρ × sin(El)                                                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Complete transformation pipeline:**
+
+```python
+import numpy as np
+from datetime import datetime
+
+def rotation_matrix_z(theta):
+    """Rotation matrix about Z-axis (radians)."""
+    c, s = np.cos(theta), np.sin(theta)
+    return np.array([
+        [ c, s, 0],
+        [-s, c, 0],
+        [ 0, 0, 1]
+    ])
+
+def gmst_rad(jd_ut1):
+    """Greenwich Mean Sidereal Time in radians from JD(UT1)."""
+    T = (jd_ut1 - 2451545.0) / 36525
+    gmst_deg = 280.46061837 + 360.98564736629 * (jd_ut1 - 2451545.0) + \
+               0.000387933 * T**2 - T**3 / 38710000
+    return np.deg2rad(gmst_deg % 360)
+
+def julian_date(dt):
+    """Compute Julian Date from datetime."""
+    year, month, day = dt.year, dt.month, dt.day
+    hour = dt.hour + dt.minute/60 + dt.second/3600
+    if month <= 2:
+        year -= 1
+        month += 12
+    A = int(year / 100)
+    B = 2 - A + int(A / 4)
+    return int(365.25 * (year + 4716)) + int(30.6001 * (month + 1)) + day + hour/24 + B - 1524.5
+
+def eci_to_ecef(r_eci, v_eci, dt):
+    """
+    Transform ECI to ECEF (simplified, ~1km accuracy).
+    
+    Args:
+        r_eci: Position [x, y, z] in ECI (meters)
+        v_eci: Velocity [vx, vy, vz] in ECI (m/s)
+        dt: datetime (UTC, used as UT1 approximation)
+    
+    Returns:
+        r_ecef, v_ecef: Position and velocity in ECEF
+    """
+    jd = julian_date(dt)
+    theta = gmst_rad(jd)
+    R = rotation_matrix_z(theta)
+    
+    r_ecef = R @ r_eci
+    
+    omega_earth = 7.292115e-5  # rad/s
+    omega_vec = np.array([0, 0, omega_earth])
+    v_ecef = R @ v_eci - np.cross(omega_vec, r_ecef)
+    
+    return r_ecef, v_ecef
+
+def ecef_to_eci(r_ecef, v_ecef, dt):
+    """Transform ECEF to ECI (simplified)."""
+    jd = julian_date(dt)
+    theta = gmst_rad(jd)
+    R = rotation_matrix_z(theta)
+    R_inv = R.T
+    
+    omega_earth = 7.292115e-5
+    omega_vec = np.array([0, 0, omega_earth])
+    
+    r_eci = R_inv @ r_ecef
+    v_eci = R_inv @ (v_ecef + np.cross(omega_vec, r_ecef))
+    
+    return r_eci, v_eci
+
+def geodetic_to_ecef(lat_deg, lon_deg, alt_m):
+    """
+    Convert geodetic (lat, lon, alt) to ECEF (x, y, z).
+    
+    Args:
+        lat_deg: Latitude in degrees
+        lon_deg: Longitude in degrees
+        alt_m: Altitude above WGS84 ellipsoid in meters
+    
+    Returns:
+        [x, y, z] in ECEF (meters)
+    """
+    a = 6378137.0
+    f = 1/298.257223563
+    e2 = 2*f - f**2
+    
+    lat = np.deg2rad(lat_deg)
+    lon = np.deg2rad(lon_deg)
+    
+    N = a / np.sqrt(1 - e2 * np.sin(lat)**2)
+    
+    x = (N + alt_m) * np.cos(lat) * np.cos(lon)
+    y = (N + alt_m) * np.cos(lat) * np.sin(lon)
+    z = (N * (1 - e2) + alt_m) * np.sin(lat)
+    
+    return np.array([x, y, z])
+
+def ecef_to_enu(r_target_ecef, lat_obs_deg, lon_obs_deg, alt_obs_m):
+    """
+    Transform ECEF position to ENU relative to observer.
+    
+    Args:
+        r_target_ecef: Target position in ECEF (meters)
+        lat_obs_deg, lon_obs_deg: Observer geodetic coordinates
+        alt_obs_m: Observer altitude above WGS84 (meters)
+    
+    Returns:
+        [E, N, U]: East, North, Up coordinates (meters)
+    """
+    r_obs_ecef = geodetic_to_ecef(lat_obs_deg, lon_obs_deg, alt_obs_m)
+    dr = r_target_ecef - r_obs_ecef
+    
+    lat = np.deg2rad(lat_obs_deg)
+    lon = np.deg2rad(lon_obs_deg)
+    
+    R_enu = np.array([
+        [-np.sin(lon),              np.cos(lon),              0           ],
+        [-np.sin(lat)*np.cos(lon), -np.sin(lat)*np.sin(lon),  np.cos(lat)],
+        [ np.cos(lat)*np.cos(lon),  np.cos(lat)*np.sin(lon),  np.sin(lat)]
+    ])
+    
+    return R_enu @ dr
+
+def enu_to_azel(enu):
+    """
+    Convert ENU to Azimuth/Elevation/Range.
+    
+    Args:
+        enu: [E, N, U] in meters
+    
+    Returns:
+        az_deg: Azimuth (0=North, 90=East, clockwise)
+        el_deg: Elevation (0=horizon, 90=zenith)
+        range_m: Slant range in meters
+    """
+    E, N, U = enu
+    
+    range_m = np.sqrt(E**2 + N**2 + U**2)
+    el_rad = np.arcsin(U / range_m)
+    az_rad = np.arctan2(E, N)
+    
+    az_deg = np.rad2deg(az_rad) % 360
+    el_deg = np.rad2deg(el_rad)
+    
+    return az_deg, el_deg, range_m
+
+def eci_to_azel(r_eci, dt, lat_obs, lon_obs, alt_obs):
+    """
+    Full pipeline: ECI → ECEF → ENU → Az/El.
+    """
+    v_eci = np.array([0, 0, 0])
+    r_ecef, _ = eci_to_ecef(r_eci, v_eci, dt)
+    enu = ecef_to_enu(r_ecef, lat_obs, lon_obs, alt_obs)
+    return enu_to_azel(enu)
+
+print("Frame Transformation Examples")
+print("=" * 70)
+
+# ISS-like orbit: 420 km altitude, circular
+r_eci = np.array([6798e3, 0, 0])  # At perigee, x-axis
+v_eci = np.array([0, 7.66e3, 0])  # Prograde velocity
+
+dt = datetime(2026, 6, 3, 12, 0, 0)
+
+print(f"\n1. ECI to ECEF (at {dt} UTC)")
+print("-" * 70)
+
+r_ecef, v_ecef = eci_to_ecef(r_eci, v_eci, dt)
+print(f"  r_ECI:  [{r_eci[0]/1e3:10.3f}, {r_eci[1]/1e3:10.3f}, {r_eci[2]/1e3:10.3f}] km")
+print(f"  r_ECEF: [{r_ecef[0]/1e3:10.3f}, {r_ecef[1]/1e3:10.3f}, {r_ecef[2]/1e3:10.3f}] km")
+print(f"  |r|:    {np.linalg.norm(r_ecef)/1e3:.3f} km")
+
+# Observer: Kourou, French Guiana
+obs_lat, obs_lon, obs_alt = 5.232, -52.768, 10
+
+print(f"\n2. ECEF to ENU (Observer: Kourou {obs_lat}°N, {obs_lon}°E)")
+print("-" * 70)
+
+enu = ecef_to_enu(r_ecef, obs_lat, obs_lon, obs_alt)
+print(f"  ENU: [{enu[0]/1e3:10.3f}, {enu[1]/1e3:10.3f}, {enu[2]/1e3:10.3f}] km")
+
+print(f"\n3. ENU to Azimuth/Elevation")
+print("-" * 70)
+
+az, el, rng = enu_to_azel(enu)
+print(f"  Azimuth:   {az:7.2f}°")
+print(f"  Elevation: {el:7.2f}°")
+print(f"  Range:     {rng/1e3:7.2f} km")
+
+if el > 0:
+    print(f"  Status:    VISIBLE (above horizon)")
+else:
+    print(f"  Status:    NOT VISIBLE (below horizon)")
+
+# Round-trip verification
+print(f"\n4. Round-trip Verification: ECEF → ECI → ECEF")
+print("-" * 70)
+
+r_eci_back, v_eci_back = ecef_to_eci(r_ecef, v_ecef, dt)
+r_ecef_back, _ = eci_to_ecef(r_eci_back, v_eci_back, dt)
+error = np.linalg.norm(r_ecef_back - r_ecef)
+print(f"  Round-trip error: {error*1000:.6f} mm")
+
+# Multiple observers
+print(f"\n5. Multi-Observer Tracking")
+print("-" * 70)
+
+observers = [
+    ("Kourou", 5.232, -52.768, 10),
+    ("Cape Canaveral", 28.396, -80.605, 10),
+    ("Baikonur", 45.965, 63.305, 90),
+    ("Tanegashima", 30.400, 130.969, 10),
+]
+
+print(f"  {'Station':<20} {'Az(°)':>8} {'El(°)':>8} {'Range(km)':>12} {'Visible':<8}")
+print(f"  {'-'*60}")
+
+for name, lat, lon, alt in observers:
+    az, el, rng = eci_to_azel(r_eci, dt, lat, lon, alt)
+    visible = "YES" if el > 5 else "no"
+    print(f"  {name:<20} {az:8.1f} {el:8.1f} {rng/1e3:12.1f} {visible:<8}")
+
+# Summary of transformation matrices
+print(f"\n6. Transformation Matrix Summary")
+print("-" * 70)
+
+print("""
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                                                                  │
+  │  Transformation       │ Matrix                                  │
+  │  ─────────────────────┼──────────────────────────────────────── │
+  │  ECI → ECEF           │ R_z(θ_GMST)                             │
+  │  ECEF → ECI           │ R_z(θ_GMST)ᵀ                            │
+  │  ECEF → ENU           │ R_enu (depends on lat, lon)             │
+  │  ENU → ECEF           │ R_enuᵀ                                   │
+  │  ENU → NED            │ [0 1 0; 1 0 0; 0 0 -1]                  │
+  │                                                                  │
+  │  VELOCITY NOTE:                                                 │
+  │  v_ECEF = R × v_ECI - ω × r_ECEF                               │
+  │  v_ECI = Rᵀ × (v_ECEF + ω × r_ECEF)                            │
+  │                                                                  │
+  └─────────────────────────────────────────────────────────────────┘
+""")
+```
+
+**Key formulas:**
+
+| Transformation | Formula |
+|---------------|---------|
+| ECI → ECEF position | r_ECEF = R_z(θ_GMST) × r_ECI |
+| ECI → ECEF velocity | v_ECEF = R × v_ECI - ω × r_ECEF |
+| ECEF → ENU | r_ENU = R_enu × (r_target - r_observer) |
+| ENU → Az/El | Az = atan2(E, N), El = asin(U/ρ) |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using UTC instead of UT1 for GMST.** Introduces up to 400m error. Get ΔUT1 from IERS for precision work.
+
+2. **Wrong rotation direction.** R × v rotates the vector; Rᵀ × v rotates the frame. Know which you need.
+
+3. **Forgetting velocity transformation.** v_ECEF ≠ R × v_ECI. You must subtract the ω × r term.
+
+4. **Azimuth convention mismatch.** Some systems use 0°=East, some use 0°=North. Always verify.
+
+5. **Mixing ENU and NED.** U points up; D points down. Off by a sign flip in the vertical.
+
+6. **Ignoring polar motion.** At 1-meter accuracy, x_p and y_p matter. Get from IERS bulletins.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Vallado, "Fundamentals of Astrodynamics" — Ch 3 (coordinate systems)
+- IERS Conventions (2010) — Full transformation equations
+- IAU SOFA Library — Reference implementation of all transforms
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [ECI Frame](/en/space/reference-frames-and-time-systems/eci-frame/) — the inertial frame for propagation
+- [ECEF Frame](/en/space/reference-frames-and-time-systems/ecef-frame/) — the Earth-fixed frame for ground tracks
+- [Time Systems](/en/space/reference-frames-and-time-systems/time-systems-ut1-utc-tai/) — getting the right θ_GMST
+
+</section>

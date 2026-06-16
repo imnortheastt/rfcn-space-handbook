@@ -8,17 +8,467 @@ track: s7
 unit: leo-constellation-architecture
 order: 5
 level: L4
-estimatedReadingMinutes: 5
-title: "Capacity dynamics"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["starlink-class-design", "gateway-placement", "handover-between-satellites"]
+spiralRevisits: []
+title: "Capacity Dynamics in LEO Constellations"
+description: "How capacity varies by location, time, and satellite position in mega-constellations."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["capacity", "load-balancing", "overbooking", "leo", "throughput"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Capacity dynamics
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Unlike GEO systems with fixed footprints, LEO constellation capacity is dynamic—it varies by latitude, time of day, and instantaneous satellite positions. A user in New York at 6 PM competes for capacity with millions of others, while a ship in the Pacific has a satellite nearly to itself. Understanding these dynamics is critical for service planning, SLA design, and network optimization.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Why capacity varies geographically
+
+```
+LEO Capacity Geography:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SATELLITE DENSITY vs POPULATION DENSITY:                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Latitude │ Sat Density │ Population │ Ratio          │         │
+│  │  ─────────┼─────────────┼────────────┼───────────────│         │
+│  │  Equator  │ Low         │ Medium     │ Balanced      │         │
+│  │  30°      │ Medium      │ HIGH       │ Constrained   │         │
+│  │  40-50°   │ HIGH        │ HIGH       │ Good match    │         │
+│  │  53°      │ PEAK        │ Medium     │ Surplus       │         │
+│  │  60°      │ Medium      │ Low        │ Surplus       │         │
+│  │  70°+     │ Low         │ Very Low   │ Surplus       │         │
+│  │                                                        │         │
+│  │  Key insight: 53° inclination maximizes coverage at   │         │
+│  │  mid-latitudes where most subscribers live            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  VISUAL: Satellite ground track density                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  90°N ─────────────────────────────────────           │         │
+│  │       ▓▓▓▓▓▓▓▓▓                                       │         │
+│  │  60°N ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                              │         │
+│  │       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ← Peak at 53°      │         │
+│  │  53°N ████████████████████████████████ ← Inclination │         │
+│  │       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                      │         │
+│  │  30°N ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                              │         │
+│  │       ▓▓▓▓▓▓▓▓▓▓▓                                     │         │
+│  │  EQ   ▓▓▓▓▓▓▓                                         │         │
+│  │       ▓▓▓▓▓▓▓▓▓▓▓                                     │         │
+│  │  30°S ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                              │         │
+│  │       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                      │         │
+│  │  53°S ████████████████████████████████               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Temporal capacity variation
+
+```
+Capacity Over Time:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DIURNAL PATTERN (single location):                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Demand │         ████                                │         │
+│  │         │        ██████                               │         │
+│  │         │       ████████ ← Evening peak               │         │
+│  │         │    ████████████                             │         │
+│  │         │   ██████████████                            │         │
+│  │         │  ████████████████                           │         │
+│  │         │ ██████████████████                          │         │
+│  │         │████████████████████                         │         │
+│  │         └────────────────────────────────────────     │         │
+│  │          6am  12pm  6pm  12am  6am                    │         │
+│  │                                                        │         │
+│  │  Peak: 7-10 PM local (streaming + work-from-home)    │         │
+│  │  Trough: 3-6 AM local                                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  GLOBAL VIEW (constellation perspective):                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Time    │ Americas │ Europe │ Asia │ Oceania        │         │
+│  │  ────────┼──────────┼────────┼──────┼────────        │         │
+│  │  00:00 UTC│ Evening  │ Night  │ Morning│ Midday      │         │
+│  │  06:00 UTC│ Night    │ Morning│ Afternoon│ Evening   │         │
+│  │  12:00 UTC│ Morning  │ Afternoon│ Evening│ Night     │         │
+│  │  18:00 UTC│ Afternoon│ Evening│ Night │ Morning      │         │
+│  │                                                        │         │
+│  │  Global peak: Shifts around the planet               │         │
+│  │  Satellites over Pacific at US evening = underused   │         │
+│  │  ISL allows routing traffic to underused satellites  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Per-satellite capacity
+
+```
+Satellite Capacity Budget:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  STARLINK V2 MINI (example specs):                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Component          │ Specification                   │         │
+│  │  ───────────────────┼───────────────────────────────│         │
+│  │  User downlink      │ Ku-band (10.7-12.7 GHz)        │         │
+│  │  User uplink        │ Ku-band (14.0-14.5 GHz)        │         │
+│  │  Gateway link       │ Ka-band (17.8-18.6/27.5-29.1)  │         │
+│  │  Bandwidth per sat  │ ~3.5 GHz total                 │         │
+│  │  Spectral efficiency│ ~3 bps/Hz (average)            │         │
+│  │  Raw throughput     │ ~10-15 Gbps per satellite      │         │
+│  │  Beams              │ 8 user beams (phased array)    │         │
+│  │  Per-beam capacity  │ ~1.5-2 Gbps                    │         │
+│  │                                                        │         │
+│  │  CAPACITY ALLOCATION:                                 │         │
+│  │  ┌────────────────────────────────────────────┐      │         │
+│  │  │  Downlink (user receive): 60-70%          │      │         │
+│  │  │  Uplink (user transmit): 20-25%           │      │         │
+│  │  │  Control/signaling: 5-10%                 │      │         │
+│  │  │  ISL overhead: 5-10%                      │      │         │
+│  │  └────────────────────────────────────────────┘      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  USERS PER SATELLITE:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Scenario        │ Users │ Avg speed │ Peak speed    │         │
+│  │  ────────────────┼───────┼───────────┼───────────── │         │
+│  │  Light load      │ 50    │ 200 Mbps  │ 300 Mbps     │         │
+│  │  Normal load     │ 200   │ 50 Mbps   │ 150 Mbps     │         │
+│  │  Heavy load      │ 500   │ 20 Mbps   │ 50 Mbps      │         │
+│  │  Congested       │ 1000+ │ < 10 Mbps │ Variable     │         │
+│  │                                                        │         │
+│  │  Overbooking ratio: 20:1 to 50:1 typical             │         │
+│  │  (Not everyone online simultaneously)                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Load balancing strategies
+
+```
+Capacity Management Techniques:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. BEAM STEERING (move capacity to demand):                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Before:                After:                        │         │
+│  │  🛰️                      🛰️                           │         │
+│  │  │\  /│                 │    \│                       │         │
+│  │  │ \/ │                 │     │                       │         │
+│  │  │ /\ │                 │    /│                       │         │
+│  │  │/  \│                 │   / │                       │         │
+│  │  ●    ○                 ●●●   ○                       │         │
+│  │  NYC  Atlantic          NYC   (no users)             │         │
+│  │  (many users)                                         │         │
+│  │                                                        │         │
+│  │  Phased array can concentrate beams where users are  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  2. HANDOVER TO LESS-LOADED SATELLITE:                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │       🛰️A (90% load)      🛰️B (40% load)             │         │
+│  │          ╲                  ╱                         │         │
+│  │           ╲   Handover    ╱                          │         │
+│  │            ╲     →       ╱                           │         │
+│  │             ╲           ╱                            │         │
+│  │              ● User                                  │         │
+│  │                                                        │         │
+│  │  Both satellites visible → move user to B            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  3. ISL TRAFFIC OFFLOAD:                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  🛰️A (congested) ──ISL──→ 🛰️B ──ISL──→ 🛰️C           │         │
+│  │    │                               │                  │         │
+│  │    │ (users)               (gateway over capacity)    │         │
+│  │    ▼                               ▼                  │         │
+│  │  GW1 (full)                      GW2 (available)     │         │
+│  │                                                        │         │
+│  │  Route traffic through ISL to less-loaded gateway    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Fair use and throttling
+
+```
+Quality of Service Management:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PRIORITY TIERS (typical residential service):                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Tier       │ Monthly cap │ Priority │ After cap     │         │
+│  │  ───────────┼─────────────┼──────────┼──────────────│         │
+│  │  Standard   │ 1 TB        │ Normal   │ Deprioritized │         │
+│  │  Priority   │ 3 TB        │ High     │ Normal        │         │
+│  │  Business   │ Unlimited   │ Highest  │ N/A           │         │
+│  │                                                        │         │
+│  │  During congestion:                                   │         │
+│  │  Business > Priority > Standard (under cap) > (over)  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CONGESTION-BASED THROTTLING:                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Cell Load │ Effect on Deprioritized Users            │         │
+│  │  ──────────┼─────────────────────────────────────    │         │
+│  │  < 50%     │ No impact (spare capacity)              │         │
+│  │  50-80%    │ Minor speed reduction                   │         │
+│  │  80-95%    │ Significant throttling                  │         │
+│  │  > 95%     │ Best-effort only (may be unusable)      │         │
+│  │                                                        │         │
+│  │  Key: Deprioritization ≠ hard throttle               │         │
+│  │  Only applies when cell is actually congested        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Capacity planning calculator:**
+
+```python
+import numpy as np
+
+def satellite_capacity_gbps(
+    bandwidth_ghz=3.5,
+    spectral_efficiency_bps_hz=3.0,
+    overhead_fraction=0.15
+):
+    """Raw satellite throughput capacity."""
+    raw = bandwidth_ghz * spectral_efficiency_bps_hz
+    usable = raw * (1 - overhead_fraction)
+    return usable
+
+def users_per_satellite(
+    sat_capacity_gbps,
+    avg_user_speed_mbps,
+    concurrent_fraction=0.15  # 15% online at once
+):
+    """Maximum subscribers a satellite can serve."""
+    concurrent_capacity_mbps = sat_capacity_gbps * 1000
+    concurrent_users = concurrent_capacity_mbps / avg_user_speed_mbps
+    total_subscribers = concurrent_users / concurrent_fraction
+    return int(total_subscribers)
+
+def system_capacity(
+    n_satellites,
+    sat_capacity_gbps,
+    active_fraction=0.5  # ~half over populated areas
+):
+    """Total system capacity over populated areas."""
+    return n_satellites * sat_capacity_gbps * active_fraction
+
+def congestion_probability(
+    subscribers_in_cell,
+    sat_capacity_gbps,
+    avg_session_mbps=25,
+    peak_concurrent_fraction=0.25
+):
+    """Estimate probability of congestion during peak hours."""
+    peak_demand_gbps = (subscribers_in_cell * peak_concurrent_fraction * 
+                        avg_session_mbps / 1000)
+    
+    if peak_demand_gbps < sat_capacity_gbps * 0.7:
+        return "Low (< 10%)"
+    elif peak_demand_gbps < sat_capacity_gbps * 0.9:
+        return "Medium (10-30%)"
+    elif peak_demand_gbps < sat_capacity_gbps:
+        return "High (30-60%)"
+    else:
+        return "Very High (> 60%)"
+
+def latitude_density_factor(latitude_deg, inclination_deg=53):
+    """Relative satellite density at given latitude."""
+    # Simplified model: density peaks at inclination latitude
+    if abs(latitude_deg) > inclination_deg:
+        # Linear decrease toward poles
+        return max(0.1, 1 - (abs(latitude_deg) - inclination_deg) / 30)
+    else:
+        # Sinusoidal increase from equator to inclination
+        return 0.5 + 0.5 * np.sin(np.pi * abs(latitude_deg) / (2 * inclination_deg))
+
+# Analysis
+print("LEO Constellation Capacity Analysis")
+print("=" * 70)
+
+# Per-satellite capacity
+sat_cap = satellite_capacity_gbps()
+print(f"\n1. Per-Satellite Capacity")
+print("-" * 70)
+print(f"  Bandwidth: 3.5 GHz")
+print(f"  Spectral efficiency: 3.0 bps/Hz")
+print(f"  Usable capacity: {sat_cap:.1f} Gbps")
+
+# System capacity
+print(f"\n2. System Capacity (4000 satellites)")
+print("-" * 70)
+n_sats = 4000
+sys_cap = system_capacity(n_sats, sat_cap)
+print(f"  Total satellites: {n_sats}")
+print(f"  Active over populated areas: ~50%")
+print(f"  System capacity: {sys_cap:.0f} Gbps = {sys_cap/1000:.1f} Tbps")
+
+# Subscribers estimate
+print(f"\n3. Subscriber Capacity Estimate")
+print("-" * 70)
+speeds = [100, 50, 25]
+for speed in speeds:
+    users = users_per_satellite(sat_cap, speed)
+    total = users * n_sats * 0.5  # 50% over populated
+    print(f"  @ {speed} Mbps average: {users:,} per sat, {total/1e6:.1f}M system-wide")
+
+# Congestion analysis by location
+print(f"\n4. Congestion Analysis by Cell Density")
+print("-" * 70)
+print(f"{'Subscribers/cell':<20} {'Peak demand':<15} {'Congestion risk':<20}")
+print("-" * 70)
+for subs in [100, 300, 500, 1000, 2000]:
+    demand = subs * 0.25 * 25 / 1000  # 25% concurrent, 25 Mbps avg
+    risk = congestion_probability(subs, sat_cap)
+    print(f"{subs:<20} {demand:.1f} Gbps{'':<7} {risk:<20}")
+
+# Latitude analysis
+print(f"\n5. Capacity by Latitude (53° inclination)")
+print("-" * 70)
+print(f"{'Latitude':<12} {'Sat Density':<15} {'Effective Cap':<15}")
+print("-" * 70)
+for lat in [0, 20, 35, 45, 53, 60, 70]:
+    density = latitude_density_factor(lat)
+    eff_cap = sat_cap * density
+    print(f"{lat}°{'':<10} {density:.2f}x{'':<12} {eff_cap:.1f} Gbps/sat")
+
+# Time-of-day simulation
+print(f"\n6. Demand Variation (US Eastern, typical residential)")
+print("-" * 70)
+hours = [0, 3, 6, 9, 12, 15, 18, 21]
+demand_factors = [0.2, 0.1, 0.15, 0.4, 0.5, 0.6, 0.9, 1.0]
+
+print(f"{'Hour':<10} {'Demand':<15} {'Cell status':<20}")
+print("-" * 70)
+for hour, factor in zip(hours, demand_factors):
+    demand_gbps = 500 * factor * 0.25 * 25 / 1000  # 500 subs
+    status = congestion_probability(int(500 * factor), sat_cap)
+    bar = "█" * int(factor * 20)
+    print(f"{hour:02d}:00{'':<5} {bar:<20} {status:<20}")
+
+# SLA planning
+print(f"\n7. SLA Planning Guidelines")
+print("-" * 70)
+print("""
+  Metric              │ Residential │ Business  │ Maritime
+  ────────────────────┼─────────────┼───────────┼──────────
+  Committed rate      │ 25 Mbps     │ 100 Mbps  │ 10 Mbps
+  Peak rate           │ 250 Mbps    │ 500 Mbps  │ 100 Mbps
+  Availability        │ 99%         │ 99.5%     │ 99%
+  Latency (typical)   │ < 50 ms     │ < 40 ms   │ < 100 ms
+  Priority during     │ Normal      │ High      │ Guaranteed
+  congestion          │             │           │
+""")
+```
+
+**Capacity summary:**
+
+| Metric | Value |
+|--------|-------|
+| Per-satellite capacity | ~10 Gbps |
+| System capacity (4000 sats) | ~20 Tbps |
+| Subscribers @ 50 Mbps avg | ~3-5 million |
+| Peak-hour congestion threshold | ~500 users/cell |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Marketing vs reality.** "Up to 500 Mbps" means peak, not average during congestion.
+
+2. **Overbooking assumptions.** 20:1 works for casual users; gamers/streamers break the model.
+
+3. **Geography ignored.** Selling to dense urban areas without capacity planning.
+
+4. **Peak hour blindness.** Capacity looks fine at 3 AM; 8 PM is the real test.
+
+5. **Cell boundary effects.** Users at cell edges get worse speeds than cell center.
+
+6. **Weather impact.** Rain fade reduces effective capacity; must plan for 99% availability.
+
+7. **Backhaul bottleneck.** Gateway capacity may limit before satellite capacity does.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Starlink Terms of Service (Fair Use Policy)
+- ITU-R S.1503: Methodology for LEO/MEO FSS Systems
+- Amazon Kuiper FCC Technical Appendix
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Link Budget Master Class](/en/space/link-budget-master-class/) — calculate actual throughput
+- [5G NTN](/en/5g-ntn/) — mobile integration with satellite
+- [Frequency Coordination](/en/space/frequency-bands-and-regulatory/) — spectrum sharing
+
+</section>

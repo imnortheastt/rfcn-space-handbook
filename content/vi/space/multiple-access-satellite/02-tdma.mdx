@@ -9,16 +9,444 @@ unit: multiple-access-satellite
 order: 2
 level: L2
 estimatedReadingMinutes: 5
-title: "TDMA"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "TDMA — Da truy cap Phan chia theo Thoi gian"
+description: "Cach ve tinh chia se mot tan so bang cach chia thoi gian thanh khe, cho phep luu luong theo cum hieu qua va su dung toan bo transponder."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["tdma", "da-truy-cap", "ve-tinh", "khe-thoi-gian", "cum"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# TDMA
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+FDMA lang phi bang thong khi luu luong theo cum — moi nguoi dung chiem phan tan so cua ho ngay ca khi im lang. TDMA khac phuc dieu nay: tat ca nguoi dung chia se toan bo bang thong transponder nhung thay phien truyen trong cac khe thoi gian duoc gan. Khi ban khong noi, nguoi khac dung khe cua ban. Ket qua: su dung transponder gan 100% thay vi 10%. Day la ly do TDMA thong tri truyen thong ve tinh hien dai, tu trung ke Intelsat den bang rong DVB-RCS2.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Vi du cuoc tro chuyen
+
+```
+TDMA: Thay phien tren kenh chia se
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Nghi ve cuoc hop noi moi nguoi chia se mot micro:                 │
+│                                                                      │
+│  FDMA: Moi nguoi co micro rieng (dat, lang phi)                    │
+│  TDMA: Moi nguoi chia se mot mic, chi noi khi den luot             │
+│                                                                      │
+│                                                                      │
+│  Thoi gian ────────────────────────────────────────────────────────→│
+│                                                                      │
+│  ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐ │
+│  │  A   │  B   │  C   │  D   │  A   │  B   │  C   │  D   │  A   │ │
+│  │ cum  │ cum  │ cum  │ cum  │ cum  │ cum  │ cum  │ cum  │ cum  │ │
+│  └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘ │
+│  │◄──── Khung TDMA (vd, 2 ms) ────►│                               │
+│                                                                      │
+│  • Tat ca nguoi dung chia se TOAN BO bang thong transponder        │
+│  • Moi nguoi dung truyen cum ngan, toc do cao                      │
+│  • Yeu cau dong bo thoi gian chinh xac                             │
+│  • Khong dieu che chenh (mot song mang tai moi thoi diem)          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Goc nhin mien tan so va thoi gian
+
+```
+TDMA trong Hai Chieu:
+
+         Tan so
+             ▲
+             │
+             │
+      toan   │▓▓▓▓▒▒▒▒░░░░████▓▓▓▓▒▒▒▒░░░░████▓▓▓▓
+      BW ────┼─────────────────────────────────────
+             │  A    B    C    D    A    B    C    D
+             │
+             └────────────────────────────────────────→ Thoi gian
+                  │◄── Khung ──►│
+
+  SO SANH VOI FDMA:
+  
+         Tan so                       Tan so
+             ▲                            ▲
+      f4 ────┼─────────────        toan ──┼▓▒░█▓▒░█▓▒░█
+      f3 ────┼─────────────   vs    BW    │ A B C D A B
+      f2 ────┼─────────────               │
+      f1 ────┼─────────────               │
+             └────────→ T.gian            └────────→ T.gian
+               FDMA                         TDMA
+
+  FDMA: Chia tan so, thoi gian lien tuc
+  TDMA: Toan tan so, chia thoi gian
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cau truc khung TDMA
+
+```
+Kien truc Khung TDMA:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ◄────────────────── Khung TDMA (2 ms) ────────────────────────►   │
+│                                                                      │
+│  ┌─────┬────────┬────────┬────────┬────────┬────────┬─────┐       │
+│  │ RB  │ Cum 1  │ Cum 2  │ Cum 3  │ Cum 4  │ Cum 5  │ RB  │       │
+│  │     │ Tram   │ Tram   │ Tram   │ Tram   │ Tram   │     │       │
+│  │     │   A    │   B    │   C    │   D    │   E    │     │       │
+│  └─────┴────────┴────────┴────────┴────────┴────────┴─────┘       │
+│    ↑                                                      ↑         │
+│    │                                                      │         │
+│    Cum tham chieu (dinh thoi/dong bo)            Thoi gian bao ve  │
+│                                                                      │
+│                                                                      │
+│  CAU TRUC CUM (phong to):                                          │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  ┌──────┬───────┬──────┬────────────────────────┬────────┐ │   │
+│  │  │T.gian│Preamble│ UW  │     Du lieu Luu luong   │ T.gian │ │   │
+│  │  │bao ve│(CR+BTR)│     │                         │ bao ve │ │   │
+│  │  └──────┴───────┴──────┴────────────────────────┴────────┘ │   │
+│  │                                                              │   │
+│  │  Bao ve: Ngan chong lap cum (khong chac dinh thoi)         │   │
+│  │  CR: Khoi phuc song mang (khoa pha)                        │   │
+│  │  BTR: Khoi phuc dinh thoi bit (dong bo ky hieu)            │   │
+│  │  UW: Tu duy nhat (nhan dang/can chinh cum)                 │   │
+│  │                                                              │   │
+│  └────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Dong bo thoi gian
+
+```
+Thach thuc Dong bo TDMA:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Van de: Tre khu hoi den ve tinh GEO = ~240 ms                     │
+│  Cac tram o khoang cach khac nhau co tre khac nhau                 │
+│                                                                      │
+│                        Ve tinh GEO                                  │
+│                            ▲                                        │
+│                           /│\                                       │
+│                          / │ \                                      │
+│                         /  │  \                                     │
+│                        /   │   \                                    │
+│                       /    │    \                                   │
+│               238 ms/     240 ms  \242 ms                           │
+│                     /      │       \                                │
+│                    ▼       ▼        ▼                               │
+│               Tram A     Tram B    Tram C                           │
+│             (duoi vt)   (bien)   (bien xa)                          │
+│                                                                      │
+│  KHONG HIEU CHINH:                                                  │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  Tai ve tinh: │ A │ A chong B │ B │ B chong C │ C │          │  │
+│  │                     ↑               ↑                        │  │
+│  │                  VA CHAM!        VA CHAM!                    │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  GIAI PHAP: Moi tram truyen som truoc cum cua no                   │
+│                                                                      │
+│  Tram A: truyen tai T - 238 ms                                     │
+│  Tram B: truyen tai T - 240 ms                                     │
+│  Tram C: truyen tai T - 242 ms                                     │
+│                                                                      │
+│  CO HIEU CHINH:                                                     │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  Tai ve tinh: │ A │bao ve│ B │bao ve│ C │bao ve│             │  │
+│  │                    ↑          ↑          ↑                   │  │
+│  │                 Khong chong! Can chinh dung!                 │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  Do chinh xac thoi gian can: ~1 micro giay (300 m toc do anh sang)│
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Loi the hieu qua
+
+```
+Hieu qua TDMA vs FDMA:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KICH BAN: 4 nguoi dung, moi nguoi hoat dong 25% thoi gian         │
+│  Transponder: 36 MHz                                                │
+│                                                                      │
+│  CACH TIEP CAN FDMA:                                               │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                               │   │
+│  │  ND A (9 MHz): ▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │   │
+│  │  ND B (9 MHz): ░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │   │
+│  │  ND C (9 MHz): ░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░ │   │
+│  │  ND D (9 MHz): ░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░ │   │
+│  │                                                               │   │
+│  │  Moi nguoi dung: 9 MHz × 25% hoat dong = 2.25 MHz hieu qua   │   │
+│  │  Tong: 4 × 2.25 = 9 MHz dung tu 36 MHz                       │   │
+│  │  Hieu qua: 25%                                                │   │
+│  │                                                               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  CACH TIEP CAN TDMA:                                               │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                               │   │
+│  │  Toan 36 MHz: │A│B│C│D│ │A│B│C│D│ │A│B│C│D│ │A│B│C│D│        │   │
+│  │                                                               │   │
+│  │  Moi nguoi dung: Duoc 25% thoi gian tai toan 36 MHz          │   │
+│  │            = 36 MHz × 25% = 9 MHz hieu qua                   │   │
+│  │  Tong: 36 MHz × 100% thoi gian = 36 MHz dung                 │   │
+│  │  Hieu qua: ~95% (5% overhead)                                │   │
+│  │                                                               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  TDMA cho dung luong 4× cho luu luong theo cum!                    │
+│                                                                      │
+│  THUONG THEM: Mot song mang = khong dieu che chenh = khong lui lai │
+│         → Co toan bo cong suat bao hoa transponder                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**May tinh khung va dung luong TDMA:**
+
+```python
+import numpy as np
+
+def hieu_qua_khung_tdma(thoi_gian_khung_us, so_cum, thoi_gian_bao_ve_us,
+                        bit_preamble, toc_do_ky_hieu_msps):
+    """
+    Tinh hieu qua khung TDMA.
+    
+    Args:
+        thoi_gian_khung_us: Tong thoi gian khung (micro giay)
+        so_cum: So cum luu luong moi khung
+        thoi_gian_bao_ve_us: Thoi gian bao ve moi cum (micro giay)
+        bit_preamble: Bit preamble + UW moi cum
+        toc_do_ky_hieu_msps: Toc do ky hieu (Msps)
+    
+    Returns:
+        Dict voi cac chi so hieu qua
+    """
+    overhead_bao_ve_us = so_cum * thoi_gian_bao_ve_us
+    
+    thoi_gian_preamble_us = bit_preamble / toc_do_ky_hieu_msps
+    overhead_preamble_us = so_cum * thoi_gian_preamble_us
+    
+    tong_overhead_us = overhead_bao_ve_us + overhead_preamble_us
+    
+    thoi_gian_luu_luong_us = thoi_gian_khung_us - tong_overhead_us
+    hieu_qua = thoi_gian_luu_luong_us / thoi_gian_khung_us
+    
+    return {
+        "thoi_gian_khung_us": thoi_gian_khung_us,
+        "overhead_bao_ve_us": overhead_bao_ve_us,
+        "overhead_preamble_us": overhead_preamble_us,
+        "thoi_gian_luu_luong_us": thoi_gian_luu_luong_us,
+        "hieu_qua": hieu_qua
+    }
+
+def dung_luong_tdma(bw_transponder_mhz, toc_do_ky_hieu_msps, bit_moi_ky_hieu,
+                    ty_le_ma, hieu_qua_khung):
+    """
+    Tinh thong luong he thong TDMA.
+    """
+    toc_do_tho_mbps = toc_do_ky_hieu_msps * bit_moi_ky_hieu
+    
+    toc_do_ma_hoa_mbps = toc_do_tho_mbps * ty_le_ma
+    
+    toc_do_thuc_mbps = toc_do_ma_hoa_mbps * hieu_qua_khung
+    
+    return {
+        "toc_do_tho_mbps": toc_do_tho_mbps,
+        "toc_do_ma_hoa_mbps": toc_do_ma_hoa_mbps,
+        "toc_do_thuc_mbps": toc_do_thuc_mbps
+    }
+
+def tinh_som_dinh_thoi(khoang_cach_tram_km, cao_do_vt_km=35786):
+    """
+    Tinh thoi gian truyen som can cho dong bo TDMA.
+    """
+    c = 299792.458  # km/s
+    
+    tre_khu_hoi_ms = 2 * (cao_do_vt_km + khoang_cach_tram_km) / c * 1000
+    
+    tre_tham_chieu_ms = 2 * cao_do_vt_km / c * 1000
+    
+    truyen_som_us = (tre_khu_hoi_ms - tre_tham_chieu_ms) * 1000
+    
+    return {
+        "tre_khu_hoi_ms": tre_khu_hoi_ms,
+        "truyen_som_us": truyen_som_us
+    }
+
+def so_sanh_fdma_tdma(so_nguoi_dung, he_so_hoat_dong, bw_transponder_mhz):
+    """
+    So sanh dung luong FDMA vs TDMA cho luu luong theo cum.
+    """
+    bw_fdma_moi_nd = bw_transponder_mhz / so_nguoi_dung
+    bw_hieu_qua_fdma = bw_fdma_moi_nd * he_so_hoat_dong
+    hieu_qua_tong_fdma = he_so_hoat_dong
+    
+    overhead_tdma = 0.05  # 5% dien hinh
+    hieu_qua_tdma = 1 - overhead_tdma
+    
+    ty_so_dung_luong = hieu_qua_tdma / hieu_qua_tong_fdma
+    
+    return {
+        "hieu_qua_fdma": hieu_qua_tong_fdma,
+        "hieu_qua_tdma": hieu_qua_tdma,
+        "ty_so_loi_the_tdma": ty_so_dung_luong
+    }
+
+print("Cong cu Phan tich TDMA")
+print("=" * 70)
+
+# Phan tich hieu qua khung
+print("\n1. Phan tich Hieu qua Khung TDMA")
+print("-" * 70)
+
+cau_hinh = [
+    ("Intelsat TDMA (toc do cao)", 2000, 8, 2, 560, 120),
+    ("DVB-RCS2 (tieu dung)", 1000, 20, 5, 280, 27.5),
+    ("VSAT TDMA (doanh nghiep)", 1500, 16, 3, 400, 64),
+]
+
+print(f"\n  {'Cau hinh':<30} {'Khung':<10} {'Luu luong':<10} {'Hieu qua':<12}")
+print(f"  {'-'*62}")
+
+for ten, khung_us, cum, bv_us, preamble, toc_do in cau_hinh:
+    ket_qua = hieu_qua_khung_tdma(khung_us, cum, bv_us, preamble, toc_do)
+    print(f"  {ten:<30} {ket_qua['thoi_gian_khung_us']:<10.0f}us {ket_qua['thoi_gian_luu_luong_us']:<10.0f}us {ket_qua['hieu_qua']:<12.1%}")
+
+# Dung luong he thong
+print("\n2. Thong luong He thong TDMA")
+print("-" * 70)
+
+print(f"\n  Transponder 36 MHz, QPSK, FEC 3/4, hieu qua khung 90%:")
+
+dl = dung_luong_tdma(36, 27.5, 2, 0.75, 0.90)
+print(f"    Toc do tho: {dl['toc_do_tho_mbps']:.1f} Mbps")
+print(f"    Toc do ma hoa: {dl['toc_do_ma_hoa_mbps']:.1f} Mbps")
+print(f"    Thong luong thuc: {dl['toc_do_thuc_mbps']:.1f} Mbps")
+
+# Dong bo thoi gian
+print("\n3. Tinh Truyen som Dinh thoi")
+print("-" * 70)
+
+print(f"\n  {'Khoang cach Tram':<20} {'Khu hoi':<15} {'Truyen som':<15}")
+print(f"  {'-'*50}")
+
+for kc in [0, 500, 1000, 2000, 3000]:
+    dinh_thoi = tinh_som_dinh_thoi(kc)
+    print(f"  {kc:<20} km {dinh_thoi['tre_khu_hoi_ms']:<15.2f}ms {dinh_thoi['truyen_som_us']:<15.1f}us")
+
+# So sanh FDMA vs TDMA
+print("\n4. FDMA vs TDMA cho Luu luong theo Cum")
+print("-" * 70)
+
+print(f"\n  Kich ban: He so hoat dong khac nhau, 10 nguoi dung, transponder 36 MHz")
+print(f"\n  {'He so Hoat dong':<18} {'HQ FDMA':<12} {'HQ TDMA':<12} {'Loi the TDMA':<15}")
+print(f"  {'-'*57}")
+
+for hoat_dong in [1.0, 0.5, 0.25, 0.10, 0.05]:
+    so_sanh = so_sanh_fdma_tdma(10, hoat_dong, 36)
+    loi_the_str = f"{so_sanh['ty_so_loi_the_tdma']:.1f}×"
+    print(f"  {hoat_dong:<18.0%} {so_sanh['hieu_qua_fdma']:<12.0%} {so_sanh['hieu_qua_tdma']:<12.0%} {loi_the_str:<15}")
+
+# Loi the mot song mang
+print("\n5. Loi the Cong suat Mot Song mang")
+print("-" * 70)
+
+print("""
+  FDMA: Nhieu song mang → Dieu che chenh → Can lui lai
+  TDMA: Mot song mang tai moi thoi diem → Khong IM → Bao hoa toan bo
+  
+  ┌────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  Cau hinh           │Song mang│ Lui lai │ Cong suat Hieu qua  │
+  │  ───────────────────┼─────────┼─────────┼───────────────────  │
+  │  FDMA (8 song mang) │    8    │  6 dB   │  25% cua Psat       │
+  │  FDMA (4 song mang) │    4    │  4 dB   │  40% cua Psat       │
+  │  TDMA (1 song mang) │    1    │  0 dB   │  100% cua Psat      │
+  │                                                                 │
+  │  TDMA cung cap 4× den 6× cong suat hon moi nguoi dung!        │
+  │                                                                 │
+  └────────────────────────────────────────────────────────────────┘
+""")
+```
+
+**Cong thuc chinh:**
+
+| Chi so | Cong thuc |
+|--------|-----------|
+| Hieu qua khung | (Khung - Bao_ve - Preamble) / Khung |
+| Thong luong thuc | Toc_do_ky_hieu × Bit/ky_hieu × Ty_le_ma × HQ_khung |
+| Tre khu hoi | 2 × Khoang_cach / c |
+| Loi the TDMA | (1 - overhead) / He_so_hoat_dong |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Bo qua do phuc tap dinh thoi.** TDMA yeu cau dong bo chinh xac micro giay. Moi tram can truyen som duy nhat dua tren khoang cach. GPS giup rat nhieu.
+
+2. **Danh gia thap overhead preamble.** Moi cum can khoi phuc song mang, khoi phuc dinh thoi bit, va tu duy nhat. Cho cum ngan, overhead nay chiem uu the.
+
+3. **Quen hieu ung suy hao mua.** Mua suy giam tin hieu VA thay doi tre lan truyen. TDMA phai dieu chinh dinh thoi dong.
+
+4. **Gia dinh TDMA luon thang.** Cho luu luong lien tuc (phat video), su don gian cua FDMA co the thich hop hon. TDMA thang cho luu luong theo cum, tuong tac.
+
+5. **Thoi gian bao ve qua ngan.** Khong chac chan dinh thoi, troi dao dong, va Doppler deu cong lai. Thoi gian bao ve 1-5 μs la dien hinh cho GEO.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- ETSI EN 301 545 — Dac ta DVB-RCS2
+- Intelsat TDMA/DSI System Description — tai lieu lich su
+- ITU-R S.1503 — Mo ta chuc nang TDMA
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [FDMA](/vi/space/multiple-access-satellite/fdma/) — so sanh voi phan chia tan so
+- [CDMA & SCPC](/vi/space/multiple-access-satellite/cdma-scpc/) — cac phuong an trai pho
+- [MF-TDMA](/vi/space/multiple-access-satellite/mf-tdma/) — cach tiep can ket hop tot nhat ca hai
+
+</section>

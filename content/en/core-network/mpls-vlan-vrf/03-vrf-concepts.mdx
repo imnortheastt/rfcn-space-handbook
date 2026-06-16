@@ -8,17 +8,327 @@ track: n0
 unit: mpls-vlan-vrf
 order: 3
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-mpls-vlan-vrf-02-mpls-label-switching"]
+spiralRevisits: ["core-network-n2-mpls-vlan-vrf-04-l3vpn"]
 title: "VRF concepts"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Virtual Routing and Forwarding — multiple routing tables on one router for isolation and multitenancy."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["RFC 4364"]
+tags: ["vrf", "routing", "multitenancy", "networking"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# VRF concepts
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+One router, multiple customers. Each customer wants their own private network with overlapping IP addresses. How do you keep them isolated?
+
+**VRF (Virtual Routing and Forwarding)** creates multiple virtual routers inside one physical router. Each VRF has its own routing table, completely isolated from others. This is the foundation of MPLS VPN services.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What is VRF?
+
+A VRF is a **separate routing table instance** on a router. Each VRF is isolated — routes in one VRF are invisible to others.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Physical Router                       │
+│                                                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │   VRF: RED   │  │  VRF: BLUE   │  │ Global Table │   │
+│  │              │  │              │  │              │   │
+│  │ 10.0.0.0/24  │  │ 10.0.0.0/24  │  │ 192.0.2.0/24│   │
+│  │ 10.1.0.0/24  │  │ 10.2.0.0/24  │  │ 203.0.113/24│   │
+│  │              │  │              │  │              │   │
+│  └──────────────┘  └──────────────┘  └──────────────┘   │
+│                                                          │
+│  Interfaces:                                             │
+│  eth0 → VRF RED    eth1 → VRF BLUE    eth2 → Global     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key insight:** Both RED and BLUE have 10.0.0.0/24, but they're completely separate. Traffic in RED can never reach BLUE (unless explicitly configured).
+
+### VRF vs VLAN
+
+| Aspect | VLAN | VRF |
+|--------|------|-----|
+| Layer | Layer 2 (switching) | Layer 3 (routing) |
+| Isolation | Broadcast domain | Routing table |
+| Overlapping IPs | No (same L3 network) | Yes (different routing tables) |
+| Where | Switches | Routers |
+
+VLANs segment at Layer 2. VRFs segment at Layer 3. They often work together: a VLAN connects to a VRF.
+
+### Why VRF?
+
+| Use case | How VRF helps |
+|----------|---------------|
+| Multitenancy | Each customer gets their own VRF |
+| Overlapping addresses | Same 10.0.0.0/24 in multiple VRFs |
+| Service separation | Management VRF separate from production |
+| MPLS VPN | VRFs are the foundation of L3VPN |
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### VRF components
+
+Each VRF has:
+
+1. **Routing table (RIB):** Stores routes for this VRF
+2. **Forwarding table (FIB):** Used for fast packet forwarding
+3. **Interfaces:** Physical or logical interfaces assigned to this VRF
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                      VRF: CUSTOMER_A                     │
+│                                                          │
+│  RIB (Routing Table):                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Destination      Next Hop        Interface      │    │
+│  │ 10.0.0.0/24      Connected       eth0.100       │    │
+│  │ 10.1.0.0/24      10.0.0.254      eth0.100       │    │
+│  │ 0.0.0.0/0        10.0.0.1        eth0.100       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Interfaces: eth0.100, eth1.200                         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### VRF-Lite vs MPLS VRF
+
+**VRF-Lite:** VRF without MPLS. Each VRF is local to the router. To extend across routers, you need separate physical links or VLAN trunks.
+
+```
+VRF-Lite: Separate link per VRF
+
+┌────────┐   VRF A link    ┌────────┐
+│Router 1│◄───────────────►│Router 2│
+│        │   VRF B link    │        │
+│        │◄───────────────►│        │
+└────────┘                 └────────┘
+```
+
+**MPLS VRF:** VRFs extended across MPLS backbone using VPN labels. Single physical link carries all VRFs.
+
+```
+MPLS VRF: Single link, MPLS labels
+
+┌────────┐    MPLS trunk    ┌────────┐
+│  PE    │◄────────────────►│  PE    │
+│        │  Labels:         │        │
+│ VRF A  │  100 = VRF A     │ VRF A  │
+│ VRF B  │  200 = VRF B     │ VRF B  │
+└────────┘                  └────────┘
+```
+
+### Route Distinguisher (RD)
+
+In MPLS VPN, different customers might have the same IP prefix (e.g., 10.0.0.0/24). How does BGP carry both without confusion?
+
+**Route Distinguisher** makes routes unique.
+
+```
+Customer A prefix: 10.0.0.0/24
+Customer B prefix: 10.0.0.0/24
+
+With RD:
+65000:100:10.0.0.0/24  (Customer A)
+65000:200:10.0.0.0/24  (Customer B)
+```
+
+**RD format:** 8 bytes, typically `AS:nn` or `IP:nn`
+
+**Important:** RD makes routes unique for BGP. It doesn't control route import/export. That's the job of Route Targets.
+
+### Route Target (RT)
+
+**Route Target** controls which VRFs import which routes.
+
+```
+VRF CUSTOMER_A:
+  Export RT: 65000:100
+  Import RT: 65000:100
+
+VRF CUSTOMER_B:
+  Export RT: 65000:200
+  Import RT: 65000:200
+```
+
+When a route is advertised:
+1. PE adds export RT to the route
+2. Other PEs receive the route
+3. Each VRF imports routes matching its import RT
+
+**Extranet example:** Customer A and B share some routes:
+
+```
+VRF CUSTOMER_A:
+  Export RT: 65000:100
+  Import RT: 65000:100, 65000:999  (shared)
+
+VRF CUSTOMER_B:
+  Export RT: 65000:200
+  Import RT: 65000:200, 65000:999  (shared)
+
+VRF SHARED_SERVICES:
+  Export RT: 65000:999
+  Import RT: 65000:100, 65000:200
+```
+
+### Packet flow in MPLS L3VPN
+
+```
+Customer A        PE1              P              PE2        Customer A
+Site 1             │               │               │          Site 2
+   │               │               │               │             │
+   │  IP packet    │               │               │             │
+   │──────────────►│               │               │             │
+   │               │               │               │             │
+   │               │ Push labels:  │               │             │
+   │               │ Transport=100 │               │             │
+   │               │ VPN=500       │               │             │
+   │               │──────────────►│               │             │
+   │               │               │               │             │
+   │               │               │ Swap 100→200  │             │
+   │               │               │──────────────►│             │
+   │               │               │               │             │
+   │               │               │               │ Pop labels  │
+   │               │               │               │ Look up VRF │
+   │               │               │               │ Forward IP  │
+   │               │               │               │────────────►│
+```
+
+**Two labels:**
+- **Outer (transport):** Gets packet across MPLS backbone
+- **Inner (VPN):** Identifies the VRF at the egress PE
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Common VRF patterns:**
+
+| Pattern | Description |
+|---------|-------------|
+| Customer VRF | One VRF per customer, full isolation |
+| Management VRF | Separate VRF for device management |
+| Internet VRF | Dedicated VRF for Internet access |
+| Shared services | VRF with routes imported by multiple customer VRFs |
+
+**Configuration example (Cisco-style):**
+
+```bash
+# Create VRF
+vrf definition CUSTOMER_A
+  rd 65000:100
+  address-family ipv4
+    route-target export 65000:100
+    route-target import 65000:100
+
+# Assign interface to VRF
+interface GigabitEthernet0/0.100
+  encapsulation dot1q 100
+  vrf forwarding CUSTOMER_A
+  ip address 10.0.0.1 255.255.255.0
+
+# Verify VRF routes
+show ip route vrf CUSTOMER_A
+```
+
+**Troubleshooting VRF:**
+
+1. **Route not in VRF table:**
+   - Is interface in correct VRF?
+   - Check BGP VPN address family
+   - Verify RT import/export match
+
+2. **Ping fails between VRF sites:**
+   - Check MPLS path (labels assigned?)
+   - Verify VRF routes on both PEs
+   - Check VPN label is correct
+
+3. **Route leaking between VRFs:**
+   - Check RT configuration (accidental import?)
+   - Review import policies
+
+**Useful commands:**
+
+```bash
+# Show VRF configuration
+show vrf detail CUSTOMER_A
+
+# Show routes in VRF
+show ip route vrf CUSTOMER_A
+
+# Show BGP VPNv4 routes
+show bgp vpnv4 unicast all
+
+# Ping from VRF
+ping vrf CUSTOMER_A 10.0.0.5
+
+# Traceroute from VRF
+traceroute vrf CUSTOMER_A 10.0.0.5
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Forgetting to assign interface to VRF before IP.** If you configure IP first, then assign VRF, the IP config is removed. Always assign VRF first.
+
+2. **Confusing RD with RT.** RD makes routes unique in BGP. RT controls import/export. They're related but serve different purposes.
+
+3. **RT leakage.** Accidentally importing routes from wrong VRF breaks isolation. Always double-check RT configuration.
+
+4. **VRF-aware services.** DHCP, DNS, NTP must be VRF-aware. A service in global table can't serve clients in VRFs without special config.
+
+5. **Forgetting management VRF.** If you put management interface in a VRF, you may lose access to the device. Plan management connectivity carefully.
+
+6. **Scale limits.** Each VRF consumes memory (routing table, FIB). Hundreds of VRFs require careful capacity planning.
+
+7. **Asymmetric routing in VRF.** Just like global routing, VRF traffic can take different paths in/out. This can break stateful services.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- RFC 4364, "BGP/MPLS IP Virtual Private Networks (VPNs)"
+- RFC 4382, "MPLS/BGP Layer 3 Virtual Private Network Management Information Base"
+- Cisco, "MPLS Virtual Private Networks Configuration Guide"
+- Pepelnjak & Guichard, *MPLS and VPN Architectures*, Cisco Press
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [L3VPN](/en/core-network/mpls-vlan-vrf/l3vpn/) — full MPLS VPN implementation
+- [L2VPN](/en/core-network/mpls-vlan-vrf/l2vpn/) — Layer 2 VPN services
+- [Inter-AS VPN](/en/core-network/mpls-vlan-vrf/inter-as-vpn/) — VPNs across provider boundaries
+
+</section>

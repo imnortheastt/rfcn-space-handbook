@@ -9,16 +9,593 @@ unit: ntn-in-3gpp
 order: 3
 level: L4
 estimatedReadingMinutes: 5
-title: "NR-NTN"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "NR-NTN — 5G New Radio for Non-Terrestrial Networks"
+description: "The normative 3GPP specification for 5G NR over satellite: frequency bands, UE capabilities, and network procedures standardized in Release 17."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 38.300", "3GPP TS 38.101-5"]
+tags: ["nr-ntn", "3gpp", "5g-nr", "release-17", "satellite-5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# NR-NTN
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+NR-NTN is where satellite-based 5G became real. Release 17 (2022) took the studies (TR 38.811, TR 38.821) and converted them into normative specifications. Now chipset vendors like Qualcomm, MediaTek, and Skylo can build NR-NTN modems that work with any compliant satellite network. This is the standard behind T-Mobile/Starlink direct-to-cell, AST SpaceMobile, and next-generation maritime/aviation broadband.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What NR-NTN standardizes
+
+```
+NR-NTN: From Studies to Normative Specifications
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  RELEASE 17 NR-NTN NORMATIVE SPECS:                                │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  TS 38.101-5  │ NR NTN UE radio transmission and reception    │ │
+│  │               │ (frequency bands, power classes, RF specs)     │ │
+│  │                                                                 │ │
+│  │  TS 38.300    │ NR overall description (NTN architecture)     │ │
+│  │                                                                 │ │
+│  │  TS 38.213    │ Physical layer procedures (HARQ for NTN)      │ │
+│  │                                                                 │ │
+│  │  TS 38.321    │ MAC protocol (timing advance extensions)       │ │
+│  │                                                                 │ │
+│  │  TS 38.331    │ RRC protocol (SIB19, mobility for NTN)        │ │
+│  │                                                                 │ │
+│  │  TS 38.104    │ gNB radio transmission (NTN gateway specs)    │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  KEY DIFFERENCE FROM TERRESTRIAL NR:                               │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  • SIB19 for satellite ephemeris                               │ │
+│  │  • GNSS mandatory in UE                                        │ │
+│  │  • Extended timing advance (TA-Common + TA-Offset)             │ │
+│  │  • HARQ disabled or extended (16 → 32 processes)              │ │
+│  │  • Conditional handover for LEO                                │ │
+│  │  • Doppler pre-compensation by UE                              │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### NR-NTN frequency bands
+
+```
+NR-NTN Bands Defined in TS 38.101-5:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  S-BAND (Primary for direct-to-device):                            │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Band n256 (S-band FDD):                                       │ │
+│  │    UL: 1980-2010 MHz (30 MHz)                                  │ │
+│  │    DL: 2170-2200 MHz (30 MHz)                                  │ │
+│  │    Duplex gap: 160 MHz                                         │ │
+│  │    Use case: Direct-to-smartphone (Starlink, AST)              │ │
+│  │                                                                 │ │
+│  │  Characteristics:                                               │ │
+│  │    • Lower free-space path loss than Ka-band                   │ │
+│  │    • Rain fade minimal (< 1 dB)                                │ │
+│  │    • Doppler manageable (±36 kHz at LEO-600)                   │ │
+│  │    • Works with standard smartphone antennas                   │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  L-BAND (Legacy/IoT focused):                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Band n255 (L-band FDD):                                       │ │
+│  │    UL: 1626.5-1660.5 MHz (34 MHz)                             │ │
+│  │    DL: 1525-1559 MHz (34 MHz)                                  │ │
+│  │    Use case: Maritime, aviation, IoT                           │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  Ka-BAND (High-throughput backhaul):                               │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Band n510/n511 (Ka-band):                                     │ │
+│  │    17.7-20.2 GHz (DL), 27.5-30 GHz (UL)                       │ │
+│  │    Use case: Fixed terminals, VSAT, backhaul                   │ │
+│  │    Requires: Directional antenna, active tracking              │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### UE capability classes
+
+```
+NR-NTN UE Categories:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CLASS 1: HANDHELD (Smartphone integration)                        │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Power class: 3 (23 dBm, 200 mW)                               │ │
+│  │  Antenna: Omni, integrated into phone                          │ │
+│  │  GNSS: Required (for timing/Doppler)                           │ │
+│  │  Bands: n255, n256                                             │ │
+│  │  Bandwidth: 5-20 MHz typical                                   │ │
+│  │                                                                 │ │
+│  │  Link budget constraint:                                        │ │
+│  │    UL limited (phone → satellite path is weakest)              │ │
+│  │    ~1-5 Mbps typical throughput                                │ │
+│  │                                                                 │ │
+│  │  Use cases: Emergency messaging, basic data, voice             │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  CLASS 2: VEHICULAR (Larger antenna allowed)                       │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Power class: 2 (26 dBm) or 1 (31 dBm)                        │ │
+│  │  Antenna: Roof-mounted, moderate gain (5-10 dBi)              │ │
+│  │  GNSS: Required                                                 │ │
+│  │  Bandwidth: Up to 40 MHz                                       │ │
+│  │                                                                 │ │
+│  │  Use cases: Connected cars, trucks, trains                     │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  CLASS 3: VSAT (Fixed/maritime terminal)                           │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Power class: 1 (up to 33 dBm)                                 │ │
+│  │  Antenna: Directional, tracking (30+ dBi for Ka)              │ │
+│  │  Bands: Ka-band (n510/n511) or Ku-band                        │ │
+│  │  Bandwidth: Up to 400 MHz                                      │ │
+│  │                                                                 │ │
+│  │  Use cases: Maritime broadband, aviation, enterprise          │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### SIB19 structure
+
+```
+System Information Block 19 (NTN-specific):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SIB19 Contents (broadcast by gNB):                                │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  ntn-Config:                                                   │ │
+│  │    ├── epochTime              (reference time)                 │ │
+│  │    ├── ta-Info                                                │ │
+│  │    │   ├── ta-Common          (delay to reference point)      │ │
+│  │    │   └── ta-CommonDrift     (rate of change)                │ │
+│  │    │                                                           │ │
+│  │    ├── ephemerisInfo          (satellite position)            │ │
+│  │    │   ├── positionX/Y/Z      (ECEF coordinates, m)           │ │
+│  │    │   └── velocityX/Y/Z      (ECEF velocity, m/s)            │ │
+│  │    │   OR                                                      │ │
+│  │    │   └── orbitalParameters  (Keplerian elements)            │ │
+│  │    │                                                           │ │
+│  │    ├── cellSpecificKoffset    (scheduling offset)             │ │
+│  │    └── kmac                   (MAC timing adjustment)          │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  UE PROCEDURE:                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. UE acquires SIB19 on DL                                    │ │
+│  │  2. UE extracts satellite position from ephemerisInfo          │ │
+│  │  3. UE reads its own position from GNSS                        │ │
+│  │  4. UE computes:                                               │ │
+│  │     - Slant range → TA-Offset                                 │ │
+│  │     - Relative velocity → Doppler compensation                │ │
+│  │  5. UE applies compensations before UL transmission            │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Timing advance mechanism
+
+```
+NR-NTN Timing Advance (Normative):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  FORMULA:                                                           │
+│                                                                      │
+│  N_TA = N_TA,common + N_TA,offset + N_TA,UE                        │
+│                                                                      │
+│  Where:                                                             │
+│    N_TA,common = ta-Common from SIB19 (in units of T_c × 64)       │
+│    N_TA,offset = UE-computed from GNSS + ephemeris                 │
+│    N_TA,UE = standard NR TA adjustment from MAC-CE                 │
+│                                                                      │
+│  TIMING GRANULARITY:                                               │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  T_c = 1 / (480,000 × 4096) = 0.509 ns                        │ │
+│  │  T_c × 64 = 32.55 ns                                          │ │
+│  │  N_TA,common range: 0 to 2^20 - 1 (up to 34 ms)               │ │
+│  │                                                                 │ │
+│  │  Compare to terrestrial NR:                                    │ │
+│  │    N_TA range: 0 to 3846 × 16 (up to ~2 ms)                   │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  UE TA COMPUTATION:                                                 │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. Get satellite ECEF position [x_s, y_s, z_s] from SIB19     │ │
+│  │  2. Get UE ECEF position [x_u, y_u, z_u] from GNSS             │ │
+│  │  3. Get reference ECEF position [x_r, y_r, z_r] from SIB19     │ │
+│  │                                                                 │ │
+│  │  4. Compute slant ranges:                                      │ │
+│  │     d_UE = sqrt((x_s-x_u)² + (y_s-y_u)² + (z_s-z_u)²)         │ │
+│  │     d_ref = sqrt((x_s-x_r)² + (y_s-y_r)² + (z_s-z_r)²)        │ │
+│  │                                                                 │ │
+│  │  5. TA_offset = 2 × (d_UE - d_ref) / c                        │ │
+│  │     (factor of 2 for round-trip in transparent mode)           │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### HARQ operation
+
+```
+NR-NTN HARQ Configurations:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  HARQ ENABLED (LEO, short RTT):                                    │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Configuration:                                                 │ │
+│  │    • nrofHARQ-ProcessesForPDSCH: up to 32                      │ │
+│  │    • K1 (DL-to-ACK timing): extended to cover RTT              │ │
+│  │    • Soft buffer split across 32 processes                     │ │
+│  │                                                                 │ │
+│  │  K1 calculation:                                                │ │
+│  │    K1_min = ceil(RTT / slot_duration) + processing_time       │ │
+│  │                                                                 │ │
+│  │  Example (LEO-600, 30° elevation, 30 kHz SCS):                │ │
+│  │    RTT = 13 ms                                                 │ │
+│  │    Slot = 0.5 ms                                               │ │
+│  │    K1_min = ceil(13 / 0.5) + 4 = 30 slots                     │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  HARQ DISABLED (GEO, long RTT):                                    │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Configuration:                                                 │ │
+│  │    • harq-FeedbackDisabled = true                              │ │
+│  │    • Higher FEC coding (more redundancy)                       │ │
+│  │    • RLC AM for reliable delivery                              │ │
+│  │                                                                 │ │
+│  │  Rationale:                                                     │ │
+│  │    GEO RTT ≈ 540 ms                                            │ │
+│  │    HARQ retransmission adds another 540 ms                     │ │
+│  │    Better to rely on RLC retransmission                        │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**NR-NTN link budget and timing calculator:**
+
+```python
+import math
+
+def nr_ntn_link_budget(freq_ghz, sat_alt_km, elevation_deg, 
+                       ue_eirp_dbm, sat_gt_db, bandwidth_mhz):
+    """
+    Calculate NR-NTN link budget for uplink.
+    """
+    earth_radius = 6371
+    el_rad = math.radians(elevation_deg)
+    
+    slant_range = (-earth_radius * math.sin(el_rad) + 
+                   math.sqrt((earth_radius * math.sin(el_rad))**2 + 
+                            2 * earth_radius * sat_alt_km + sat_alt_km**2))
+    
+    fspl = 32.45 + 20 * math.log10(freq_ghz * 1000) + 20 * math.log10(slant_range)
+    
+    atmospheric_loss = 0.5 if freq_ghz < 10 else 2.0
+    
+    received_power = ue_eirp_dbm - fspl - atmospheric_loss + sat_gt_db
+    
+    noise_figure = 3.0
+    k_boltz = -228.6
+    thermal_noise = k_boltz + 10 * math.log10(bandwidth_mhz * 1e6) + noise_figure
+    
+    snr = received_power - thermal_noise
+    
+    return {
+        "slant_range_km": slant_range,
+        "fspl_db": fspl,
+        "atmospheric_loss_db": atmospheric_loss,
+        "received_power_dbm": received_power,
+        "thermal_noise_dbm": thermal_noise,
+        "snr_db": snr
+    }
+
+def compute_ta_from_ephemeris(ue_ecef, sat_ecef, ref_ecef):
+    """
+    Compute TA-Offset from ECEF positions per NR-NTN spec.
+    """
+    c = 299792.458
+    
+    def distance(a, b):
+        return math.sqrt(sum((a[i] - b[i])**2 for i in range(3)))
+    
+    d_ue = distance(sat_ecef, ue_ecef)
+    d_ref = distance(sat_ecef, ref_ecef)
+    
+    ta_offset_ms = 2 * (d_ue - d_ref) / c * 1000
+    
+    T_c = 1 / (480000 * 4096)
+    N_ta_offset = int(ta_offset_ms / 1000 / (T_c * 64))
+    
+    return {
+        "d_ue_km": d_ue,
+        "d_ref_km": d_ref,
+        "ta_offset_ms": ta_offset_ms,
+        "N_ta_offset": N_ta_offset
+    }
+
+def harq_configuration(rtt_ms, scs_khz, harq_enabled=True):
+    """
+    Determine HARQ configuration for NR-NTN.
+    """
+    slot_ms = 1 / (scs_khz / 15)
+    
+    processing_slots = 4
+    
+    if harq_enabled:
+        k1_min = math.ceil(rtt_ms / slot_ms) + processing_slots
+        
+        processes_needed = math.ceil(rtt_ms / slot_ms) + 1
+        processes = min(32, max(16, processes_needed))
+        
+        return {
+            "harq_enabled": True,
+            "k1_min_slots": k1_min,
+            "k1_min_ms": k1_min * slot_ms,
+            "processes_needed": processes_needed,
+            "processes_configured": processes
+        }
+    else:
+        return {
+            "harq_enabled": False,
+            "k1_min_slots": None,
+            "processes_configured": 0,
+            "recommendation": "Use RLC AM with aggressive FEC"
+        }
+
+def nr_ntn_throughput_estimate(snr_db, bandwidth_mhz, harq_enabled):
+    """
+    Estimate NR-NTN throughput based on SNR.
+    """
+    if snr_db < -3:
+        se = 0.15
+        modulation = "QPSK 1/8"
+    elif snr_db < 0:
+        se = 0.4
+        modulation = "QPSK 1/3"
+    elif snr_db < 3:
+        se = 0.8
+        modulation = "QPSK 1/2"
+    elif snr_db < 6:
+        se = 1.2
+        modulation = "QPSK 3/4"
+    elif snr_db < 10:
+        se = 2.0
+        modulation = "16QAM 1/2"
+    elif snr_db < 15:
+        se = 3.0
+        modulation = "16QAM 3/4"
+    else:
+        se = 4.5
+        modulation = "64QAM 3/4"
+    
+    overhead = 0.75 if harq_enabled else 0.70
+    
+    throughput_mbps = bandwidth_mhz * se * overhead
+    
+    return {
+        "snr_db": snr_db,
+        "spectral_efficiency": se,
+        "modulation": modulation,
+        "throughput_mbps": throughput_mbps
+    }
+
+print("NR-NTN Link Budget and Configuration")
+print("=" * 70)
+
+print("\n1. NR-NTN Frequency Bands")
+print("-" * 70)
+print("""
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Band   │ UL (MHz)        │ DL (MHz)        │ Use Case             │
+  │  ───────┼─────────────────┼─────────────────┼────────────────────  │
+  │  n255   │ 1626.5-1660.5   │ 1525-1559       │ L-band, IoT/legacy   │
+  │  n256   │ 1980-2010       │ 2170-2200       │ S-band, smartphone   │
+  │  n510   │ 27.5-30 GHz     │ 17.7-20.2 GHz   │ Ka-band, VSAT        │
+  └─────────────────────────────────────────────────────────────────────┘
+""")
+
+print("\n2. Uplink Link Budget (Smartphone → LEO-600)")
+print("-" * 70)
+
+lb = nr_ntn_link_budget(
+    freq_ghz=2.0,
+    sat_alt_km=600,
+    elevation_deg=30,
+    ue_eirp_dbm=23,
+    sat_gt_db=10,
+    bandwidth_mhz=5
+)
+
+print(f"""
+  Parameters:
+    Frequency: 2 GHz (n256 S-band)
+    Satellite altitude: 600 km
+    Elevation angle: 30°
+    UE EIRP: 23 dBm (Power class 3)
+    Satellite G/T: 10 dB/K
+    Bandwidth: 5 MHz
+    
+  Link Budget:
+    Slant range: {lb['slant_range_km']:.0f} km
+    Free space path loss: {lb['fspl_db']:.1f} dB
+    Atmospheric loss: {lb['atmospheric_loss_db']:.1f} dB
+    Received power: {lb['received_power_dbm']:.1f} dBm
+    Thermal noise: {lb['thermal_noise_dbm']:.1f} dBm
+    SNR: {lb['snr_db']:.1f} dB
+""")
+
+tp = nr_ntn_throughput_estimate(lb['snr_db'], 5, True)
+print(f"""
+  Throughput Estimate:
+    SNR: {tp['snr_db']:.1f} dB
+    Modulation: {tp['modulation']}
+    Spectral efficiency: {tp['spectral_efficiency']:.1f} bps/Hz
+    Estimated throughput: {tp['throughput_mbps']:.1f} Mbps
+""")
+
+print("\n3. Timing Advance Computation")
+print("-" * 70)
+
+sat_ecef = [6978, 0, 0]
+ue_ecef = [6371 * 0.866, 6371 * 0.5, 0]
+ref_ecef = [6371, 0, 0]
+
+ta = compute_ta_from_ephemeris(ue_ecef, sat_ecef, ref_ecef)
+
+print(f"""
+  Positions (simplified ECEF, km):
+    Satellite: {sat_ecef}
+    UE: [{ue_ecef[0]:.0f}, {ue_ecef[1]:.0f}, {ue_ecef[2]:.0f}]
+    Reference: {ref_ecef}
+    
+  Computed TA:
+    UE-Satellite distance: {ta['d_ue_km']:.1f} km
+    Ref-Satellite distance: {ta['d_ref_km']:.1f} km
+    TA-Offset: {ta['ta_offset_ms']:.3f} ms
+    N_TA,offset (in T_c × 64 units): {ta['N_ta_offset']}
+""")
+
+print("\n4. HARQ Configuration by Orbit")
+print("-" * 70)
+
+scenarios = [
+    ("LEO-600", 13, True),
+    ("LEO-1200", 26, True),
+    ("GEO", 540, False),
+]
+
+for name, rtt, harq in scenarios:
+    config = harq_configuration(rtt, 30, harq)
+    if config['harq_enabled']:
+        print(f"  {name}: HARQ enabled, K1≥{config['k1_min_slots']} slots, {config['processes_configured']} processes")
+    else:
+        print(f"  {name}: HARQ disabled, rely on RLC AM")
+
+print("\n5. UE Power Classes for NTN")
+print("-" * 70)
+print("""
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Class │ Max Power │ Typical Device    │ Antenna           │ Band  │
+  │  ──────┼───────────┼───────────────────┼───────────────────┼─────  │
+  │  3     │ 23 dBm    │ Smartphone        │ Omni, integrated  │ n256  │
+  │  2     │ 26 dBm    │ Vehicle           │ Roof-mounted      │ n256  │
+  │  1     │ 31 dBm    │ VSAT/IoT gateway  │ Directional       │ n510  │
+  └─────────────────────────────────────────────────────────────────────┘
+""")
+```
+
+**Key formulas from NR-NTN specs:**
+
+| Parameter | Formula |
+|-----------|---------|
+| N_TA,offset | 2 × (d_UE - d_ref) / c / (T_c × 64) |
+| K1_min | ceil(RTT / slot_duration) + processing_time |
+| FSPL | 32.45 + 20·log₁₀(f_MHz) + 20·log₁₀(d_km) |
+| Throughput | BW × SE × (1 - overhead) |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Forgetting feeder link for transparent.** The UE-gateway path has TWO space hops. Link budget must include both.
+
+2. **Using wrong TA granularity.** NR-NTN uses T_c × 64 units for N_TA,common, not the standard NR T_c × 16.
+
+3. **Ignoring band constraints.** S-band (n256) has only 30 MHz total. Don't plan for 100 MHz carriers.
+
+4. **Assuming HARQ always works.** GEO deployments typically disable HARQ. Plan for RLC-layer retransmissions.
+
+5. **Underestimating UL limitations.** Smartphone EIRP (23 dBm) + omni antenna → UL is the bottleneck. DL can be 10× faster.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 38.101-5 v17.6.0 — NR NTN UE radio transmission and reception
+- 3GPP TS 38.300 v17.3.0 — NR overall description Stage 2
+- 3GPP TS 38.331 v17.3.0 — NR RRC protocol specification
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [TR 38.821](/en/space/ntn-in-3gpp/tr-38-821/) — the solutions study behind these specs
+- [IoT-NTN](/en/space/ntn-in-3gpp/iot-ntn/) — narrowband variant for IoT devices
+- [Satellite UE Problem](/en/space/ntn-in-3gpp/satellite-ue-problem/) — smartphone integration challenges
+
+</section>

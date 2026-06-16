@@ -8,17 +8,373 @@ track: n3
 unit: session-management-deep-dive
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "PDU session release"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-session-management-deep-dive-01-pdu-session-establishment"]
+spiralRevisits: ["core-network-n3-mobility-management-02-deregistration"]
+title: "PDU Session Release"
+description: "Tearing down data connectivity — UE-initiated, network-initiated, and cleanup procedures."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.502", "3GPP TS 24.501"]
+tags: ["pdu-session", "5g", "release", "smf", "upf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# PDU session release
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+PDU sessions don't last forever. When you close an app, run out of data, or get deregistered, the session must be **released**. This frees IP addresses, UPF resources, and RAN bearers.
+
+Proper release is essential — leaked sessions consume network resources indefinitely.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### When release happens
+
+```
+PDU Session Release Triggers:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE-Initiated:                                          │
+│  ├── User turns off mobile data                         │
+│  ├── App no longer needs connectivity                   │
+│  └── User switches to WiFi                              │
+│                                                          │
+│  Network-Initiated:                                     │
+│  ├── Subscription terminated                            │
+│  ├── Policy rejection (data cap, time limit)           │
+│  ├── Inactivity timeout                                │
+│  ├── UPF failure                                        │
+│  └── Admin action (OAM)                                │
+│                                                          │
+│  Implicit (during deregistration):                      │
+│  ├── UE powers off (switch-off deregistration)         │
+│  └── Implicit deregistration (UE unreachable)          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### What gets cleaned up
+
+```
+Resources Released:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE Side:                                               │
+│  ├── IP address released                                │
+│  ├── QoS rules removed                                  │
+│  └── DNS config cleared                                 │
+│                                                          │
+│  RAN Side:                                              │
+│  ├── DRB (Data Radio Bearer) released                  │
+│  └── QoS flow contexts deleted                          │
+│                                                          │
+│  SMF Side:                                              │
+│  ├── PDU session context deleted                        │
+│  └── PCF policy association released                    │
+│                                                          │
+│  UPF Side:                                              │
+│  ├── PFCP session deleted                               │
+│  ├── PDR/FAR/QER/URR rules removed                     │
+│  ├── IP address returned to pool                       │
+│  └── GTP-U tunnels torn down                           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### UE-initiated release
+
+```
+UE-Initiated PDU Session Release:
+
+UE           gNB          AMF          SMF          UPF
+│             │            │            │            │
+│ PDU Session │            │            │            │
+│ Release Req │            │            │            │
+│ (session ID)│            │            │            │
+│────────────►│───────────►│            │            │
+│             │            │            │            │
+│             │            │ Nsmf_PDU   │            │
+│             │            │ Session    │            │
+│             │            │ ReleaseSM  │            │
+│             │            │ Context    │            │
+│             │            │───────────►│            │
+│             │            │            │            │
+│             │            │            │ N4 Session │
+│             │            │            │ Deletion   │
+│             │            │            │ (PFCP)     │
+│             │            │            │───────────►│
+│             │            │            │            │
+│             │            │            │ N4 Session │
+│             │            │            │ Del Resp   │
+│             │            │            │◄───────────│
+│             │            │            │            │
+│             │            │ SM Context │            │
+│             │            │ Released   │            │
+│             │            │◄───────────│            │
+│             │            │            │            │
+│             │ N2 PDU Sess│            │            │
+│             │ Resource   │            │            │
+│             │ Release Cmd│            │            │
+│             │◄───────────│            │            │
+│             │            │            │            │
+│ RRC Reconfig│            │            │            │
+│ (DRB delete)│            │            │            │
+│◄────────────│            │            │            │
+│             │            │            │            │
+│ RRC Reconfig│            │            │            │
+│ Complete    │            │            │            │
+│────────────►│            │            │            │
+│             │            │            │            │
+│             │ N2 PDU Sess│            │            │
+│             │ Resource   │            │            │
+│             │ Release Rsp│            │            │
+│             │───────────►│            │            │
+│             │            │            │            │
+│ PDU Session │            │            │            │
+│ Release Cmd │            │            │            │
+│◄────────────│◄───────────│            │            │
+│             │            │            │            │
+│ PDU Session │            │            │            │
+│ Release     │            │            │            │
+│ Complete    │            │            │            │
+│────────────►│───────────►│            │            │
+│             │            │            │            │
+```
+
+### Network-initiated release
+
+```
+Network-Initiated Release (e.g., policy violation):
+
+PCF          SMF          AMF          gNB          UE
+│             │            │            │            │
+│ Policy      │            │            │            │
+│ terminate   │            │            │            │
+│ session     │            │            │            │
+│────────────►│            │            │            │
+│             │            │            │            │
+│             │ N4 Session │            │            │
+│             │ Deletion   │            │            │
+│             │───────────►│ UPF        │            │
+│             │            │            │            │
+│             │ Namf_Comm  │            │            │
+│             │ N1N2Msg    │            │            │
+│             │ Transfer   │            │            │
+│             │───────────►│            │            │
+│             │            │            │            │
+│             │            │ N2 PDU Sess│            │
+│             │            │ Resource   │            │
+│             │            │ Release Cmd│            │
+│             │            │───────────►│            │
+│             │            │            │            │
+│             │            │            │ RRC Reconfig
+│             │            │            │───────────►│
+│             │            │            │            │
+│             │            │ PDU Session│            │
+│             │            │ Release Cmd│            │
+│             │            │─────────────────────────►│
+│             │            │            │            │
+│             │            │            │            │
+│             │            │ PDU Session│            │
+│             │            │ Release    │            │
+│             │            │ Complete   │            │
+│             │            │◄─────────────────────────│
+│             │            │            │            │
+```
+
+### Release during deregistration
+
+```
+Session Release During Switch-off Deregistration:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE sends Deregistration Request (switch-off)           │
+│                   │                                      │
+│                   ▼                                      │
+│  AMF receives deregistration                            │
+│                   │                                      │
+│                   ▼                                      │
+│  For each active PDU session:                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  AMF → SMF: Nsmf_PDUSession_ReleaseSMContext   │    │
+│  │                                                  │    │
+│  │  SMF → UPF: N4 Session Deletion                 │    │
+│  │                                                  │    │
+│  │  SMF → PCF: Policy association release          │    │
+│  │                                                  │    │
+│  │  No NAS message to UE (switch-off = UE gone)   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                   │                                      │
+│                   ▼                                      │
+│  All sessions released, deregistration completes        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Release cause values
+
+```
+5GSM Release Causes:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  │ Cause │ Meaning                        │ Who Sets    │
+│  │───────│────────────────────────────────│─────────────│
+│  │  26   │ Insufficient resources         │ SMF         │
+│  │  29   │ User authentication failed     │ SMF/PCF     │
+│  │  31   │ Request rejected, unspecified  │ SMF         │
+│  │  32   │ Service option not supported   │ SMF         │
+│  │  33   │ Requested service not subscribed│ SMF/UDM    │
+│  │  36   │ Regular deactivation           │ UE/SMF      │
+│  │  38   │ Network failure                │ SMF         │
+│  │  39   │ Reactivation requested         │ SMF         │
+│  │  43   │ Invalid PDU session ID         │ SMF         │
+│  │  44   │ Semantic error in TFT          │ SMF         │
+│  │  50   │ PDU session type not supported │ SMF         │
+│  │ 111   │ Protocol error, unspecified    │ Any         │
+│  │                                                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+### N4 session deletion
+
+```
+PFCP Session Deletion (N4):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SMF sends Session Deletion Request:                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  PFCP Session Deletion Request                   │    │
+│  │  - SEID (session endpoint ID)                   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  UPF actions:                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. Delete all PDR rules                        │    │
+│  │  2. Delete all FAR rules                        │    │
+│  │  3. Delete all QER rules                        │    │
+│  │  4. Delete all URR rules                        │    │
+│  │  5. Release IP address to pool                  │    │
+│  │  6. Tear down GTP-U tunnels                     │    │
+│  │  7. Final usage report (if URR configured)      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  UPF sends Session Deletion Response:                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  PFCP Session Deletion Response                  │    │
+│  │  - Cause: Request accepted                       │    │
+│  │  - Usage Report (if URR was active)             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Common release scenarios:**
+
+| Scenario | Initiator | Cause |
+|----------|-----------|-------|
+| User toggles airplane mode | UE | switch-off deregistration |
+| Data cap exceeded | Network (PCF) | policy violation |
+| Prepaid balance exhausted | Network (CHF) | charging event |
+| Inactivity timeout | Network (SMF) | timer expiry |
+| Network maintenance | Network (OAM) | admin action |
+
+**Debugging release:**
+
+```bash
+# Wireshark filter for release messages
+nas-5gs.sm.message_type == 0xd1 || nas-5gs.sm.message_type == 0xd3 || nas-5gs.sm.message_type == 0xd4
+
+# N4 session deletion
+pfcp.message_type == 5 || pfcp.message_type == 6
+
+# Check for orphaned sessions
+grep "session.state" /var/log/smf/*.log | grep -v "released"
+```
+
+**Troubleshooting:**
+
+| Issue | Check |
+|-------|-------|
+| Session not releasing | SMF stuck? N4 timeout? |
+| IP not returned to pool | UPF deletion response received? |
+| DRB not released | N2 message to gNB sent? |
+| Usage not reported | URR configured? Final report received? |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Forgetting N4 deletion.** SMF must delete PFCP session. Missing this leaks UPF resources.
+
+2. **No final usage report.** If URR was configured, UPF should send final usage. Missing this causes billing errors.
+
+3. **RAN resources not released.** AMF must send N2 release to gNB. Missing this keeps DRB allocated.
+
+4. **IP pool exhaustion.** If sessions don't release properly, IP pool depletes. Monitor pool utilization.
+
+5. **PCF association not released.** SMF should notify PCF. Stale policy associations waste PCF resources.
+
+6. **Ignoring release cause.** Different causes need different handling. "Reactivation requested" means UE should retry.
+
+7. **Release during handover.** Don't release session just because gNB changes. Only path switches, session stays.
+
+8. **Multi-homed sessions.** UE with both 3GPP and non-3GPP access — releasing one doesn't release the other.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.502, "Procedures for 5GS"
+- 3GPP TS 24.501, "NAS protocol for 5GS"
+- 3GPP TS 29.502, "SMF Services"
+- 3GPP TS 29.244, "PFCP Protocol"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Deregistration](/en/core-network/mobility-management/deregistration/) — full network exit
+- [UPF selection](/en/core-network/session-management-deep-dive/upf-selection/) — understanding UPF lifecycle
+- [Charging](/en/core-network/policy-and-charging/chf-overview/) — usage reporting and billing
+
+</section>

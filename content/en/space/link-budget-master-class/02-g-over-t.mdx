@@ -8,17 +8,421 @@ track: s7
 unit: link-budget-master-class
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "G/T — Figure of merit"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "G/T — Figure of Merit"
+description: "Receiver sensitivity combining antenna gain and system noise temperature."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["G/T", "noise-temperature", "LNA", "receiver"]
+widgets: ["LinkBudget"]
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# G/T — Figure of merit
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+G/T is the single number that characterizes your receiver's capability—how sensitive it is to weak signals. A high G/T means you can close links with lower transmit power or smaller antennas on the other end. It's the receiver's counterpart to EIRP, and together they determine whether your link works. Understanding G/T helps you design ground stations, specify satellite receivers, and troubleshoot weak signals.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What is G/T?
+
+```
+G/T Concept:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  G/T = Antenna Gain / System Noise Temperature                     │
+│                                                                      │
+│  In dB/K:  G/T = G (dBi) - 10 log₁₀(T_sys)                        │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  HIGH G/T = GOOD                                      │         │
+│  │                                                        │         │
+│  │  • High antenna gain (large dish, high frequency)    │         │
+│  │  • Low system noise (cold LNA, cold sky)             │         │
+│  │                                                        │         │
+│  │  LOW G/T = BAD                                        │         │
+│  │                                                        │         │
+│  │  • Small antenna, low frequency                      │         │
+│  │  • Hot LNA, looking at warm ground                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ANALOGY:                                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  G = how well you can hear (bigger ear = better)     │         │
+│  │  T = how noisy the room is (quieter = better)        │         │
+│  │                                                        │         │
+│  │  G/T = how well you can hear a whisper               │         │
+│  │        in a noisy room                                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### System noise temperature
+
+```
+What Contributes to T_sys:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                    ★ Sky                                            │
+│                    │ T_sky (3-300 K depending on frequency/angle)   │
+│                    ↓                                                 │
+│  ┌─────────────────────────────────────┐                           │
+│  │           ANTENNA                    │                           │
+│  │                                      │                           │
+│  │  Main beam → picks up T_sky         │                           │
+│  │  Sidelobes → pick up T_ground       │                           │
+│  │              (290 K)                 │                           │
+│  │                                      │                           │
+│  │  T_antenna = weighted average       │                           │
+│  │                                      │                           │
+│  └──────────────┬───────────────────────┘                           │
+│                 ↓ waveguide/feed loss (adds noise)                  │
+│  ┌─────────────────────────────────────┐                           │
+│  │           LNA                        │                           │
+│  │                                      │                           │
+│  │  T_lna = (F - 1) × T_ref            │                           │
+│  │                                      │                           │
+│  │  F = noise figure                   │                           │
+│  │  T_ref = 290 K                      │                           │
+│  │                                      │                           │
+│  │  Dominates because it's first!      │                           │
+│  │                                      │                           │
+│  └──────────────┬───────────────────────┘                           │
+│                 ↓ (subsequent stages divided by gain)               │
+│  ┌─────────────────────────────────────┐                           │
+│  │     Rest of receiver chain          │                           │
+│  │     (usually negligible)            │                           │
+│  └─────────────────────────────────────┘                           │
+│                                                                      │
+│  T_sys = T_antenna + T_lna + T_other/G_lna                         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Noise temperature cascade
+
+```
+Friis Formula for Cascaded Noise:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  For multiple stages in series:                                     │
+│                                                                      │
+│  T_total = T₁ + T₂/G₁ + T₃/(G₁×G₂) + ...                          │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Stage 1 (LNA):    G₁ = 30 dB (1000×), T₁ = 50 K    │         │
+│  │  Stage 2 (cable):  G₂ = -3 dB (0.5×),  T₂ = 150 K   │         │
+│  │  Stage 3 (mixer):  G₃ = 10 dB (10×),   T₃ = 1000 K  │         │
+│  │                                                        │         │
+│  │  T_total = 50 + 150/1000 + 1000/(1000×0.5)          │         │
+│  │          = 50 + 0.15 + 2                             │         │
+│  │          = 52.15 K                                    │         │
+│  │                                                        │         │
+│  │  The LNA dominates! Stages after high-gain           │         │
+│  │  LNA contribute almost nothing.                      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KEY INSIGHT: Put your coldest, highest-gain component first!      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### G/T calculation example
+
+```
+Ground Station G/T:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  EXAMPLE: Ku-band downlink receive (12 GHz)                        │
+│                                                                      │
+│  ANTENNA:                                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Dish diameter: 3.0 m                                 │         │
+│  │  Efficiency: 0.55                                     │         │
+│  │  Gain: 20 log(3) + 20 log(12) + 17.8 = 48.3 dBi     │         │
+│  │                                                        │         │
+│  │  Elevation: 30°                                      │         │
+│  │  Sky temp: 25 K (clear sky at Ku-band)              │         │
+│  │  Ground pickup: 30 K (sidelobes)                    │         │
+│  │  T_antenna ≈ 55 K                                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  FEED/LNA:                                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Feed loss: 0.2 dB → adds ~14 K                      │         │
+│  │  LNA noise figure: 0.8 dB → T_lna = 60 K            │         │
+│  │                                                        │         │
+│  │  T_sys = 55 + 14 + 60 = 129 K                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  G/T CALCULATION:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  G/T = G - 10 log(T_sys)                             │         │
+│  │      = 48.3 - 10 log(129)                            │         │
+│  │      = 48.3 - 21.1                                    │         │
+│  │      = 27.2 dB/K                                      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Noise figure to temperature
+
+```
+Conversion Between NF and T:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  T = T_ref × (F - 1)    where T_ref = 290 K                        │
+│                                                                      │
+│  F = T/T_ref + 1                                                    │
+│                                                                      │
+│  NF (dB) = 10 log₁₀(F)                                             │
+│                                                                      │
+│  QUICK REFERENCE:                                                   │
+│  ┌────────────────────────────────────────────────────┐            │
+│  │                                                     │            │
+│  │  NF (dB) │ F (linear) │ T (K)                     │            │
+│  │  ────────┼────────────┼──────────                  │            │
+│  │  0.3     │ 1.07       │ 21                        │            │
+│  │  0.5     │ 1.12       │ 35                        │            │
+│  │  0.8     │ 1.20       │ 60                        │            │
+│  │  1.0     │ 1.26       │ 75                        │            │
+│  │  1.5     │ 1.41       │ 120                       │            │
+│  │  2.0     │ 1.58       │ 170                       │            │
+│  │  3.0     │ 2.00       │ 290                       │            │
+│  │  6.0     │ 4.00       │ 870                       │            │
+│  │  10.0    │ 10.00      │ 2610                      │            │
+│  │                                                     │            │
+│  └────────────────────────────────────────────────────┘            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**G/T calculations:**
+
+```python
+import numpy as np
+
+def nf_to_temp(nf_db, t_ref=290):
+    """Convert noise figure (dB) to equivalent noise temperature (K)."""
+    f_linear = 10 ** (nf_db / 10)
+    return t_ref * (f_linear - 1)
+
+def temp_to_nf(temp_k, t_ref=290):
+    """Convert noise temperature (K) to noise figure (dB)."""
+    f_linear = temp_k / t_ref + 1
+    return 10 * np.log10(f_linear)
+
+def cascade_noise_temp(stages):
+    """
+    Calculate cascaded noise temperature.
+    
+    Args:
+        stages: List of (gain_db, noise_temp_k) tuples
+    
+    Returns:
+        Total system noise temperature in K
+    """
+    t_total = 0
+    gain_cumulative = 1
+    
+    for gain_db, temp_k in stages:
+        t_total += temp_k / gain_cumulative
+        gain_cumulative *= 10 ** (gain_db / 10)
+    
+    return t_total
+
+def parabolic_gain_dbi(diameter_m, frequency_ghz, efficiency=0.55):
+    """Calculate parabolic antenna gain in dBi."""
+    wavelength_m = 0.3 / frequency_ghz
+    gain_linear = efficiency * (np.pi * diameter_m / wavelength_m) ** 2
+    return 10 * np.log10(gain_linear)
+
+def calculate_g_over_t(gain_dbi, t_sys_k):
+    """Calculate G/T in dB/K."""
+    return gain_dbi - 10 * np.log10(t_sys_k)
+
+# Example calculations
+print("G/T Calculations")
+print("=" * 60)
+
+# Ground station example
+print("\n1. Ku-band Ground Station (12 GHz)")
+print("-" * 60)
+
+# Antenna
+dish_diameter = 3.0  # m
+freq = 12.0  # GHz
+antenna_gain = parabolic_gain_dbi(dish_diameter, freq)
+print(f"  Antenna gain: {antenna_gain:.1f} dBi ({dish_diameter} m @ {freq} GHz)")
+
+# Noise contributions
+t_sky = 25  # K (clear sky, 30° elevation)
+t_ground = 30  # K (sidelobe pickup)
+t_antenna = t_sky + t_ground
+print(f"  T_antenna: {t_antenna} K (sky {t_sky}K + ground {t_ground}K)")
+
+# Feed and LNA
+feed_loss_db = 0.2
+t_feed = nf_to_temp(feed_loss_db)
+print(f"  Feed loss: {feed_loss_db} dB → T_feed = {t_feed:.0f} K")
+
+lna_nf = 0.8  # dB
+t_lna = nf_to_temp(lna_nf)
+print(f"  LNA NF: {lna_nf} dB → T_LNA = {t_lna:.0f} K")
+
+# System temperature
+t_sys = t_antenna + t_feed + t_lna
+print(f"  T_sys = {t_antenna} + {t_feed:.0f} + {t_lna:.0f} = {t_sys:.0f} K")
+
+# G/T
+g_over_t = calculate_g_over_t(antenna_gain, t_sys)
+print(f"  G/T = {antenna_gain:.1f} - 10 log({t_sys:.0f}) = {g_over_t:.1f} dB/K")
+
+# Satellite receiver example
+print("\n2. Satellite Ku-band Receiver")
+print("-" * 60)
+
+sat_gain = 35  # dBi (smaller antenna)
+sat_t_antenna = 290  # K (looking at Earth)
+sat_lna_nf = 2.0  # dB (warmer LNA)
+sat_t_lna = nf_to_temp(sat_lna_nf)
+sat_t_sys = sat_t_antenna + sat_t_lna
+
+print(f"  Antenna gain: {sat_gain} dBi")
+print(f"  T_antenna: {sat_t_antenna} K (looking at Earth)")
+print(f"  LNA NF: {sat_lna_nf} dB → T_LNA = {sat_t_lna:.0f} K")
+print(f"  T_sys = {sat_t_sys:.0f} K")
+
+sat_g_over_t = calculate_g_over_t(sat_gain, sat_t_sys)
+print(f"  G/T = {sat_g_over_t:.1f} dB/K")
+
+# Cascade example
+print("\n3. Receiver Chain Cascade")
+print("-" * 60)
+
+stages = [
+    (30, 50),   # LNA: 30 dB gain, 50 K noise
+    (-3, 150),  # Cable: -3 dB (loss), 150 K
+    (10, 1000), # Mixer: 10 dB gain, 1000 K noise
+]
+
+print("  Stage      | Gain (dB) | T (K)")
+print("-" * 40)
+for i, (g, t) in enumerate(stages):
+    print(f"  Stage {i+1}    |    {g:+5.0f} |  {t:4.0f}")
+
+t_cascade = cascade_noise_temp(stages)
+print("-" * 40)
+print(f"  T_total = {t_cascade:.1f} K")
+print(f"  (First stage dominates!)")
+
+# Typical G/T values
+print("\n4. Typical G/T Values")
+print("-" * 60)
+print(f"  {'System':<30} {'G/T (dB/K)':<15}")
+print("-" * 60)
+
+systems = [
+    ("Large gateway (10m, Ku)", 40),
+    ("Medium earth station (3m)", 27),
+    ("Small VSAT (1.2m)", 18),
+    ("Handheld satellite phone", -12),
+    ("GEO satellite (Earth beam)", 2),
+    ("LEO constellation sat", 8),
+]
+
+for name, gt in systems:
+    print(f"  {name:<30} {gt:>+6.0f}")
+```
+
+**G/T quick reference:**
+
+| System type | Typical G/T | Notes |
+|-------------|-------------|-------|
+| Large gateway (10m) | 35-45 dB/K | Low noise, high gain |
+| Medium station (3m) | 25-30 dB/K | Professional VSAT |
+| Small VSAT (1.2m) | 15-20 dB/K | Enterprise |
+| Consumer dish (0.6m) | 10-14 dB/K | DTH receive |
+| Satellite (GEO) | 0-5 dB/K | Looking at warm Earth |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring feed loss.** Loss before LNA adds directly to noise temperature.
+
+2. **Wrong sky temperature.** Depends on frequency, elevation, and weather. Use ITU-R P.372.
+
+3. **Forgetting ground pickup.** Sidelobes see warm Earth (290 K) even when main beam sees cold sky.
+
+4. **Using NF instead of T.** For low-noise systems, always work in temperature; NF becomes imprecise below 1 dB.
+
+5. **Assuming constant T_sys.** Sky temperature varies with elevation angle—lower elevation = warmer.
+
+6. **Component order matters.** Loss before LNA is catastrophic; same loss after LNA is negligible.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU-R P.372 (Radio noise)
+- ITU-R S.1428 (Earth station G/T)
+- Pozar, D. "Microwave Engineering"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [EIRP](/en/space/link-budget-master-class/eirp/) — transmitter side
+- [Friis Equation](/en/space/link-budget-master-class/friis-revisited/) — path loss
+- [Atmospheric Losses](/en/space/link-budget-master-class/atmospheric-losses-itu-r-p618/) — rain fade impact on G/T
+
+</section>

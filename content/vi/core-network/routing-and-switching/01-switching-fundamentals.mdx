@@ -8,17 +8,258 @@ track: n0
 unit: routing-and-switching
 order: 1
 level: L0
-estimatedReadingMinutes: 5
-title: "Nguyen ly chuyen mach"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: []
+spiralRevisits: ["core-network-n1-mpls-vlan-vrf-01-vlan"]
+title: "Nguyên lý chuyển mạch"
+description: "Cách switch forward frame ở Layer 2, bảng MAC address, và tại sao điều này quan trọng cho mạng viễn thông."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["IEEE 802.1Q", "IEEE 802.1D"]
+tags: ["switching", "mac-address", "layer-2", "networking"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Nguyen ly chuyen mach
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+Mọi packet trong mạng viễn thông đều đi qua switch. Hiểu switching là nền tảng — nó giải thích tại sao VLAN tồn tại, cách broadcast storm xảy ra, và tại sao mạng Layer 2 không scale vô hạn.
+
+Trước khi bạn có thể hiểu MPLS, VXLAN, hoặc segment routing, bạn cần hiểu switch cơ bản.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+### Switch làm gì
+
+Switch kết nối nhiều thiết bị trong cùng network segment. Nó nhận frame trên một port và forward ra đúng port.
+
+```
+┌─────────────────────────────────────────┐
+│                 Switch                   │
+│                                          │
+│  Port 1    Port 2    Port 3    Port 4   │
+│    │         │         │         │      │
+└────┼─────────┼─────────┼─────────┼──────┘
+     │         │         │         │
+     ▼         ▼         ▼         ▼
+   PC-A      PC-B     Server    Router
+```
+
+**Insight quan trọng:** Switch hoạt động ở Layer 2. Nó không quan tâm địa chỉ IP. Nó forward dựa trên **MAC address**.
+
+### Bảng MAC address
+
+Mỗi switch duy trì **bảng MAC address** (còn gọi là CAM table hoặc forwarding table).
+
+| MAC Address | Port | Age |
+|-------------|------|-----|
+| AA:BB:CC:DD:EE:01 | 1 | 30s |
+| AA:BB:CC:DD:EE:02 | 2 | 45s |
+| AA:BB:CC:DD:EE:03 | 3 | 10s |
+
+**Cách nó được xây dựng:**
+1. Frame đến trên port 1 với source MAC AA:BB:CC:DD:EE:01
+2. Switch học: "MAC AA:BB:CC:DD:EE:01 ở port 1"
+3. Điều này gọi là **source MAC learning**
+
+**Cách nó được dùng:**
+1. Frame đến với destination MAC AA:BB:CC:DD:EE:02
+2. Switch tra cứu MAC trong bảng → tìm thấy ở port 2
+3. Forward frame ra port 2 only
+
+### Unknown unicast flooding
+
+Nếu destination MAC không có trong bảng thì sao?
+
+Switch **flood** frame ra tất cả port trừ port nó đến. Đây gọi là **unknown unicast flooding**.
+
+```
+Frame đến trên Port 1
+Destination MAC: FF:FF:FF:FF:FF:FF (hoặc unknown)
+
+     Port 1         Port 2         Port 3         Port 4
+        │              │              │              │
+        ▼              ▼              ▼              ▼
+   [Nhận]          [FLOOD]        [FLOOD]        [FLOOD]
+```
+
+**Broadcast frame** (destination FF:FF:FF:FF:FF:FF) luôn flood.
+
+**Tại sao quan trọng:** Flooding tiêu tốn bandwidth. Trong mạng Layer 2 lớn, flooding quá mức giết performance. Đây là lý do chúng ta dùng VLAN để giới hạn broadcast domain.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### Logic forward frame
+
+```
+┌─────────────────────────────────────────┐
+│         Frame đến trên Port X            │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│    Học source MAC → Port X mapping       │
+│    (cập nhật bảng MAC)                   │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│    Tra cứu destination MAC trong bảng    │
+└───────────────────┬─────────────────────┘
+                    │
+           ┌────────┴────────┐
+           │                 │
+           ▼                 ▼
+    ┌──────────┐      ┌──────────────┐
+    │ Tìm thấy │      │ Không thấy   │
+    └────┬─────┘      └──────┬───────┘
+         │                   │
+         ▼                   ▼
+┌─────────────────┐  ┌─────────────────┐
+│ Forward đến     │  │  Flood đến tất  │
+│   port đó only  │  │   cả port (−X)  │
+└─────────────────┘  └─────────────────┘
+```
+
+### Aging
+
+Entry trong bảng MAC có timer (thường 300 giây). Nếu không nhận frame từ MAC đó trong timeout, entry bị xóa.
+
+**Tại sao aging quan trọng:**
+- Thiết bị di chuyển giữa các port
+- Entry cũ gây misdirected traffic
+- Cân bằng: aging ngắn = nhiều flooding, aging dài = thích ứng chậm
+
+### Store-and-forward vs cut-through
+
+**Store-and-forward:** Switch nhận toàn bộ frame, kiểm tra CRC, rồi forward.
+- Ưu điểm: Bắt lỗi trước khi forward
+- Nhược điểm: Thêm latency (frame size / line rate)
+
+**Cut-through:** Switch bắt đầu forward ngay khi đọc được destination MAC.
+- Ưu điểm: Latency tối thiểu (~2.1μs ở 10G)
+- Nhược điểm: Lan truyền corrupt frame
+
+**Fragment-free:** Chờ 64 byte đầu (minimum frame size), rồi forward.
+- Bắt runt frame (collision fragment)
+- Thỏa hiệp giữa hai cách
+
+Hầu hết switch viễn thông dùng **store-and-forward** — correctness quan trọng hơn microsecond.
+
+### Spanning Tree Protocol (STP)
+
+Mạng Layer 2 không thể có loop. Frame sẽ chạy vòng mãi, tiêu tốn hết bandwidth.
+
+**Spanning Tree Protocol** ngăn loop bằng cách:
+1. Bầu chọn **root bridge**
+2. Tính đường ngắn nhất đến root từ mỗi switch
+3. Block port thừa
+
+```
+Không có STP (xấu):           Có STP (tốt):
+
+    SW1 ─────── SW2               SW1 ─────── SW2
+     │    Loop!  │                 │           │
+     │           │                 │     [X]   │
+     └─── SW3 ───┘                 └─── SW3 ───┘
+                                       (blocked)
+```
+
+**STP state:**
+- **Blocking:** Port không forward, không học MAC
+- **Listening:** Port tham gia STP, không forward
+- **Learning:** Port học MAC, chưa forward
+- **Forwarding:** Hoạt động bình thường
+
+**Convergence time:** STP cổ điển mất 30-50 giây để converge sau topology change. RSTP (Rapid STP) converge trong vài giây.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Capacity planning:**
+
+| Yếu tố | Ảnh hưởng |
+|--------|-----------|
+| MAC table size | Giới hạn thiết bị per switch (thường 8K-128K entry) |
+| Broadcast domain size | Flooding tăng với nhiều thiết bị |
+| STP convergence | Mạng down trong reconvergence |
+
+**Troubleshooting vấn đề switching:**
+
+1. **Thiết bị unreachable:**
+   - Kiểm tra bảng MAC: `show mac address-table`
+   - Entry có mặt không? Port đúng không?
+   - Kiểm tra cable, port status
+
+2. **Kết nối intermittent:**
+   - Tìm MAC flapping (MAC di chuyển giữa port)
+   - Có thể loop hoặc thiết bị spoof MAC
+   - Kiểm tra STP topology change
+
+3. **Broadcast storm:**
+   - Triệu chứng: CPU spike, mạng chậm, drop frame
+   - Kiểm tra loop (STP misconfiguration)
+   - Kiểm tra thiết bị misbehave flood broadcast
+
+**Best practice:**
+
+- Enable storm control (giới hạn broadcast/multicast rate)
+- Dùng RSTP thay vì STP cổ điển
+- Giới hạn VLAN scope (broadcast domain nhỏ hơn)
+- Monitor MAC table utilization
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Nghĩ switch "thông minh."** Switch là thiết bị đơn giản. Nó không hiểu IP, application, hay intent. Nó forward frame dựa trên MAC lookup. Chỉ vậy thôi.
+
+2. **Bỏ qua broadcast domain size.** Mọi thiết bị cùng VLAN chia sẻ broadcast domain. 1000 thiết bị = mọi broadcast hit 1000 thiết bị. Điều này không scale.
+
+3. **Giả định STP là instant.** STP cổ điển mất 30-50 giây để converge. Đó là vĩnh cửu với real-time traffic. Dùng RSTP hoặc alternative.
+
+4. **Không monitor bảng MAC.** Nếu bảng MAC đầy, switch bắt đầu flood tất cả unknown unicast. Performance sập. Monitor utilization.
+
+5. **Tạo loop trong khi thay đổi.** Kết nối hai cable giữa switch mà không config STP = outage ngay lập tức. Luôn verify STP config trước khi thêm link.
+
+6. **Nhầm switch với router.** Switch hoạt động ở Layer 2 (MAC). Router hoạt động ở Layer 3 (IP). Chúng giải quyết vấn đề khác nhau.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- IEEE 802.1D, "Media Access Control Bridges"
+- IEEE 802.1Q, "Bridges and Bridged Networks"
+- IEEE 802.1w, "Rapid Spanning Tree Protocol"
+- Spurgeon & Zimmerman, *Ethernet: The Definitive Guide*, O'Reilly, 2014
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [Routing fundamentals](/vi/core-network/routing-and-switching/routing-fundamentals/) — Layer 3 forwarding
+- [VLAN](/vi/core-network/mpls-vlan-vrf/vlan/) — phân đoạn broadcast domain
+- [MPLS basics](/vi/core-network/mpls-vlan-vrf/mpls-basics/) — label-based forwarding
+
+</section>

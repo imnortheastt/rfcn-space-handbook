@@ -9,16 +9,516 @@ unit: modulation-coding-satellite
 order: 2
 level: L3
 estimatedReadingMinutes: 5
+prerequisites: []
+spiralRevisits: []
 title: "Adaptive Coding and Modulation (ACM)"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Dynamic MODCOD selection to maximize throughput under varying conditions."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["acm", "vcm", "ccm", "modcod", "fade-mitigation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Adaptive Coding and Modulation (ACM)
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Rain can attenuate a Ka-band satellite signal by 10+ dB in minutes. Without ACM, operators must design for worst-case conditions—wasting 50%+ capacity on clear days. With ACM, each terminal gets the highest throughput its current link can support. When rain hits one terminal, only that terminal drops to a more robust MODCOD; everyone else keeps high-efficiency transmission. ACM is the technique that makes modern satellite broadband economically viable.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The core problem ACM solves
+
+```
+Without ACM: Design for Worst Case
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TRADITIONAL APPROACH (CCM - Constant Coding & Modulation):        │
+│                                                                      │
+│  System requirement: 99.9% availability (8.7 hours outage/year)    │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Clear sky SNR:     18 dB  (95% of time)             │         │
+│  │  Moderate rain SNR: 12 dB  (4% of time)              │         │
+│  │  Heavy rain SNR:     6 dB  (0.9% of time)            │         │
+│  │  Severe rain SNR:    2 dB  (0.1% of time - outage)   │         │
+│  │                                                        │         │
+│  │  CCM DESIGN: Use QPSK 2/3 (requires ~3 dB)           │         │
+│  │  → Works in ALL conditions including heavy rain      │         │
+│  │  → Efficiency: 1.32 bps/Hz ALWAYS                    │         │
+│  │                                                        │         │
+│  │  WASTED POTENTIAL:                                    │         │
+│  │  Clear sky could support 32APSK 5/6 → 4.1 bps/Hz    │         │
+│  │  Capacity loss: (4.1-1.32)/4.1 = 68% wasted!        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WITH ACM: Adapt to Current Conditions                              │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Clear sky:     32APSK 5/6 → 4.1 bps/Hz (95%)        │         │
+│  │  Moderate rain: 16APSK 2/3 → 2.6 bps/Hz (4%)         │         │
+│  │  Heavy rain:    QPSK 2/3   → 1.3 bps/Hz (0.9%)       │         │
+│  │  Severe rain:   OUTAGE                (0.1%)         │         │
+│  │                                                        │         │
+│  │  Average efficiency: 0.95×4.1 + 0.04×2.6 + 0.009×1.3 │         │
+│  │                    = 4.0 bps/Hz (vs 1.32 CCM)        │         │
+│  │                                                        │         │
+│  │  ACM GAIN: +200% throughput for same availability!   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ACM operating modes
+
+```
+Three Modes: CCM, VCM, ACM
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CCM (Constant Coding & Modulation)                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Hub ────────[QPSK 3/4]────────────────► Terminal     │         │
+│  │       ────────[QPSK 3/4]────────────────►             │         │
+│  │       ────────[QPSK 3/4]────────────────►             │         │
+│  │                                                        │         │
+│  │  • Same MODCOD for all frames                        │         │
+│  │  • Simple receiver, no feedback needed               │         │
+│  │  • Use case: broadcast TV (no return channel)        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  VCM (Variable Coding & Modulation)                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Hub ────────[32APSK 5/6]───────────────► Terminal A  │         │
+│  │       ────────[16APSK 3/4]──────────────► Terminal B  │         │
+│  │       ────────[QPSK 2/3]────────────────► Terminal C  │         │
+│  │                                                        │         │
+│  │  • Different MODCOD per destination                  │         │
+│  │  • Based on static link budget (distance, antenna)   │         │
+│  │  • No real-time feedback                             │         │
+│  │  • Use case: different terminal sizes in same beam   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ACM (Adaptive Coding & Modulation)                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Hub ◄═══[SNR reports]═══════════════════ Terminals   │         │
+│  │    │                                                  │         │
+│  │    └────[32APSK 5/6]───────────────► Terminal A (sun)│         │
+│  │    └────[16APSK 2/3]───────────────► Terminal A (rain)│        │
+│  │    └────[8PSK 3/4]─────────────────► Terminal B      │         │
+│  │                                                        │         │
+│  │  • MODCOD adapts in real-time per terminal           │         │
+│  │  • Requires return channel for SNR reporting         │         │
+│  │  • Adapts to rain, interference, pointing errors     │         │
+│  │  • Use case: VSAT broadband, HTS systems             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### ACM control loop
+
+```
+ACM Feedback Loop:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                         HUB/GATEWAY                          │   │
+│  │  ┌────────────────────────────────────────────────────────┐ │   │
+│  │  │                   ACM CONTROLLER                        │ │   │
+│  │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │ │   │
+│  │  │  │SNR Database │  │MODCOD Table │  │Traffic Queue│    │ │   │
+│  │  │  │             │  │             │  │             │    │ │   │
+│  │  │  │Term A: 14dB │  │14dB→32APSK │  │ A: 50 Mbps  │    │ │   │
+│  │  │  │Term B: 8dB  │  │ 8dB→8PSK   │  │ B: 20 Mbps  │    │ │   │
+│  │  │  │Term C: 4dB  │  │ 4dB→QPSK   │  │ C: 10 Mbps  │    │ │   │
+│  │  │  └─────────────┘  └─────────────┘  └─────────────┘    │ │   │
+│  │  └────────────────────────────────────────────────────────┘ │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                         │                      ▲                     │
+│                         │ Forward link         │ Return link        │
+│                         │ (MODCODs vary)       │ (SNR reports)      │
+│                         ▼                      │                     │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                       SATELLITE                              │   │
+│  │          (bent-pipe: transparent relay)                      │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                         │                      ▲                     │
+│                         ▼                      │                     │
+│       ┌─────────┐  ┌─────────┐  ┌─────────┐                        │
+│       │Terminal │  │Terminal │  │Terminal │                        │
+│       │    A    │  │    B    │  │    C    │                        │
+│       │ ☀ Clear │  │ 🌧 Rain │  │ ⛈ Storm│                        │
+│       │         │  │         │  │         │                        │
+│       │Measure  │  │Measure  │  │Measure  │                        │
+│       │SNR→14dB │  │SNR→8dB  │  │SNR→4dB  │                        │
+│       └─────────┘  └─────────┘  └─────────┘                        │
+│                                                                      │
+│  TIMING:                                                            │
+│  1. Terminal measures received SNR (every ~100ms to 1s)            │
+│  2. SNR report sent on return link (piggyback or dedicated)        │
+│  3. Hub receives report (~250ms RTT for GEO)                       │
+│  4. ACM controller selects new MODCOD                              │
+│  5. Next frame to that terminal uses new MODCOD                    │
+│  6. Total loop: 500ms - 2s depending on implementation            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### SNR estimation methods
+
+```
+How Terminals Measure SNR:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  METHOD 1: Pilot-Based Estimation                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  DVB-S2 frame with pilots:                            │         │
+│  │  ┌─────┬─────┬─────┬─────┬─────┬─────┬─────┐        │         │
+│  │  │ PL  │Data │PILOT│Data │PILOT│Data │PILOT│        │         │
+│  │  │ HDR │     │ 36s │     │ 36s │     │ 36s │        │         │
+│  │  └─────┴─────┴─────┴─────┴─────┴─────┴─────┘        │         │
+│  │                  ↓     ↓     ↓                        │         │
+│  │  Pilots are KNOWN symbols → compare received vs ideal │         │
+│  │  Error vector magnitude → SNR estimate               │         │
+│  │                                                        │         │
+│  │  Advantage: Works regardless of MODCOD               │         │
+│  │  Disadvantage: ~3% overhead for pilots               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  METHOD 2: Data-Aided Estimation                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  After FEC decoding, re-encode and compare:          │         │
+│  │                                                        │         │
+│  │  Received symbols ──► Decode ──► Re-encode           │         │
+│  │        │                              │               │         │
+│  │        └──────── Compare ─────────────┘               │         │
+│  │                    │                                  │         │
+│  │                    ▼                                  │         │
+│  │               SNR estimate                            │         │
+│  │                                                        │         │
+│  │  Advantage: No overhead                              │         │
+│  │  Disadvantage: Fails if decode fails (chicken-egg)   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  METHOD 3: SNORE (SNR Offset from Resource Elements)                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Report relative change, not absolute SNR:           │         │
+│  │                                                        │         │
+│  │  Current MODCOD: 16APSK 3/4 (threshold: 10.2 dB)     │         │
+│  │  Measured margin: +3.8 dB                             │         │
+│  │  Report: "SNORE = +3.8"                               │         │
+│  │                                                        │         │
+│  │  Hub computes: Can upgrade to 32APSK 3/4 (12.2 dB)   │         │
+│  │                                                        │         │
+│  │  Advantage: Calibration-independent                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ACM hysteresis
+
+```
+Avoiding MODCOD Oscillation:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PROBLEM: SNR fluctuates → MODCOD bounces rapidly                  │
+│                                                                      │
+│  SNR (dB)                                                           │
+│     12 ─────────────────────────────────────────── 16APSK threshold │
+│        ╱╲    ╱╲    ╱╲                                               │
+│     11 ╱  ╲╱╱  ╲╱╱  ╲╱╲                                            │
+│        ╱              ╲                                              │
+│     10 ─────────────────────────────────────────── 8PSK threshold  │
+│                                                                      │
+│  Without hysteresis: MODCOD changes 6 times in this window!        │
+│  → Decoder resets, throughput loss, packet reordering             │
+│                                                                      │
+│  SOLUTION: Add hysteresis margins                                   │
+│                                                                      │
+│  SNR (dB)                                                           │
+│     13 ─────────────────────────────────────────── Upgrade to 16APSK│
+│     12 ────────────────────────────────────────────────────────────│
+│        ╱╲    ╱╲    ╱╲                                               │
+│     11 ╱  ╲╱╱  ╲╱╱  ╲╱╲                                            │
+│        ╱              ╲                                              │
+│     10 ────────────────────────────────────────────────────────────│
+│      9 ─────────────────────────────────────────── Downgrade to 8PSK│
+│                                                                      │
+│  Rules:                                                             │
+│  • Upgrade: SNR > threshold + 1 dB margin                          │
+│  • Downgrade: SNR < threshold - 1 dB margin                        │
+│  • Hold: Stay at current MODCOD within ±1 dB band                  │
+│                                                                      │
+│  Additional techniques:                                             │
+│  • Time averaging (e.g., 5-second window)                          │
+│  • Minimum dwell time (stay at MODCOD for ≥N frames)              │
+│  • Predictive algorithms (rain rate trending)                      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**ACM simulation and gain calculation:**
+
+```python
+import numpy as np
+
+# MODCOD table with thresholds
+MODCODS = [
+    {"name": "QPSK 1/2",   "eff": 0.99,  "threshold": 1.0},
+    {"name": "QPSK 2/3",   "eff": 1.32,  "threshold": 3.1},
+    {"name": "QPSK 3/4",   "eff": 1.49,  "threshold": 4.0},
+    {"name": "8PSK 2/3",   "eff": 1.98,  "threshold": 6.6},
+    {"name": "8PSK 3/4",   "eff": 2.23,  "threshold": 7.9},
+    {"name": "16APSK 2/3", "eff": 2.64,  "threshold": 9.0},
+    {"name": "16APSK 3/4", "eff": 2.97,  "threshold": 10.2},
+    {"name": "32APSK 3/4", "eff": 3.70,  "threshold": 12.2},
+    {"name": "32APSK 5/6", "eff": 4.12,  "threshold": 13.0},
+]
+
+def select_modcod(snr_db, margin_db=1.0):
+    """Select best MODCOD for given SNR with margin."""
+    available = snr_db - margin_db
+    best = None
+    for mc in MODCODS:
+        if mc["threshold"] <= available:
+            if best is None or mc["eff"] > best["eff"]:
+                best = mc
+    return best if best else MODCODS[0]  # Fall back to most robust
+
+def simulate_rain_event(clear_snr, max_fade, duration_samples=100):
+    """Simulate a rain fade event (bell curve attenuation)."""
+    t = np.linspace(0, 1, duration_samples)
+    fade = max_fade * np.exp(-((t - 0.5) ** 2) / 0.02)  # Gaussian fade
+    return clear_snr - fade
+
+print("ACM Simulation")
+print("=" * 60)
+
+# Scenario: Ka-band link with rain fade
+clear_sky_snr = 15.0  # dB
+max_rain_fade = 10.0  # dB
+samples = 100
+
+snr_trace = simulate_rain_event(clear_sky_snr, max_rain_fade, samples)
+
+print("\n1. SNR and MODCOD During Rain Event")
+print("-" * 60)
+
+# Track statistics
+ccm_modcod = select_modcod(clear_sky_snr - max_rain_fade)  # Design for worst
+acm_efficiencies = []
+ccm_efficiency = ccm_modcod["eff"]
+
+# Sample points to display
+display_points = [0, 25, 45, 50, 55, 75, 99]
+
+print(f"  CCM design: {ccm_modcod['name']} (constant)")
+print()
+print(f"  {'Sample':<8} {'SNR (dB)':<10} {'ACM MODCOD':<14} {'ACM Eff':<10} {'CCM Eff':<10}")
+print("-" * 60)
+
+for i, snr in enumerate(snr_trace):
+    acm_mc = select_modcod(snr)
+    acm_efficiencies.append(acm_mc["eff"])
+    
+    if i in display_points:
+        print(f"  {i:<8} {snr:<10.1f} {acm_mc['name']:<14} {acm_mc['eff']:<10.2f} {ccm_efficiency:<10.2f}")
+
+# Calculate gains
+avg_acm_eff = np.mean(acm_efficiencies)
+acm_gain = (avg_acm_eff / ccm_efficiency - 1) * 100
+
+print()
+print("-" * 60)
+print(f"  CCM average efficiency: {ccm_efficiency:.2f} bps/Hz")
+print(f"  ACM average efficiency: {avg_acm_eff:.2f} bps/Hz")
+print(f"  ACM gain over CCM: +{acm_gain:.1f}%")
+
+# Hysteresis simulation
+print("\n2. Effect of Hysteresis")
+print("-" * 60)
+
+def count_modcod_changes(snr_trace, hysteresis_db=0):
+    """Count MODCOD transitions with given hysteresis."""
+    changes = 0
+    current_mc = select_modcod(snr_trace[0])
+    
+    for snr in snr_trace[1:]:
+        new_mc = select_modcod(snr)
+        
+        if hysteresis_db > 0:
+            # Only change if SNR moves significantly
+            if new_mc["eff"] > current_mc["eff"]:
+                # Upgrade: need extra margin
+                if snr > new_mc["threshold"] + hysteresis_db:
+                    if new_mc != current_mc:
+                        changes += 1
+                        current_mc = new_mc
+            elif new_mc["eff"] < current_mc["eff"]:
+                # Downgrade: need to fall below threshold - margin
+                if snr < current_mc["threshold"] - hysteresis_db:
+                    if new_mc != current_mc:
+                        changes += 1
+                        current_mc = new_mc
+        else:
+            if new_mc != current_mc:
+                changes += 1
+                current_mc = new_mc
+    
+    return changes
+
+# Add noise to make it more realistic
+noisy_snr = snr_trace + np.random.normal(0, 0.5, len(snr_trace))
+
+for hyst in [0, 0.5, 1.0, 2.0]:
+    changes = count_modcod_changes(noisy_snr, hyst)
+    print(f"  Hysteresis {hyst:.1f} dB: {changes} MODCOD changes")
+
+# Multi-terminal scenario
+print("\n3. Multi-Terminal ACM Scenario")
+print("-" * 60)
+
+terminals = [
+    {"name": "Terminal A", "clear_snr": 16, "fade_pct": 5},
+    {"name": "Terminal B", "clear_snr": 14, "fade_pct": 10},
+    {"name": "Terminal C", "clear_snr": 12, "fade_pct": 15},
+    {"name": "Terminal D", "clear_snr": 10, "fade_pct": 20},
+]
+
+print(f"  {'Terminal':<12} {'Clear SNR':<12} {'Fade %':<10} {'ACM Eff':<10} {'CCM Eff':<10}")
+print("-" * 60)
+
+total_acm = 0
+total_ccm = 0
+n_terms = len(terminals)
+
+# CCM: design for worst terminal's worst case
+worst_snr = min(t["clear_snr"] * (1 - t["fade_pct"]/100*0.7) for t in terminals)
+ccm_mc = select_modcod(worst_snr - 5)  # ~5 dB fade assumed
+
+for t in terminals:
+    # ACM: weighted average of clear and faded conditions
+    clear_mc = select_modcod(t["clear_snr"])
+    fade_snr = t["clear_snr"] - 5  # Assume 5 dB fade during rain
+    fade_mc = select_modcod(fade_snr)
+    
+    clear_pct = 100 - t["fade_pct"]
+    acm_eff = (clear_mc["eff"] * clear_pct + fade_mc["eff"] * t["fade_pct"]) / 100
+    
+    total_acm += acm_eff
+    total_ccm += ccm_mc["eff"]
+    
+    print(f"  {t['name']:<12} {t['clear_snr']:<12} {t['fade_pct']:<10} {acm_eff:<10.2f} {ccm_mc['eff']:<10.2f}")
+
+system_gain = (total_acm / total_ccm - 1) * 100
+print()
+print(f"  System ACM gain: +{system_gain:.1f}%")
+
+# Return channel overhead
+print("\n4. ACM Return Channel Requirements")
+print("-" * 60)
+
+report_interval_ms = 500
+report_size_bits = 32  # SNR + terminal ID
+terminals_count = 1000
+
+reports_per_sec = 1000 / report_interval_ms
+total_bps = reports_per_sec * report_size_bits * terminals_count
+
+print(f"  Report interval: {report_interval_ms} ms")
+print(f"  Report size: {report_size_bits} bits")
+print(f"  Terminals: {terminals_count}")
+print(f"  Return channel overhead: {total_bps/1e6:.2f} Mbps")
+print(f"  (Typically <1% of forward link capacity)")
+```
+
+**Key parameters:**
+
+| Parameter | Typical Value | Impact |
+|-----------|--------------|--------|
+| SNR report interval | 100ms - 1s | Faster = better tracking, more overhead |
+| Hysteresis margin | 0.5 - 2 dB | Larger = fewer changes, slower adaptation |
+| ACM loop latency | 500ms - 2s | GEO RTT limits response to fast fades |
+| Gain over CCM | 30% - 200% | Depends on fade statistics |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring ACM loop latency.** GEO RTT is 500ms. Fast fades (scintillation) may be faster than ACM can respond.
+
+2. **No hysteresis.** Without margins, MODCOD oscillates rapidly, causing throughput loss from decoder resets.
+
+3. **Stale SNR reports.** If return channel is congested, old SNR data causes wrong MODCOD selection.
+
+4. **Uplink/downlink asymmetry.** Rain attenuates both directions. Uplink ACM (from terminal) needs separate control.
+
+5. **Per-terminal vs per-beam ACM.** HTS with narrow spot beams may use per-beam ACM (all terminals in beam share MODCOD).
+
+6. **Assuming ACM fixes all margin.** Static losses (antenna mispointing, equipment aging) still need margin.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ETSI EN 302 307-1 (DVB-S2 ACM specification)
+- "DVB-S2 MODCOD Selection" (Newtec whitepaper)
+- ITU-R P.618 (Rain attenuation statistics)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [DVB-S2 and DVB-S2X](/en/space/modulation-coding-satellite/dvb-s2-s2x/) — the standard that defines ACM
+- [MODCODs](/en/space/modulation-coding-satellite/modcods/) — the modulation/coding combinations
+- [Atmospheric Losses](/en/space/link-budget-master-class/atmospheric-losses-itu-r-p618/) — what ACM compensates for
+
+</section>

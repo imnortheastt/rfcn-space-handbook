@@ -1,24 +1,300 @@
 ---
-id: core-network-n0-why-telcos-build-differently-02-five-nines-availability-en
+id: core-network-n1-why-telcos-build-differently-02-five-nines-availability-en
 slug: five-nines-availability
 lang: en
-parityId: core-network-n0-why-telcos-build-differently-02-five-nines-availability
+parityId: core-network-n1-why-telcos-build-differently-02-five-nines-availability
 domain: core-network
-track: n0
+track: n1
 unit: why-telcos-build-differently
 order: 2
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n1-why-telcos-build-differently-01-carrier-grade-requirements"]
+spiralRevisits: ["core-network-n3-5g-core-deployment-01-redundancy-patterns"]
 title: "Five-nines availability"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The math and engineering behind 99.999% uptime — why it's hard and how it's achieved."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["ITU-T E.800", "TL 9000"]
+tags: ["availability", "reliability", "high-availability", "telecom"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Five-nines availability
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+"Five nines" sounds like a marketing term. It's not — it's an engineering constraint that shapes every design decision.
+
+At 99.999% availability, you have 5.26 minutes of downtime per year. That's about 26 seconds per month. One deployment gone wrong and you've blown your annual budget.
+
+Understanding how to achieve and measure five nines separates theoretical architecture from production reality.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The nines table
+
+| Availability | Downtime/year | Downtime/month | Downtime/week |
+|--------------|---------------|----------------|---------------|
+| 99% (two nines) | 3.65 days | 7.31 hours | 1.68 hours |
+| 99.9% (three nines) | 8.76 hours | 43.83 min | 10.08 min |
+| 99.99% (four nines) | 52.60 min | 4.38 min | 1.01 min |
+| 99.999% (five nines) | 5.26 min | 26.30 sec | 6.05 sec |
+| 99.9999% (six nines) | 31.56 sec | 2.63 sec | 0.60 sec |
+
+**Key insight:** Each additional nine is 10× harder to achieve. Going from 99.9% to 99.99% is fundamentally different engineering — not just "trying harder."
+
+### What counts as downtime?
+
+Availability is measured at the **service level**, not the component level:
+
+$$A = \frac{\text{Uptime}}{\text{Total time}} = \frac{\text{MTBF}}{\text{MTBF} + \text{MTTR}}$$
+
+Where:
+- **MTBF** = Mean Time Between Failures
+- **MTTR** = Mean Time To Repair (or Recover)
+
+**Service is "up" if:** A user can complete their intended action. For voice, that means making a call. For data, that means establishing a session.
+
+**Scheduled maintenance counts** unless you have true hitless upgrades. If users can't make calls during your 2 AM maintenance window, that's downtime.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Serial vs Parallel Systems
+
+**Serial system:** Components in sequence. All must work.
+
+```
+[A] → [B] → [C]
+```
+
+$$A_{serial} = A_A \times A_B \times A_C$$
+
+If each component is 99.9% available:
+$$A_{serial} = 0.999^3 = 99.7\%$$
+
+Three nines → less than three nines. **Serial chains kill availability.**
+
+**Parallel system:** Components in redundancy. Any one working is sufficient.
+
+```
+    ┌──[A]──┐
+────┤       ├────
+    └──[B]──┘
+```
+
+$$A_{parallel} = 1 - (1 - A_A)(1 - A_B)$$
+
+If each component is 99% available:
+$$A_{parallel} = 1 - (0.01)^2 = 99.99\%$$
+
+Two nines → four nines with dual redundancy. **Parallel redundancy multiplies availability.**
+
+### Achieving Five Nines
+
+**Strategy 1: Reduce MTTR**
+
+If components fail, recover fast.
+
+| MTBF | MTTR | Availability |
+|------|------|--------------|
+| 1000 hours | 1 hour | 99.9% |
+| 1000 hours | 6 min | 99.99% |
+| 1000 hours | 36 sec | 99.999% |
+
+**Tactics:**
+- Automated failover (no human in the loop)
+- Pre-staged spare capacity
+- Health checks every few seconds
+- Graceful degradation (shed load, don't crash)
+
+**Strategy 2: Increase MTBF**
+
+Prevent failures in the first place.
+
+**Tactics:**
+- Higher-quality components (enterprise vs. consumer)
+- Burn-in testing before deployment
+- Proactive replacement before failure
+- Environmental controls (temperature, power)
+
+**Strategy 3: Eliminate Single Points of Failure**
+
+For any component, ask: "If this fails, does the service fail?"
+
+**Common SPOFs in networks:**
+- Single router/switch in the path
+- Single power feed
+- Single database instance
+- Single configuration management system
+- Single human operator making changes
+
+**Example: Dual-homed architecture**
+
+```
+        ┌───────────┐
+        │  Client   │
+        └─────┬─────┘
+              │
+    ┌─────────┴─────────┐
+    │                   │
+┌───┴───┐           ┌───┴───┐
+│ LB-A  │           │ LB-B  │
+└───┬───┘           └───┬───┘
+    │                   │
+    └─────────┬─────────┘
+              │
+    ┌─────────┴─────────┐
+    │                   │
+┌───┴───┐           ┌───┴───┐
+│ App-A │           │ App-B │
+└───┬───┘           └───┬───┘
+    │                   │
+    └─────────┬─────────┘
+              │
+    ┌─────────┴─────────┐
+    │                   │
+┌───┴───┐           ┌───┴───┐
+│ DB-1  │◄─────────►│ DB-2  │
+└───────┘  sync     └───────┘
+```
+
+Every tier has redundancy. Client connects to either path. Failure of any single component doesn't cause service outage.
+
+### The Hidden Enemy: Correlated Failures
+
+Redundancy assumes independent failures. Correlated failures break this assumption.
+
+**Examples:**
+- Software bug affects all instances simultaneously
+- Power outage takes down both active and standby
+- Network partition isolates entire rack
+- Configuration change pushed to all nodes
+- Operator error during maintenance
+
+**Mitigation:**
+- **Diversity:** Different vendors, different software versions, different power feeds
+- **Isolation:** Separate failure domains (racks, zones, regions)
+- **Staged rollouts:** Don't push changes everywhere at once
+- **Chaos engineering:** Intentionally inject failures to find correlated weaknesses
+
+### Measuring Availability
+
+**Service-level indicators (SLIs):**
+- Successful request rate
+- Error rate
+- Latency (P50, P95, P99)
+
+**Service-level objectives (SLOs):**
+- "99.99% of requests succeed within 100ms"
+- "99.999% of voice calls connect within 5 seconds"
+
+**Service-level agreements (SLAs):**
+- Contractual commitment with penalties
+- Usually 0.5-1 nine below internal SLO (buffer)
+
+**Measurement challenges:**
+- Clock drift between monitoring systems
+- Monitoring system itself can fail
+- Definition of "available" varies by perspective
+- Aggregation hides brief outages
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Calculate availability for a system:**
+
+Given:
+- 2 load balancers (99.9% each, active-active)
+- 3 app servers (99.9% each, need 2 of 3)
+- 2 databases (99.9% each, active-standby with 30s failover)
+
+**Load balancer availability:**
+$$A_{LB} = 1 - (1 - 0.999)^2 = 99.9999\%$$
+
+**App server availability (2 of 3):**
+$$A_{App} = \binom{3}{3}(0.999)^3 + \binom{3}{2}(0.999)^2(0.001)$$
+$$= 0.997 + 0.003 \times 0.999 = 99.9997\%$$
+
+**Database availability:**
+Active-standby with MTTR=30s, assuming 1 failure/month:
+$$A_{DB} \approx 99.999\%$$
+
+**System availability:**
+$$A_{total} = A_{LB} \times A_{App} \times A_{DB}$$
+$$= 0.999999 \times 0.999997 \times 0.99999 \approx 99.998\%$$
+
+Almost five nines — but the databases are the limiting factor.
+
+**Improving the design:**
+- Reduce DB failover time to &lt;1s
+- Add read replicas for query load
+- Implement connection pooling to hide brief failovers
+
+**Availability budget management:**
+
+Annual budget at 99.99%: 52.6 minutes
+
+| Event | Duration | Budget used |
+|-------|----------|-------------|
+| Planned upgrade (hitless) | 0 min | 0% |
+| Software bug (auto-recovered) | 2 min | 3.8% |
+| Network issue (manual fix) | 15 min | 28.5% |
+| Remaining | — | 67.7% |
+
+After the network issue, you have ~35 minutes left for the year. This changes your risk tolerance for deployments.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Averaging hides spikes.** 99.99% monthly average can hide a 4-hour outage if the rest of the month is perfect. SLOs should include burst detection.
+
+2. **Measuring from the wrong point.** Server-side metrics miss client-side failures. Always measure from the user's perspective.
+
+3. **Ignoring partial failures.** If 10% of users can't connect, is the service up? Define degraded states explicitly.
+
+4. **Treating MTBF as constant.** Components age. MTBF decreases over time. Plan for proactive replacement.
+
+5. **Confusing planned and unplanned downtime.** Some SLAs exclude planned maintenance. Clarify what counts.
+
+6. **Believing vendor claims.** "Five nines capable" means nothing. Demand measured availability in comparable deployments.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU-T E.800, "Terms and definitions related to quality of service"
+- TL 9000, "Quality Management System Requirements"
+- Marcus & Stern, *Blueprints for High Availability*, Wiley, 2003
+- Beyer et al., *Site Reliability Engineering*, O'Reilly, 2016
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Telco regulatory context](/en/core-network/why-telcos-build-differently/telco-regulatory-context/) — compliance requirements that mandate availability
+- [MTBF and MTTR](/en/core-network/carrier-grade-vocabulary/mtbf-and-mttr/) — deeper dive into failure metrics
+- [Redundancy patterns](/en/core-network/carrier-grade-vocabulary/redundancy-patterns/) — active-active, active-standby, N+M
+
+</section>

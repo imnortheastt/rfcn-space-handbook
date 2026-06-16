@@ -8,17 +8,444 @@ track: s1
 unit: common-orbits-and-why
 order: 1
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
 title: "LEO — Low Earth Orbit"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Understanding LEO characteristics, orbital mechanics, and why most broadband constellations choose this regime."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["leo", "orbit", "satellite", "constellation", "starlink"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# LEO — Low Earth Orbit
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Low Earth Orbit (LEO) is where the action is: Starlink, OneWeb, Kuiper, and most Earth observation satellites operate here. LEO offers low latency (25-50 ms round-trip) and manageable link budgets, but demands large constellations for global coverage because each satellite sees only a small slice of Earth. Understanding LEO physics is foundational to satellite communications engineering.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### LEO defined
+
+```
+Orbit Altitude Regimes:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Distance from Earth surface:                                       │
+│                                                                      │
+│  0 km ────────────────────────────────────────────────── 42,164 km  │
+│  │                                                              │   │
+│  │◀─── LEO ───▶│◀──── MEO ────▶│◀────── GEO ──────────────────▶│   │
+│  │ 160-2000 km │  2000-35,786  │         35,786 km              │   │
+│  │             │      km       │                                │   │
+│                                                                      │
+│  LEO CHARACTERISTICS:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Altitude:     160 - 2000 km                          │         │
+│  │  Period:       88 - 127 minutes                       │         │
+│  │  Velocity:     7.8 - 7.1 km/s                         │         │
+│  │  Latency:      1-7 ms one-way (space segment only)    │         │
+│  │  Visibility:   4-20 minutes per pass                  │         │
+│  │  Atmosphere:   Drag significant below 500 km          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ═══════════════════════════════════════════════════════════════    │
+│                                                                      │
+│  WHY LEO FOR BROADBAND:                                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ✓ Low latency (25-50 ms RTT vs 600 ms for GEO)       │         │
+│  │  ✓ Lower path loss → smaller terminals                │         │
+│  │  ✓ Easier to launch (less delta-v needed)             │         │
+│  │  ✓ Orbital decay removes debris naturally             │         │
+│  │                                                        │         │
+│  │  ✗ Small coverage footprint per satellite             │         │
+│  │  ✗ Requires 100s-1000s of satellites for global       │         │
+│  │  ✗ Frequent handovers (every 60-90 seconds)           │         │
+│  │  ✗ Higher Doppler shift (±50 kHz at 2 GHz)           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Orbital mechanics basics
+
+```
+LEO Orbital Parameters:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ORBITAL PERIOD (Kepler's Third Law):                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  T = 2π √(a³/μ)                                       │         │
+│  │                                                        │         │
+│  │  where:                                               │         │
+│  │    T = orbital period (seconds)                       │         │
+│  │    a = semi-major axis (km) = Earth radius + altitude │         │
+│  │    μ = 398,600 km³/s² (Earth's gravitational param)   │         │
+│  │                                                        │         │
+│  │  Examples:                                            │         │
+│  │  • 400 km (ISS): T = 92.6 min, v = 7.67 km/s         │         │
+│  │  • 550 km (Starlink): T = 95.6 min, v = 7.59 km/s    │         │
+│  │  • 1200 km (OneWeb): T = 109.4 min, v = 7.26 km/s    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  COVERAGE GEOMETRY:                                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │         🛰 (550 km)                                   │         │
+│  │        ╱   ╲                                          │         │
+│  │       ╱ ε=25°╲    ε = minimum elevation angle        │         │
+│  │      ╱       ╲                                        │         │
+│  │     ╱         ╲                                       │         │
+│  │  ──────────────────  Earth surface                   │         │
+│  │  │◀──── d ────▶│                                     │         │
+│  │                                                        │         │
+│  │  Coverage diameter (d) at ε=25°:                      │         │
+│  │  • 550 km altitude: ~1,900 km diameter               │         │
+│  │  • 1200 km altitude: ~3,200 km diameter              │         │
+│  │                                                        │         │
+│  │  Compare to GEO: ~15,000 km diameter (1/3 of Earth!) │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ATMOSPHERIC DRAG:                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Altitude  │ Density (kg/m³) │ Orbital Decay Rate     │         │
+│  │  ──────────┼─────────────────┼─────────────────────── │         │
+│  │  200 km    │ 2.5 × 10⁻¹⁰    │ Days to weeks          │         │
+│  │  400 km    │ 2.8 × 10⁻¹²    │ Months to 1 year       │         │
+│  │  550 km    │ 2.2 × 10⁻¹³    │ 5-25 years             │         │
+│  │  1200 km   │ 1.1 × 10⁻¹⁵    │ 100+ years             │         │
+│  │                                                        │         │
+│  │  Lower LEO = faster natural deorbit (debris safety)   │         │
+│  │  But requires more frequent station-keeping           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Constellation sizing
+
+```
+LEO Constellation Design:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PROBLEM: How many satellites for global coverage?                  │
+│                                                                      │
+│  GEOMETRY CONSTRAINT:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Earth surface area: 510 million km²                  │         │
+│  │  Coverage per satellite (550 km, ε=25°): ~2.8 M km²   │         │
+│  │                                                        │         │
+│  │  Minimum satellites = 510/2.8 ≈ 180 satellites        │         │
+│  │                                                        │         │
+│  │  BUT: Need overlap for handover, redundancy           │         │
+│  │       Coverage varies with latitude                   │         │
+│  │       Polar regions need different orbits             │         │
+│  │                                                        │         │
+│  │  Practical: 3-5× minimum for continuous service       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WALKER CONSTELLATION PATTERN:                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Top view (Earth's North Pole):                       │         │
+│  │                                                        │         │
+│  │        Plane 1    Plane 2    Plane 3                  │         │
+│  │           │          │          │                     │         │
+│  │     🛰    │    🛰    │    🛰    │    (inclined orbits)│         │
+│  │       ╲   │   ╱      │   ╲      │                     │         │
+│  │        ╲  │  ╱       │    ╲     │                     │         │
+│  │         ╲ │ ╱        │     ╲    │                     │         │
+│  │    ──────●──────    ●     ──────●                     │         │
+│  │         ╱ │ ╲                                         │         │
+│  │        ╱  │  ╲                                        │         │
+│  │       ╱   │   ╲                                       │         │
+│  │     🛰    │    🛰                                     │         │
+│  │                                                        │         │
+│  │  Walker Delta: T/P/F notation                        │         │
+│  │  T = total satellites                                │         │
+│  │  P = number of orbital planes                        │         │
+│  │  F = phase factor (spacing between planes)           │         │
+│  │                                                        │         │
+│  │  Example: Starlink Gen1 shell                        │         │
+│  │  • 72 planes × 22 satellites = 1,584 total           │         │
+│  │  • 53° inclination, 550 km altitude                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Link budget advantage
+
+```
+LEO vs GEO Link Budget Comparison:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  FREE SPACE PATH LOSS (FSPL):                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  FSPL = 20 log₁₀(d) + 20 log₁₀(f) + 20 log₁₀(4π/c)   │         │
+│  │                                                        │         │
+│  │  At 12 GHz (Ku-band):                                 │         │
+│  │                                                        │         │
+│  │  Orbit     │ Distance │ FSPL      │ Difference        │         │
+│  │  ──────────┼──────────┼───────────┼───────────────────│         │
+│  │  LEO 550km │ 800 km   │ 169 dB    │ baseline          │         │
+│  │  MEO 8000km│ 10,000km │ 191 dB    │ +22 dB worse      │         │
+│  │  GEO       │ 38,000km │ 206 dB    │ +37 dB worse      │         │
+│  │                                                        │         │
+│  │  37 dB advantage = 5000× less power needed!           │         │
+│  │  Or: same power, 5000× higher data rate               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TERMINAL SIZE IMPACT:                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  GEO terminal (VSAT):                                 │         │
+│  │  • Dish diameter: 0.75 - 1.2 m typical                │         │
+│  │  • Power: 1-2 W transmit                              │         │
+│  │  • Fixed pointing (GEO doesn't move)                  │         │
+│  │                                                        │         │
+│  │  LEO terminal (Starlink):                             │         │
+│  │  • Phased array: 50 cm × 30 cm                        │         │
+│  │  • Power: 50-100 W (phased array + electronics)       │         │
+│  │  • Electronic steering (tracking moving satellites)   │         │
+│  │                                                        │         │
+│  │  LEO advantage: smaller antenna for same G/T          │         │
+│  │  LEO challenge: must track moving satellites          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**LEO orbital calculations:**
+
+```python
+import numpy as np
+
+# Constants
+MU_EARTH = 398600.4418  # km³/s² - Earth's gravitational parameter
+R_EARTH = 6371  # km - Earth's radius
+C = 299792.458  # km/s - speed of light
+
+def leo_orbital_parameters(altitude_km):
+    """
+    Calculate LEO orbital parameters.
+    """
+    a = R_EARTH + altitude_km  # semi-major axis
+    
+    # Orbital period (Kepler's third law)
+    period_s = 2 * np.pi * np.sqrt(a**3 / MU_EARTH)
+    period_min = period_s / 60
+    
+    # Orbital velocity
+    velocity_km_s = np.sqrt(MU_EARTH / a)
+    
+    # Ground track velocity (projection on Earth surface)
+    ground_velocity = velocity_km_s * R_EARTH / a
+    
+    return {
+        'altitude_km': altitude_km,
+        'semi_major_axis_km': a,
+        'period_min': period_min,
+        'orbits_per_day': 1440 / period_min,
+        'velocity_km_s': velocity_km_s,
+        'ground_velocity_km_s': ground_velocity
+    }
+
+def coverage_diameter(altitude_km, min_elevation_deg):
+    """
+    Calculate coverage diameter on Earth surface.
+    """
+    h = altitude_km
+    eps = np.radians(min_elevation_deg)
+    
+    # Central angle from satellite to coverage edge
+    # Using spherical geometry
+    rho = np.arcsin(R_EARTH * np.cos(eps) / (R_EARTH + h))
+    lambda_0 = np.pi/2 - eps - rho
+    
+    # Coverage radius and diameter
+    coverage_radius_km = R_EARTH * lambda_0
+    coverage_diameter_km = 2 * coverage_radius_km
+    
+    # Coverage area
+    coverage_area_km2 = 2 * np.pi * R_EARTH**2 * (1 - np.cos(lambda_0))
+    
+    return {
+        'coverage_diameter_km': coverage_diameter_km,
+        'coverage_area_km2': coverage_area_km2,
+        'central_angle_deg': np.degrees(lambda_0)
+    }
+
+def link_latency(altitude_km, elevation_deg):
+    """
+    Calculate one-way space segment latency.
+    """
+    h = altitude_km
+    eps = np.radians(elevation_deg)
+    
+    # Slant range calculation
+    rho = np.arcsin(R_EARTH * np.cos(eps) / (R_EARTH + h))
+    slant_range = (R_EARTH + h) * np.sin(np.pi/2 - eps - rho) / np.cos(eps)
+    
+    # One-way delay
+    delay_ms = slant_range / C * 1000
+    
+    return {
+        'slant_range_km': slant_range,
+        'one_way_delay_ms': delay_ms,
+        'round_trip_ms': 2 * delay_ms
+    }
+
+def min_constellation_size(altitude_km, min_elevation_deg, overlap_factor=1.5):
+    """
+    Estimate minimum constellation size for global coverage.
+    """
+    earth_surface_km2 = 4 * np.pi * R_EARTH**2
+    cov = coverage_diameter(altitude_km, min_elevation_deg)
+    
+    # Minimum satellites (no overlap)
+    min_sats = earth_surface_km2 / cov['coverage_area_km2']
+    
+    # Practical with overlap
+    practical_sats = min_sats * overlap_factor
+    
+    return {
+        'earth_surface_km2': earth_surface_km2,
+        'coverage_per_sat_km2': cov['coverage_area_km2'],
+        'theoretical_minimum': int(np.ceil(min_sats)),
+        'practical_estimate': int(np.ceil(practical_sats))
+    }
+
+# Example: Compare LEO altitudes
+print("LEO Orbital Comparison")
+print("=" * 60)
+
+altitudes = [400, 550, 1200]
+for alt in altitudes:
+    params = leo_orbital_parameters(alt)
+    cov = coverage_diameter(alt, 25)
+    lat = link_latency(alt, 45)
+    
+    print(f"\nAltitude: {alt} km")
+    print(f"  Period: {params['period_min']:.1f} min ({params['orbits_per_day']:.1f} orbits/day)")
+    print(f"  Velocity: {params['velocity_km_s']:.2f} km/s")
+    print(f"  Coverage diameter (25° elev): {cov['coverage_diameter_km']:.0f} km")
+    print(f"  RTT (45° elev): {lat['round_trip_ms']:.1f} ms")
+
+# Constellation sizing
+print("\n" + "=" * 60)
+print("Constellation Sizing (25° min elevation):")
+print("-" * 60)
+
+for alt in [550, 1200]:
+    size = min_constellation_size(alt, 25)
+    print(f"\n{alt} km altitude:")
+    print(f"  Theoretical minimum: {size['theoretical_minimum']} satellites")
+    print(f"  Practical (1.5× overlap): {size['practical_estimate']} satellites")
+
+# Real constellation comparison
+print("\n" + "=" * 60)
+print("Real LEO Constellations:")
+print("-" * 60)
+constellations = [
+    ("Starlink Gen1", 550, 53, 1584),
+    ("Starlink Gen2", 340, 43, 7500),
+    ("OneWeb", 1200, 87.9, 648),
+    ("Kuiper", 630, 51.9, 3236),
+]
+for name, alt, inc, sats in constellations:
+    print(f"  {name:15} {alt:4} km, {inc:5.1f}°, {sats:5} sats")
+```
+
+**Key LEO parameters:**
+
+| Parameter | 400 km | 550 km | 1200 km |
+|-----------|--------|--------|---------|
+| Period | 92.6 min | 95.6 min | 109.4 min |
+| Velocity | 7.67 km/s | 7.59 km/s | 7.26 km/s |
+| RTT (45° elev) | 5.4 ms | 7.4 ms | 16.1 ms |
+| Coverage diameter | 1,500 km | 1,900 km | 3,200 km |
+| Deorbit time | ~1 year | 5-25 years | 100+ years |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Van Allen belts.** Avoid 1,000-2,000 km for crewed missions; radiation peaks there.
+
+2. **Orbital debris.** Popular altitudes (500-600 km) are crowded; collision risk increasing.
+
+3. **Solar activity.** Atmospheric drag increases during solar maximum; satellites decay faster.
+
+4. **Sun synchronous vs inclined.** SSO (98°) for Earth observation; lower inclination for telecom.
+
+5. **Eclipses.** LEO satellites enter Earth's shadow every orbit; battery thermal cycling.
+
+6. **Doppler tracking.** User terminals must handle ±50 kHz shifts; complicates modulation.
+
+7. **Handover rate.** Every 60-90 seconds for LEO vs never for GEO; protocol complexity.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Wertz & Larson, "Space Mission Analysis and Design"
+- ITU Radio Regulations (orbital allocations)
+- NASA Orbital Debris Program Office
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [MEO Orbits](/en/space/common-orbits-and-why/meo/) — medium Earth orbit characteristics
+- [LEO Constellation Architecture](/en/space/leo-constellation-architecture/starlink-class-design/) — system design
+- [Satcom Link Budget](/en/space/satcom-link-in-one-diagram/satcom-link-overview/) — RF calculations
+
+</section>

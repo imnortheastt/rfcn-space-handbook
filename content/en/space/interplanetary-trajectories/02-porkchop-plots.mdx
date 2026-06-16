@@ -8,17 +8,418 @@ track: s1
 unit: interplanetary-trajectories
 order: 2
 level: L4
-estimatedReadingMinutes: 5
-title: "Porkchop plots"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["patched-conics"]
+spiralRevisits: []
+title: "Porkchop Plots"
+description: "Visualizing launch and arrival windows as C3 contours to find optimal interplanetary transfer opportunities."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["porkchop-plot", "c3", "launch-window", "arrival-window", "lambert", "interplanetary"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Porkchop plots
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Mission designers don't just pick a launch date from a calendar. They solve thousands of Lambert problems across a grid of departure and arrival dates, then plot the results. The resulting contours look like a pork chop—hence the name. These plots reveal which days offer low-energy transfers, how long the trip takes, and what happens if you miss your window.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What a porkchop plot shows
+
+```
+Porkchop Plot Structure:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                  PORKCHOP PLOT ANATOMY                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Arrival date ▲                                 │    │
+│  │               │                                 │    │
+│  │   Late 2027   │        ╭─────╮                 │    │
+│  │               │       ╱  25   ╲ ←C3 contour    │    │
+│  │               │      │   15   │   (km²/s²)     │    │
+│  │   Mid 2027    │      │ ●10    │ ←Optimal       │    │
+│  │               │       ╲  15  ╱                  │    │
+│  │               │        ╲ 25╱                    │    │
+│  │   Early 2027  │         ─┘                      │    │
+│  │               │                                 │    │
+│  │               └────────────────────────────▶    │    │
+│  │                Late    Mid    Early             │    │
+│  │                2026    2026    2026             │    │
+│  │                    Launch date                  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  X-axis: Launch (departure) date from Earth             │
+│  Y-axis: Arrival date at destination                    │
+│  Contours: C3 (characteristic energy) or Δv             │
+│  Center of "chop": minimum energy opportunity           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### C3 - characteristic energy
+
+```
+C3 Definition:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  CHARACTERISTIC ENERGY (C3):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  C3 = V∞²  (km²/s²)                             │    │
+│  │                                                  │    │
+│  │  V∞ = hyperbolic excess velocity               │    │
+│  │     = velocity "at infinity" relative to Earth  │    │
+│  │                                                  │    │
+│  │  Why C3 instead of V∞?                          │    │
+│  │  • C3 is twice the specific orbital energy      │    │
+│  │  • C3 adds linearly (energies add, not velocities)│  │
+│  │  • Launch vehicle performance quoted in C3      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  LAUNCH VEHICLE C3 CAPABILITY:                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Vehicle          │ C3 = 0  │ C3 = 20 │ C3 = 50│    │
+│  │  ──────────────────┼─────────┼─────────┼────────│    │
+│  │  Falcon 9 (LEO)   │ 22,800 kg│   —     │   —   │    │
+│  │  Falcon Heavy     │ 63,800 kg│ ~16,000 │ ~8,000│    │
+│  │  Atlas V 551      │ ~18,000 kg│ ~8,000 │ ~3,500│    │
+│  │  SLS Block 1      │ ~95,000 kg│ ~27,000│~13,000│    │
+│  │                                                  │    │
+│  │  Lower C3 → larger payload mass                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Building the plot
+
+```
+Porkchop Plot Generation:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  STEP 1: SET UP THE GRID                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Define: launch_dates = [t0, t0+1d, ..., t0+365d]│   │
+│  │          arrival_dates = [t1, t1+1d, ..., t1+365d]│  │
+│  │                                                  │    │
+│  │  Grid size: 365 × 365 = ~133,000 points         │    │
+│  │  (typical resolution: 1 day)                    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  STEP 2: SOLVE LAMBERT'S PROBLEM AT EACH POINT          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  For each (launch_date, arrival_date) pair:     │    │
+│  │                                                  │    │
+│  │  1. Get Earth position r1 at launch_date        │    │
+│  │  2. Get Mars position r2 at arrival_date        │    │
+│  │  3. Compute TOF = arrival_date - launch_date    │    │
+│  │  4. Solve Lambert: find v1, v2 for transfer     │    │
+│  │  5. Calculate C3 = |v1 - v_Earth|²              │    │
+│  │                                                  │    │
+│  │  Lambert gives the initial velocity v1 needed   │    │
+│  │  to reach r2 in time TOF                        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  STEP 3: PLOT CONTOURS                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Create contour plot of C3(launch, arrival)     │    │
+│  │                                                  │    │
+│  │  The characteristic "porkchop" shape emerges    │    │
+│  │  from orbital mechanics:                        │    │
+│  │  • Two lobes (type I and type II trajectories)  │    │
+│  │  • Valley between them (minimum energy)         │    │
+│  │  • Shape repeats every synodic period           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Type I vs Type II transfers
+
+```
+Transfer Types:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TYPE I (Short way, < 180°):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │              ☀️                                  │    │
+│  │            ╱    ╲                                │    │
+│  │       🌍╱        ╲                               │    │
+│  │         ╲────────╱🔴                            │    │
+│  │                                                  │    │
+│  │  Transfer angle < 180°                          │    │
+│  │  Shorter TOF, typically higher C3              │    │
+│  │  Spacecraft crosses less than half orbit        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  TYPE II (Long way, > 180°):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │              ☀️                                  │    │
+│  │         ╱────────╲                               │    │
+│  │       🌍╲          ╱                             │    │
+│  │            ╲    ╱                                │    │
+│  │              🔴                                  │    │
+│  │                                                  │    │
+│  │  Transfer angle > 180°                          │    │
+│  │  Longer TOF, can be lower C3                   │    │
+│  │  Goes "the long way around"                    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ON THE PORKCHOP:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Arrival ▲                                      │    │
+│  │          │    ╭───╮                             │    │
+│  │          │   │Type│                             │    │
+│  │          │   │ II │  ← Upper lobe               │    │
+│  │          │    ╰───╯                             │    │
+│  │          │      ╲                               │    │
+│  │          │       ╲ ← Boundary (180° transfer)   │    │
+│  │          │      ╱                               │    │
+│  │          │    ╭───╮                             │    │
+│  │          │   │Type│  ← Lower lobe               │    │
+│  │          │   │ I  │                             │    │
+│  │          │    ╰───╯                             │    │
+│  │          └──────────────────────▶ Launch        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Reading the plot
+
+```
+Interpreting a Porkchop Plot:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  WHAT TO LOOK FOR:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. MINIMUM C3 POINT                            │    │
+│  │     Center of contours = lowest energy          │    │
+│  │     Optimal launch/arrival date combination     │    │
+│  │                                                  │    │
+│  │  2. TIME OF FLIGHT (TOF)                        │    │
+│  │     Diagonal lines show constant TOF            │    │
+│  │     TOF = arrival_date - launch_date            │    │
+│  │     Contours perpendicular to diagonal = TOF    │    │
+│  │                                                  │    │
+│  │  3. LAUNCH WINDOW WIDTH                         │    │
+│  │     How many days can you slip and still fly?   │    │
+│  │     Follow a C3 contour horizontally           │    │
+│  │                                                  │    │
+│  │  4. VEHICLE CAPABILITY LINE                     │    │
+│  │     Draw horizontal line at your vehicle's      │    │
+│  │     max C3 for required payload mass           │    │
+│  │     All points below this line are feasible    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  EXAMPLE READING (Earth-Mars 2026):                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Optimal launch: ~Jul 2026                      │    │
+│  │  Optimal arrival: ~Jan 2027                     │    │
+│  │  Minimum C3: ~8.5 km²/s² (V∞ ≈ 2.9 km/s)       │    │
+│  │  TOF at optimum: ~180 days                      │    │
+│  │                                                  │    │
+│  │  ±30 day launch slip: C3 increases to ~12      │    │
+│  │  Still reasonable, but heavier fuel penalty    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Simplified porkchop generation:**
+
+```python
+import numpy as np
+
+# Constants
+MU_SUN = 1.327e11  # km³/s²
+AU = 149.6e6  # km
+
+def planet_position(t_days, a_au, period_days, lon0=0):
+    """
+    Simplified circular orbit position.
+    Real mission planning uses ephemeris (SPICE/JPL).
+    """
+    mean_motion = 2 * np.pi / period_days
+    lon = lon0 + mean_motion * t_days
+    r = a_au * AU
+    return np.array([r * np.cos(lon), r * np.sin(lon)])
+
+def lambert_c3_estimate(r1, r2, tof_days):
+    """
+    Simplified C3 estimate using vis-viva.
+    Real Lambert solvers are more sophisticated.
+    """
+    r1_mag = np.linalg.norm(r1)
+    r2_mag = np.linalg.norm(r2)
+    
+    # Transfer semi-major axis (simplified)
+    c = np.linalg.norm(r2 - r1)  # chord
+    s = (r1_mag + r2_mag + c) / 2  # semi-perimeter
+    
+    # Approximate transfer semi-major axis
+    tof_sec = tof_days * 86400
+    a_transfer = (s / 2) * (1 + 0.1 * (tof_sec / 1e7)**0.5)  # rough approximation
+    
+    # Departure velocity (vis-viva)
+    v_transfer = np.sqrt(MU_SUN * (2/r1_mag - 1/a_transfer))
+    
+    # Earth velocity
+    v_earth = np.sqrt(MU_SUN / r1_mag)
+    
+    # C3 (simplified: assumes tangent departure)
+    delta_v = abs(v_transfer - v_earth)
+    c3 = delta_v ** 2
+    
+    return c3
+
+def generate_porkchop_data(launch_start, launch_span, arrival_start, arrival_span,
+                           resolution=10):
+    """
+    Generate C3 grid for porkchop plot.
+    """
+    launch_days = np.arange(0, launch_span, resolution)
+    arrival_days = np.arange(0, arrival_span, resolution)
+    
+    c3_grid = np.zeros((len(arrival_days), len(launch_days)))
+    
+    for i, arr_d in enumerate(arrival_days):
+        for j, lau_d in enumerate(launch_days):
+            tof = (arrival_start + arr_d) - (launch_start + lau_d)
+            
+            if tof < 100 or tof > 400:  # Valid TOF range for Mars
+                c3_grid[i, j] = np.nan
+                continue
+            
+            # Get positions
+            r_earth = planet_position(launch_start + lau_d, 1.0, 365.25)
+            r_mars = planet_position(arrival_start + arr_d, 1.524, 687, lon0=np.pi/4)
+            
+            # Calculate C3
+            c3_grid[i, j] = lambert_c3_estimate(r_earth, r_mars, tof)
+    
+    return launch_days, arrival_days, c3_grid
+
+# Example: conceptual Earth-Mars porkchop
+print("Porkchop Plot Data Generation:")
+print("=" * 50)
+
+# Simplified demonstration
+launch_days, arrival_days, c3 = generate_porkchop_data(
+    launch_start=0, launch_span=180,
+    arrival_start=150, arrival_span=180,
+    resolution=20
+)
+
+# Find minimum
+valid_c3 = c3[~np.isnan(c3)]
+if len(valid_c3) > 0:
+    min_c3 = np.nanmin(c3)
+    min_idx = np.where(c3 == min_c3)
+    print(f"Minimum C3: {min_c3:.1f} km²/s²")
+    print(f"At launch day ~{launch_days[min_idx[1][0]]}")
+    print(f"At arrival day ~{arrival_days[min_idx[0][0]]}")
+    print(f"TOF: ~{arrival_days[min_idx[0][0]] + 150 - launch_days[min_idx[1][0]]:.0f} days")
+
+print("\nNote: Real porkchop plots use full Lambert solver")
+print("and precise planetary ephemeris data.")
+```
+
+**Earth-Mars opportunity comparison:**
+
+| Year | Min C3 | Launch Window | TOF (optimal) |
+|------|--------|---------------|---------------|
+| 2024 | ~8 km²/s² | Sep-Nov | ~180 days |
+| 2026 | ~8.5 km²/s² | Jul-Sep | ~180 days |
+| 2028 | ~9 km²/s² | Sep-Nov | ~200 days |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **C3 isn't total Δv.** C3 only covers departure; arrival Δv is separate.
+
+2. **Circular orbit assumption.** Real planets have elliptical orbits; eccentricity matters.
+
+3. **Plane changes.** 2D plots ignore inclination change costs.
+
+4. **Multiple solutions.** Lambert problem can have multiple solutions; plot shows one branch.
+
+5. **Not all points feasible.** Low C3 doesn't guarantee mission success—consider arrival V∞.
+
+6. **Synodic period.** Opportunities repeat, but not identically (orbits aren't perfectly circular/coplanar).
+
+7. **Simplification.** Real mission design includes many more constraints (comm, power, thermal).
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Bate, Mueller, White, "Fundamentals of Astrodynamics"
+- JPL Horizons ephemeris system
+- NASA Launch Services Program vehicle performance guides
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Gravity Assists](/en/space/interplanetary-trajectories/gravity-assists/) — bending trajectories around planets
+- [Launch Windows](/en/space/interplanetary-trajectories/launch-windows/) — synodic periods and timing
+- [Patched Conics](/en/space/interplanetary-trajectories/patched-conics/) — the underlying math
+
+</section>

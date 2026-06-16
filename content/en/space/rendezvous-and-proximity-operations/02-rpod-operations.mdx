@@ -8,17 +8,502 @@ track: s1
 unit: rendezvous-and-proximity-operations
 order: 2
 level: L4
-estimatedReadingMinutes: 5
-title: "RPOD operations"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: ["clohessy-wiltshire-equations"]
+spiralRevisits: []
+title: "RPOD Operations — From Phasing to Final Approach"
+description: "Understanding the operational phases of rendezvous, proximity operations, and docking from far-field to capture."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["rpod", "rendezvous", "docking", "proximity-ops", "iss"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# RPOD operations
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Every spacecraft docking—Crew Dragon to ISS, Soyuz to station, on-orbit servicing vehicle to client satellite—follows a carefully choreographed sequence of phases. From the initial phasing burn hundreds of kilometers away to the final centimeter-level alignment at capture, RPOD operations demand precise navigation, robust abort capability, and strict procedural discipline. Understanding these phases is essential for mission planning and flight operations.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The RPOD mission profile
+
+```
+RPOD Phases Overview:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PHASE 1: PHASING (Far-field, 100s of km)                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Goal: Reduce range from orbital insertion to ~50 km │         │
+│  │                                                        │         │
+│  │  Duration: hours to days                              │         │
+│  │  Navigation: ground tracking, GPS                    │         │
+│  │                                                        │         │
+│  │  ● Chaser                                            │         │
+│  │     ╲                                                │         │
+│  │      ╲ Phasing orbit (lower, faster)                │         │
+│  │       ╲                                              │         │
+│  │        ╲──────────────────────● Target              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PHASE 2: HOMING (Mid-field, 50 km → 2 km)                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Goal: Acquire target, close to proximity distance   │         │
+│  │                                                        │         │
+│  │  Duration: 1-3 orbits                                │         │
+│  │  Navigation: GPS relative, radar, lidar             │         │
+│  │                                                        │         │
+│  │  Maneuvers: Hohmann-like transfers with midcourse   │         │
+│  │  corrections                                          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PHASE 3: CLOSING (Near-field, 2 km → 200 m)                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Goal: Enter approach corridor, establish V-bar hold │         │
+│  │                                                        │         │
+│  │  Duration: ~1 orbit                                  │         │
+│  │  Navigation: relative GPS, lidar, optical           │         │
+│  │                                                        │         │
+│  │  Key waypoints: hold points for go/no-go decisions  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PHASE 4: FINAL APPROACH (200 m → 10 m)                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Goal: Align with docking port, final approach       │         │
+│  │                                                        │         │
+│  │  Duration: 30-60 minutes                             │         │
+│  │  Navigation: lidar, cameras, proximity sensors       │         │
+│  │                                                        │         │
+│  │  Control: precise attitude and translation          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PHASE 5: DOCKING/CAPTURE (10 m → contact)                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Goal: Soft capture, hard mate, seal verification   │         │
+│  │                                                        │         │
+│  │  Duration: minutes                                   │         │
+│  │  Navigation: proximity sensors, contact sensors     │         │
+│  │                                                        │         │
+│  │  Critical: velocity < 0.1 m/s, alignment < 5°       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Navigation sensor evolution
+
+```
+Sensor Handoff Through RPOD Phases:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Range (km) │ 1000   100   10    1    0.1  0.01  0.001              │
+│  ───────────┼────────────────────────────────────────────           │
+│             │                                                        │
+│  Ground     │ ▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░              │
+│  tracking   │                                                        │
+│             │                                                        │
+│  GPS        │ ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░░░░              │
+│  (absolute) │                                                        │
+│             │                                                        │
+│  GPS        │ ░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░              │
+│  (relative) │                                                        │
+│             │                                                        │
+│  Radar      │ ░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░░░░░░░              │
+│             │                                                        │
+│  Lidar      │ ░░░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓▓▓░░░              │
+│             │                                                        │
+│  Camera     │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓▓▓▓▓▓▓▓▓▓              │
+│  (optical)  │                                                        │
+│             │                                                        │
+│  Contact    │ ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓              │
+│  sensors    │                                                        │
+│             │                                                        │
+│  ▓▓▓ = Active sensor for navigation                                 │
+│  ░░░ = Not used / out of range                                      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Hold points and abort corridors
+
+```
+ISS Approach Corridor (V-bar approach):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TOP VIEW (looking down):                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │              Approach Corridor                        │         │
+│  │              (Keep-out zone boundary)                 │         │
+│  │                   ╱     ╲                             │         │
+│  │                  ╱       ╲                            │         │
+│  │                 ╱         ╲                           │         │
+│  │  V-bar ───────●───────────●────────●────────●        │         │
+│  │             HP3         HP2      HP1      ISS        │         │
+│  │            (400m)      (200m)   (30m)    Dock        │         │
+│  │                 ╲         ╱                           │         │
+│  │                  ╲       ╱                            │         │
+│  │                   ╲     ╱                             │         │
+│  │                                                        │         │
+│  │  HP = Hold Point (mandatory stop for go/no-go)       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  HOLD POINT CRITERIA:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  HP   │ Range │ Duration │ Checks                     │         │
+│  │  ─────┼───────┼──────────┼───────────────────────────│         │
+│  │  HP3  │ 400m  │ ~10 min  │ Nav sensors, comms        │         │
+│  │  HP2  │ 200m  │ ~20 min  │ Relative nav, trajectory  │         │
+│  │  HP1  │ 30m   │ ~10 min  │ Final alignment, crew     │         │
+│  │                                                        │         │
+│  │  At each HP: crew/ground confirms "GO for approach"  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ABORT MODES:                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  CAM (Collision Avoidance Maneuver):                  │         │
+│  │  • Emergency retrograde burn                         │         │
+│  │  • Opens range rapidly                               │         │
+│  │  • Always available, single-fault tolerant           │         │
+│  │                                                        │         │
+│  │  Hold: maintain current position, reassess           │         │
+│  │  Retreat: controlled backoff to previous HP          │         │
+│  │  Wave-off: abort approach, try next orbit            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Typical approach timeline
+
+```
+Crew Dragon to ISS Timeline Example:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  T-24:00:00  Launch                                                 │
+│      │                                                               │
+│      │  Phasing burns                                               │
+│      │                                                               │
+│  T-19:00:00  Far-field (~400 km behind)                             │
+│      │                                                               │
+│      │  Height adjust, approach initiation                          │
+│      │                                                               │
+│  T-04:00:00  Waypoint 1 (~40 km)                                    │
+│      │       GPS relative navigation begins                         │
+│      │                                                               │
+│  T-02:00:00  Waypoint 2 (~5 km)                                     │
+│      │       Lidar acquisition                                      │
+│      │                                                               │
+│  T-01:00:00  Approach Initiation (~1.5 km)                          │
+│      │       Enter approach corridor                                │
+│      │                                                               │
+│  T-00:30:00  Hold Point 3 (400 m)                                   │
+│      │       Go/No-go poll                                          │
+│      │                                                               │
+│  T-00:20:00  Hold Point 2 (200 m)                                   │
+│      │       Final systems check                                    │
+│      │                                                               │
+│  T-00:10:00  Hold Point 1 (30 m)                                    │
+│      │       Crew visual inspection                                 │
+│      │                                                               │
+│  T-00:05:00  Final approach                                         │
+│      │       ~3 cm/s closure rate                                   │
+│      │                                                               │
+│  T-00:00:00  SOFT CAPTURE                                           │
+│      │       Petals engage, motion dampened                         │
+│      │                                                               │
+│  T+00:05:00  HARD MATE                                              │
+│      │       Hooks drive, seals compressed                          │
+│      │                                                               │
+│  T+01:00:00  Vestibule pressurization & hatch open                  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Docking vs berthing
+
+```
+Docking vs Berthing Comparison:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DOCKING (active):                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Chaser flies directly into docking port             │         │
+│  │                                                        │         │
+│  │       🛸 ──────────────→ 🔘 ──→ ■ ISS                 │         │
+│  │     Chaser              Port                          │         │
+│  │                                                        │         │
+│  │  Pros:                                                │         │
+│  │  • Faster (~5 min from 30m)                          │         │
+│  │  • Crew can initiate                                 │         │
+│  │  • Abort possible until contact                      │         │
+│  │                                                        │         │
+│  │  Cons:                                                │         │
+│  │  • Requires active GN&C on chaser                    │         │
+│  │  • Impact loads on mechanism                         │         │
+│  │                                                        │         │
+│  │  Examples: Crew Dragon, Starliner, Soyuz             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  BERTHING (passive):                                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Chaser is grabbed by station robotic arm            │         │
+│  │                                                        │         │
+│  │       🛸 ←──🦾────── ■ ISS                            │         │
+│  │     Chaser   Arm     (Canadarm2)                     │         │
+│  │                                                        │         │
+│  │  Pros:                                                │         │
+│  │  • No impact loads                                   │         │
+│  │  • Larger port diameter possible                     │         │
+│  │  • Chaser can be simpler (no docking mechanism)      │         │
+│  │                                                        │         │
+│  │  Cons:                                                │         │
+│  │  • Slower (~1-2 hours capture to mate)               │         │
+│  │  • Requires crew/ground arm operation                │         │
+│  │  • Arm reach limits position                         │         │
+│  │                                                        │         │
+│  │  Examples: Cargo Dragon (legacy), Cygnus, HTV        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**RPOD phase timing and delta-V:**
+
+```python
+import numpy as np
+
+# Constants
+MU_EARTH = 398600.4418  # km³/s²
+
+def compute_orbital_params(altitude_km):
+    """Compute basic orbital parameters."""
+    r = 6371 + altitude_km
+    v = np.sqrt(MU_EARTH / r)
+    T = 2 * np.pi * np.sqrt(r**3 / MU_EARTH)
+    n = 2 * np.pi / T
+    return {
+        'radius_km': r,
+        'velocity_km_s': v,
+        'period_s': T,
+        'period_min': T / 60,
+        'mean_motion_rad_s': n
+    }
+
+def phasing_maneuver(phase_angle_deg, target_altitude_km, num_orbits=1):
+    """Calculate delta-V for phasing to reduce phase angle."""
+    # Phase angle: how far behind (positive) or ahead (negative)
+    r_target = 6371 + target_altitude_km
+    T_target = 2 * np.pi * np.sqrt(r_target**3 / MU_EARTH)
+    
+    # Phasing orbit period
+    phase_angle_rad = np.radians(phase_angle_deg)
+    phase_to_cover = 2 * np.pi * num_orbits - phase_angle_rad
+    T_phasing = T_target * phase_to_cover / (2 * np.pi * num_orbits)
+    
+    # Semi-major axis of phasing orbit
+    a_phasing = (MU_EARTH * (T_phasing / (2 * np.pi))**2) ** (1/3)
+    
+    # Delta-V (Hohmann-like)
+    v_target = np.sqrt(MU_EARTH / r_target)
+    v_phasing_apo = np.sqrt(MU_EARTH * (2/r_target - 1/a_phasing))
+    
+    dv_enter = abs(v_phasing_apo - v_target)
+    dv_exit = dv_enter  # Symmetric for return
+    
+    return {
+        'phase_angle_deg': phase_angle_deg,
+        'num_orbits': num_orbits,
+        'phasing_period_min': T_phasing / 60,
+        'target_period_min': T_target / 60,
+        'delta_v_total_m_s': (dv_enter + dv_exit) * 1000,
+        'phasing_altitude_km': (2 * a_phasing - r_target) - 6371
+    }
+
+def approach_delta_v(ranges_km, closure_rates_m_s):
+    """Estimate delta-V for approach maneuvers."""
+    # Simplified: assume each range change requires accel + decel
+    total_dv = 0
+    maneuvers = []
+    
+    for i in range(len(ranges_km) - 1):
+        # Accelerate to closure rate, then decelerate to slower rate
+        if i < len(closure_rates_m_s) - 1:
+            dv = abs(closure_rates_m_s[i] - closure_rates_m_s[i+1])
+        else:
+            dv = closure_rates_m_s[i]
+        
+        total_dv += dv * 2  # Accel + decel
+        maneuvers.append({
+            'from_km': ranges_km[i],
+            'to_km': ranges_km[i+1],
+            'closure_m_s': closure_rates_m_s[i],
+            'dv_m_s': dv * 2
+        })
+    
+    return total_dv, maneuvers
+
+def capture_requirements():
+    """Typical capture interface requirements."""
+    return {
+        'max_closing_velocity_m_s': 0.10,  # 10 cm/s
+        'max_lateral_velocity_m_s': 0.05,  # 5 cm/s
+        'max_angular_rate_deg_s': 0.5,
+        'max_lateral_misalignment_m': 0.15,  # 15 cm
+        'max_angular_misalignment_deg': 5.0,
+        'capture_envelope_diameter_m': 0.30,  # 30 cm
+    }
+
+# Analysis
+print("RPOD Operations Analysis")
+print("=" * 60)
+
+# Target orbit
+altitude = 420  # km (ISS)
+orbit = compute_orbital_params(altitude)
+print(f"\nTarget Orbit (ISS):")
+print(f"  Altitude: {altitude} km")
+print(f"  Velocity: {orbit['velocity_km_s']:.3f} km/s")
+print(f"  Period: {orbit['period_min']:.1f} min")
+
+# Phasing
+print("\n" + "-" * 60)
+print("Phase 1: Phasing Maneuver")
+phase = phasing_maneuver(90, altitude, num_orbits=2)  # 90° behind
+print(f"  Initial phase angle: {phase['phase_angle_deg']}° behind")
+print(f"  Catch-up over: {phase['num_orbits']} orbits")
+print(f"  Phasing orbit period: {phase['phasing_period_min']:.1f} min")
+print(f"  Phasing orbit altitude: {phase['phasing_altitude_km']:.0f} km")
+print(f"  Total delta-V: {phase['delta_v_total_m_s']:.1f} m/s")
+
+# Approach phases
+print("\n" + "-" * 60)
+print("Phases 2-4: Approach")
+ranges = [50, 5, 1.5, 0.4, 0.2, 0.03, 0.01, 0]  # km
+closure_rates = [10, 5, 2, 0.5, 0.2, 0.1, 0.03]  # m/s
+total_dv, maneuvers = approach_delta_v(ranges, closure_rates)
+
+print(f"\n  Waypoint   Range    Closure   Est. dV")
+print(f"  ─────────────────────────────────────")
+for i, m in enumerate(maneuvers):
+    print(f"  WP{i+1}        {m['from_km']*1000:6.0f}m  {m['closure_m_s']:5.2f}m/s  {m['dv_m_s']:5.2f}m/s")
+
+print(f"\n  Total approach delta-V: ~{total_dv:.1f} m/s")
+
+# Capture requirements
+print("\n" + "-" * 60)
+print("Phase 5: Capture Requirements")
+capture = capture_requirements()
+print(f"  Max closing velocity: {capture['max_closing_velocity_m_s']*100:.0f} cm/s")
+print(f"  Max lateral velocity: {capture['max_lateral_velocity_m_s']*100:.0f} cm/s")
+print(f"  Max angular rate: {capture['max_angular_rate_deg_s']}°/s")
+print(f"  Max lateral offset: {capture['max_lateral_misalignment_m']*100:.0f} cm")
+print(f"  Max angular offset: {capture['max_angular_misalignment_deg']}°")
+
+# Total mission delta-V
+print("\n" + "-" * 60)
+print("Total RPOD Delta-V Budget:")
+total_rpod = phase['delta_v_total_m_s'] + total_dv
+print(f"  Phasing: {phase['delta_v_total_m_s']:.1f} m/s")
+print(f"  Approach: {total_dv:.1f} m/s")
+print(f"  Station-keeping margin: ~5 m/s")
+print(f"  CAM reserve: ~10 m/s")
+print(f"  Total: ~{total_rpod + 15:.0f} m/s")
+```
+
+**RPOD phase summary:**
+
+| Phase | Range | Duration | Primary Nav | Typical dV |
+|-------|-------|----------|-------------|------------|
+| Phasing | 100s km | hours-days | Ground, GPS | 50-100 m/s |
+| Homing | 50-2 km | 1-3 orbits | Rel. GPS, radar | 5-15 m/s |
+| Closing | 2 km-200 m | ~1 orbit | Lidar, GPS | 2-5 m/s |
+| Final | 200-10 m | 30-60 min | Lidar, camera | 1-2 m/s |
+| Capture | 10-0 m | minutes | Prox sensors | &lt;0.5 m/s |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Sensor handoff gaps.** Transition between sensors can cause navigation discontinuities; overlap coverage.
+
+2. **Lighting constraints.** Optical sensors fail in shadow; plan approach during orbital day.
+
+3. **Communication blackouts.** Loss of ground contact during critical phases requires onboard autonomy.
+
+4. **Abort fuel reserves.** CAM must always be available; don't consume margins approaching.
+
+5. **Target attitude uncertainty.** Tumbling or off-nominal target attitude complicates capture.
+
+6. **Thruster plume impingement.** RCS firings can damage target solar arrays or sensors.
+
+7. **Relative GPS multipath.** Near large structures, GPS accuracy degrades from reflections.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- NASA ISS Visiting Vehicle Requirements (SSP 50808)
+- SpaceX Crew Dragon Flight Operations Manual
+- ESA ATV Rendezvous Flight Dynamics
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Docking Safety Zones](/en/space/rendezvous-and-proximity-operations/docking-safety-zones/) — keep-out zones and corridors
+- [CW Equations](/en/space/rendezvous-and-proximity-operations/clohessy-wiltshire-equations/) — trajectory math
+- [On-Orbit Servicing](/en/space/newspace-economics/on-orbit-servicing/) — commercial RPOD applications
+
+</section>

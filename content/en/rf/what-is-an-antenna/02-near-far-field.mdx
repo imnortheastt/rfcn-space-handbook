@@ -8,12 +8,12 @@ track: r2
 unit: what-is-an-antenna
 order: 2
 level: L1
-estimatedReadingMinutes: 6
+estimatedReadingMinutes: 12
 prerequisites: ["rf-r2-what-is-an-antenna-01-radiation"]
 spiralRevisits: []
 title: "Near field and far field"
 description: "Field regions around an antenna and their properties."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,11 @@ status: published
 
 ## Why distinguish field regions?
 
-The electromagnetic field around an antenna behaves very differently depending on distance. Near the antenna, fields store energy and couple strongly. Far from the antenna, fields radiate and behave like plane waves.
+When you hold a phone near your head, the antenna is in your near field. When a base station contacts the same phone 500 m away, the phone is in the base station's far field. These two regimes are governed by completely different physics.
 
-Knowing which region you're in determines whether you're doing near-field coupling, antenna measurement, or far-field communication.
+Near the antenna, fields store reactive energy, couple capacitively and inductively, and can induce significant currents in nearby conductors. Far from the antenna, fields behave like plane waves: they carry energy, obey simple inverse-square spreading, and can be characterized by a single radiation pattern independent of distance.
+
+Confusing the two regions is one of the most common errors in RF system design — from wrong SAR calculations to invalid gain measurements. This lesson gives you the tools to identify which region you're in and what that means for your analysis.
 
 </section>
 
@@ -37,77 +39,101 @@ Knowing which region you're in determines whether you're doing near-field coupli
 
 ## Intuition
 
-Close to an antenna, the fields are complicated — they depend on antenna geometry, have reactive components, and don't follow simple spreading laws.
+Think of a loudspeaker playing a note. Right next to the speaker cone, the air pressure is complex — it depends on the exact shape of the cone, the room walls, and the distance. Step back to the other side of a concert hall, and the sound simplifies into a spherical wavefront; you can characterize it by direction and amplitude alone.
 
-Far enough away, the fields simplify into spherical waves that look locally like plane waves. The pattern is stable and predictable.
+Antenna fields work the same way. Close to the antenna:
+- Fields have strong $1/r^3$ and $1/r^2$ components that dominate over the $1/r$ radiation term.
+- The E and H fields are out of phase (reactive power sloshes back and forth).
+- The apparent impedance $Z = E/H$ differs wildly from 377 Ω and depends on the antenna type.
 
-The boundary between these regions is where antenna measurements must happen and where the radiation pattern "forms."
+Far from the antenna:
+- Only the $1/r$ radiation component survives (the others have decayed away).
+- E and H are in phase and perpendicular — locally, it looks like a plane wave.
+- $Z = E/H = \eta_0 = 377\ \Omega$ everywhere.
+- The radiation pattern (gain vs. angle) is stable and distance-independent.
+
+The transition between these two regimes is not a sharp boundary but a gradual shift. Engineers have defined practical criteria to mark the transition.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How it works
 
-### Three field regions
+### The three field regions
 
-1. **Reactive near field:** $r < 0.62\sqrt{D^3/\lambda}$
-2. **Radiating near field (Fresnel):** $0.62\sqrt{D^3/\lambda} < r < 2D^2/\lambda$
-3. **Far field (Fraunhofer):** $r > 2D^2/\lambda$
+For an antenna with largest dimension $D$:
 
-where $D$ = largest antenna dimension.
+**1. Reactive near field:** $r < 0.62\sqrt{D^3/\lambda}$
 
-### Reactive near field
+The reactive components of the field dominate. This region is important for:
+- SAR (Specific Absorption Rate) calculations — energy absorbed by body tissue
+- Near-field wireless charging and NFC coupling
+- Coupling between closely spaced antenna elements
+- EMC analysis of PCB traces
 
-- Fields ∝ 1/r², 1/r³ (decay faster than radiation)
-- Strong energy storage (reactive power)
-- Fields depend heavily on antenna geometry
-- E and H not in phase
-- Power oscillates between antenna and field
+**2. Radiating near field (Fresnel region):** $0.62\sqrt{D^3/\lambda} \leq r < 2D^2/\lambda$
 
-Extends to roughly $\lambda/(2\pi)$ for small antennas.
+Radiation fields dominate, but the phase relationship between contributions from different parts of the antenna aperture varies with distance. The radiation pattern is not yet stable — it changes shape as you move away. This region matters for:
+- Focused-beam systems (wireless power, some radar modes)
+- RFID at intermediate ranges
+- Near-field scanning for antenna diagnostics
 
-### Radiating near field (Fresnel)
+**3. Far field (Fraunhofer region):** $r \geq 2D^2/\lambda$
 
-- Radiation fields dominate, but pattern varies with distance
-- Phase differences across antenna aperture are significant
-- Used in focused antennas, RFID, wireless charging
+The radiation pattern is stable: the angular distribution of power no longer changes with distance. All antenna specifications — gain, directivity, beamwidth, sidelobe level — are defined here. Communication systems, radar, and broadcasting all operate in this region.
 
-### Far field (Fraunhofer)
+### The far-field boundary criterion
 
-The region where:
-- Fields ∝ 1/r (inverse distance)
-- Angular pattern is independent of distance
-- E and H are in phase and perpendicular
-- Locally looks like a plane wave
-- Power density ∝ 1/r²
+The standard $r = 2D^2/\lambda$ comes from requiring that the maximum phase error across the antenna aperture be less than $\pi/8$ radians (22.5°). A larger phase error distorts the pattern enough to make far-field measurement invalid.
 
-### Far-field boundary
+For a uniform aperture of width $D$, the path-length difference between the center and edge, as seen from distance $r$, is approximately $D^2/(8r)$ in wavelengths. Setting this less than $\lambda/16$ gives $r > 2D^2/\lambda$.
 
-Standard criterion: $r > 2D^2/\lambda$
+### Worked examples
 
-This ensures phase error across aperture < π/8.
+**Cell phone near a head ($f = 2$ GHz, $\lambda = 150$ mm):**
 
-| Antenna | Frequency | D | Far-field boundary |
-|---------|-----------|---|-------------------|
-| Dipole (λ/2) | 1 GHz | 15 cm | 0.15 m |
-| Dish (1 m) | 10 GHz | 1 m | 67 m |
-| Dish (3 m) | 30 GHz | 3 m | 1800 m |
+Phone antenna $D \approx 50$ mm.
 
-### Field impedance
+Far-field boundary: $2D^2/\lambda = 2 \times 0.05^2 / 0.15 = 0.033$ m $= 3.3$ cm.
 
-Far field: $Z = E/H = \eta_0 = 377\ \Omega$.
+Your head at 1 cm from the antenna is firmly in the reactive near field. SAR analysis must use near-field methods — Friis equation does not apply.
 
-Near field: $Z$ depends on antenna type:
-- Electric antenna (dipole): high impedance near field
-- Magnetic antenna (loop): low impedance near field
+**Cellular sector antenna ($f = 1.8$ GHz, $D = 0.8$ m):**
 
-### Additional criteria
+Far-field boundary: $2 \times 0.64 / 0.167 = 7.7$ m.
 
-For accurate measurements, all three must hold:
-- $r > 2D^2/\lambda$ (phase criterion)
-- $r > D$ (geometry criterion)
-- $r > \lambda$ (wave criterion)
+A UE 100 m away is well in the far field. Pattern measurements at 10 m are adequate.
+
+**Large dish for satellite ($f = 30$ GHz, $D = 3$ m, $\lambda = 10$ mm):**
+
+Far-field boundary: $2 \times 9 / 0.01 = 1800$ m.
+
+A 1 km test range is **not** far-field for this antenna. You either need a 2 km range, a compact antenna range (using a curved mirror to simulate far-field conditions), or near-field scanning with mathematical transformation.
+
+**RFID reader ($f = 13.56$ MHz, $\lambda = 22$ m):**
+
+Antenna $D = 20$ cm $= 0.2$ m. Far-field boundary: $2 \times 0.04 / 22 = 0.0036$ m $= 3.6$ mm.
+
+But the operating range is 5–10 cm, and $r < \lambda$ (0.22 m). Apply the additional criterion $r > \lambda$: the reader at 5 cm is still in near field. This is intentional — NFC/RFID coupling relies on the reactive near field, not radiation.
+
+### Field impedance and antenna type
+
+In the near field, $Z = E/H$ depends on the antenna:
+
+- **Electric (high-impedance) antennas** (dipoles, monopoles): the near field is dominated by the electric field. $Z \gg 377\ \Omega$ close to the antenna. Useful for measuring $E$-field close to RF sources.
+- **Magnetic (low-impedance) antennas** (loops, ferrite rods): the near field is dominated by the magnetic field. $Z \ll 377\ \Omega$ close to the antenna. Better at measuring $H$-field near power electronics or motors.
+
+In the far field, both types converge to $Z = \eta_0 = 377\ \Omega$.
+
+### Multiple criteria for far field
+
+For a valid far-field measurement, all three conditions must hold:
+- $r > 2D^2/\lambda$ (phase criterion — most demanding for large apertures)
+- $r > D$ (geometry criterion — stay outside the shadow region)
+- $r > \lambda$ (wave criterion — ensure the field has organized into a wave)
+
+For small antennas ($D \ll \lambda$), the wave criterion $r > \lambda$ dominates. A 1 cm dipole at 100 MHz ($\lambda = 3$ m) has far field starting at 3 m, not at the negligible $2D^2/\lambda = 0.7$ mm.
 
 </section>
 
@@ -115,37 +141,27 @@ For accurate measurements, all three must hold:
 
 ## Apply
 
-**Example: Cell phone near head**
+**Checking whether a measurement is valid**
 
-Phone antenna ≈ 5 cm, frequency = 2 GHz (λ = 15 cm).
+You need to characterize a 5G mmWave antenna module at 28 GHz. The module is 40 mm × 40 mm ($D = 57$ mm diagonal).
 
-Far-field boundary: $2 \times 0.05^2 / 0.15 = 0.03$ m = 3 cm.
+Far-field boundary: $\lambda = c/f = 10.7$ mm. $r_{FF} = 2 \times (0.057)^2 / 0.0107 = 0.61$ m.
 
-Your head at 1 cm is in the reactive near field. SAR calculations use near-field analysis, not far-field power density.
+With a 1 m measurement distance, you are in the far field. A 30 cm chamber would not be sufficient.
 
-**Example: Antenna test range**
+**Understanding 5G base-station coordination**
 
-Testing a 1 m dish at 30 GHz (λ = 1 cm).
+A massive MIMO panel at 3.5 GHz has $D = 500$ mm (64 elements in a 50 cm array). $\lambda = 86$ mm.
 
-Far-field boundary: $2 \times 1^2 / 0.01 = 200$ m.
+Far-field boundary: $2 \times 0.25 / 0.086 = 5.8$ m.
 
-Need 200 m range for far-field measurements, or use compact range/near-field probe.
+UEs connected at 50 m and beyond are firmly in the far field. Inter-site interference calculations use far-field gain patterns. In-building small cells at 5 m from the panel may be in the radiating near field — coordination algorithms that assume far-field patterns may be slightly off.
 
-**Example: RFID coupling**
+**Near-field SAR calculation**
 
-NFC at 13.56 MHz (λ = 22 m).
+A phone transmits at 23 dBm into a 5 cm antenna at 1.8 GHz ($\lambda = 167$ mm). Far-field boundary: $2 \times 0.05^2 / 0.167 = 30$ mm. Head at 15 mm is in the reactive near field.
 
-Antenna ~5 cm, operating at ~5 cm.
-
-$r << \lambda$ → purely reactive near field. This is inductive coupling, not radiation.
-
-**Example: Radar antenna**
-
-4 m dish at 10 GHz (λ = 3 cm).
-
-Far-field boundary: $2 \times 16 / 0.03 = 1067$ m ≈ 1 km.
-
-Target at 10 km is well in far field. At 500 m, pattern distortion may occur.
+The SAR limit (2 W/kg per 10 g of tissue in the EU) must be evaluated using full near-field EM simulation (FDTD or FEM), not a simple $1/r^2$ power density calculation. The reactive near field can concentrate energy in specific tissue volumes in ways that far-field spreading laws miss entirely.
 
 </section>
 
@@ -153,17 +169,17 @@ Target at 10 km is well in far field. At 500 m, pattern distortion may occur.
 
 ## Pitfalls
 
-1. **Using far-field formulas in near field.** Friis equation and gain calculations assume far field. Using them near the antenna gives wrong answers.
+1. **Applying Friis in the near field.** The Friis transmission equation assumes far-field conditions: spherical wavefront, stable pattern, power density proportional to $1/r^2$. Using it when $r < 2D^2/\lambda$ gives optimistic received-power estimates.
 
-2. **Confusing near-field coupling with radiation.** RFID and wireless charging work via near-field coupling (reactive), not radiation. "Range" behaves very differently.
+2. **Confusing near-field coupling with radiation.** NFC and wireless charging work via reactive near-field coupling (essentially a transformer action). Efficiency falls as $1/r^6$ for small loops, not $1/r^2$. "Range" is limited to a few cm by this steep fall-off, not by transmitted power.
 
-3. **Underestimating far-field distance.** Large antennas at high frequencies require surprisingly long test ranges. A 2 m dish at 30 GHz needs 800 m.
+3. **Underestimating the far-field distance for large apertures.** A 2 m dish at 30 GHz ($\lambda = 10$ mm) needs $r_{FF} = 800$ m. Most engineers instinctively think "I'm far away" after 10 m, but 10 m is deep in the Fresnel zone for a large aperture at millimeter waves.
 
-4. **Ignoring λ term for small antennas.** Very small antennas (D << λ) have far field starting at ~λ, not 2D²/λ. Use r > λ.
+4. **Ignoring the $r > \lambda$ criterion for small antennas.** For very small antennas ($D \ll \lambda$), the formal $2D^2/\lambda$ formula gives a tiny distance, but the wave criterion $r > \lambda$ still applies. A patch antenna at 900 MHz ($\lambda = 333$ mm) needs $r > 333$ mm even though $D$ is only 30 mm.
 
-5. **Phase center errors.** In the radiating near field, the apparent phase center shifts with angle. Interferometry and ranging suffer.
+5. **Assuming pattern stability in the radiating near field.** In the Fresnel region, the pattern shape depends on distance. Using a gain figure measured at one distance to predict power at a different distance (both in the Fresnel zone) introduces systematic errors.
 
-6. **SAR vs. power density.** Near field: use SAR (W/kg) for safety. Far field: use power density (W/m²). Wrong metric → wrong assessment.
+6. **SAR vs. power density.** Near field: use SAR (W/kg) for safety assessment. Far field: use power density (W/m²) or field strength (V/m). Mixing them — especially applying ICNIRP far-field reference levels to a device held against the body — under-estimates exposure.
 
 </section>
 
@@ -171,8 +187,8 @@ Target at 10 km is well in far field. At 500 m, pattern distortion may occur.
 
 ## References
 
-- Balanis, *Antenna Theory: Analysis and Design*, Chapter 2.
-- IEEE Standard 145 — Definitions of Terms for Antennas.
-- Kraus, *Antennas*, Chapter 2.
+- Balanis, *Antenna Theory: Analysis and Design*, 4th ed., Chapter 2 — field region definitions and boundary derivations.
+- IEEE Standard 145-2013 — Definitions of Terms for Antennas, Section 3.
+- Kraus & Marhefka, *Antennas for All Applications*, 3rd ed., Chapter 2 — near-field and far-field concepts.
 
 </section>

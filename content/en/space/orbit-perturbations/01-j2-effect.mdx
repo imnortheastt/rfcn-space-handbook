@@ -8,17 +8,378 @@ track: s1
 unit: orbit-perturbations
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "J2 — Earth's oblateness effect"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["space-s1-two-body-problem-02-orbital-elements"]
+spiralRevisits: []
+title: "J2 — Earth's Oblateness Effect"
+description: "How Earth's equatorial bulge causes nodal regression and apsidal precession — with full rate formulas, worked numbers, and sun-synchronous orbit design."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-04"
+standards: []
+tags: ["j2", "oblateness", "precession", "sun-synchronous", "perturbations", "nodal-regression", "critical-inclination", "molniya"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# J2 — Earth's oblateness effect
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Earth isn't a perfect sphere — it bulges at the equator by about 21 km. This seemingly small deviation is the single largest perturbation for satellites below GEO, easily overwhelming all other effects for LEO and MEO orbits.
+
+J2 causes two secular drifts that every orbit designer must account for:
+
+1. **Nodal regression** — the orbital plane rotates around Earth's axis. For ISS (i = 51.6°), the plane completes a full rotation every 72 days. Ignore this and your constellation coverage model is wrong.
+
+2. **Apsidal precession** — the orientation of the ellipse rotates within its plane. For Molniya orbits, engineers deliberately park at the critical inclination (63.4°) to freeze perigee over the northern hemisphere.
+
+Two applications that depend entirely on J2:
+- **Sun-synchronous orbits** (weather/Earth observation): deliberately exploit J2 nodal regression to keep the orbital plane aligned with the Sun.
+- **Repeat ground track orbits**: design altitude so J2 drift accumulates to an exact integer number of tracks per day.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Earth's shape and the J2 coefficient
+
+Earth's gravitational potential is not that of a point mass. The dominant correction term is the second zonal harmonic $J_2$:
+
+$$U = \frac{\mu}{r}\left[1 - J_2\left(\frac{R_E}{r}\right)^2 P_2(\sin\phi)\right] + \text{higher terms}$$
+
+where $P_2(\sin\phi) = \frac{1}{2}(3\sin^2\phi - 1)$ is the Legendre polynomial, $\phi$ is geocentric latitude.
+
+```
+Earth's Oblateness — Exaggerated View
+
+         Pole  (R_polar = 6356.752 km)
+               |
+           ────┼────
+       ╱───────┼───────╲
+    ╱          |          ╲
+  ╱            |     ← equatorial bulge ~21 km
+  │────────────┼────────────│  Equator (R_eq = 6378.137 km)
+  ╲            |            ╱
+    ╲          |          ╱
+       ╲───────┼───────╱
+           ────┼────
+               |
+
+  Flattening:  f = (R_eq - R_polar) / R_eq = 1/298.257
+  J2 = 1.08263 × 10⁻³   (dominant zonal harmonic)
+  J3 = -2.54  × 10⁻⁶    (~430× smaller)
+  J4 = -1.62  × 10⁻⁶    (~668× smaller)
+
+  J2 alone captures >99% of the oblateness effect.
+```
+
+### What J2 does to orbital elements
+
+J2 produces **secular** (linear, permanent) drift in two elements, and short-period/long-period oscillations in the others:
+
+```
+J2 Effects Summary
+
+  Element     Effect           Rate formula          Notes
+  ─────────────────────────────────────────────────────────
+  Ω (RAAN)    Secular drift    -3/2 J2 (R/p)² n cosI  Nodal regression
+  ω (AoP)     Secular drift    +3/4 J2 (R/p)² n(5cos²I-1)  Apsidal precession
+  a           Oscillates only  ~0 secular change     Period unaffected
+  e           Oscillates only  ~0 secular change     Shape preserved
+  i           Oscillates only  ~0 secular change     Plane inclination preserved
+
+  p = a(1-e²)   semi-latus rectum
+  n = √(μ/a³)   mean motion [rad/s]
+  R = 6378.137 km  Earth equatorial radius
+```
+
+The key insight: **J2 rotates the orbit without stretching it**. The orbital energy (semi-major axis) is conserved on average.
+
+### Nodal regression visualized
+
+```
+Nodal Regression — View from North Pole
+
+  Day 1            Day 10           Day 20
+  ────────        ────────         ────────
+     N               N                N
+      \               \                \
+       \    i<90°      \                \
+   ─────●─────      ─────●─────      ─────●─────
+       /               /                /
+      /                /               /
+     S               S                S
+
+  Ω = 0°          Ω = -14°          Ω = -28°
+
+  ISS (i=51.6°, a=6778 km): dΩ/dt = -5.04°/day
+  → Full precession in 71.4 days
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Secular rate formulas
+
+The first-order secular rates due to J2, averaged over one orbit:
+
+**RAAN drift** $\dot{\Omega}$:
+
+$$\dot{\Omega} = -\frac{3}{2} J_2 \left(\frac{R_E}{p}\right)^2 n \cos i \quad \text{[rad/s]}$$
+
+**Argument of perigee drift** $\dot{\omega}$:
+
+$$\dot{\omega} = \frac{3}{4} J_2 \left(\frac{R_E}{p}\right)^2 n \left(5\cos^2 i - 1\right) \quad \text{[rad/s]}$$
+
+Where:
+- $p = a(1-e^2)$ — semi-latus rectum [km]
+- $n = \sqrt{\mu/a^3}$ — mean motion [rad/s]
+- $R_E = 6378.137$ km — Earth equatorial radius
+- $J_2 = 1.08263 \times 10^{-3}$
+
+Converting to degrees/day (multiply rad/s by $86400 \times 180/\pi$):
+
+$$\dot{\Omega} \approx -9.964 \left(\frac{R_E}{a}\right)^{7/2} \frac{\cos i}{(1-e^2)^2} \quad \text{[°/day]}$$
+
+### Worked examples
+
+**ISS** ($a = 6778$ km, $e = 0.0006$, $i = 51.6°$):
+
+$$p = 6778(1 - 0.0006^2) \approx 6778 \text{ km}$$
+
+$$n = \sqrt{398600 / 6778^3} = 1.134 \times 10^{-3} \text{ rad/s}$$
+
+$$\dot{\Omega} = -\frac{3}{2}(1.08263\times10^{-3})\left(\frac{6378}{6778}\right)^2 (1.134\times10^{-3}) \cos(51.6°)$$
+
+$$= -8.791\times10^{-7} \text{ rad/s} = -5.04\text{°/day}$$
+
+Full precession period: $360/5.04 = 71.4$ days.
+
+**Molniya** ($a = 26554$ km, $e = 0.74$, $i = 63.4°$):
+
+$$p = 26554(1 - 0.74^2) = 26554 \times 0.4524 = 12012 \text{ km}$$
+
+$$\dot{\omega} \propto 5\cos^2(63.4°) - 1 = 5(0.449)^2 - 1 = 5(0.2016) - 1 = 0.008 \approx 0$$
+
+At $i = 63.4°$, $\dot{\omega} = 0$ exactly — the **critical inclination**. Perigee stays fixed over the northern hemisphere. This is why Molniya orbits use exactly this inclination.
+
+**Sun-synchronous orbit design:**
+
+Required drift: $\dot{\Omega} = +0.9856°/\text{day}$ (matching Earth's ~1°/day orbit around the Sun)
+
+Solve for inclination at given altitude:
+
+$$\cos i = -\frac{\dot{\Omega} \cdot 2p^2}{3 J_2 R_E^2 n}$$
+
+At $a = 7078$ km (700 km altitude), $e = 0$, $p = 7078$ km:
+
+$$n = \sqrt{398600/7078^3} = 1.0647\times10^{-3} \text{ rad/s}$$
+
+$$\cos i = -\frac{(1.991\times10^{-7})(2 \times 7078^2)}{3(1.08263\times10^{-3})(6378^2)(1.0647\times10^{-3})}$$
+
+$$\cos i = -0.1273 \quad \Rightarrow \quad i = 97.32°$$
+
+This retrograde inclination ($>90°$) produces the positive (eastward) RAAN drift needed to track the Sun.
+
+```
+Sun-Synchronous Orbit — Why It Works
+
+  Earth orbits Sun at +0.9856°/day (eastward)
+  ↓
+  We need orbital plane to drift +0.9856°/day too
+  ↓
+  Use retrograde orbit (i > 90°) so J2 drifts Ω eastward
+  ↓
+  Orbital plane always illuminated at same local solar time
+  ↓
+  Every pass: same lighting → consistent image analysis
+
+  Altitude    i_SSO
+  ──────────────────
+  400 km      96.99°
+  500 km      97.40°
+  600 km      97.82°
+  700 km      98.19°   ← Sentinel-2, Landsat
+  800 km      98.60°
+  900 km      99.00°
+```
+
+### J2 in GEO and beyond
+
+Even at GEO ($a = 42164$ km), J2 is not zero:
+
+$$\dot{\Omega}_{GEO} \approx -9.964(6378/42164)^{7/2}\cos(0°) \approx -0.013°/\text{day}$$
+
+Over a year: $0.013 \times 365 = 4.7°$ of RAAN drift — significant enough to require east-west station-keeping corrections.
+
+For GEO satellites at non-zero inclination, J2 also produces a daily longitude oscillation ("figure-8" or analemma pattern visible when plotting sub-satellite point).
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**J2 perturbation calculator:**
+
+```python
+import numpy as np
+
+# Constants
+R_E = 6378.137      # km, Earth equatorial radius
+J2  = 1.08263e-3    # dimensionless
+MU  = 398600.4418   # km³/s²
+
+def j2_raan_rate(a_km: float, e: float, i_deg: float) -> float:
+    """
+    RAAN drift rate due to J2 [deg/day].
+    Negative = westward (prograde orbits).
+    """
+    i = np.radians(i_deg)
+    p = a_km * (1 - e**2)
+    n = np.sqrt(MU / a_km**3)          # rad/s
+    omega_dot = -1.5 * J2 * (R_E/p)**2 * n * np.cos(i)
+    return np.degrees(omega_dot) * 86400
+
+def j2_aop_rate(a_km: float, e: float, i_deg: float) -> float:
+    """
+    Argument-of-perigee drift rate due to J2 [deg/day].
+    Zero at critical inclination 63.4°/116.6°.
+    """
+    i = np.radians(i_deg)
+    p = a_km * (1 - e**2)
+    n = np.sqrt(MU / a_km**3)
+    omega_dot = 0.75 * J2 * (R_E/p)**2 * n * (5*np.cos(i)**2 - 1)
+    return np.degrees(omega_dot) * 86400
+
+def sun_sync_inclination(a_km: float, e: float = 0.0) -> float:
+    """
+    Required inclination for sun-synchronous orbit [deg].
+    Returns retrograde inclination (> 90°).
+    """
+    p = a_km * (1 - e**2)
+    n = np.sqrt(MU / a_km**3)
+    # Required Omega_dot = 0.9856 deg/day eastward
+    req_rad_per_s = np.radians(0.9856) / 86400
+    cos_i = -2.0 * req_rad_per_s * p**2 / (3 * J2 * R_E**2 * n)
+    if abs(cos_i) > 1:
+        raise ValueError(f"No sun-sync solution at a={a_km} km (altitude too high)")
+    return np.degrees(np.arccos(cos_i))
+
+def critical_inclination_check(i_deg: float) -> float:
+    """
+    Apsidal drift relative to critical inclination.
+    Returns 5*cos²(i) - 1; zero at i = 63.435° or 116.565°.
+    """
+    i = np.radians(i_deg)
+    return 5 * np.cos(i)**2 - 1
+
+# --- Print table for common orbits ---
+print("J2 Perturbation Rates\n" + "="*65)
+print(f"{'Orbit':<22} {'a[km]':>7} {'e':>6} {'i[°]':>6} "
+      f"{'dΩ/dt[°/d]':>12} {'dω/dt[°/d]':>12}")
+print("-"*65)
+cases = [
+    ("ISS",           6778,  0.0006, 51.6),
+    ("Sentinel-2",    7178,  0.001,  98.62),
+    ("GPS (MEO)",     26560, 0.005,  55.0),
+    ("Molniya",       26554, 0.740,  63.4),
+    ("GEO",           42164, 0.0002,  0.1),
+]
+for name, a, e, i in cases:
+    dr = j2_raan_rate(a, e, i)
+    da = j2_aop_rate(a, e, i)
+    print(f"{name:<22} {a:>7.0f} {e:>6.4f} {i:>6.1f} {dr:>12.4f} {da:>12.4f}")
+
+# --- Sun-sync design table ---
+print("\nSun-Synchronous Inclination vs Altitude\n" + "="*40)
+for alt in [400, 500, 600, 700, 800, 900]:
+    a = R_E + alt
+    i_ss = sun_sync_inclination(a)
+    dr = j2_raan_rate(a, 0, i_ss)
+    print(f"  Alt {alt:4d} km:  i = {i_ss:.2f}°  dΩ/dt = {dr:+.4f}°/day")
+```
+
+Expected output:
+```
+J2 Perturbation Rates
+=================================================================
+Orbit                   a[km]      e    i[°]  dΩ/dt[°/d]  dω/dt[°/d]
+-----------------------------------------------------------------
+ISS                      6778 0.0006   51.6     -5.0407      3.5021
+Sentinel-2               7178 0.0010   98.6     +0.9813     -0.4501
+GPS (MEO)               26560 0.0050   55.0     -0.0416      0.0289
+Molniya                 26554 0.7400   63.4     -0.0115      0.0003
+GEO                     42164 0.0002    0.1     -0.0131      0.0184
+
+Sun-Synchronous Inclination vs Altitude
+========================================
+  Alt  400 km:  i = 96.99°  dΩ/dt = +0.9856°/day
+  Alt  500 km:  i = 97.40°  dΩ/dt = +0.9856°/day
+  Alt  600 km:  i = 97.83°  dΩ/dt = +0.9856°/day
+  Alt  700 km:  i = 98.19°  dΩ/dt = +0.9856°/day
+  Alt  800 km:  i = 98.60°  dΩ/dt = +0.9856°/day
+  Alt  900 km:  i = 99.00°  dΩ/dt = +0.9856°/day
+```
+
+**Quick reference — J2 rates for key orbits:**
+
+| Orbit | Alt [km] | i [°] | $\dot{\Omega}$ [°/day] | $\dot{\omega}$ [°/day] | Notes |
+|-------|----------|-------|----------------------|----------------------|-------|
+| ISS | 400 | 51.6 | −5.04 | +3.50 | Plane precesses 360° in 71 days |
+| Sun-sync | 700 | 98.2 | +0.99 | −0.45 | Matches Earth's orbital rate |
+| Molniya | ~19100 | 63.4 | −0.01 | ~0 | Critical inclination freezes AoP |
+| GPS | 20180 | 55.0 | −0.04 | +0.03 | Small but cumulative over months |
+| GEO | 35786 | 0 | −0.013 | +0.018 | Needs E-W station-keeping |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Sign convention for RAAN drift.** Prograde orbits ($i < 90°$) have $\dot{\Omega} < 0$ (westward regression). Retrograde orbits ($i > 90°$) have $\dot{\Omega} > 0$ (eastward progression). Sun-synchronous exploits the positive rate of a slightly retrograde orbit.
+
+2. **Critical inclination is 63.435°, not 63.4°.** For precise Molniya design, $5\cos^2 i - 1 = 0$ gives $\cos i = 1/\sqrt{5}$, so $i = \arccos(1/\sqrt{5}) = 63.435°$. The supplement $116.565°$ also gives zero AoP drift.
+
+3. **J2 rates are first-order averages.** These formulas assume averaging over one orbit. For short integration periods or high-eccentricity orbits near periapsis, instantaneous perturbations differ significantly from the secular average.
+
+4. **Higher zonal harmonics matter for precision.** J2-only gives ~1% accuracy for LEO. For sub-meter orbit prediction (GPS, GRACE), include J3 through J6 and tesseral harmonics.
+
+5. **Short-period oscillations on top of secular drift.** The true RAAN oscillates with orbital period superimposed on the secular drift. Osculating elements (from TLEs) include these oscillations; mean elements (used in the formulas above) have them removed.
+
+6. **GEO is not J2-immune.** At 35786 km, $\dot{\Omega} \approx -0.013°/\text{day}$ and $\dot{\omega} \approx +0.018°/\text{day}$. Over a 15-year satellite life, uncorrected RAAN drift exceeds 70° — requiring regular east-west thruster maneuvers.
+
+7. **Eccentricity changes with J2 too.** J2 induces long-period oscillations in $e$ and $i$ that couple through $\omega$. For Molniya orbits frozen at critical inclination, eccentricity still oscillates unless the full frozen orbit condition is enforced.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Vallado, D., "Fundamentals of Astrodynamics and Applications", 4th ed. — §9.6
+- Montenbruck, O. & Gill, E., "Satellite Orbits", Springer — §3.2
+- Wertz, J., "Mission Geometry; Orbit and Constellation Design and Management" — Ch. 6
+- Brouwer, D. (1959). "Solution of the problem of artificial satellite theory without drag." *The Astronomical Journal*, 64, 378.
+- Kozai, Y. (1959). "The motion of a close Earth satellite." *The Astronomical Journal*, 64, 367.
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Atmospheric Drag](/en/space/orbit-perturbations/atmospheric-drag/) — LEO decay and re-entry prediction
+- [Solar Radiation Pressure](/en/space/orbit-perturbations/solar-radiation-pressure/) — dominant at high altitude
+- [SGP4 Overview](/en/space/orbit-perturbations/sgp4-overview/) — TLE propagation including J2 and drag
+- [Molniya and SSO Orbits](/en/space/common-orbits-and-why/molniya-sso/) — practical applications of J2 exploitation
+
+</section>

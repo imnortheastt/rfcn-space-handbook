@@ -8,17 +8,489 @@ track: s7
 unit: inter-satellite-links-laser-rf
 order: 1
 level: L4
-estimatedReadingMinutes: 5
-title: "RF ISL"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["link-budget-fundamentals"]
+spiralRevisits: []
+title: "RF Inter-Satellite Links — Crosslinks Without Ground"
+description: "Understanding radio frequency inter-satellite links for constellation networking and data relay."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["isl", "rf", "crosslink", "constellation", "satcom"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# RF ISL
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+When a satellite can't see a ground station, how does it relay data? Inter-satellite links (ISLs) let spacecraft communicate directly with each other, creating mesh networks in orbit. RF-based ISLs are mature, weather-tolerant technology that forms the backbone of relay constellations like TDRSS and enables crosslinks in commercial LEO systems. Understanding RF ISL design is essential for constellation architects and ground segment planners.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The constellation networking problem
+
+```
+Without ISL (Ground Relay Only):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LEO Satellites                                                     │
+│                                                                      │
+│       🛰️ A          🛰️ B          🛰️ C          🛰️ D              │
+│         │             ✗             ✗             │                 │
+│         │         (no ground     (ocean,        │                 │
+│         │          contact)      no GS)          │                 │
+│         ▼                                        ▼                 │
+│  ┌──────────┐                            ┌──────────┐              │
+│  │Ground    │      ~~~~~~~~~~~~~~~~~~~~~~│Ground    │              │
+│  │Station 1 │         LATENCY            │Station 2 │              │
+│  └──────────┘     (store & forward)      └──────────┘              │
+│                                                                      │
+│  Problem: Data from B and C must wait until they see a ground      │
+│  station — latency can be 30-90 minutes for polar LEO!             │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+
+With RF ISL (Mesh Network):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LEO Satellites with Crosslinks                                     │
+│                                                                      │
+│       🛰️ A ←─────→ 🛰️ B ←─────→ 🛰️ C ←─────→ 🛰️ D              │
+│         │           RF ISL        RF ISL        │                 │
+│         │                                        │                 │
+│         ▼                                        ▼                 │
+│  ┌──────────┐                            ┌──────────┐              │
+│  │Ground    │                            │Ground    │              │
+│  │Station 1 │                            │Station 2 │              │
+│  └──────────┘                            └──────────┘              │
+│                                                                      │
+│  Solution: Data routes through constellation — any satellite       │
+│  with ground contact can relay for the whole mesh.                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ISL link geometry
+
+```
+RF ISL Link Geometry:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  INTRA-PLANE ISL (same orbital plane):                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │         Orbit direction →                             │         │
+│  │                                                        │         │
+│  │    🛰️ ←────────────────────→ 🛰️ ←────────────────→ 🛰️│         │
+│  │   Sat N-1      ~2000 km        Sat N      ~2000 km   Sat N+1│   │
+│  │                (intra-plane)              (intra-plane)      │   │
+│  │                                                        │         │
+│  │  • Fixed geometry (same plane)                        │         │
+│  │  • Constant range (satellites equally spaced)         │         │
+│  │  • Simpler antenna pointing                           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  INTER-PLANE ISL (adjacent orbital planes):                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    Plane 1              Plane 2              Plane 3  │         │
+│  │       │                    │                    │     │         │
+│  │       🛰️ ←─────────────→ 🛰️ ←─────────────→ 🛰️     │         │
+│  │       │     ~1500 km       │     ~1500 km       │     │         │
+│  │       │   (inter-plane)    │   (inter-plane)    │     │         │
+│  │       │                    │                    │     │         │
+│  │       🛰️                  🛰️                  🛰️     │         │
+│  │                                                        │         │
+│  │  • Varying geometry (planes precess differently)      │         │
+│  │  • Range changes throughout orbit                     │         │
+│  │  • Complex antenna tracking required                  │         │
+│  │  • May break near poles (seam issue)                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### RF ISL frequency bands
+
+```
+ISL Frequency Allocations:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Band     │ Frequency      │ Typical Use        │ Characteristics   │
+│  ─────────┼────────────────┼────────────────────┼──────────────────│
+│  S-band   │ 2.0-2.3 GHz    │ Low-rate ISL,      │ Wide beam, low   │
+│           │                │ TT&C relay         │ data rate        │
+│           │                │                    │                  │
+│  Ku-band  │ 12-18 GHz      │ TDRSS S/SA links   │ Medium capacity, │
+│           │                │                    │ proven tech      │
+│           │                │                    │                  │
+│  Ka-band  │ 22-26 GHz      │ High-rate ISL      │ High capacity,   │
+│           │                │                    │ rain fade N/A    │
+│           │                │                    │                  │
+│  V-band   │ 40-75 GHz      │ Next-gen ISL       │ Very high rate,  │
+│           │                │ (Starlink v2)      │ smaller antenna  │
+│           │                │                    │                  │
+│  ─────────┴────────────────┴────────────────────┴──────────────────│
+│                                                                      │
+│  ISL advantage: No atmospheric absorption (space-to-space)!        │
+│  Rain fade doesn't affect ISL — only ground links.                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### RF ISL link budget
+
+```
+RF ISL Link Budget Example (Ka-band, 2000 km range):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TRANSMIT SIDE:                                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Parameter              │ Value     │ Notes           │         │
+│  │  ──────────────────────┼───────────┼─────────────────│         │
+│  │  Transmit power        │ +37 dBm   │ 5 W             │         │
+│  │  Tx antenna gain       │ +35 dBi   │ 0.5m dish       │         │
+│  │  Tx losses             │ -1 dB     │ feed, pointing  │         │
+│  │  ──────────────────────┼───────────┼─────────────────│         │
+│  │  EIRP                  │ +71 dBm   │                 │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PATH:                                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Free space loss (25 GHz, 2000 km)                    │         │
+│  │  FSPL = 20log(d) + 20log(f) + 92.45                  │         │
+│  │  FSPL = 66 + 88 + 92.45 = -206.5 dB                  │         │
+│  │                                                        │         │
+│  │  No atmospheric loss (vacuum)!                        │         │
+│  │  No rain fade!                                        │         │
+│  │  No scintillation!                                    │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  RECEIVE SIDE:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Rx antenna gain       │ +35 dBi   │ 0.5m dish       │         │
+│  │  System noise temp     │ 500 K     │ Tsys            │         │
+│  │  G/T                   │ +8 dB/K   │                 │         │
+│  │  Rx losses             │ -1 dB     │                 │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LINK MARGIN:                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Received power = 71 - 206.5 + 35 - 1 = -101.5 dBm   │         │
+│  │  Noise floor (100 MHz BW) = -174 + 27 + 10log(500K/290K)│       │
+│  │                           ≈ -145 dBm                  │         │
+│  │  C/N = -101.5 - (-145) = 43.5 dB                     │         │
+│  │                                                        │         │
+│  │  For QPSK at 100 Mbps: need ~10 dB Eb/No             │         │
+│  │  Available: 43.5 - 10log(100M/100M) = 43.5 dB        │         │
+│  │  Margin: ~33 dB (excellent!)                         │         │
+│  │                                                        │         │
+│  │  Can support ~2 Gbps with 16-QAM and coding          │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Antenna pointing and tracking
+
+```
+ISL Antenna Pointing Challenges:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  POINTING ACCURACY REQUIREMENT:                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Antenna beamwidth ≈ 70λ/D                            │         │
+│  │                                                        │         │
+│  │  For Ka-band (25 GHz), 0.5m dish:                     │         │
+│  │  Beamwidth ≈ 70 × 0.012m / 0.5m ≈ 1.7°               │         │
+│  │                                                        │         │
+│  │  Pointing accuracy needed: < beamwidth/10 ≈ 0.17°    │         │
+│  │                                                        │         │
+│  │  This requires:                                       │         │
+│  │  • Star trackers (< 10 arcsec)                       │         │
+│  │  • Antenna gimbal (2-axis, steerable)                │         │
+│  │  • Real-time ephemeris updates                       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TRACKING RATE (Inter-plane ISL):                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Angular rate: up to 1°/second near equator          │         │
+│  │                                                        │         │
+│  │  Gimbal must track continuously while maintaining     │         │
+│  │  sub-degree pointing accuracy.                        │         │
+│  │                                                        │         │
+│  │  Solutions:                                           │         │
+│  │  • Mechanical gimbal (proven, heavy)                 │         │
+│  │  • Phased array (electronic steering, lighter)       │         │
+│  │  • Hybrid (coarse gimbal + fine phased array)        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ACQUISITION SEQUENCE:                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Ephemeris prediction → point to expected location │         │
+│  │  2. Wide-beam acquisition mode (search spiral)        │         │
+│  │  3. Beacon detection → rough lock                     │         │
+│  │  4. Narrow-beam tracking → fine lock                  │         │
+│  │  5. Data link established                             │         │
+│  │                                                        │         │
+│  │  Acquisition time: 10-60 seconds typical              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**RF ISL link budget calculator:**
+
+```python
+import numpy as np
+
+# Constants
+C = 299792458  # m/s
+K_BOLTZMANN = 1.380649e-23  # J/K
+
+def fspl_db(distance_km, frequency_ghz):
+    """Free space path loss in dB."""
+    d_m = distance_km * 1000
+    f_hz = frequency_ghz * 1e9
+    return 20 * np.log10(4 * np.pi * d_m * f_hz / C)
+
+def antenna_gain_db(diameter_m, frequency_ghz, efficiency=0.55):
+    """Parabolic antenna gain."""
+    wavelength = C / (frequency_ghz * 1e9)
+    area = np.pi * (diameter_m / 2) ** 2
+    gain = efficiency * 4 * np.pi * area / wavelength**2
+    return 10 * np.log10(gain)
+
+def beamwidth_deg(diameter_m, frequency_ghz):
+    """Half-power beamwidth (degrees)."""
+    wavelength = C / (frequency_ghz * 1e9)
+    return np.degrees(70 * wavelength / diameter_m)
+
+def noise_power_dbm(bandwidth_hz, noise_temp_k):
+    """Noise power in dBm."""
+    noise_w = K_BOLTZMANN * noise_temp_k * bandwidth_hz
+    return 10 * np.log10(noise_w) + 30  # Convert to dBm
+
+def rf_isl_link_budget(tx_power_dbm, tx_ant_m, rx_ant_m, 
+                       freq_ghz, range_km, bandwidth_mhz,
+                       tx_loss_db=1, rx_loss_db=1, rx_temp_k=500):
+    """Complete RF ISL link budget."""
+    # Gains
+    tx_gain = antenna_gain_db(tx_ant_m, freq_ghz)
+    rx_gain = antenna_gain_db(rx_ant_m, freq_ghz)
+    
+    # EIRP
+    eirp = tx_power_dbm + tx_gain - tx_loss_db
+    
+    # Path loss
+    fspl = fspl_db(range_km, freq_ghz)
+    
+    # Received power
+    rx_power = eirp - fspl + rx_gain - rx_loss_db
+    
+    # Noise
+    bw_hz = bandwidth_mhz * 1e6
+    noise = noise_power_dbm(bw_hz, rx_temp_k)
+    
+    # C/N
+    cn_db = rx_power - noise
+    
+    # G/T
+    gt = rx_gain - 10 * np.log10(rx_temp_k)
+    
+    # Beamwidth
+    bw_tx = beamwidth_deg(tx_ant_m, freq_ghz)
+    bw_rx = beamwidth_deg(rx_ant_m, freq_ghz)
+    
+    return {
+        'tx_power_dbm': tx_power_dbm,
+        'tx_gain_dbi': tx_gain,
+        'rx_gain_dbi': rx_gain,
+        'eirp_dbm': eirp,
+        'fspl_db': fspl,
+        'rx_power_dbm': rx_power,
+        'noise_floor_dbm': noise,
+        'cn_db': cn_db,
+        'gt_dbk': gt,
+        'tx_beamwidth_deg': bw_tx,
+        'rx_beamwidth_deg': bw_rx,
+        'pointing_req_deg': bw_tx / 10,
+    }
+
+def estimate_data_rate(cn_db, bandwidth_mhz, modulation='QPSK'):
+    """Estimate achievable data rate."""
+    spectral_eff = {
+        'BPSK': 1,
+        'QPSK': 2,
+        '8PSK': 3,
+        '16QAM': 4,
+        '64QAM': 6,
+    }
+    cn_req = {
+        'BPSK': 6,
+        'QPSK': 10,
+        '8PSK': 14,
+        '16QAM': 17,
+        '64QAM': 23,
+    }
+    
+    if cn_db >= cn_req[modulation]:
+        rate_mbps = bandwidth_mhz * spectral_eff[modulation] * 0.8  # 80% efficiency
+        margin = cn_db - cn_req[modulation]
+        return rate_mbps, margin
+    return 0, cn_db - cn_req[modulation]
+
+# Analysis
+print("RF ISL Link Budget Analysis")
+print("=" * 60)
+
+# Scenario 1: LEO intra-plane ISL (Ka-band)
+print("\n1. LEO Intra-Plane ISL (Ka-band, 2000 km)")
+print("-" * 60)
+budget1 = rf_isl_link_budget(
+    tx_power_dbm=37,      # 5 W
+    tx_ant_m=0.5,
+    rx_ant_m=0.5,
+    freq_ghz=25,
+    range_km=2000,
+    bandwidth_mhz=100,
+)
+
+for k, v in budget1.items():
+    if 'db' in k.lower() or 'dbi' in k.lower() or 'dbk' in k.lower() or 'dbm' in k.lower():
+        print(f"  {k:20}: {v:+.1f} dB")
+    elif 'deg' in k.lower():
+        print(f"  {k:20}: {v:.2f}°")
+    else:
+        print(f"  {k:20}: {v:.1f}")
+
+rate, margin = estimate_data_rate(budget1['cn_db'], 100, '16QAM')
+print(f"\n  Achievable rate (16QAM): {rate:.0f} Mbps, margin: {margin:.1f} dB")
+
+# Scenario 2: LEO inter-plane ISL (longer range)
+print("\n2. LEO Inter-Plane ISL (V-band, 5000 km)")
+print("-" * 60)
+budget2 = rf_isl_link_budget(
+    tx_power_dbm=40,      # 10 W
+    tx_ant_m=0.3,         # Smaller antenna for V-band
+    rx_ant_m=0.3,
+    freq_ghz=60,          # V-band
+    range_km=5000,
+    bandwidth_mhz=500,
+)
+
+for k, v in budget2.items():
+    if 'db' in k.lower() or 'dbi' in k.lower() or 'dbk' in k.lower() or 'dbm' in k.lower():
+        print(f"  {k:20}: {v:+.1f} dB")
+    elif 'deg' in k.lower():
+        print(f"  {k:20}: {v:.2f}°")
+    else:
+        print(f"  {k:20}: {v:.1f}")
+
+rate2, margin2 = estimate_data_rate(budget2['cn_db'], 500, 'QPSK')
+print(f"\n  Achievable rate (QPSK): {rate2:.0f} Mbps, margin: {margin2:.1f} dB")
+
+# Comparison table
+print("\n" + "=" * 60)
+print("RF ISL Band Comparison (2000 km link)")
+print("-" * 60)
+bands = [
+    ('Ku', 15, 0.6),
+    ('Ka', 25, 0.5),
+    ('V', 60, 0.3),
+]
+
+print(f"{'Band':6} {'Freq':>8} {'Dish':>8} {'FSPL':>10} {'Gain':>8} {'BW':>8}")
+print(f"{'':6} {'(GHz)':>8} {'(m)':>8} {'(dB)':>10} {'(dBi)':>8} {'(deg)':>8}")
+print("-" * 60)
+for name, freq, dish in bands:
+    fspl = fspl_db(2000, freq)
+    gain = antenna_gain_db(dish, freq)
+    bw = beamwidth_deg(dish, freq)
+    print(f"{name:6} {freq:>8.0f} {dish:>8.1f} {fspl:>10.1f} {gain:>8.1f} {bw:>8.2f}")
+```
+
+**RF ISL system comparison:**
+
+| System | Band | ISL Type | Range | Rate | Antenna |
+|--------|------|----------|-------|------|---------|
+| TDRSS | Ku/Ka | GEO relay | 45,000 km | 300 Mbps | 4.9m dish |
+| Starlink v1.5 | Ka | LEO mesh | 2,000 km | ~1 Gbps | Phased array |
+| OneWeb | Ka | LEO intra | 1,500 km | TBD | Steered beam |
+| Iridium NEXT | Ka | LEO mesh | 4,000 km | ~10 Mbps | Phased array |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Antenna pointing error.** Even 0.1° pointing error at Ka-band can lose 3 dB — critical for margin.
+
+2. **Inter-plane seam problem.** At polar regions, adjacent planes diverge; inter-plane ISLs may need to hand off.
+
+3. **Range variation.** Inter-plane ISL range can vary 2:1 over an orbit — link budget must handle worst case.
+
+4. **Doppler shift.** LEO ISLs see ±50 kHz Doppler at Ku-band; receivers need tracking loops.
+
+5. **Regulatory coordination.** ISL frequencies still need ITU coordination even in space.
+
+6. **Eclipse thermal cycling.** RF electronics must survive -40°C to +80°C swings every orbit.
+
+7. **Sun interference.** When Sun is in antenna boresight, noise temperature spikes dramatically.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU-R S.1591: Technical characteristics of NGSO FSS systems
+- NASA TDRSS System Specifications
+- ESA EDRS System Requirements Document
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Optical ISL](/en/space/inter-satellite-links-laser-rf/optical-laser-isl/) — laser crosslinks
+- [ISL Pointing](/en/space/inter-satellite-links-laser-rf/isl-pointing-acquisition/) — acquisition and tracking
+- [LEO Constellation Architecture](/en/space/leo-constellation-architecture/starlink-class-design/) — mesh networking
+
+</section>

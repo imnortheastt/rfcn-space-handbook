@@ -8,17 +8,374 @@ track: n6
 unit: fronthaul-interface
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "eCPRI overview"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n6-functional-splits-02-option-7-2x"]
+spiralRevisits: []
+title: "eCPRI Overview"
+description: "Enhanced Common Public Radio Interface — the packet-based fronthaul protocol replacing legacy CPRI."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["eCPRI V2.0", "O-RAN.WG4.CUS"]
+tags: ["o-ran", "5g", "ecpri", "fronthaul", "cpri"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# eCPRI overview
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Legacy CPRI was point-to-point, constant bit rate, and proprietary per vendor. It couldn't scale to 5G massive MIMO without prohibitive bandwidth.
+
+eCPRI is packet-based, supports compression, and runs over standard Ethernet. It's the foundation of O-RAN Open Fronthaul.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### CPRI vs eCPRI
+
+```
+Evolution from CPRI to eCPRI:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  CPRI (Common Public Radio Interface):                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Transport: Constant bit rate (TDM-like)        │    │
+│  │  Physical:  Dedicated fiber, proprietary optics │    │
+│  │  Split:     Option 8 (PHY-RF)                   │    │
+│  │  Data:      Time-domain IQ samples              │    │
+│  │  BW:        Fixed, scales with antennas         │    │
+│  │             24.3 Gbps for 100 MHz, 8 antennas   │    │
+│  │  Vendor:    Proprietary, single-vendor          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  eCPRI (enhanced CPRI):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Transport: Packet-based (Ethernet/IP)          │    │
+│  │  Physical:  Standard Ethernet optics            │    │
+│  │  Split:     Flexible (Options 6-8, 7-2x)        │    │
+│  │  Data:      Frequency-domain IQ (compressed)    │    │
+│  │  BW:        Variable, compression possible      │    │
+│  │             ~10 Gbps compressed for same config │    │
+│  │  Vendor:    Open specification                  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Key advantages:                                        │
+│  - Standard Ethernet ecosystem (switches, optics)       │
+│  - Statistical multiplexing possible                    │
+│  - Compression reduces bandwidth 50-70%                │
+│  - Flexible functional splits                          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### eCPRI protocol stack
+
+```
+eCPRI Protocol Layers:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Option 1: eCPRI over Ethernet (preferred for FH)       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ eCPRI PDU                                       │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ Ethernet (EtherType 0xAEFE)                     │    │
+│  │ - Dst MAC, Src MAC, VLAN tag                    │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ Physical: 10G/25G/100G Ethernet                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Option 2: eCPRI over UDP/IP                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ eCPRI PDU                                       │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ UDP (port 1914 registered)                      │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ IP (IPv4 or IPv6)                               │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ Ethernet                                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  O-RAN uses: Option 1 (Ethernet) for fronthaul         │
+│  Reason: Lower overhead, deterministic latency         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### eCPRI header
+
+```
+eCPRI Common Header (8 bytes):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Byte 0: Protocol Revision + Reserved + C               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Bits 7-4: Revision (0x01 = V1.x, 0x02 = V2.0)   │    │
+│  │ Bits 3-1: Reserved (000)                         │    │
+│  │ Bit 0:    Concatenation indicator                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Byte 1: Message Type                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 0x00: IQ Data                                   │    │
+│  │ 0x01: Bit Sequence                              │    │
+│  │ 0x02: Real-Time Control Data                    │    │
+│  │ 0x03: Generic Data Transfer                     │    │
+│  │ 0x04: Remote Memory Access                      │    │
+│  │ 0x05: One-Way Delay Measurement                 │    │
+│  │ 0x06: Remote Reset                              │    │
+│  │ 0x07: Event Indication                          │    │
+│  │ 0x08-0x3F: Reserved                            │    │
+│  │ 0x40-0xFF: Vendor-specific                     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Bytes 2-3: Payload Size (big-endian)                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Size of payload in bytes (not including header) │    │
+│  │ Max: 65535 bytes                                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Bytes 4-5: RTC_ID / PC_ID (context identifier)        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Used to identify stream/flow                    │    │
+│  │ PC_ID for IQ data: eAxC ID (extended Antenna    │    │
+│  │                     Carrier ID)                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Bytes 6-7: SEQ_ID (sequence identifier)               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Bits 15-8: Sequence number (0-255, wraps)       │    │
+│  │ Bits 7-0:  Sub-sequence (for fragmentation)     │    │
+│  │ E bit (bit 7 of sub-seq): End of message        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Message types
+
+```
+eCPRI Message Types for O-RAN:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Type 0x00: IQ Data (U-Plane)                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Most common message type                        │    │
+│  │ Contains frequency-domain IQ samples            │    │
+│  │ One message per eAxC per symbol typically       │    │
+│  │                                                  │    │
+│  │ Payload: O-RAN section headers + IQ data        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Type 0x02: Real-Time Control (C-Plane)                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Scheduling/control information                  │    │
+│  │ Sent before U-Plane data                        │    │
+│  │ Contains section descriptions                   │    │
+│  │                                                  │    │
+│  │ Payload: O-RAN C-Plane sections                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Type 0x05: One-Way Delay Measurement                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ For timing alignment                            │    │
+│  │ Measures propagation delay                      │    │
+│  │                                                  │    │
+│  │ Used in initial setup and monitoring            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Type 0x07: Event Indication                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Fault/event notification                        │    │
+│  │ RU → DU direction primarily                     │    │
+│  │                                                  │    │
+│  │ Examples: Sync loss, reset, fault               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Concatenation and fragmentation
+
+```
+eCPRI Message Handling:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Concatenation (C bit = 1):                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Single Ethernet frame contains multiple        │    │
+│  │  eCPRI messages (different eAxC, same symbol)   │    │
+│  │                                                  │    │
+│  │  ┌─────────┬─────────┬─────────┬─────────┐      │    │
+│  │  │ Eth Hdr │ eCPRI 1 │ eCPRI 2 │ eCPRI N │      │    │
+│  │  │         │ (C=1)   │ (C=1)   │ (C=0)   │      │    │
+│  │  └─────────┴─────────┴─────────┴─────────┘      │    │
+│  │                                                  │    │
+│  │  Last message has C=0 (no more following)       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Fragmentation (Sub-sequence):                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Large eCPRI message split across frames        │    │
+│  │  Same SEQ_ID, incrementing sub-sequence         │    │
+│  │                                                  │    │
+│  │  Frame 1: SEQ=5, Sub=0, E=0 (more fragments)    │    │
+│  │  Frame 2: SEQ=5, Sub=1, E=0                     │    │
+│  │  Frame 3: SEQ=5, Sub=2, E=1 (end)               │    │
+│  │                                                  │    │
+│  │  Receiver reassembles before processing         │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  O-RAN typically avoids fragmentation:                  │
+│  - Use jumbo frames (9000 bytes)                       │
+│  - One symbol per message when possible                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### eAxC ID
+
+```
+Extended Antenna-Carrier ID (eAxC ID):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Purpose: Uniquely identify each IQ stream              │
+│                                                          │
+│  Structure (16 bits):                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ ┌───────────┬───────────┬───────────┬─────────┐ │    │
+│  │ │ O-DU Port │ Band/Sect │ CC        │ RU Port │ │    │
+│  │ │ (4 bits)  │ (4 bits)  │ (4 bits)  │ (4 bits)│ │    │
+│  │ └───────────┴───────────┴───────────┴─────────┘ │    │
+│  │                                                  │    │
+│  │ O-DU Port: Identifies DU network interface      │    │
+│  │ Band/Sect: Band sector ID                       │    │
+│  │ CC:        Component carrier index              │    │
+│  │ RU Port:   Antenna/spatial stream at RU        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Example: 64T64R RU, 2 carriers                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ eAxC 0x0000: DU0, Sect0, CC0, Port0             │    │
+│  │ eAxC 0x0001: DU0, Sect0, CC0, Port1             │    │
+│  │ ...                                              │    │
+│  │ eAxC 0x003F: DU0, Sect0, CC0, Port63            │    │
+│  │ eAxC 0x0100: DU0, Sect0, CC1, Port0 (2nd CC)    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**eCPRI vs CPRI comparison:**
+
+| Aspect | CPRI | eCPRI |
+|--------|------|-------|
+| Transport | TDM | Packet (Ethernet) |
+| BW efficiency | Fixed | Variable, compressed |
+| Latency | Deterministic | Near-deterministic |
+| Switches | Proprietary | Standard Ethernet |
+| Multi-vendor | No | Yes |
+| Split options | Option 8 only | Flexible |
+
+**Capturing eCPRI:**
+
+```bash
+# Wireshark filter for eCPRI
+eth.type == 0xaefe
+
+# tcpdump capture
+tcpdump -i eth0 ether proto 0xaefe -w ecpri.pcap
+
+# Filter by message type (IQ data)
+ecpri.msg_type == 0
+
+# Filter by eAxC ID
+ecpri.pc_id == 0x0000
+
+# Check sequence gaps
+tshark -r ecpri.pcap -Y "ecpri" -T fields -e ecpri.seq_id | uniq -u
+```
+
+**Frame sizing:**
+
+| Scenario | Ethernet Frame | Notes |
+|----------|----------------|-------|
+| Standard | 1518 bytes | Limited IQ data |
+| Jumbo | 9000 bytes | Preferred for FH |
+| Max eCPRI | 65535 payload | Rarely used |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Wrong EtherType.** eCPRI uses 0xAEFE. Misconfigured switches may drop or misroute.
+
+2. **Sequence number gaps.** Indicates packet loss. Monitor SEQ_ID continuity.
+
+3. **eAxC mismatch.** DU and RU must agree on eAxC mapping. Wrong mapping sends data to wrong antenna.
+
+4. **Fragmentation overhead.** Fragmented messages add latency. Size messages to avoid fragmentation.
+
+5. **Concatenation parsing.** Some implementations don't handle C bit correctly. Verify interoperability.
+
+6. **VLAN priority.** eCPRI needs high priority. Wrong VLAN config causes drops.
+
+7. **MTU mismatch.** All switches must support jumbo frames. One 1500-byte MTU link breaks flow.
+
+8. **Vendor-specific types.** Message types 0x40-0xFF are vendor-defined. May cause interop issues.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- eCPRI Specification V2.0, "Common Public Radio Interface: eCPRI"
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- IEEE 802.1Q, "Bridges and Bridged Networks (VLAN)"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [O-RAN fronthaul spec](/en/core-network/fronthaul-interface/o-ran-fronthaul-spec/) — O-RAN extensions
+- [Transport requirements](/en/core-network/fronthaul-interface/transport-requirements/) — network design
+- [Option 7-2x](/en/core-network/functional-splits/option-7-2x/) — split details
+
+</section>

@@ -8,17 +8,512 @@ track: s7
 unit: inter-satellite-links-laser-rf
 order: 3
 level: L4
-estimatedReadingMinutes: 5
-title: "Chi huong va bat muc tieu ISL"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["optical-laser-isl", "rf-isl"]
+spiralRevisits: []
+title: "Chi huong va Thu ISL — Tim Doi tac Trong Bong toi"
+description: "Hieu trinh tu chi huong, thu, va theo doi de thiet lap lien ket lien ve tinh."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["chi-huong", "thu", "theo-doi", "pat", "isl", "laser"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Chi huong va bat muc tieu ISL
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Truoc khi hai ve tinh co the trao doi du lieu qua ISL, truoc tien chung phai tim thay nhau. Cho lien ket quang voi do rong buc xa duoi giay cung, dieu nay giong nhu chieu but laser tu New York va ban trung dong xu o Los Angeles—trong khi ca hai dang di chuyen o toc do 7 km/s. He thong Chi huong, Thu, va Theo doi (PAT) thuong la he thong con kho khan nhat cua dau cuoi laser. Hieu trinh tu PAT la can thiet cho thiet ke dau cuoi va lap lich lien ket.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Thach thuc PAT
+
+```
+Thach thuc Chi huong, Thu, va Theo doi:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  VAN DE:                                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Hai ve tinh di chuyen o toc do ~7.5 km/s             │         │
+│  │  Khoang cach: 2000 km                                 │         │
+│  │  Dau chan buc xa: duong kinh ~100 m                   │         │
+│  │                                                        │         │
+│  │       🛰️ A                                            │         │
+│  │         │                                             │         │
+│  │         │ 2000 km                                     │         │
+│  │         │                                             │         │
+│  │         ▼                                             │         │
+│  │       ┌───┐                                           │         │
+│  │       │100│ ← dau chan buc xa tai muc tieu           │         │
+│  │       │ m │                                           │         │
+│  │       └───┘                                           │         │
+│  │         ↑                                             │         │
+│  │       🛰️ B (ve tinh 15m × 3m)                        │         │
+│  │                                                        │         │
+│  │  Ve tinh B bang 1/7 kich thuoc buc xa!               │         │
+│  │  Phai chi huong voi do chinh xac ~10 m tren 2000 km  │         │
+│  │  Do la chi huong 5 μrad = 1 giay cung                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KHONG CHAC CHAN CAN VUOT QUA:                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Nguon               │ Do lon     │ Tac dong          │         │
+│  │  ────────────────────┼────────────┼──────────────────│         │
+│  │  Loi ephemeris       │ ±100 m     │ ~50 μrad          │         │
+│  │  Hieu biet tu the    │ ±50 μrad   │ Truc tiep         │         │
+│  │  Bien dang nhiet     │ ±20 μrad   │ Lech + troi       │         │
+│  │  Rung (RW, mat troi) │ ±10 μrad   │ Jitter            │         │
+│  │  ────────────────────┼────────────┼──────────────────│         │
+│  │  Tong khong chac chan│ ~100 μrad  │ 20× do rong buc xa│        │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Trinh tu PAT ba giai doan
+
+```
+Tong quan Trinh tu PAT:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  GIAI DOAN 1: CHI HUONG (Vong mo)                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Dung ephemeris de du doan vi tri doi tac          │         │
+│  │  • Tinh den tre thoi gian anh sang (chi huong truoc) │         │
+│  │  • Quay gimbal den huong du doan                     │         │
+│  │                                                        │         │
+│  │  Do chinh xac dat duoc: ~100-500 μrad                 │         │
+│  │  Thoi gian: mili giay                                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                           │                                         │
+│                           ▼                                         │
+│  GIAI DOAN 2: THU (Tim kiem + phat hien)                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Phat buc xa beacon rong (phu khong chac chan)     │         │
+│  │  • Mau quet/xoan neu beacon khong duoc phat hien     │         │
+│  │  • Phat hien beacon cua doi tac voi cam bien thu     │         │
+│  │  • Dat duoc khoa tho                                  │         │
+│  │                                                        │         │
+│  │  Do chinh xac dat duoc: ~10-50 μrad                   │         │
+│  │  Thoi gian: 1-60 giay                                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                           │                                         │
+│                           ▼                                         │
+│  GIAI DOAN 3: THEO DOI (Vong kin)                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Cam bien theo doi tinh do loi con lai             │         │
+│  │  • Guong lai nhanh hieu chinh thoi gian thuc         │         │
+│  │  • Bang thong vong phan hoi: 100-1000 Hz             │         │
+│  │  • Cho phep truyen du lieu                           │         │
+│  │                                                        │         │
+│  │  Do chinh xac dat duoc: &lt;1 μrad                       │         │
+│  │  Thoi gian: lien tuc trong khi lien ket              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Mau quet thu
+
+```
+Chien luoc Thu Beacon:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  QUET XOAN:                                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │        ┌──────────────────┐                           │         │
+│  │        │    ↗ ─ ─ ─ ↘     │                           │         │
+│  │        │  ↗ ┌───────┐ ↘   │                           │         │
+│  │        │ ↑  │ ● → ┐ │  ↓  │                           │         │
+│  │        │ ↑  │ ↑ ← ┘ │  ↓  │                           │         │
+│  │        │  ↖ └───────┘ ↙   │                           │         │
+│  │        │    ↖ ─ ─ ─ ↙     │                           │         │
+│  │        └──────────────────┘                           │         │
+│  │         Vung khong chac chan                          │         │
+│  │                                                        │         │
+│  │  Uu diem: Giam thieu thoi gian thu truong hop xau nhat│        │
+│  │  Nhuoc diem: Chuyen dong phuc tap, thoi gian dung khac nhau│   │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  QUET RASTER:                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │        ┌──────────────────┐                           │         │
+│  │        │ → → → → → → → → │                           │         │
+│  │        │ ← ← ← ← ← ← ← ← │                           │         │
+│  │        │ → → → → → → → → │                           │         │
+│  │        │ ← ← ← ← ← ← ← ← │                           │         │
+│  │        │ → → → → → → → → │                           │         │
+│  │        └──────────────────┘                           │         │
+│  │                                                        │         │
+│  │  Uu diem: Don gian, phu deu                           │         │
+│  │  Nhuoc diem: Co the mat nhieu thoi gian neu muc tieu gan mep│  │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  NHIN CO DINH (Beacon rong, khong quet):                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │        ┌──────────────────┐                           │         │
+│  │        │                  │                           │         │
+│  │        │   ┌──────────┐   │                           │         │
+│  │        │   │  BUC XA  │   │  ← Beacon rong phu       │         │
+│  │        │   │  BEACON  │   │    toan bo khong chac chan│        │
+│  │        │   └──────────┘   │                           │         │
+│  │        │                  │                           │         │
+│  │        └──────────────────┘                           │         │
+│  │                                                        │         │
+│  │  Uu diem: Thu nhanh nhat, khong can quet             │         │
+│  │  Nhuoc diem: Mat do cong suat beacon thap hon, can nhieu cong suat│
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Goc chi huong truoc
+
+```
+Bu Chi huong Truoc:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TAI SAO CAN CHI HUONG TRUOC:                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Thoi gian truyen anh sang: 2000 km / 3×10⁸ m/s ≈ 6.7 ms│       │
+│  │  Ve tinh di chuyen trong 6.7 ms: 7.5 km/s × 6.7 ms ≈ 50 m│      │
+│  │                                                        │         │
+│  │  t = 0:           t = 6.7 ms:                         │         │
+│  │                                                        │         │
+│  │  🛰️ A ────────────→ (photon dang di chuyen)           │         │
+│  │   ↓ phat o day                                        │         │
+│  │                                                        │         │
+│  │            🛰️ B                                       │         │
+│  │            (o day)                                    │         │
+│  │                        🛰️ B                           │         │
+│  │                     → (se o day khi photon den)      │         │
+│  │                                                        │         │
+│  │  Phai chi huong TRUOC vi tri ma ban nhin thay doi tac!│        │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TINH TOAN GOC CHI HUONG TRUOC:                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  θ_pa = 2 × v_rel × t_anh_sang / d                    │         │
+│  │       = 2 × v_rel / c                                 │         │
+│  │                                                        │         │
+│  │  Cho v_rel = 7.5 km/s (truong hop xau nhat, LEO):    │         │
+│  │  θ_pa = 2 × 7500 / 3×10⁸ = 50 μrad = 10 giay cung    │         │
+│  │                                                        │         │
+│  │  Cho GEO-LEO (v_rel ≈ 3 km/s):                       │         │
+│  │  θ_pa ≈ 20 μrad = 4 giay cung                        │         │
+│  │                                                        │         │
+│  │  Day tuong duong voi phan ky buc xa!                 │         │
+│  │  Phai bu chu dong trong khi theo doi.                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  THUC HIEN:                                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │           Duong thu          Duong phat               │         │
+│  │               ↓                  ↓                    │         │
+│  │          ┌────────┐         ┌────────┐               │         │
+│  │          │Cam bien│         │Guong   │               │         │
+│  │          │theo doi│         │chi huong│              │         │
+│  │          │        │         │truoc   │               │         │
+│  │          └───┬────┘         └───┬────┘               │         │
+│  │              │                   │                    │         │
+│  │              └────── FSM ────────┘                    │         │
+│  │                      │                                │         │
+│  │              Khau do kinh vien chung                  │         │
+│  │                                                        │         │
+│  │  Duong Tx/Rx rieng biet cho phep chi huong doc lap   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Kien truc vong theo doi
+
+```
+Vong Dieu khien Theo doi Tinh:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CAM BIEN THEO DOI (Quad-cell hoac CCD):                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │       ┌───┬───┐        Vi tri diem = tin hieu        │         │
+│  │       │ A │ B │                                       │         │
+│  │       ├───┼───┤        Loi_x = (B+D - A-C)/(A+B+C+D) │         │
+│  │       │ C │ D │        Loi_y = (A+B - C-D)/(A+B+C+D) │         │
+│  │       └───┴───┘                                       │         │
+│  │          ●                                            │         │
+│  │       Diem                                            │         │
+│  │       Beacon                                          │         │
+│  │                                                        │         │
+│  │  Do phan giai: ~λ/10 ≈ 0.1 μrad tai 1550 nm          │         │
+│  │  Bang thong: len den 10 kHz                           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  VONG DIEU KHIEN:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ┌─────────┐   ┌──────────┐   ┌─────────┐   ┌─────┐  │         │
+│  │  │Cam bien │──→│Bo dieu   │──→│Bo dan   │──→│ Buc │  │         │
+│  │  │theo doi │   │khien(PID)│   │dong FSM │   │ xa  │  │         │
+│  │  └────┬────┘   └──────────┘   └─────────┘   └──┬──┘  │         │
+│  │       │                                         │     │         │
+│  │       └─────────────────────────────────────────┘     │         │
+│  │                    Phan hoi                           │         │
+│  │                                                        │         │
+│  │  Bang thong vong: 100-1000 Hz                         │         │
+│  │  Loi con lai: < 1 μrad RMS                            │         │
+│  │                                                        │         │
+│  │  Nhieu dong duoc loai bo:                             │         │
+│  │  • Rung banh xe phan ung (50-200 Hz)                 │         │
+│  │  • Rung tam pin mat troi (< 1 Hz)                    │         │
+│  │  • Troi nhiet (mHz)                                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  GUONG LAI NHANH (FSM):                                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Dan dong ap dien hoac cuon tieng noi              │         │
+│  │  • Pham vi: ±1-5 mrad co khi (±2-10 mrad quang)      │         │
+│  │  • Bang thong: 1-10 kHz                              │         │
+│  │  • Do phan giai: < 0.1 μrad                          │         │
+│  │  • Kich thuoc: guong duong kinh 10-50 mm             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tinh toan dinh co he thong PAT:**
+
+```python
+import numpy as np
+
+# Hang so
+C = 299792458  # m/s
+
+def point_ahead_angle_urad(relative_velocity_km_s):
+    """Tinh goc chi huong truoc."""
+    v = relative_velocity_km_s * 1000  # m/s
+    return 2 * v / C * 1e6  # μrad
+
+def acquisition_time_spiral(uncertainty_urad, beam_urad, scan_rate_urad_s):
+    """Uoc tinh thoi gian thu quet xoan (truong hop xau nhat)."""
+    area_ratio = (uncertainty_urad / beam_urad) ** 2
+    scan_time = uncertainty_urad / scan_rate_urad_s
+    return scan_time * np.sqrt(area_ratio)
+
+def acquisition_time_staring(uncertainty_urad, beacon_urad, snr_required_db):
+    """Kiem tra thu nhin co dinh co kha thi khong."""
+    coverage = (beacon_urad / uncertainty_urad) ** 2
+    power_penalty = -20 * np.log10(beacon_urad / uncertainty_urad)
+    return coverage >= 1, power_penalty
+
+def tracking_bandwidth_required(jitter_freq_hz, rejection_db):
+    """Bang thong vong can thiet cho loai bo nhieu dong."""
+    # Cho loai bo -3dB tai jitter_freq, can BW >> jitter_freq
+    # Cho loai bo -20dB, can BW ≈ 10 × jitter_freq
+    factor = 10 ** (rejection_db / 20)
+    return jitter_freq_hz * factor
+
+def fsm_stroke_required(uncertainty_urad, margin=1.5):
+    """Hanh trinh co khi FSM can thiet."""
+    # Goc quang = 2 × goc co khi cho phan xa
+    mechanical_urad = uncertainty_urad * margin / 2
+    return mechanical_urad
+
+# Phan tich
+print("Phan tich He thong PAT")
+print("=" * 60)
+
+# Chi huong truoc
+print("\n1. Yeu cau Goc Chi huong Truoc")
+print("-" * 60)
+scenarios = [
+    ('LEO-LEO trong mat phang', 0.5),
+    ('LEO-LEO giua mat phang', 5.0),
+    ('LEO-LEO truong hop xau', 15.0),
+    ('GEO-LEO', 3.0),
+    ('GEO-GEO', 0.1),
+]
+
+print(f"  {'Kich ban':25} {'v_rel (km/s)':>12} {'θ_pa (μrad)':>12} {'θ_pa (giay cung)':>16}")
+print(f"  {'-'*25} {'-'*12} {'-'*12} {'-'*16}")
+for name, v_rel in scenarios:
+    pa = point_ahead_angle_urad(v_rel)
+    arcsec = pa * 0.206
+    print(f"  {name:25} {v_rel:>12.1f} {pa:>12.1f} {arcsec:>16.1f}")
+
+# Thoi gian thu
+print("\n2. Phan tich Thoi gian Thu")
+print("-" * 60)
+uncertainty = 500  # μrad (tu ephemeris + loi tu the)
+beam = 50  # μrad (buc xa truyen thong)
+beacon = 200  # μrad (beacon thu rong)
+scan_rate = 100  # μrad/s
+
+print(f"  Non khong chac chan: {uncertainty} μrad")
+print(f"  Buc xa truyen thong: {beam} μrad")
+print(f"  Buc xa beacon: {beacon} μrad")
+
+# Quet xoan
+t_spiral = acquisition_time_spiral(uncertainty, beam, scan_rate)
+print(f"\n  Quet xoan (buc xa hep):")
+print(f"    Thoi gian truong hop xau: {t_spiral:.1f} s")
+
+# Nhin co dinh voi beacon
+feasible, penalty = acquisition_time_staring(uncertainty, beacon, 10)
+print(f"\n  Nhin co dinh (beacon rong):")
+print(f"    Kha thi: {feasible}")
+print(f"    Hinh phat cong suat: {penalty:.1f} dB")
+
+# Yeu cau theo doi
+print("\n3. Yeu cau Vong Theo doi")
+print("-" * 60)
+disturbances = [
+    ('Rung banh xe phan ung', 150, 20),
+    ('Dao dong tam pin', 0.5, 30),
+    ('Troi nhiet', 0.001, 40),
+]
+
+print(f"  {'Nhieu dong':25} {'Tan so (Hz)':>10} {'Loai bo':>10} {'BW can':>12}")
+print(f"  {'-'*25} {'-'*10} {'-'*10} {'-'*12}")
+for name, freq, rejection in disturbances:
+    bw = tracking_bandwidth_required(freq, rejection)
+    print(f"  {name:25} {freq:>10.3f} {rejection:>8} dB {bw:>10.1f} Hz")
+
+# Dinh co FSM
+print("\n4. Dinh co Guong Lai Nhanh")
+print("-" * 60)
+stroke_req = fsm_stroke_required(uncertainty)
+print(f"  Khong chac chan can phu: {uncertainty} μrad")
+print(f"  Hanh trinh co khi can: ±{stroke_req:.0f} μrad = ±{stroke_req/1000:.2f} mrad")
+print(f"  Lech quang: ±{stroke_req*2:.0f} μrad = ±{stroke_req*2/1000:.2f} mrad")
+
+# Dong thoi gian trinh tu thu
+print("\n5. Dong Thoi gian Trinh tu Thu Dien hinh")
+print("-" * 60)
+sequence = [
+    ('Tai len ephemeris', 0, 'T-60s'),
+    ('Quay gimbal den muc tieu', 2, 'T-58s'),
+    ('Bat beacon', 0.1, 'T-56s'),
+    ('Bat dau quet xoan', 0, 'T-56s'),
+    ('Phat hien beacon', 15, 'T-41s (tb)'),
+    ('Khoa tho', 0.5, 'T-40.5s'),
+    ('Bat theo doi tinh', 0.2, 'T-40.3s'),
+    ('Thiet lap lien ket', 0.1, 'T-40.2s'),
+    ('Bat dau truyen du lieu', 0, 'T-40s'),
+]
+
+total_time = 0
+print(f"  {'Giai doan':30} {'Thoi gian':>10} {'Dau thoi gian':>14}")
+print(f"  {'-'*30} {'-'*10} {'-'*14}")
+for phase, duration, timestamp in sequence:
+    print(f"  {phase:30} {duration:>8.1f} s {timestamp:>14}")
+    total_time += duration
+
+print(f"\n  Tong thoi gian thu: ~{20} s (trung binh)")
+print(f"  Voi thu lai (truong hop 3σ): ~{60} s")
+```
+
+**Tom tat hieu suat PAT:**
+
+| Tham so | RF ISL (Ka-band) | ISL Quang |
+|---------|------------------|-----------|
+| Phan ky buc xa | ~30 mrad | ~50 μrad |
+| Do chinh xac chi huong | ~1 mrad | ~1 μrad |
+| Goc chi huong truoc | Khong dang ke | 10-50 μrad |
+| Thoi gian thu | &lt;1 s | 10-60 s |
+| Bang thong theo doi | 10 Hz | 100-1000 Hz |
+| Pham vi gimbal | ±60° | ±60° (tho) |
+| Pham vi FSM | N/A | ±5 mrad |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Tinh sai chi huong truoc.** Quen chi huong truoc hoac tinh sai dau gay mat lien ket.
+
+2. **Qua thoi gian thu.** Neu mau quet khong phu vung khong chac chan, lien ket khong bao gio thiet lap.
+
+3. **Danh doi cong suat beacon.** Beacon rong = thu nhanh hon nhung bien do tam it hon.
+
+4. **Vong theo doi khong on dinh.** Bang thong qua cao gay dao dong; qua thap bo lo jitter.
+
+5. **FSM bao hoa.** Neu nhieu dong vuot qua pham vi FSM, theo doi that bai dot ngot.
+
+6. **Mat Troi trong truong nhin.** Cam bien thu bao hoa; phai lap lich tranh goc Mat Troi.
+
+7. **Khoang trong chuyen giao.** Cat mot lien ket de thu lien ket khac mat 10-60s—lap ke hoach dinh tuyen tuong ung.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Toyoshima, M. "Trends in Satellite Communications and the Role of Optical Free-Space Communications"
+- Hemmati, H. "Near-Earth Laser Communications" (CRC Press)
+- CCSDS 141.0-B-1: Optical Communications Physical Layer
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [ISL Quang](/vi/space/inter-satellite-links-laser-rf/optical-laser-isl/) — vat ly lien ket laser
+- [RF ISL](/vi/space/inter-satellite-links-laser-rf/rf-isl/) — yeu cau chi huong don gian hon
+- [Chuyen giao Chom sao](/vi/space/leo-constellation-architecture/handover-between-satellites/) — lap lich lien ket
+
+</section>

@@ -8,17 +8,338 @@ track: n3
 unit: service-based-interface-http2
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "HTTP/2 in 5G core"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n3-service-based-interface-http2-01-sbi-overview"]
+spiralRevisits: []
+title: "HTTP/2 in 5G Core"
+description: "Why 5G chose HTTP/2 over HTTP/1.1 — multiplexing, header compression, server push, and telecom-specific considerations."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 29.500", "RFC 7540"]
+tags: ["http2", "5g", "sbi", "protocol", "hpack"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# HTTP/2 in 5G core
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+HTTP/1.1 opens a new TCP connection for each request. For a busy NF sending thousands of requests per second, that's thousands of connections — and thousands of TCP handshakes.
+
+HTTP/2 sends all requests over a single connection. 5G SBI chose HTTP/2 because telecom workloads — high request rates, small payloads, strict latency — map perfectly to its strengths.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### HTTP/1.1 vs HTTP/2
+
+```
+HTTP/1.1: Sequential on Multiple Connections
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Connection 1: ────[Req1]────[Resp1]────────────────    │
+│  Connection 2: ────[Req2]────[Resp2]────────────────    │
+│  Connection 3: ────[Req3]────[Resp3]────────────────    │
+│  Connection 4: ────[Req4]────[Resp4]────────────────    │
+│                                                          │
+│  Problems:                                              │
+│  - Each connection = TCP handshake + TLS handshake     │
+│  - Head-of-line blocking per connection                │
+│  - Header repeated in full on every request            │
+│  - Connection pool management overhead                 │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+HTTP/2: Multiplexed on Single Connection
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Single Connection:                                     │
+│  ═══════════════════════════════════════════════════   │
+│  │  Stream 1: [Req1]─────────────────[Resp1]       │   │
+│  │  Stream 3: [Req2]────[Resp2]                    │   │
+│  │  Stream 5: [Req3]──────────[Resp3]              │   │
+│  │  Stream 7: [Req4]───[Resp4]                     │   │
+│  ═══════════════════════════════════════════════════   │
+│                                                          │
+│  Benefits:                                              │
+│  - One TCP + TLS handshake for all                     │
+│  - Concurrent streams, no blocking                     │
+│  - Header compression (HPACK)                          │
+│  - Single connection to manage                         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Why telecom chose HTTP/2
+
+```
+5G Core Traffic Patterns → HTTP/2 Fit:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Pattern                    │ HTTP/2 Advantage          │
+│  ───────────────────────────┼─────────────────────────  │
+│                             │                           │
+│  High request rate          │ Stream multiplexing       │
+│  (10K+ req/sec per NF)      │ avoids connection churn   │
+│                             │                           │
+│  Small JSON payloads        │ HPACK header compression  │
+│  (headers > body often)     │ reduces overhead          │
+│                             │                           │
+│  Strict latency             │ No TCP handshake per      │
+│  (< 50ms target)            │ request                   │
+│                             │                           │
+│  Long-lived NF connections  │ Single connection per     │
+│  (AMF ↔ SMF always talking) │ NF pair is efficient      │
+│                             │                           │
+│  Binary framing             │ Faster parsing than       │
+│                             │ text-based HTTP/1.1       │
+│                             │                           │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### HTTP/2 framing
+
+```
+HTTP/2 Frame Structure:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Length (24 bits)                                  │  │
+│  ├───────────────────────────────────────────────────┤  │
+│  │ Type (8 bits) │ Flags (8 bits)                    │  │
+│  ├───────────────────────────────────────────────────┤  │
+│  │ R │ Stream Identifier (31 bits)                   │  │
+│  ├───────────────────────────────────────────────────┤  │
+│  │                                                    │  │
+│  │ Frame Payload (variable)                          │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  Frame Types:                                           │
+│  - DATA (0x0): actual body content                     │
+│  - HEADERS (0x1): HTTP headers                         │
+│  - SETTINGS (0x4): connection parameters               │
+│  - PING (0x6): keepalive/latency measurement          │
+│  - GOAWAY (0x7): graceful shutdown                    │
+│  - WINDOW_UPDATE (0x8): flow control                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Stream multiplexing
+
+```
+Multiplexing in Action:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Time →                                                 │
+│                                                          │
+│  ┌─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┐     │
+│  │ H:1 │ D:1 │ H:3 │ D:3 │ D:1 │ H:5 │ D:5 │ D:1 │     │
+│  └─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘     │
+│                                                          │
+│  H = HEADERS frame, D = DATA frame                     │
+│  Numbers = Stream ID                                   │
+│                                                          │
+│  Stream 1: Registration request                        │
+│  Stream 3: PDU session create                          │
+│  Stream 5: Location update                             │
+│                                                          │
+│  All interleaved on same TCP connection!               │
+│                                                          │
+│  Priority hints available but rarely used in SBI       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### HPACK header compression
+
+```
+HPACK Compression Example:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  First Request (full headers):                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ :method: POST                                   │    │
+│  │ :path: /nsmf-pdusession/v1/sm-contexts         │    │
+│  │ :authority: smf.5gc.example.com                │    │
+│  │ content-type: application/json                 │    │
+│  │ 3gpp-sbi-target-apiroot: https://smf...        │    │
+│  └─────────────────────────────────────────────────┘    │
+│  → Encoded: ~150 bytes                                 │
+│                                                          │
+│  Second Request (same headers → indexed):              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ [Index 62] [Index 63] [Index 64] [Index 65]    │    │
+│  └─────────────────────────────────────────────────┘    │
+│  → Encoded: ~15 bytes (90% reduction!)                 │
+│                                                          │
+│  How it works:                                         │
+│  - Static table: common headers (:method, :status)     │
+│  - Dynamic table: recently used headers cached         │
+│  - Huffman coding: compress literal values             │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Flow control
+
+```
+HTTP/2 Flow Control:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Two levels:                                            │
+│  1. Connection-level window (all streams combined)     │
+│  2. Stream-level window (per stream)                   │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Sender              Receiver                   │    │
+│  │    │                    │                       │    │
+│  │    │─── DATA (1000) ───►│  Window: 65535→64535 │    │
+│  │    │─── DATA (1000) ───►│  Window: 64535→63535 │    │
+│  │    │                    │                       │    │
+│  │    │◄── WINDOW_UPDATE ──│  Window: 63535→65535 │    │
+│  │    │    (+2000)         │  (receiver processed)│    │
+│  │    │                    │                       │    │
+│  │    │─── DATA (1000) ───►│  Continue sending... │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Prevents fast sender from overwhelming slow receiver  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 5G-specific considerations
+
+```
+5G SBI HTTP/2 Profile:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Requirement          │ 5G Choice                       │
+│  ─────────────────────┼────────────────────────────────│
+│                       │                                 │
+│  TLS version          │ TLS 1.2+ mandatory (usually 1.3)│
+│  ALPN negotiation     │ "h2" (HTTP/2)                   │
+│  Server push          │ Not used (clients pull)         │
+│  Max concurrent       │ Vendor-specific (typically 100+)│
+│  streams              │                                 │
+│  Initial window       │ Often increased from 65535      │
+│  Connection timeout   │ Long-lived (hours)              │
+│  Keepalive            │ PING frames or TCP keepalive    │
+│                       │                                 │
+│  Custom headers:                                        │
+│  - 3gpp-sbi-target-apiroot (routing)                   │
+│  - 3gpp-sbi-callback (callback URI)                    │
+│  - 3gpp-sbi-correlation-info (tracing)                 │
+│                       │                                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**HTTP/2 settings for 5G:**
+
+| Setting | Default | 5G Typical |
+|---------|---------|------------|
+| SETTINGS_MAX_CONCURRENT_STREAMS | unlimited | 100-1000 |
+| SETTINGS_INITIAL_WINDOW_SIZE | 65535 | 1MB+ |
+| SETTINGS_MAX_HEADER_LIST_SIZE | unlimited | 16KB |
+| SETTINGS_MAX_FRAME_SIZE | 16384 | 16384-65535 |
+
+**Debugging HTTP/2 in SBI:**
+
+```bash
+# Wireshark: HTTP/2 frames
+http2.type == 0  # DATA frames
+http2.type == 1  # HEADERS frames
+http2.type == 7  # GOAWAY frames
+
+# Check ALPN negotiation
+openssl s_client -connect smf.local:29502 -alpn h2
+
+# nghttp2 for testing
+nghttp -v https://smf.local:29502/nsmf-pdusession/v1/sm-contexts
+
+# Capture with curl verbose
+curl -v --http2 https://smf.local:29502/nnrf-nfm/v1/nf-instances
+```
+
+**Common frame sequences:**
+
+| Scenario | Frame Sequence |
+|----------|----------------|
+| Simple request | HEADERS → DATA (body) → HEADERS (response) → DATA |
+| No body request | HEADERS (END_STREAM) → HEADERS (response) |
+| Streaming | HEADERS → DATA → DATA → DATA... → DATA (END_STREAM) |
+| Connection start | SETTINGS ↔ SETTINGS (ACK) |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **GOAWAY handling.** Server sends GOAWAY before shutdown. Client must handle gracefully — reconnect and retry pending streams.
+
+2. **Window starvation.** If receiver doesn't send WINDOW_UPDATE, sender blocks. Monitor window sizes.
+
+3. **Stream ID exhaustion.** Client uses odd IDs (1, 3, 5...), server uses even. After 2^31 streams, must reconnect.
+
+4. **HPACK bombing.** Malicious headers can bloat dynamic table. Set SETTINGS_MAX_HEADER_LIST_SIZE.
+
+5. **Head-of-line blocking at TCP.** HTTP/2 solves HOL at HTTP layer, but TCP retransmissions still block all streams.
+
+6. **Proxy compatibility.** Some proxies/load balancers don't handle HTTP/2 well. May need to terminate h2 at edge.
+
+7. **Connection pooling.** One connection per NF pair is ideal. Too many connections waste resources; too few create bottlenecks.
+
+8. **TLS overhead.** First connection has TLS handshake cost. Use TLS session resumption for reconnects.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- RFC 7540, "Hypertext Transfer Protocol Version 2 (HTTP/2)"
+- RFC 7541, "HPACK: Header Compression for HTTP/2"
+- 3GPP TS 29.500, "Technical Realization of Service Based Architecture"
+- 3GPP TS 33.501, "Security Architecture and Procedures"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [NF service registration](/en/core-network/service-based-interface-http2/nf-service-registration/) — how NFs register
+- [JSON and OpenAPI](/en/core-network/service-based-interface-http2/json-and-openapi-in-5g/) — API definitions
+- [SBI overview](/en/core-network/service-based-interface-http2/sbi-overview/) — service model
+
+</section>

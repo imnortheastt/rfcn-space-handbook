@@ -8,17 +8,347 @@ track: n0
 unit: osi-tcpip-backend-perspective
 order: 2
 level: L0
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-osi-tcpip-backend-perspective-01-osi-layers"]
+spiralRevisits: ["core-network-n2-5g-core-sba-01-service-based-architecture"]
 title: "TCP/IP stack"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The 4-layer model that actually runs the Internet — and how telecom extends it with GTP, SCTP, and PFCP."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["RFC 1122", "RFC 791", "RFC 793", "RFC 4960"]
+tags: ["tcp-ip", "networking", "fundamentals", "internet", "gtp", "sctp"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# TCP/IP stack
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Nobody deploys OSI. The Internet runs on TCP/IP.
+
+When you `curl` an API, send a Slack message, or deploy to production, your data travels through the TCP/IP stack. Understanding these four layers — not seven — is what you need to debug real systems, read `tcpdump` output, and reason about latency.
+
+But there is a catch for telecom engineers: the 5G user plane does not run plain TCP/IP between the base station and the core network. It wraps user packets inside GTP-U tunnels carried over UDP. The 5G control plane does not use TCP for signaling — it uses SCTP, a third transport protocol most cloud engineers have never touched. And the 5G core itself introduces PFCP as an application-layer control protocol between SMF and UPF.
+
+This lesson covers the standard TCP/IP stack and then maps each telecom extension precisely onto it, so you know why 5G traffic behaves differently from ordinary cloud traffic.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+TCP/IP collapses OSI's seven layers into four pragmatic ones:
+
+| TCP/IP Layer | OSI Layers | What it does | Key protocols |
+|--------------|------------|--------------|---------------|
+| Application | 5, 6, 7 | User-facing protocols | HTTP, DNS, SSH, TLS, PFCP, Diameter |
+| Transport | 4 | End-to-end delivery | TCP, UDP, SCTP |
+| Internet | 3 | Routing across networks | IP, ICMP, GTP-U |
+| Link | 1, 2 | Physical + data link | Ethernet, WiFi, ARP |
+
+**Key difference from OSI:** TCP/IP was designed around working protocols, not abstract layers. Session and Presentation (OSI 5-6) don't exist as separate layers — applications handle their own sessions and data formatting.
+
+**Mental model:** Think of it as concentric envelopes:
+- You write a letter (Application data)
+- Put it in an envelope with recipient info (TCP/UDP/SCTP header)
+- Put that in a postal envelope with addresses (IP header)
+- Hand it to the postal worker (Link layer)
+
+**Telecom extension of this model:** GTP-U adds a second postal envelope *inside* the outer one. The inner envelope is addressed to the UE (10.1.2.3); the outer envelope is addressed to the UPF (10.0.1.10). Only the UPF knows how to open the outer envelope and deliver the inner one to its final destination. This double-addressing is the essence of the 5G user plane.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Link Layer
+
+Handles delivery on a single network segment. Two jobs:
+
+1. **Physical transmission:** Convert bits to signals (electrical, optical, radio)
+2. **Framing and addressing:** Package data into frames with MAC addresses
+
+**Key protocol:** ARP (Address Resolution Protocol) — translates IP addresses to MAC addresses.
+
+```
+Who has 192.168.1.1? Tell 192.168.1.100
+192.168.1.1 is at aa:bb:cc:dd:ee:ff
+```
+
+**Backend relevance:** When your service can't reach a database on the same subnet, ARP failures are often the cause. Check `arp -a` or `ip neigh`.
+
+**Telecom relevance:** In fronthaul networks, the Link layer carries eCPRI frames between the Remote Radio Unit (RRU) and Distributed Unit (DU). eCPRI uses standard Ethernet framing (Layer 2) but carries I/Q samples (radio data) rather than IP packets. The timing requirements are sub-microsecond — orders of magnitude tighter than data center Ethernet.
+
+### Internet Layer
+
+Routes packets across network boundaries. The IP protocol:
+
+- **Addressing:** 32-bit (IPv4) or 128-bit (IPv6) addresses
+- **Routing:** Decides which interface to forward packets through
+- **Fragmentation:** Splits packets larger than MTU (1500 bytes typical)
+
+**IP header essentials:**
+```
+┌─────────────────────────────────────────────────────┐
+│ Version │ Header │  ToS  │      Total Length        │
+├─────────────────────────────────────────────────────┤
+│    Identification     │ Flags │  Fragment Offset    │
+├─────────────────────────────────────────────────────┤
+│   TTL   │ Protocol │       Header Checksum          │
+├─────────────────────────────────────────────────────┤
+│                Source IP Address                    │
+├─────────────────────────────────────────────────────┤
+│             Destination IP Address                  │
+└─────────────────────────────────────────────────────┘
+```
+
+**TTL (Time To Live):** Decremented at each hop. Prevents routing loops. When TTL hits 0, the packet is dropped and ICMP "Time Exceeded" is sent back. This is how `traceroute` works.
+
+**Protocol field:** Identifies the transport protocol (6 = TCP, 17 = UDP, 1 = ICMP, 132 = SCTP).
+
+**GTP-U at the Internet layer:** GTP-U is technically an application-layer protocol, but conceptually it operates as a tunneling mechanism that adds a second Internet-layer header. The 5G N3 interface (gNB to UPF) and N9 interface (UPF to UPF) carry user traffic as:
+
+```
+[Outer IP: gNB → UPF] [UDP :2152] [GTP-U header: TEID] [Inner IP: UE → Internet]
+```
+
+The TEID (Tunnel Endpoint Identifier) is a 32-bit value that identifies which PDU session this traffic belongs to. Each UE session has its own TEID pair (uplink and downlink). This is the 5G equivalent of a VPC tunnel endpoint — but it must support millions of simultaneous sessions per UPF instance.
+
+### Transport Layer
+
+Provides end-to-end communication between applications.
+
+**TCP (Transmission Control Protocol):**
+- **Reliable:** Guarantees delivery via acknowledgments and retransmissions
+- **Ordered:** Data arrives in sequence
+- **Connection-oriented:** 3-way handshake before data transfer
+- **Flow control:** Sliding window prevents overwhelming the receiver
+- **Congestion control:** Slow start, congestion avoidance, fast retransmit
+
+**TCP 3-way handshake:**
+```
+Client                    Server
+  │                         │
+  │──── SYN (seq=x) ───────►│
+  │                         │
+  │◄─── SYN-ACK (seq=y, ack=x+1) ──│
+  │                         │
+  │──── ACK (ack=y+1) ─────►│
+  │                         │
+  │     Connection established     │
+```
+
+**UDP (User Datagram Protocol):**
+- **Unreliable:** No delivery guarantee
+- **Unordered:** Packets may arrive out of sequence
+- **Connectionless:** No handshake, just send
+- **Low overhead:** 8-byte header vs TCP's 20+ bytes
+
+When to use UDP:
+- Real-time: video streaming, VoIP, gaming
+- Discovery: DNS queries, DHCP
+- When you implement reliability yourself: QUIC (HTTP/3)
+- **GTP-U tunneling:** UDP port 2152 carries all 5G user-plane traffic
+
+**SCTP (Stream Control Transmission Protocol) — the telecom transport:**
+
+SCTP is the third transport protocol that most cloud engineers never encounter but every telecom engineer must know. RFC 4960 defines it.
+
+Key SCTP properties:
+- **Message-oriented:** Unlike TCP's byte stream, SCTP preserves message boundaries. One `send` = one message at the receiver.
+- **Multi-homing:** An SCTP association can use multiple IP addresses on each endpoint. If one path fails, traffic switches to another — no reconnection needed.
+- **Multi-streaming:** Multiple independent streams within one association. A loss on stream 1 doesn't block stream 2 (solving TCP's head-of-line blocking).
+- **4-way handshake with cookie:** Protects against SYN flood attacks without stateful tracking.
+
+SCTP in 5G:
+- **N2 interface** (gNB to AMF): NGAP protocol runs over SCTP. This is the control plane for UE registration, PDU session requests, and handover procedures.
+- **Xn interface** (gNB to gNB): XnAP protocol runs over SCTP. Used for inter-gNB handover coordination.
+- **E1 interface** (CU-CP to CU-UP in disaggregated gNB): E1AP runs over SCTP.
+
+Why SCTP for signaling? Because a dropped SCTP association means dropped calls — potentially for thousands of UEs simultaneously. Multi-homing means a link failure causes automatic path failover in milliseconds, not a connection reset.
+
+### Application Layer
+
+Everything above transport. No rigid structure — applications define their own protocols.
+
+**Common patterns:**
+- **Request-response:** HTTP, DNS
+- **Streaming:** WebSocket, gRPC streaming
+- **Pub-sub:** MQTT, AMQP
+
+**TLS lives here:** TLS encrypts application data before passing to TCP. It is not a separate layer — it is an application-layer protocol that provides security services. 5G SBI mandates TLS 1.2 or higher on all NF-to-NF interfaces (3GPP TS 33.501).
+
+**Telecom application-layer protocols:**
+
+| Protocol | Interface | Purpose |
+|----------|-----------|---------|
+| HTTP/2 + JSON | SBI (N5, N7, N8, N10, N11, N12, N13...) | All 5G NF-to-NF REST calls |
+| PFCP | N4 (SMF to UPF) | SMF instructs UPF on packet forwarding rules |
+| Diameter | S6a (4G MME to HSS) | Authentication, subscription retrieval |
+| PFCP | Sxa/Sxb (4G CUPS) | 4G control/user plane separation |
+
+**PFCP (Packet Forwarding Control Protocol):** This is the protocol that makes 5G user-plane separation work. The SMF (control plane) sends PFCP Session Establishment requests to the UPF telling it: "For TEID X, apply QoS profile Y and forward to destination Z." The UPF becomes a pure forwarding element, configured entirely via PFCP. This is analogous to OpenFlow in SDN — the SMF is the controller, the UPF is the dataplane switch.
+
+### Packet flow example
+
+Your browser requests `https://api.example.com/users`:
+
+1. **Application:** Browser constructs HTTP request, TLS encrypts it
+2. **Transport:** TCP segments the data, adds port numbers (source: random, dest: 443)
+3. **Internet:** IP adds addresses (source: your IP, dest: api.example.com's IP)
+4. **Link:** Ethernet adds MAC addresses (source: your NIC, dest: gateway)
+
+At each router:
+- Link layer stripped, new link header added for next hop
+- Internet layer consulted for routing decision
+- Transport and Application layers untouched
+
+At the server:
+- Each layer strips its header, passes data up
+- Application sees the original HTTP request
+
+**5G user-plane packet flow (UE to Internet):**
+
+```
+UE app data → TCP/UDP → inner IP header (UE address)
+    ↓ At gNB:
+Add GTP-U header (TEID) → Add UDP header (port 2152) → Add outer IP header (gNB→UPF)
+    ↓ At UPF (N3 decapsulation):
+Strip outer IP, UDP, GTP-U → Route inner IP packet to Internet
+```
+
+The UPF performs GTP-U decapsulation, applies QoS, enforces policy from PCF, and routes the inner IP packet. This is why UPF is the most compute-intensive NF — it processes every user-plane byte.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Reading tcpdump output:**
+
+```bash
+tcpdump -i eth0 -nn host 10.0.0.5 and port 443
+```
+
+Output:
+```
+15:30:01.123456 IP 10.0.0.5.52341 > 93.184.216.34.443: Flags [S], seq 1234567890
+15:30:01.156789 IP 93.184.216.34.443 > 10.0.0.5.52341: Flags [S.], seq 987654321, ack 1234567891
+15:30:01.156890 IP 10.0.0.5.52341 > 93.184.216.34.443: Flags [.], ack 987654322
+```
+
+- `IP 10.0.0.5.52341 > 93.184.216.34.443` — Internet layer (IPs) + Transport layer (ports)
+- `Flags [S]` — TCP SYN (connection initiation)
+- `Flags [S.]` — TCP SYN-ACK (server responds)
+- `Flags [.]` — TCP ACK (handshake complete)
+
+**Capturing GTP-U traffic on N3:**
+
+```bash
+# Capture all GTP-U traffic (UDP port 2152)
+tcpdump -i eth0 -nn udp port 2152
+
+# Decode GTP inner packets with tshark
+tshark -i eth0 -d udp.port==2152,gtp -Y "gtp"
+
+# Filter by specific TEID
+tshark -i eth0 -Y "gtp.teid == 0x00000001"
+
+# See the inner UE IP address
+tshark -i eth0 -Y "gtp" -T fields -e ip.src -e ip.dst -e gtp.teid
+```
+
+**Diagnosing connection issues:**
+
+```bash
+# Layer 3: Can you reach the IP?
+ping -c 3 93.184.216.34
+
+# Layer 4: Is the port open?
+nc -zv 93.184.216.34 443
+
+# Application: Does HTTP work?
+curl -v https://example.com
+```
+
+**Checking local socket state:**
+
+```bash
+# What's listening?
+ss -tlnp
+
+# Active connections?
+ss -tnp
+
+# SCTP associations (for telecom NFs)
+ss -Snp
+
+# Connection states (TIME_WAIT accumulation?)
+ss -s
+```
+
+**Checking SCTP association health on N2:**
+
+```bash
+# List SCTP associations
+cat /proc/net/sctp/assocs
+
+# SCTP statistics
+cat /proc/net/sctp/snmp
+
+# Wireshark filter for NGAP over SCTP
+sctp and ngap
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming TCP guarantees message boundaries.** TCP is a byte stream, not a message protocol. If you send 1000 bytes, the receiver might get it as 100+400+500 bytes across three `recv()` calls. Applications must handle framing. SCTP avoids this problem by design — one `sendmsg` delivers one complete message.
+
+2. **Ignoring MTU in tunneled traffic.** GTP-U adds a 36-byte overhead (8 GTP + 8 UDP + 20 IP outer headers). If the underlying network MTU is 1500 bytes, your effective inner MTU for UE traffic is 1464 bytes. Misconfiguring this causes mysterious fragmentation and performance degradation.
+
+3. **Forgetting about NAT.** Most production traffic crosses NAT boundaries. Your "source IP" is often the NAT gateway, not your server. Tracing requires X-Forwarded-For headers and proper logging. In 5G, UE addresses are private RFC 1918 addresses inside GTP tunnels — NAT happens at the UPF or N6 gateway.
+
+4. **UDP "reliability" assumptions.** Just because packets *usually* arrive doesn't mean they always will. DNS fails, DHCP times out, video buffers. Build retry logic. GTP-U has no built-in retransmission — reliability is delegated to the application (TCP inside the tunnel) or handled by HARQ at the radio layer.
+
+5. **Not knowing SCTP exists.** A 5G core deployment where SCTP is misconfigured will fail silently: AMF and gNB will refuse to associate, registration will fail, and the error message will be at the SCTP transport layer, not in application logs. Know your SCTP port numbers: 38412 (N2/NGAP), 38422 (Xn), 38462 (E1).
+
+6. **Conflating ports with processes.** A port is a 16-bit number, not a process. One process can bind multiple ports; one port can have multiple connections (via SO_REUSEPORT). `netstat` and `ss` show the mapping. In 5G, a single AMF may maintain thousands of SCTP associations on port 38412.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- RFC 791, "Internet Protocol" (IPv4)
+- RFC 793, "Transmission Control Protocol"
+- RFC 768, "User Datagram Protocol"
+- RFC 1122, "Requirements for Internet Hosts"
+- RFC 4960, "Stream Control Transmission Protocol" (SCTP)
+- 3GPP TS 29.281, "GPRS Tunnelling Protocol User Plane (GTPv1-U)"
+- 3GPP TS 29.244, "Interface between the Control Plane and the User Plane nodes" (PFCP)
+- Stevens, *TCP/IP Illustrated, Vol. 1*, Addison-Wesley, 2011
+- Fall & Stevens, *TCP/IP Illustrated, Vol. 2*, Addison-Wesley, 2012
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Sockets and APIs](/en/core-network/osi-tcpip-backend-perspective/sockets-and-apis/) — how applications use the stack
+- [Packet flow end-to-end](/en/core-network/osi-tcpip-backend-perspective/packet-flow-end-to-end/) — following a request through every layer
+- [User plane and control plane separation](/en/core-network/4g-5g-not-like-aws-vpc/user-plane-control-plane-separation/) — how 5G splits forwarding from control
+- [SBA design principles](/en/core-network/why-sba-architectural-shift/sba-design-principles/) — the HTTP/2 layer on top of this stack
+
+</section>

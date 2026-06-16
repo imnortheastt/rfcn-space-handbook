@@ -8,17 +8,464 @@ track: s7
 unit: leo-constellation-architecture
 order: 5
 level: L4
-estimatedReadingMinutes: 5
-title: "Dong luc dung luong"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["starlink-class-design", "gateway-placement", "handover-between-satellites"]
+spiralRevisits: []
+title: "Dong luc Dung luong trong Chom sao LEO"
+description: "Cach dung luong thay doi theo vi tri, thoi gian, va vi tri ve tinh trong chom sao sieu lon."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["dung-luong", "can-bang-tai", "overbooking", "leo", "thong-luong"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Dong luc dung luong
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Khac voi he thong GEO voi dau chan co dinh, dung luong chom sao LEO la dong—no thay doi theo vi do, thoi gian trong ngay, va vi tri ve tinh tuc thoi. Nguoi dung o New York luc 6 PM canh tranh dung luong voi hang trieu nguoi khac, trong khi tau o Thai Binh Duong co ve tinh gan nhu rieng minh. Hieu cac dong luc nay la quan trong cho lap ke hoach dich vu, thiet ke SLA, va toi uu mang.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Tai sao dung luong thay doi theo dia ly
+
+```
+Dia ly Dung luong LEO:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MAT DO VE TINH vs MAT DO DAN SO:                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Vi do    │ Mat do VT   │ Dan so     │ Ty le          │         │
+│  │  ─────────┼─────────────┼────────────┼───────────────│         │
+│  │  Xich dao │ Thap        │ Trung binh │ Can bang      │         │
+│  │  30°      │ Trung binh  │ CAO        │ Bi rang buoc  │         │
+│  │  40-50°   │ CAO         │ CAO        │ Khop tot      │         │
+│  │  53°      │ DINH        │ Trung binh │ Du thua       │         │
+│  │  60°      │ Trung binh  │ Thap       │ Du thua       │         │
+│  │  70°+     │ Thap        │ Rat thap   │ Du thua       │         │
+│  │                                                        │         │
+│  │  Nhan xet: Nghieng 53° toi da phu song tai           │         │
+│  │  vi do trung binh noi phan lon thue bao sinh song    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TRUC QUAN: Mat do vet mat dat ve tinh                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  90°B ─────────────────────────────────────           │         │
+│  │       ▓▓▓▓▓▓▓▓▓                                       │         │
+│  │  60°B ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                              │         │
+│  │       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓  ← Dinh tai 53°     │         │
+│  │  53°B ████████████████████████████████ ← Do nghieng  │         │
+│  │       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                      │         │
+│  │  30°B ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                              │         │
+│  │       ▓▓▓▓▓▓▓▓▓▓▓                                     │         │
+│  │  XD   ▓▓▓▓▓▓▓                                         │         │
+│  │       ▓▓▓▓▓▓▓▓▓▓▓                                     │         │
+│  │  30°N ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                              │         │
+│  │       ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                      │         │
+│  │  53°N ████████████████████████████████               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Bien doi dung luong theo thoi gian
+
+```
+Dung luong Theo Thoi gian:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MAU NGAY DEM (mot vi tri):                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Nhu cau │         ████                               │         │
+│  │          │        ██████                              │         │
+│  │          │       ████████ ← Dinh toi                 │         │
+│  │          │    ████████████                            │         │
+│  │          │   ██████████████                           │         │
+│  │          │  ████████████████                          │         │
+│  │          │ ██████████████████                         │         │
+│  │          │████████████████████                        │         │
+│  │          └────────────────────────────────────────    │         │
+│  │           6am  12pm  6pm  12am  6am                   │         │
+│  │                                                        │         │
+│  │  Dinh: 7-10 PM dia phuong (streaming + lam viec o nha)│        │
+│  │  Day: 3-6 AM dia phuong                              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  XEM TOAN CAU (goc nhin chom sao):                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Thoi gian │ Chau My │ Chau Au│ Chau A│ Chau Dai Duong│        │
+│  │  ──────────┼─────────┼────────┼───────┼───────────── │         │
+│  │  00:00 UTC │ Toi     │ Dem    │ Sang  │ Trua         │         │
+│  │  06:00 UTC │ Dem     │ Sang   │ Chieu │ Toi          │         │
+│  │  12:00 UTC │ Sang    │ Chieu  │ Toi   │ Dem          │         │
+│  │  18:00 UTC │ Chieu   │ Toi    │ Dem   │ Sang         │         │
+│  │                                                        │         │
+│  │  Dinh toan cau: Chuyen quanh hanh tinh               │         │
+│  │  Ve tinh tren TBD luc My toi = su dung khong het     │         │
+│  │  ISL cho phep dinh tuyen luu luong den ve tinh ranh  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Dung luong moi ve tinh
+
+```
+Ngan sach Dung luong Ve tinh:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  STARLINK V2 MINI (thong so vi du):                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Thanh phan        │ Thong so ky thuat               │         │
+│  │  ──────────────────┼───────────────────────────────  │         │
+│  │  DL nguoi dung     │ Ku-band (10.7-12.7 GHz)         │         │
+│  │  UL nguoi dung     │ Ku-band (14.0-14.5 GHz)         │         │
+│  │  Lien ket gateway  │ Ka-band (17.8-18.6/27.5-29.1)   │         │
+│  │  Bang thong moi sat│ ~3.5 GHz tong                   │         │
+│  │  Hieu qua pho      │ ~3 bps/Hz (trung binh)          │         │
+│  │  Thong luong tho   │ ~10-15 Gbps moi ve tinh         │         │
+│  │  Buc xa            │ 8 buc xa nguoi dung (mang pha)  │         │
+│  │  Dung luong moi BR │ ~1.5-2 Gbps                     │         │
+│  │                                                        │         │
+│  │  PHAN BO DUNG LUONG:                                  │         │
+│  │  ┌────────────────────────────────────────────┐      │         │
+│  │  │  Downlink (ND nhan): 60-70%               │      │         │
+│  │  │  Uplink (ND gui): 20-25%                  │      │         │
+│  │  │  Dieu khien/bao hieu: 5-10%               │      │         │
+│  │  │  Chi phi ISL: 5-10%                       │      │         │
+│  │  └────────────────────────────────────────────┘      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  NGUOI DUNG MOI VE TINH:                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Kich ban        │ ND   │ Toc do TB │ Toc do dinh    │         │
+│  │  ────────────────┼──────┼───────────┼───────────────│         │
+│  │  Tai nhe         │ 50   │ 200 Mbps  │ 300 Mbps      │         │
+│  │  Tai binh thuong │ 200  │ 50 Mbps   │ 150 Mbps      │         │
+│  │  Tai nang        │ 500  │ 20 Mbps   │ 50 Mbps       │         │
+│  │  Tac nghen       │ 1000+│ < 10 Mbps │ Bien doi      │         │
+│  │                                                        │         │
+│  │  Ty le overbooking: 20:1 den 50:1 dien hinh          │         │
+│  │  (Khong phai ai cung online dong thoi)                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Chien luoc can bang tai
+
+```
+Ky thuat Quan ly Dung luong:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. LAI BUC XA (chuyen dung luong den nhu cau):                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Truoc:                 Sau:                          │         │
+│  │  🛰️                      🛰️                           │         │
+│  │  │\  /│                 │    \│                       │         │
+│  │  │ \/ │                 │     │                       │         │
+│  │  │ /\ │                 │    /│                       │         │
+│  │  │/  \│                 │   / │                       │         │
+│  │  ●    ○                 ●●●   ○                       │         │
+│  │  NYC  Dai Tay Duong     NYC   (khong ND)             │         │
+│  │  (nhieu ND)                                           │         │
+│  │                                                        │         │
+│  │  Mang pha co the tap trung buc xa noi nguoi dung o   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  2. CHUYEN GIAO DEN VE TINH IT TAI HON:                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │       🛰️A (tai 90%)      🛰️B (tai 40%)               │         │
+│  │          ╲                  ╱                         │         │
+│  │           ╲  Chuyen giao  ╱                          │         │
+│  │            ╲     →       ╱                           │         │
+│  │             ╲           ╱                            │         │
+│  │              ● Nguoi dung                            │         │
+│  │                                                        │         │
+│  │  Ca hai ve tinh hien thi → chuyen ND sang B          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  3. GIAM TAI LUU LUONG ISL:                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  🛰️A (tac nghen) ──ISL──→ 🛰️B ──ISL──→ 🛰️C           │         │
+│  │    │                               │                  │         │
+│  │    │ (nguoi dung)         (gateway qua dung luong)   │         │
+│  │    ▼                               ▼                  │         │
+│  │  GW1 (day)                       GW2 (kha dung)      │         │
+│  │                                                        │         │
+│  │  Dinh tuyen luu luong qua ISL den gateway it tai     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Su dung hop ly va giam toc
+
+```
+Quan ly Chat luong Dich vu:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TANG UU TIEN (dich vu dan cu dien hinh):                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Tang        │ Gioi han thang│ Uu tien │ Sau gioi han │         │
+│  │  ────────────┼───────────────┼─────────┼─────────────│         │
+│  │  Tieu chuan  │ 1 TB          │ Bt      │ Giam uu tien │         │
+│  │  Uu tien     │ 3 TB          │ Cao     │ Binh thuong  │         │
+│  │  Doanh nghiep│ Khong gioi han│ Cao nhat│ K/A          │         │
+│  │                                                        │         │
+│  │  Trong thoi gian tac nghen:                           │         │
+│  │  DN > Uu tien > Tieu chuan (trong han) > (qua han)   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  GIAM TOC DUA TREN TAC NGHEN:                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Tai o      │ Anh huong len ND Giam uu tien           │         │
+│  │  ───────────┼─────────────────────────────────────   │         │
+│  │  < 50%      │ Khong anh huong (du dung luong)        │         │
+│  │  50-80%     │ Giam toc do nhe                        │         │
+│  │  80-95%     │ Giam toc dang ke                       │         │
+│  │  > 95%      │ Chi no luc tot nhat (co the ko dung)   │         │
+│  │                                                        │         │
+│  │  Luu y: Giam uu tien ≠ giam toc cung                 │         │
+│  │  Chi ap dung khi o thuc su tac nghen                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**May tinh lap ke hoach dung luong:**
+
+```python
+import numpy as np
+
+def satellite_capacity_gbps(
+    bandwidth_ghz=3.5,
+    spectral_efficiency_bps_hz=3.0,
+    overhead_fraction=0.15
+):
+    """Dung luong thong luong tho ve tinh."""
+    raw = bandwidth_ghz * spectral_efficiency_bps_hz
+    usable = raw * (1 - overhead_fraction)
+    return usable
+
+def users_per_satellite(
+    sat_capacity_gbps,
+    avg_user_speed_mbps,
+    concurrent_fraction=0.15
+):
+    """So thue bao toi da mot ve tinh co the phuc vu."""
+    concurrent_capacity_mbps = sat_capacity_gbps * 1000
+    concurrent_users = concurrent_capacity_mbps / avg_user_speed_mbps
+    total_subscribers = concurrent_users / concurrent_fraction
+    return int(total_subscribers)
+
+def system_capacity(
+    n_satellites,
+    sat_capacity_gbps,
+    active_fraction=0.5
+):
+    """Tong dung luong he thong tren vung dan cu."""
+    return n_satellites * sat_capacity_gbps * active_fraction
+
+def congestion_probability(
+    subscribers_in_cell,
+    sat_capacity_gbps,
+    avg_session_mbps=25,
+    peak_concurrent_fraction=0.25
+):
+    """Uoc tinh xac suat tac nghen trong gio cao diem."""
+    peak_demand_gbps = (subscribers_in_cell * peak_concurrent_fraction * 
+                        avg_session_mbps / 1000)
+    
+    if peak_demand_gbps < sat_capacity_gbps * 0.7:
+        return "Thap (< 10%)"
+    elif peak_demand_gbps < sat_capacity_gbps * 0.9:
+        return "Trung binh (10-30%)"
+    elif peak_demand_gbps < sat_capacity_gbps:
+        return "Cao (30-60%)"
+    else:
+        return "Rat cao (> 60%)"
+
+def latitude_density_factor(latitude_deg, inclination_deg=53):
+    """Mat do ve tinh tuong doi tai vi do cho truoc."""
+    if abs(latitude_deg) > inclination_deg:
+        return max(0.1, 1 - (abs(latitude_deg) - inclination_deg) / 30)
+    else:
+        return 0.5 + 0.5 * np.sin(np.pi * abs(latitude_deg) / (2 * inclination_deg))
+
+# Phan tich
+print("Phan tich Dung luong Chom sao LEO")
+print("=" * 70)
+
+# Dung luong moi ve tinh
+sat_cap = satellite_capacity_gbps()
+print(f"\n1. Dung luong Moi Ve tinh")
+print("-" * 70)
+print(f"  Bang thong: 3.5 GHz")
+print(f"  Hieu qua pho: 3.0 bps/Hz")
+print(f"  Dung luong su dung: {sat_cap:.1f} Gbps")
+
+# Dung luong he thong
+print(f"\n2. Dung luong He thong (4000 ve tinh)")
+print("-" * 70)
+n_sats = 4000
+sys_cap = system_capacity(n_sats, sat_cap)
+print(f"  Tong ve tinh: {n_sats}")
+print(f"  Hoat dong tren vung dan cu: ~50%")
+print(f"  Dung luong he thong: {sys_cap:.0f} Gbps = {sys_cap/1000:.1f} Tbps")
+
+# Uoc tinh thue bao
+print(f"\n3. Uoc tinh Dung luong Thue bao")
+print("-" * 70)
+speeds = [100, 50, 25]
+for speed in speeds:
+    users = users_per_satellite(sat_cap, speed)
+    total = users * n_sats * 0.5
+    print(f"  @ {speed} Mbps trung binh: {users:,} moi sat, {total/1e6:.1f}M toan he thong")
+
+# Phan tich tac nghen theo vi tri
+print(f"\n4. Phan tich Tac nghen theo Mat do O")
+print("-" * 70)
+print(f"{'Thue bao/o':<20} {'Nhu cau dinh':<15} {'Rui ro tac nghen':<20}")
+print("-" * 70)
+for subs in [100, 300, 500, 1000, 2000]:
+    demand = subs * 0.25 * 25 / 1000
+    risk = congestion_probability(subs, sat_cap)
+    print(f"{subs:<20} {demand:.1f} Gbps{'':<7} {risk:<20}")
+
+# Phan tich vi do
+print(f"\n5. Dung luong theo Vi do (nghieng 53°)")
+print("-" * 70)
+print(f"{'Vi do':<12} {'Mat do VT':<15} {'DL hieu qua':<15}")
+print("-" * 70)
+for lat in [0, 20, 35, 45, 53, 60, 70]:
+    density = latitude_density_factor(lat)
+    eff_cap = sat_cap * density
+    print(f"{lat}°{'':<10} {density:.2f}x{'':<12} {eff_cap:.1f} Gbps/sat")
+
+# Mo phong thoi gian trong ngay
+print(f"\n6. Bien doi Nhu cau (Dong My, dan cu dien hinh)")
+print("-" * 70)
+hours = [0, 3, 6, 9, 12, 15, 18, 21]
+demand_factors = [0.2, 0.1, 0.15, 0.4, 0.5, 0.6, 0.9, 1.0]
+
+print(f"{'Gio':<10} {'Nhu cau':<15} {'Trang thai o':<20}")
+print("-" * 70)
+for hour, factor in zip(hours, demand_factors):
+    demand_gbps = 500 * factor * 0.25 * 25 / 1000
+    status = congestion_probability(int(500 * factor), sat_cap)
+    bar = "█" * int(factor * 20)
+    print(f"{hour:02d}:00{'':<5} {bar:<20} {status:<20}")
+
+# Lap ke hoach SLA
+print(f"\n7. Huong dan Lap ke hoach SLA")
+print("-" * 70)
+print("""
+  Chi so             │ Dan cu      │ Doanh nghiep│ Hang hai
+  ───────────────────┼─────────────┼─────────────┼──────────
+  Toc do cam ket     │ 25 Mbps     │ 100 Mbps    │ 10 Mbps
+  Toc do dinh        │ 250 Mbps    │ 500 Mbps    │ 100 Mbps
+  Kha dung           │ 99%         │ 99.5%       │ 99%
+  Do tre (dien hinh) │ < 50 ms     │ < 40 ms     │ < 100 ms
+  Uu tien khi        │ Binh thuong │ Cao         │ Dam bao
+  tac nghen          │             │             │
+""")
+```
+
+**Tom tat dung luong:**
+
+| Chi so | Gia tri |
+|--------|---------|
+| Dung luong moi ve tinh | ~10 Gbps |
+| Dung luong he thong (4000 sat) | ~20 Tbps |
+| Thue bao @ 50 Mbps TB | ~3-5 trieu |
+| Nguong tac nghen gio cao diem | ~500 ND/o |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Marketing vs thuc te.** "Len den 500 Mbps" la dinh, khong phai trung binh khi tac nghen.
+
+2. **Gia dinh overbooking.** 20:1 hoat dong cho nguoi dung binh thuong; gamer/streamer pha vo mo hinh.
+
+3. **Bo qua dia ly.** Ban cho vung do thi day dac ma khong lap ke hoach dung luong.
+
+4. **Mu gio cao diem.** Dung luong trong tot luc 3 AM; 8 PM moi la bai kiem tra thuc.
+
+5. **Hieu ung bien o.** Nguoi dung tai bien o co toc do kem hon trung tam o.
+
+6. **Anh huong thoi tiet.** Fade mua giam dung luong hieu qua; phai lap ke hoach cho kha dung 99%.
+
+7. **Tac nghen backhaul.** Dung luong gateway co the gioi han truoc khi dung luong ve tinh.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Starlink Terms of Service (Fair Use Policy)
+- ITU-R S.1503: Methodology for LEO/MEO FSS Systems
+- Amazon Kuiper FCC Technical Appendix
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Lop hoc Ngan sach Lien ket](/vi/space/link-budget-master-class/) — tinh toan thong luong thuc te
+- [5G NTN](/vi/5g-ntn/) — tich hop di dong voi ve tinh
+- [Phoi hop Tan so](/vi/space/frequency-bands-and-regulatory/) — chia se pho
+
+</section>

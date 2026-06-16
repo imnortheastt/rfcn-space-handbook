@@ -8,17 +8,490 @@ track: s7
 unit: inter-satellite-links-laser-rf
 order: 1
 level: L4
-estimatedReadingMinutes: 5
-title: "ISL bang RF"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["link-budget-fundamentals"]
+spiralRevisits: []
+title: "Lien ket Lien Ve tinh RF — Ket noi Khong qua Mat dat"
+description: "Hieu lien ket lien ve tinh tan so vo tuyen cho mang chom sao va chuyen tiep du lieu."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["isl", "rf", "ket-noi-cheo", "chom-sao", "satcom"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# ISL bang RF
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Khi ve tinh khong the nhin thay tram mat dat, no chuyen tiep du lieu bang cach nao? Lien ket lien ve tinh (ISL) cho phep tau vu tru giao tiep truc tiep voi nhau, tao mang luoi tren quy dao. ISL dua tren RF la cong nghe chin muoi, chiu duoc thoi tiet tao xuong song cua cac chom sao chuyen tiep nhu TDRSS va cho phep ket noi cheo trong cac he thong LEO thuong mai. Hieu thiet ke RF ISL la can thiet cho kien truc su chom sao va nguoi lap ke hoach phan mat dat.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Van de mang chom sao
+
+```
+Khong co ISL (Chi Chuyen tiep Mat dat):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Ve tinh LEO                                                        │
+│                                                                      │
+│       🛰️ A          🛰️ B          🛰️ C          🛰️ D              │
+│         │             ✗             ✗             │                 │
+│         │         (khong lien   (dai duong,      │                 │
+│         │          lac mat dat) khong GS)        │                 │
+│         ▼                                        ▼                 │
+│  ┌──────────┐                            ┌──────────┐              │
+│  │Tram      │      ~~~~~~~~~~~~~~~~~~~~~~│Tram      │              │
+│  │Mat dat 1 │         TRE                │Mat dat 2 │              │
+│  └──────────┘     (luu & chuyen tiep)    └──────────┘              │
+│                                                                      │
+│  Van de: Du lieu tu B va C phai doi den khi chung nhin thay tram   │
+│  mat dat — tre co the la 30-90 phut cho LEO cuc!                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+
+Voi RF ISL (Mang Luoi):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Ve tinh LEO voi Ket noi Cheo                                       │
+│                                                                      │
+│       🛰️ A ←─────→ 🛰️ B ←─────→ 🛰️ C ←─────→ 🛰️ D              │
+│         │           RF ISL        RF ISL        │                 │
+│         │                                        │                 │
+│         ▼                                        ▼                 │
+│  ┌──────────┐                            ┌──────────┐              │
+│  │Tram      │                            │Tram      │              │
+│  │Mat dat 1 │                            │Mat dat 2 │              │
+│  └──────────┘                            └──────────┘              │
+│                                                                      │
+│  Giai phap: Du lieu dinh tuyen qua chom sao — bat ky ve tinh nao   │
+│  co lien lac mat dat co the chuyen tiep cho toan bo mang luoi.     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Hinh hoc lien ket ISL
+
+```
+Hinh hoc Lien ket RF ISL:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ISL TRONG MAT PHANG (cung mat phang quy dao):                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │         Huong quy dao →                               │         │
+│  │                                                        │         │
+│  │    🛰️ ←────────────────────→ 🛰️ ←────────────────→ 🛰️│         │
+│  │   Sat N-1      ~2000 km       Sat N      ~2000 km    Sat N+1│   │
+│  │              (trong mat phang)          (trong mat phang)    │   │
+│  │                                                        │         │
+│  │  • Hinh hoc co dinh (cung mat phang)                  │         │
+│  │  • Tam khong doi (ve tinh cach deu)                   │         │
+│  │  • Chi huong anten don gian hon                       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ISL GIUA MAT PHANG (mat phang quy dao ke):                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    Mat phang 1          Mat phang 2          Mat phang 3│        │
+│  │       │                    │                    │     │         │
+│  │       🛰️ ←─────────────→ 🛰️ ←─────────────→ 🛰️     │         │
+│  │       │     ~1500 km       │     ~1500 km       │     │         │
+│  │       │   (giua mat phang) │   (giua mat phang) │     │         │
+│  │       │                    │                    │     │         │
+│  │       🛰️                  🛰️                  🛰️     │         │
+│  │                                                        │         │
+│  │  • Hinh hoc thay doi (mat phang tien dong khac nhau)  │         │
+│  │  • Tam thay doi trong suot quy dao                    │         │
+│  │  • Can theo doi anten phuc tap                        │         │
+│  │  • Co the dut gan cuc (van de duong noi)              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Bang tan RF ISL
+
+```
+Phan bo Tan so ISL:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Bang    │ Tan so         │ Su dung Dien hinh │ Dac diem           │
+│  ────────┼────────────────┼───────────────────┼───────────────────│
+│  S-band  │ 2.0-2.3 GHz    │ ISL toc do thap,  │ Buc xa rong, toc  │
+│          │                │ chuyen tiep TT&C  │ do du lieu thap   │
+│          │                │                   │                   │
+│  Ku-band │ 12-18 GHz      │ Lien ket TDRSS    │ Dung luong trung  │
+│          │                │ S/SA              │ binh, cong nghe   │
+│          │                │                   │ da duoc chung minh│
+│          │                │                   │                   │
+│  Ka-band │ 22-26 GHz      │ ISL toc do cao    │ Dung luong cao,   │
+│          │                │                   │ khong bi mua      │
+│          │                │                   │                   │
+│  V-band  │ 40-75 GHz      │ ISL the he moi    │ Toc do rat cao,   │
+│          │                │ (Starlink v2)     │ anten nho hon     │
+│          │                │                   │                   │
+│  ────────┴────────────────┴───────────────────┴───────────────────│
+│                                                                      │
+│  Loi the ISL: Khong bi hap thu khi quyen (khong gian-den-khong gian)│
+│  Suy hao mua khong anh huong ISL — chi anh huong lien ket mat dat. │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Ngan sach lien ket RF ISL
+
+```
+Vi du Ngan sach Lien ket RF ISL (Ka-band, tam 2000 km):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PHIA PHAT:                                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Tham so                │ Gia tri   │ Ghi chu         │         │
+│  │  ──────────────────────┼───────────┼─────────────────│         │
+│  │  Cong suat phat        │ +37 dBm   │ 5 W             │         │
+│  │  Tang ich anten Tx     │ +35 dBi   │ dia 0.5m        │         │
+│  │  Ton hao Tx            │ -1 dB     │ tiep, chi huong │         │
+│  │  ──────────────────────┼───────────┼─────────────────│         │
+│  │  EIRP                  │ +71 dBm   │                 │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DUONG TRUYEN:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Ton hao khong gian tu do (25 GHz, 2000 km)           │         │
+│  │  FSPL = 20log(d) + 20log(f) + 92.45                  │         │
+│  │  FSPL = 66 + 88 + 92.45 = -206.5 dB                  │         │
+│  │                                                        │         │
+│  │  Khong co ton hao khi quyen (chan khong)!             │         │
+│  │  Khong bi suy hao mua!                                │         │
+│  │  Khong bi nhap nhay!                                  │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PHIA THU:                                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Tang ich anten Rx     │ +35 dBi   │ dia 0.5m        │         │
+│  │  Nhiet do nhieu he thong│ 500 K    │ Tsys            │         │
+│  │  G/T                   │ +8 dB/K   │                 │         │
+│  │  Ton hao Rx            │ -1 dB     │                 │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  BIEN DO LIEN KET:                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Cong suat nhan = 71 - 206.5 + 35 - 1 = -101.5 dBm   │         │
+│  │  San nhieu (100 MHz BW) = -174 + 27 + 10log(500K/290K)│        │
+│  │                        ≈ -145 dBm                     │         │
+│  │  C/N = -101.5 - (-145) = 43.5 dB                     │         │
+│  │                                                        │         │
+│  │  Cho QPSK tai 100 Mbps: can ~10 dB Eb/No             │         │
+│  │  San co: 43.5 - 10log(100M/100M) = 43.5 dB           │         │
+│  │  Bien do: ~33 dB (tuyet voi!)                        │         │
+│  │                                                        │         │
+│  │  Co the ho tro ~2 Gbps voi 16-QAM va ma hoa          │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Chi huong va theo doi anten
+
+```
+Thach thuc Chi huong Anten ISL:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  YEU CAU DO CHINH XAC CHI HUONG:                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Do rong buc xa anten ≈ 70λ/D                         │         │
+│  │                                                        │         │
+│  │  Cho Ka-band (25 GHz), dia 0.5m:                      │         │
+│  │  Do rong buc xa ≈ 70 × 0.012m / 0.5m ≈ 1.7°          │         │
+│  │                                                        │         │
+│  │  Do chinh xac chi huong can: < do rong buc xa/10 ≈ 0.17°│       │
+│  │                                                        │         │
+│  │  Dieu nay doi hoi:                                    │         │
+│  │  • Bo theo doi sao (< 10 giay cung)                  │         │
+│  │  • Gimbal anten (2-truc, co the lai)                 │         │
+│  │  • Cap nhat ephemeris thoi gian thuc                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TOC DO THEO DOI (ISL Giua mat phang):                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Toc do goc: len den 1°/giay gan xich dao            │         │
+│  │                                                        │         │
+│  │  Gimbal phai theo doi lien tuc trong khi duy tri     │         │
+│  │  do chinh xac chi huong duoi do.                      │         │
+│  │                                                        │         │
+│  │  Giai phap:                                           │         │
+│  │  • Gimbal co khi (da chung minh, nang)               │         │
+│  │  • Mang pha (lai dien tu, nhe hon)                   │         │
+│  │  • Ket hop (gimbal tho + mang pha tinh)              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TRINH TU THU:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Du doan ephemeris → chi huong den vi tri du kien  │         │
+│  │  2. Che do thu buc xa rong (xoan tim kiem)            │         │
+│  │  3. Phat hien beacon → khoa tho                       │         │
+│  │  4. Theo doi buc xa hep → khoa tinh                   │         │
+│  │  5. Thiet lap lien ket du lieu                        │         │
+│  │                                                        │         │
+│  │  Thoi gian thu: 10-60 giay dien hinh                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**May tinh ngan sach lien ket RF ISL:**
+
+```python
+import numpy as np
+
+# Hang so
+C = 299792458  # m/s
+K_BOLTZMANN = 1.380649e-23  # J/K
+
+def fspl_db(distance_km, frequency_ghz):
+    """Ton hao khong gian tu do tinh bang dB."""
+    d_m = distance_km * 1000
+    f_hz = frequency_ghz * 1e9
+    return 20 * np.log10(4 * np.pi * d_m * f_hz / C)
+
+def antenna_gain_db(diameter_m, frequency_ghz, efficiency=0.55):
+    """Tang ich anten parabol."""
+    wavelength = C / (frequency_ghz * 1e9)
+    area = np.pi * (diameter_m / 2) ** 2
+    gain = efficiency * 4 * np.pi * area / wavelength**2
+    return 10 * np.log10(gain)
+
+def beamwidth_deg(diameter_m, frequency_ghz):
+    """Do rong buc xa nua cong suat (do)."""
+    wavelength = C / (frequency_ghz * 1e9)
+    return np.degrees(70 * wavelength / diameter_m)
+
+def noise_power_dbm(bandwidth_hz, noise_temp_k):
+    """Cong suat nhieu tinh bang dBm."""
+    noise_w = K_BOLTZMANN * noise_temp_k * bandwidth_hz
+    return 10 * np.log10(noise_w) + 30  # Chuyen doi sang dBm
+
+def rf_isl_link_budget(tx_power_dbm, tx_ant_m, rx_ant_m, 
+                       freq_ghz, range_km, bandwidth_mhz,
+                       tx_loss_db=1, rx_loss_db=1, rx_temp_k=500):
+    """Ngan sach lien ket RF ISL day du."""
+    # Tang ich
+    tx_gain = antenna_gain_db(tx_ant_m, freq_ghz)
+    rx_gain = antenna_gain_db(rx_ant_m, freq_ghz)
+    
+    # EIRP
+    eirp = tx_power_dbm + tx_gain - tx_loss_db
+    
+    # Ton hao duong truyen
+    fspl = fspl_db(range_km, freq_ghz)
+    
+    # Cong suat nhan
+    rx_power = eirp - fspl + rx_gain - rx_loss_db
+    
+    # Nhieu
+    bw_hz = bandwidth_mhz * 1e6
+    noise = noise_power_dbm(bw_hz, rx_temp_k)
+    
+    # C/N
+    cn_db = rx_power - noise
+    
+    # G/T
+    gt = rx_gain - 10 * np.log10(rx_temp_k)
+    
+    # Do rong buc xa
+    bw_tx = beamwidth_deg(tx_ant_m, freq_ghz)
+    bw_rx = beamwidth_deg(rx_ant_m, freq_ghz)
+    
+    return {
+        'tx_power_dbm': tx_power_dbm,
+        'tx_gain_dbi': tx_gain,
+        'rx_gain_dbi': rx_gain,
+        'eirp_dbm': eirp,
+        'fspl_db': fspl,
+        'rx_power_dbm': rx_power,
+        'noise_floor_dbm': noise,
+        'cn_db': cn_db,
+        'gt_dbk': gt,
+        'tx_beamwidth_deg': bw_tx,
+        'rx_beamwidth_deg': bw_rx,
+        'pointing_req_deg': bw_tx / 10,
+    }
+
+def estimate_data_rate(cn_db, bandwidth_mhz, modulation='QPSK'):
+    """Uoc tinh toc do du lieu dat duoc."""
+    spectral_eff = {
+        'BPSK': 1,
+        'QPSK': 2,
+        '8PSK': 3,
+        '16QAM': 4,
+        '64QAM': 6,
+    }
+    cn_req = {
+        'BPSK': 6,
+        'QPSK': 10,
+        '8PSK': 14,
+        '16QAM': 17,
+        '64QAM': 23,
+    }
+    
+    if cn_db >= cn_req[modulation]:
+        rate_mbps = bandwidth_mhz * spectral_eff[modulation] * 0.8  # Hieu suat 80%
+        margin = cn_db - cn_req[modulation]
+        return rate_mbps, margin
+    return 0, cn_db - cn_req[modulation]
+
+# Phan tich
+print("Phan tich Ngan sach Lien ket RF ISL")
+print("=" * 60)
+
+# Kich ban 1: LEO ISL trong mat phang (Ka-band)
+print("\n1. LEO ISL Trong Mat phang (Ka-band, 2000 km)")
+print("-" * 60)
+budget1 = rf_isl_link_budget(
+    tx_power_dbm=37,      # 5 W
+    tx_ant_m=0.5,
+    rx_ant_m=0.5,
+    freq_ghz=25,
+    range_km=2000,
+    bandwidth_mhz=100,
+)
+
+for k, v in budget1.items():
+    if 'db' in k.lower() or 'dbi' in k.lower() or 'dbk' in k.lower() or 'dbm' in k.lower():
+        print(f"  {k:20}: {v:+.1f} dB")
+    elif 'deg' in k.lower():
+        print(f"  {k:20}: {v:.2f}°")
+    else:
+        print(f"  {k:20}: {v:.1f}")
+
+rate, margin = estimate_data_rate(budget1['cn_db'], 100, '16QAM')
+print(f"\n  Toc do dat duoc (16QAM): {rate:.0f} Mbps, bien do: {margin:.1f} dB")
+
+# Kich ban 2: LEO ISL giua mat phang (tam xa hon)
+print("\n2. LEO ISL Giua Mat phang (V-band, 5000 km)")
+print("-" * 60)
+budget2 = rf_isl_link_budget(
+    tx_power_dbm=40,      # 10 W
+    tx_ant_m=0.3,         # Anten nho hon cho V-band
+    rx_ant_m=0.3,
+    freq_ghz=60,          # V-band
+    range_km=5000,
+    bandwidth_mhz=500,
+)
+
+for k, v in budget2.items():
+    if 'db' in k.lower() or 'dbi' in k.lower() or 'dbk' in k.lower() or 'dbm' in k.lower():
+        print(f"  {k:20}: {v:+.1f} dB")
+    elif 'deg' in k.lower():
+        print(f"  {k:20}: {v:.2f}°")
+    else:
+        print(f"  {k:20}: {v:.1f}")
+
+rate2, margin2 = estimate_data_rate(budget2['cn_db'], 500, 'QPSK')
+print(f"\n  Toc do dat duoc (QPSK): {rate2:.0f} Mbps, bien do: {margin2:.1f} dB")
+
+# Bang so sanh
+print("\n" + "=" * 60)
+print("So sanh Bang RF ISL (lien ket 2000 km)")
+print("-" * 60)
+bands = [
+    ('Ku', 15, 0.6),
+    ('Ka', 25, 0.5),
+    ('V', 60, 0.3),
+]
+
+print(f"{'Bang':6} {'Tan so':>8} {'Dia':>8} {'FSPL':>10} {'Tang ich':>8} {'BW':>8}")
+print(f"{'':6} {'(GHz)':>8} {'(m)':>8} {'(dB)':>10} {'(dBi)':>8} {'(do)':>8}")
+print("-" * 60)
+for name, freq, dish in bands:
+    fspl = fspl_db(2000, freq)
+    gain = antenna_gain_db(dish, freq)
+    bw = beamwidth_deg(dish, freq)
+    print(f"{name:6} {freq:>8.0f} {dish:>8.1f} {fspl:>10.1f} {gain:>8.1f} {bw:>8.2f}")
+```
+
+**So sanh he thong RF ISL:**
+
+| He thong | Bang | Loai ISL | Tam | Toc do | Anten |
+|----------|------|----------|-----|--------|-------|
+| TDRSS | Ku/Ka | Chuyen tiep GEO | 45,000 km | 300 Mbps | dia 4.9m |
+| Starlink v1.5 | Ka | Mang LEO | 2,000 km | ~1 Gbps | Mang pha |
+| OneWeb | Ka | LEO trong | 1,500 km | TBD | Buc xa lai |
+| Iridium NEXT | Ka | Mang LEO | 4,000 km | ~10 Mbps | Mang pha |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Loi chi huong anten.** Chi 0.1° loi chi huong tai Ka-band co the mat 3 dB — quan trong cho bien do.
+
+2. **Van de duong noi giua mat phang.** Tai vung cuc, mat phang ke phan ky; ISL giua mat phang co the can chuyen giao.
+
+3. **Bien doi tam.** Tam ISL giua mat phang co the thay doi 2:1 trong mot quy dao — ngan sach lien ket phai xu ly truong hop xau nhat.
+
+4. **Dich chuyen Doppler.** LEO ISL thay ±50 kHz Doppler tai Ku-band; may thu can vong khoa theo doi.
+
+5. **Phoi hop quy dinh.** Tan so ISL van can phoi hop ITU ngay ca trong khong gian.
+
+6. **Chu ky nhiet nguyet thuc.** Dien tu RF phai song sot dao dong -40°C den +80°C moi vong quy dao.
+
+7. **Nhieu tu Mat Troi.** Khi Mat Troi o trong boresight anten, nhiet do nhieu tang dot bien.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- ITU-R S.1591: Technical characteristics of NGSO FSS systems
+- NASA TDRSS System Specifications
+- ESA EDRS System Requirements Document
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [ISL Quang hoc](/vi/space/inter-satellite-links-laser-rf/optical-laser-isl/) — ket noi cheo laser
+- [Chi huong ISL](/vi/space/inter-satellite-links-laser-rf/isl-pointing-acquisition/) — thu va theo doi
+- [Kien truc Chom sao LEO](/vi/space/leo-constellation-architecture/starlink-class-design/) — mang luoi
+
+</section>

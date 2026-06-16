@@ -8,17 +8,374 @@ track: n6
 unit: fronthaul-interface
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n6-functional-splits-02-option-7-2x"]
+spiralRevisits: []
 title: "Tong quan eCPRI"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Enhanced Common Public Radio Interface — giao thuc fronthaul dua tren goi thay the CPRI cu."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["eCPRI V2.0", "O-RAN.WG4.CUS"]
+tags: ["o-ran", "5g", "ecpri", "fronthaul", "cpri"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tong quan eCPRI
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+CPRI cu la diem-den-diem, toc do bit khong doi, va doc quyen theo vendor. No khong the mo rong cho 5G massive MIMO ma khong can bang thong qua cao.
+
+eCPRI dua tren goi, ho tro nen, va chay tren Ethernet chuan. No la nen tang cua O-RAN Open Fronthaul.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### CPRI vs eCPRI
+
+```
+Tien hoa tu CPRI sang eCPRI:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  CPRI (Common Public Radio Interface):                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Truyen tai: Toc do bit khong doi (giong TDM)   │    │
+│  │  Vat ly:     Cap quang rieng, optic doc quyen   │    │
+│  │  Split:      Option 8 (PHY-RF)                  │    │
+│  │  Du lieu:    Mau IQ mien thoi gian              │    │
+│  │  BW:         Co dinh, ty le voi so antenna      │    │
+│  │              24.3 Gbps cho 100 MHz, 8 antenna   │    │
+│  │  Vendor:     Doc quyen, don vendor              │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  eCPRI (enhanced CPRI):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Truyen tai: Dua tren goi (Ethernet/IP)         │    │
+│  │  Vat ly:     Optic Ethernet chuan               │    │
+│  │  Split:      Linh hoat (Options 6-8, 7-2x)      │    │
+│  │  Du lieu:    IQ mien tan so (nen duoc)          │    │
+│  │  BW:         Bien doi, co the nen               │    │
+│  │              ~10 Gbps nen cho cung cau hinh     │    │
+│  │  Vendor:     Dac ta mo                          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Uu diem chinh:                                         │
+│  - He sinh thai Ethernet chuan (switch, optic)         │
+│  - Co the ghep kenh thong ke                           │
+│  - Nen giam bang thong 50-70%                          │
+│  - Phan tach chuc nang linh hoat                       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Ngan xep giao thuc eCPRI
+
+```
+Cac Lop Giao thuc eCPRI:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Tuy chon 1: eCPRI tren Ethernet (uu tien cho FH)      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ eCPRI PDU                                       │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ Ethernet (EtherType 0xAEFE)                     │    │
+│  │ - Dst MAC, Src MAC, VLAN tag                    │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ Vat ly: 10G/25G/100G Ethernet                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Tuy chon 2: eCPRI tren UDP/IP                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ eCPRI PDU                                       │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ UDP (port 1914 dang ky)                         │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ IP (IPv4 hoac IPv6)                             │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ Ethernet                                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  O-RAN dung: Tuy chon 1 (Ethernet) cho fronthaul       │
+│  Ly do: Overhead thap hon, do tre xac dinh             │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Header eCPRI
+
+```
+Header Chung eCPRI (8 bytes):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Byte 0: Phien ban Giao thuc + Reserved + C             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Bits 7-4: Phien ban (0x01 = V1.x, 0x02 = V2.0)  │    │
+│  │ Bits 3-1: Reserved (000)                         │    │
+│  │ Bit 0:    Chi bao noi tiep                       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Byte 1: Loai Tin nhan                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 0x00: Du lieu IQ                                │    │
+│  │ 0x01: Chuoi Bit                                 │    │
+│  │ 0x02: Du lieu Dieu khien Thoi gian thuc        │    │
+│  │ 0x03: Truyen Du lieu Chung                     │    │
+│  │ 0x04: Truy cap Bo nho Xa                       │    │
+│  │ 0x05: Do Do tre Mot chieu                      │    │
+│  │ 0x06: Reset Xa                                  │    │
+│  │ 0x07: Chi bao Su kien                          │    │
+│  │ 0x08-0x3F: Du tru                              │    │
+│  │ 0x40-0xFF: Rieng vendor                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Bytes 2-3: Kich thuoc Payload (big-endian)             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Kich thuoc payload tinh bang byte (khong header)│    │
+│  │ Max: 65535 bytes                                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Bytes 4-5: RTC_ID / PC_ID (dinh danh ngu canh)        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Dung de nhan dien stream/flow                   │    │
+│  │ PC_ID cho du lieu IQ: eAxC ID (extended Antenna │    │
+│  │                       Carrier ID)               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Bytes 6-7: SEQ_ID (dinh danh thu tu)                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Bits 15-8: So thu tu (0-255, quay vong)         │    │
+│  │ Bits 7-0:  Sub-sequence (cho phan manh)         │    │
+│  │ E bit (bit 7 cua sub-seq): Ket thuc tin nhan    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac loai tin nhan
+
+```
+Cac Loai Tin nhan eCPRI cho O-RAN:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Type 0x00: Du lieu IQ (U-Plane)                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Loai tin nhan pho bien nhat                     │    │
+│  │ Chua mau IQ mien tan so                         │    │
+│  │ Mot tin nhan moi eAxC moi symbol thuong         │    │
+│  │                                                  │    │
+│  │ Payload: Header section O-RAN + du lieu IQ      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Type 0x02: Dieu khien Thoi gian thuc (C-Plane)        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Thong tin lap lich/dieu khien                   │    │
+│  │ Gui truoc du lieu U-Plane                       │    │
+│  │ Chua mo ta section                              │    │
+│  │                                                  │    │
+│  │ Payload: Cac section C-Plane O-RAN              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Type 0x05: Do Do tre Mot chieu                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ De canh chinh timing                            │    │
+│  │ Do do tre lan truyen                            │    │
+│  │                                                  │    │
+│  │ Dung trong thiet lap ban dau va giam sat        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Type 0x07: Chi bao Su kien                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Thong bao loi/su kien                           │    │
+│  │ Huong RU → DU la chinh                          │    │
+│  │                                                  │    │
+│  │ Vi du: Mat dong bo, reset, loi                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Noi tiep va phan manh
+
+```
+Xu ly Tin nhan eCPRI:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Noi tiep (C bit = 1):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Mot khung Ethernet chua nhieu tin nhan         │    │
+│  │  eCPRI (eAxC khac nhau, cung symbol)            │    │
+│  │                                                  │    │
+│  │  ┌─────────┬─────────┬─────────┬─────────┐      │    │
+│  │  │ Eth Hdr │ eCPRI 1 │ eCPRI 2 │ eCPRI N │      │    │
+│  │  │         │ (C=1)   │ (C=1)   │ (C=0)   │      │    │
+│  │  └─────────┴─────────┴─────────┴─────────┘      │    │
+│  │                                                  │    │
+│  │  Tin nhan cuoi co C=0 (khong con theo sau)      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Phan manh (Sub-sequence):                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Tin nhan eCPRI lon chia qua cac khung          │    │
+│  │  Cung SEQ_ID, tang sub-sequence                 │    │
+│  │                                                  │    │
+│  │  Khung 1: SEQ=5, Sub=0, E=0 (con manh)          │    │
+│  │  Khung 2: SEQ=5, Sub=1, E=0                     │    │
+│  │  Khung 3: SEQ=5, Sub=2, E=1 (ket thuc)          │    │
+│  │                                                  │    │
+│  │  Nguoi nhan lap ghep truoc khi xu ly            │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  O-RAN thuong tranh phan manh:                          │
+│  - Dung khung jumbo (9000 bytes)                       │
+│  - Mot symbol moi tin nhan khi co the                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### eAxC ID
+
+```
+Extended Antenna-Carrier ID (eAxC ID):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Muc dich: Nhan dien duy nhat moi luong IQ              │
+│                                                          │
+│  Cau truc (16 bits):                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ ┌───────────┬───────────┬───────────┬─────────┐ │    │
+│  │ │ O-DU Port │ Band/Sect │ CC        │ RU Port │ │    │
+│  │ │ (4 bits)  │ (4 bits)  │ (4 bits)  │ (4 bits)│ │    │
+│  │ └───────────┴───────────┴───────────┴─────────┘ │    │
+│  │                                                  │    │
+│  │ O-DU Port: Nhan dien giao dien mang DU          │    │
+│  │ Band/Sect: ID sector bang tan                   │    │
+│  │ CC:        Chi so component carrier             │    │
+│  │ RU Port:   Antenna/luong khong gian tai RU     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Vi du: RU 64T64R, 2 carrier                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ eAxC 0x0000: DU0, Sect0, CC0, Port0             │    │
+│  │ eAxC 0x0001: DU0, Sect0, CC0, Port1             │    │
+│  │ ...                                              │    │
+│  │ eAxC 0x003F: DU0, Sect0, CC0, Port63            │    │
+│  │ eAxC 0x0100: DU0, Sect0, CC1, Port0 (CC thu 2)  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**So sanh eCPRI vs CPRI:**
+
+| Khia canh | CPRI | eCPRI |
+|-----------|------|-------|
+| Truyen tai | TDM | Goi (Ethernet) |
+| Hieu qua BW | Co dinh | Bien doi, nen |
+| Do tre | Xac dinh | Gan xac dinh |
+| Switch | Doc quyen | Ethernet chuan |
+| Da vendor | Khong | Co |
+| Tuy chon split | Chi Option 8 | Linh hoat |
+
+**Bat eCPRI:**
+
+```bash
+# Bo loc Wireshark cho eCPRI
+eth.type == 0xaefe
+
+# Bat tcpdump
+tcpdump -i eth0 ether proto 0xaefe -w ecpri.pcap
+
+# Loc theo loai tin nhan (du lieu IQ)
+ecpri.msg_type == 0
+
+# Loc theo eAxC ID
+ecpri.pc_id == 0x0000
+
+# Kiem tra loi so thu tu
+tshark -r ecpri.pcap -Y "ecpri" -T fields -e ecpri.seq_id | uniq -u
+```
+
+**Kich thuoc khung:**
+
+| Kich ban | Khung Ethernet | Ghi chu |
+|----------|----------------|---------|
+| Chuan | 1518 bytes | Du lieu IQ han che |
+| Jumbo | 9000 bytes | Uu tien cho FH |
+| Max eCPRI | 65535 payload | It dung |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Sai EtherType.** eCPRI dung 0xAEFE. Switch cau hinh sai co the bo hoac dinh tuyen sai.
+
+2. **Loi so thu tu.** Chi ra mat goi. Giam sat tinh lien tuc SEQ_ID.
+
+3. **Khong khop eAxC.** DU va RU phai thong nhat anh xa eAxC. Anh xa sai gui du lieu den sai antenna.
+
+4. **Overhead phan manh.** Tin nhan phan manh them do tre. Kich thuoc tin nhan de tranh phan manh.
+
+5. **Phan tich noi tiep.** Mot so trien khai khong xu ly dung C bit. Xac minh tuong thich.
+
+6. **Uu tien VLAN.** eCPRI can uu tien cao. Cau hinh VLAN sai gay drop.
+
+7. **Khong khop MTU.** Tat ca switch phai ho tro khung jumbo. Mot lien ket MTU 1500-byte pha vo luong.
+
+8. **Loai rieng vendor.** Loai tin nhan 0x40-0xFF do vendor dinh nghia. Co the gay van de interop.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- eCPRI Specification V2.0, "Common Public Radio Interface: eCPRI"
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- IEEE 802.1Q, "Bridges and Bridged Networks (VLAN)"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Spec fronthaul O-RAN](/vi/core-network/fronthaul-interface/o-ran-fronthaul-spec/) — mo rong O-RAN
+- [Yeu cau transport](/vi/core-network/fronthaul-interface/transport-requirements/) — thiet ke mang
+- [Option 7-2x](/vi/core-network/functional-splits/option-7-2x/) — chi tiet phan tach
+
+</section>

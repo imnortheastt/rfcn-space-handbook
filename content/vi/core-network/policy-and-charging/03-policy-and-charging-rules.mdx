@@ -8,17 +8,374 @@ track: n3
 unit: policy-and-charging
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "Quy tac chinh sach va tinh cuoc"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 11
+prerequisites: ["core-network-n3-policy-and-charging-01-pcf-overview", "core-network-n3-policy-and-charging-02-chf-overview"]
+spiralRevisits: ["core-network-n3-session-management-deep-dive-05-qos-flows"]
+title: "Quy Tac Policy va Tinh Cuoc"
+description: "Giai phau quy tac PCC — bo loc SDF, tham so QoS, khoa tinh cuoc, va cach quy tac chay tu PCF den SMF den UPF."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.503", "3GPP TS 29.512"]
+tags: ["pcc", "5g", "policy", "charging", "sdf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Quy tac chinh sach va tinh cuoc
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Quy tac PCC la cac nguyen tu cua thuc thi policy. Moi quy tac noi: "voi luu luong khop bo loc nay, ap dung QoS nay, tinh cuoc theo cach nay, va cong mo hay dong."
+
+Hieu quy tac PCC giup ban debug tai sao goi video bi throttle hoac tai sao luu luong nhat dinh khong bi tinh cuoc.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Quy tac PCC chua gi
+
+```
+Cau truc Quy tac PCC:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Quy tac PCC = Khop Luu luong + Xu ly                   │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Ten Quy tac: "video_streaming_rule"             │    │
+│  │                                                  │    │
+│  │ Khop Luu luong (Bo loc SDF):                    │    │
+│  │ ├── Protocol: UDP                               │    │
+│  │ ├── IP xa: 203.0.113.0/24                       │    │
+│  │ ├── Port xa: 1935, 8080                         │    │
+│  │ └── Huong: hai chieu                            │    │
+│  │                                                  │    │
+│  │ Xu ly QoS:                                      │    │
+│  │ ├── 5QI: 6 (video streaming)                   │    │
+│  │ ├── ARP: 10                                     │    │
+│  │ ├── MBR: 50 Mbps DL / 5 Mbps UL                │    │
+│  │ └── GBR: khong co (non-GBR)                    │    │
+│  │                                                  │    │
+│  │ Tinh cuoc:                                      │    │
+│  │ ├── Nhom Rating: 100                           │    │
+│  │ ├── Muc Bao cao: SDF                           │    │
+│  │ └── Online/Offline: offline                    │    │
+│  │                                                  │    │
+│  │ Kiem soat Flow:                                 │    │
+│  │ ├── Cong: mo                                   │    │
+│  │ └── Redirect: khong co                         │    │
+│  │                                                  │    │
+│  │ Uu tien: 100                                    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Giai thich bo loc SDF
+
+```
+Bo loc Service Data Flow:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Bo loc SDF = Bo Phan loai Goi                          │
+│                                                          │
+│  Khop 5-tuple:                                          │
+│  ├── IP nguon / prefix                                 │
+│  ├── IP dich / prefix                                  │
+│  ├── Port nguon / pham vi                              │
+│  ├── Port dich / pham vi                               │
+│  └── Protocol (TCP, UDP, any)                          │
+│                                                          │
+│  Huong:                                                 │
+│  ├── Uplink: UE → mang                                 │
+│  ├── Downlink: mang → UE                               │
+│  └── Hai chieu: ca hai                                 │
+│                                                          │
+│  Vi du:                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Bao hieu VoLTE:                                 │    │
+│  │   permit out ip from any to 198.51.100.10 5060 │    │
+│  │                                                  │    │
+│  │ Xem video:                                      │    │
+│  │   permit in udp from 203.0.113.0/24 1935 to any│    │
+│  │                                                  │    │
+│  │ Tat ca luu luong (mac dinh):                    │    │
+│  │   permit out ip from any to any                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Luong quy tac: PCF → SMF → UPF
+
+```
+Cai dat Quy tac PCC:
+
+PCF                    SMF                    UPF
+│                       │                       │
+│ Quyet dinh SM Policy │                       │
+│ (quy tac PCC)        │                       │
+│──────────────────────►│                       │
+│                       │                       │
+│                       │ Phan tich quy tac PCC│
+│                       │ Tao quy tac QoS      │
+│                       │ Tao quy tac tinh cuoc│
+│                       │                       │
+│                       │ PFCP Session Mod     │
+│                       │ - PDR (phat hien)    │
+│                       │ - QER (thuc thi QoS) │
+│                       │ - URR (bao cao su dung)
+│                       │──────────────────────►│
+│                       │                       │
+│                       │                       │ UPF cai dat:
+│                       │                       │ - Bo loc goi
+│                       │                       │ - Gioi han toc do
+│                       │                       │ - Bo dem su dung
+│                       │                       │
+│                       │ PFCP Mod Response    │
+│                       │◄──────────────────────│
+│                       │                       │
+│                       │ NAS: quy tac QoS den │
+│                       │ UE (cho danh dau UL) │
+│                       │───────────────────────────► UE
+│                       │                       │
+```
+
+### Anh xa quy tac PCC sang PFCP
+
+```
+Dich Quy tac PCC → Quy tac PFCP:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Thanh phan Quy tac PCC    →    Quy tac PFCP            │
+│  ─────────────────────────────────────────────────────  │
+│                                                          │
+│  Bo loc SDF                →    PDR (Packet Detection)  │
+│  ├── Dia chi IP/port            ├── PDI (Packet        │
+│  ├── Protocol                   │   Detection Info)    │
+│  └── Huong                      └── SDF Filter IE      │
+│                                                          │
+│  Tham so QoS               →    QER (QoS Enforcement)   │
+│  ├── 5QI                        ├── Trang thai Cong    │
+│  ├── MBR                        ├── MBR                │
+│  ├── GBR                        ├── GBR                │
+│  └── ARP                        └── QFI                │
+│                                                          │
+│  Tham so Tinh cuoc         →    URR (Usage Reporting)   │
+│  ├── Nhom Rating                ├── Phuong phap Do     │
+│  ├── Muc Bao cao                ├── Trigger Bao cao    │
+│  └── Online/Offline             └── Nguong Volume      │
+│                                                          │
+│  Cong / Redirect           →    FAR (Forwarding Action) │
+│  ├── Mo/Dong                    ├── Apply Action       │
+│  └── URL Redirect               └── Redirect Info      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Nhom rating
+
+```
+Khai niem Nhom Rating:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nhom Rating = Danh muc Tinh cuoc                       │
+│                                                          │
+│  Nhieu quy tac PCC co the chia se cung nhom rating:     │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Nhom Rating 100: "Du lieu Chuan"                │    │
+│  │ ├── Quy tac PCC: web_browsing (5QI=9)          │    │
+│  │ ├── Quy tac PCC: email (5QI=9)                 │    │
+│  │ └── Quy tac PCC: downloads (5QI=8)             │    │
+│  │ → Tat ca tinh $0.01/MB                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Nhom Rating 200: "Video Cao cap"                │    │
+│  │ ├── Quy tac PCC: netflix (5QI=6)               │    │
+│  │ └── Quy tac PCC: youtube (5QI=6)               │    │
+│  │ → Tat ca tinh $0.00/MB (zero-rated)             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Nhom Rating 300: "Thoai"                        │    │
+│  │ └── Quy tac PCC: volte (5QI=1)                 │    │
+│  │ → Tinh $0.10/phut                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Uu tien quy tac
+
+```
+Thu tu Khop Quy tac PCC:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Goi den → khop quy tac theo uu tien (thap truoc)       │
+│                                                          │
+│  Uu tien 50:  volte_signaling                           │
+│  ├── SDF: UDP, port 5060                               │
+│  └── 5QI: 5                                            │
+│                                                          │
+│  Uu tien 100: volte_media                               │
+│  ├── SDF: UDP, port 16384-32767                        │
+│  └── 5QI: 1                                            │
+│                                                          │
+│  Uu tien 200: video_streaming                           │
+│  ├── SDF: UDP/TCP, ports 1935, 443                     │
+│  └── 5QI: 6                                            │
+│                                                          │
+│  Uu tien 255: default_bearer                            │
+│  ├── SDF: any                                          │
+│  └── 5QI: 9                                            │
+│                                                          │
+│  Goi den port 5060 → khop volte_signaling (50)         │
+│  Goi den port 443  → khop video_streaming (200)?       │
+│                       hay default_bearer (255)?         │
+│  (phu thuoc khop IP trong bo loc SDF)                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cai dat quy tac dong
+
+```
+Cai dat Quy tac Kich hoat boi AF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Goi VoLTE bat dau                                   │
+│     IMS (AF) → PCF: Yeu cau tai nguyen media           │
+│                                                          │
+│  2. PCF tao quy tac PCC                                 │
+│     ┌─────────────────────────────────────────────┐     │
+│     │ Quy tac: "volte_call_12345"                 │     │
+│     │ SDF: RTP den/tu IMS server                  │     │
+│     │ QoS: 5QI=1, GBR=64kbps                     │     │
+│     │ Tinh cuoc: Nhom Rating 300                  │     │
+│     └─────────────────────────────────────────────┘     │
+│                                                          │
+│  3. PCF → SMF: Cap nhat SM Policy (them quy tac)       │
+│                                                          │
+│  4. SMF → UPF: Sua doi PFCP (them PDR/QER/URR)         │
+│                                                          │
+│  5. SMF → UE: Quy tac QoS cho danh dau UL              │
+│                                                          │
+│  6. Cuoc goi hoat dong, QoS flow rieng dang su dung    │
+│                                                          │
+│  7. Cuoc goi ket thuc                                   │
+│     IMS (AF) → PCF: Giai phong tai nguyen media        │
+│                                                          │
+│  8. PCF → SMF: Cap nhat SM Policy (xoa quy tac)        │
+│                                                          │
+│  9. SMF → UPF: Sua doi PFCP (xoa PDR/QER/URR)          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Mau quy tac PCC pho bien:**
+
+| Dich vu | Bo loc SDF | 5QI | Nhom Rating |
+|---------|------------|-----|-------------|
+| Du lieu mac dinh | any | 9 | 100 |
+| Bao hieu VoLTE | UDP 5060-5061 | 5 | - |
+| Media VoLTE | UDP 16384-32767 | 1 | 300 |
+| Xem video | TCP 443, UDP 1935 | 6 | 200 |
+| Gaming | UDP 3478-3479 | 3 | 100 |
+| VPN doanh nghiep | IP den 10.0.0.0/8 | 8 | 400 |
+
+**Debug quy tac PCC:**
+
+```bash
+# Wireshark: SM policy voi quy tac PCC
+http2.header.path contains "sm-policies" && http2.data
+
+# Cai dat PFCP PDR/QER
+pfcp.create_pdr || pfcp.create_qer
+
+# Kiem tra uu tien quy tac
+grep "precedence" /var/log/smf/*.log
+
+# Xac minh quy tac UPF
+upf_cli show pdr
+upf_cli show qer
+```
+
+**Vong doi quy tac:**
+
+| Su kien | Hanh dong Quy tac PCC |
+|---------|------------------------|
+| Thiet lap session | Cai dat quy tac mac dinh |
+| AF yeu cau tai nguyen | Them quy tac rieng |
+| Cap nhat policy | Sua doi quy tac |
+| AF giai phong tai nguyen | Xoa quy tac rieng |
+| Giai phong session | Xoa tat ca quy tac |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Bo loc SDF chong cheo.** Hai quy tac khop cung luu luong — uu tien quyet dinh. Dam bao uu tien dung.
+
+2. **Thieu quy tac mac dinh.** Neu khong quy tac nao khop, luu luong co the bi drop. Luon co quy tac catch-all.
+
+3. **Trung nhom rating.** Cung nhom rating cho cac dich vu khac nhau = billing sai. Giu cac nhom tach biet.
+
+4. **Khoang trong uu tien.** De khoang giua gia tri uu tien cho quy tac tuong lai (dung 100, 200, 300 khong phai 1, 2, 3).
+
+5. **Hai chieu vs mot chieu.** UL va DL co the can bo loc SDF rieng. Kiem tra huong can than.
+
+6. **Khong khop ARP.** Allocation and Retention Priority anh huong preemption. Uu tien cao hon co the preempt thap hon.
+
+7. **Thoi gian quy tac dong.** Cai dat quy tac AF mat thoi gian. Media co the bat dau truoc khi quy tac hoat dong.
+
+8. **Bo qua trang thai cong.** Neu cong dong, luu luong bi drop ngay ca khi QoS da cau hinh. Kiem tra trang thai cong.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.503, "Policy and Charging Control Framework"
+- 3GPP TS 29.512, "SMF Policy Control Service"
+- 3GPP TS 29.244, "PFCP Protocol"
+- 3GPP TS 29.514, "Policy Authorization Service"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Tinh cuoc online/offline](/vi/core-network/policy-and-charging/online-offline-charging/) — chi tiet phuong thuc tinh cuoc
+- [Luong QoS](/vi/core-network/session-management-deep-dive/qos-flows/) — quy tac tro thanh flow nhu the nao
+- [Tong quan PCF](/vi/core-network/policy-and-charging/pcf-overview/) — quy tac den tu dau
+
+</section>

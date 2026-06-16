@@ -8,17 +8,399 @@ track: n6
 unit: interoperability-promise-vs-reality
 order: 1
 level: L4
-estimatedReadingMinutes: 5
-title: "Open RAN interoperability challenges"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n6-the-closed-ran-problem-02-the-case-for-open-ran"]
+spiralRevisits: []
+title: "Open RAN Interoperability Challenges"
+description: "Why 'open' doesn't mean 'plug-and-play': specification gaps, vendor interpretations, and integration reality."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG4", "O-RAN.WG5"]
+tags: ["open-ran", "interoperability", "integration", "testing", "multi-vendor"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Open RAN interoperability challenges
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Open RAN promises multi-vendor interoperability, but "open interfaces" doesn't guarantee seamless integration. Understanding the real challenges helps set realistic expectations and plan accordingly.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The interop gap
+
+```
+Expectation vs Reality:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  EXPECTATION                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  RU Vendor A ──┬── O-RAN FH ──┬── DU Vendor X   │    │
+│  │  RU Vendor B ──┤              ├── DU Vendor Y   │    │
+│  │  RU Vendor C ──┘              └── DU Vendor Z   │    │
+│  │                                                  │    │
+│  │  "Any RU works with any DU"                     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  REALITY                                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  RU Vendor A ── tested ── DU Vendor X    ✓      │    │
+│  │  RU Vendor A ── ? ── DU Vendor Y         ?      │    │
+│  │  RU Vendor B ── incompatible ── DU Vendor X  ✗  │    │
+│  │  RU Vendor C ── not tested ── DU Vendor Z   ?   │    │
+│  │                                                  │    │
+│  │  "Specific combinations validated"              │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Gap reasons:                                           │
+│  - Spec ambiguity → different interpretations          │
+│  - Optional features → incompatible choices            │
+│  - Timing parameters → different defaults              │
+│  - Profiles → vendor-specific subsets                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Specification challenges
+
+```
+Why Specs Don't Guarantee Interop:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. OPTIONAL FEATURES                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  O-RAN Fronthaul spec defines:                  │    │
+│  │  - Mandatory features (M)                       │    │
+│  │  - Optional features (O)                        │    │
+│  │  - Conditional features (C)                     │    │
+│  │                                                  │    │
+│  │  Vendor A implements: M + O1 + O3               │    │
+│  │  Vendor B implements: M + O2 + O4               │    │
+│  │                                                  │    │
+│  │  Both are "compliant" but incompatible on O     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  2. PARAMETER RANGES                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Spec says: "T2a min: 25µs to 500µs"            │    │
+│  │                                                  │    │
+│  │  RU Vendor: implements 50µs                     │    │
+│  │  DU Vendor: expects 100µs minimum               │    │
+│  │                                                  │    │
+│  │  Both compliant, but won't work together        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  3. ENCODING CHOICES                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  IQ sample format: spec allows multiple         │    │
+│  │  - Block floating point                         │    │
+│  │  - Static compression                           │    │
+│  │  - μ-law compression                            │    │
+│  │                                                  │    │
+│  │  If RU uses BFP and DU expects static:          │    │
+│  │  → Data flows but decodes incorrectly           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  4. PROFILES                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  O-RAN WG4 defines capability profiles:         │    │
+│  │  - Profile A: minimal                           │    │
+│  │  - Profile B: mid-range                         │    │
+│  │  - Profile C: full-featured                     │    │
+│  │                                                  │    │
+│  │  RU Profile A + DU Profile C:                   │    │
+│  │  → DU expects features RU doesn't have          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Common integration failures
+
+```
+Integration Failure Points:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  FRONTHAUL (RU ↔ DU)                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Timing issues:                                 │    │
+│  │  - T2a window mismatch                          │    │
+│  │  - Ta3 advance not negotiated                   │    │
+│  │  - PTP sync profile differences                 │    │
+│  │                                                  │    │
+│  │  C-Plane issues:                                │    │
+│  │  - Section extension interpretation             │    │
+│  │  - Beamforming index mapping                    │    │
+│  │  - Prach configuration mismatch                 │    │
+│  │                                                  │    │
+│  │  U-Plane issues:                                │    │
+│  │  - IQ compression method                        │    │
+│  │  - RB mapping differences                       │    │
+│  │  - Antenna port numbering                       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  E2 (RAN ↔ RIC)                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Service model issues:                          │    │
+│  │  - E2SM version mismatch                        │    │
+│  │  - RAN function definition differences          │    │
+│  │  - Action definition interpretation             │    │
+│  │                                                  │    │
+│  │  Subscription issues:                           │    │
+│  │  - Event trigger encoding                       │    │
+│  │  - Indication message format                    │    │
+│  │  - Outcome payload structure                    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  O1 (RAN ↔ SMO)                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  YANG model issues:                             │    │
+│  │  - Vendor-specific augmentations                │    │
+│  │  - Mandatory vs optional leaf handling          │    │
+│  │  - Data type precision                          │    │
+│  │                                                  │    │
+│  │  NETCONF issues:                                │    │
+│  │  - Capability negotiation                       │    │
+│  │  - Edit-config operation semantics              │    │
+│  │  - Notification subscription format             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Integration effort reality
+
+```
+Multi-Vendor Integration Timeline:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Phase 1: Lab Integration (2-6 months)                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Week 1-2:  Physical setup, connectivity        │    │
+│  │  Week 3-4:  Fronthaul bring-up, sync alignment  │    │
+│  │  Week 5-8:  C-Plane/U-Plane debugging           │    │
+│  │  Week 9-12: Functional testing                  │    │
+│  │  Week 13+:  Performance optimization            │    │
+│  │                                                  │    │
+│  │  Common blockers:                               │    │
+│  │  - Timing parameter negotiation                 │    │
+│  │  - Firmware updates needed                      │    │
+│  │  - Spec interpretation alignment                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Phase 2: Field Trial (3-6 months)                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  - Real RF environment testing                  │    │
+│  │  - Mobility scenarios                           │    │
+│  │  - Edge case discovery                          │    │
+│  │  - Performance under load                       │    │
+│  │                                                  │    │
+│  │  Common issues:                                 │    │
+│  │  - Handover failures between vendors            │    │
+│  │  - Interference handling differences            │    │
+│  │  - Recovery behavior after failures             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Phase 3: Commercial Deployment (ongoing)               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  - Software version management                  │    │
+│  │  - Regression testing for updates               │    │
+│  │  - Multi-vendor support coordination            │    │
+│  │  - Continuous optimization                      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Comparison:                                            │
+│  Single vendor: 2-3 months to production               │
+│  Multi-vendor:  6-12 months to production              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Mitigating strategies
+
+```
+Reducing Integration Risk:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. PRE-VALIDATED COMBINATIONS                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Use vendor pairs tested at:                    │    │
+│  │  - O-RAN TIFG (Test & Integration Focus Group)  │    │
+│  │  - O-RAN Global PlugFest                        │    │
+│  │  - Operator-sponsored interop labs              │    │
+│  │                                                  │    │
+│  │  Check O-RAN certification badges               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  2. IOT (Interoperability Test) SPECIFICATIONS          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Define your operator profile:                  │    │
+│  │  - Required features (must-have)                │    │
+│  │  - Optional features (nice-to-have)             │    │
+│  │  - Parameter value ranges                       │    │
+│  │  - Timing requirements                          │    │
+│  │                                                  │    │
+│  │  Include in RFP: vendors must pass IOT          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  3. SYSTEM INTEGRATOR                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Options:                                       │    │
+│  │  - Traditional RAN vendor as SI                 │    │
+│  │  - Cloud provider (AWS, Azure)                  │    │
+│  │  - Specialized Open RAN SI                      │    │
+│  │  - Build internal capability                    │    │
+│  │                                                  │    │
+│  │  SI responsibility:                             │    │
+│  │  - Integration testing                          │    │
+│  │  - Single point of support                      │    │
+│  │  - Version compatibility management             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  4. CONFORMANCE TESTING                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  O-RAN Alliance badges:                         │    │
+│  │  - O-RAN Certified (functional compliance)      │    │
+│  │  - O-RAN Compliant (self-declaration)           │    │
+│  │                                                  │    │
+│  │  Require certified products in procurement      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Integration checklist:**
+
+| Interface | Key Verification | Tool/Method |
+|-----------|-----------------|-------------|
+| Fronthaul | Timing alignment | Protocol analyzer |
+| Fronthaul | IQ sample format | Capture and decode |
+| E2 | Service model match | ASN.1 comparison |
+| O1 | YANG compatibility | YANG validator |
+| A1 | Policy schema | JSON schema check |
+
+**Debug commands:**
+
+```bash
+# Fronthaul timing check
+tcpdump -i eth0 -w fh_capture.pcap port 44944
+# Analyze with Wireshark O-RAN dissector
+
+# PTP sync verification
+pmc -u -b 0 'GET TIME_STATUS_NP'
+# Check offset from master < 100ns
+
+# E2 connection status
+curl http://e2mgr:3800/v1/nodeb/states
+# All E2 nodes should show "CONNECTED"
+
+# O1 NETCONF test
+netconf-console --host=odu --port=830 --get-config
+# Should return valid configuration
+
+# YANG model diff
+pyang --check-update-from=prev.yang current.yang
+# Identify breaking changes
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **"O-RAN Compliant" confusion.** Compliant = self-declared. Certified = tested. Demand certification.
+
+2. **Version lock.** RU firmware v1.2 tested with DU v3.4. Any update may break. Test every upgrade.
+
+3. **Lab vs field.** Lab integration succeeds but field has different timing, interference. Budget for field iteration.
+
+4. **Finger-pointing.** Multi-vendor = "not my problem." Contractually assign integration responsibility.
+
+5. **Performance delta.** Multi-vendor may have 5-15% lower throughput initially. Plan for optimization time.
+
+6. **Support escalation.** Vendor A blames Vendor B. Require joint debugging in contracts.
+
+7. **Feature roadmap mismatch.** DU adds feature, RU doesn't support. Coordinate release planning.
+
+8. **Operator-specific extensions.** Adding custom features breaks interop. Minimize proprietary extensions.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- O-RAN Alliance WG4, "Open Fronthaul Test Specification"
+- O-RAN Alliance TIFG, "Interoperability Test Reports"
+- GSMA, "Open RAN Integration Best Practices"
+- Operator whitepapers: Vodafone, DT Open RAN learnings
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Vendor Testing Plugfests](/en/core-network/interoperability-promise-vs-reality/vendor-testing-plugfests/) — proving interop
+- [O-RAN Fronthaul Spec](/en/core-network/fronthaul-interface/o-ran-fronthaul-spec/) — interface details
+- [Near-RT RIC](/en/core-network/ric-xapps-rapps/near-rt-ric/) — E2 interface
+
+</section>

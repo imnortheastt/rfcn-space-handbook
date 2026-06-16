@@ -8,17 +8,532 @@ track: s7
 unit: modulation-coding-satellite
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "LDPC and BCH codes"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "LDPC and BCH Codes"
+description: "Near-Shannon-limit error correction for satellite communications."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["ldpc", "bch", "fec", "error-correction", "coding"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# LDPC and BCH codes
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+DVB-S2 operates within 1 dB of the Shannon limit—the theoretical maximum data rate for a given signal-to-noise ratio. This remarkable achievement comes from LDPC (Low-Density Parity-Check) codes, which replaced the concatenated Reed-Solomon/Convolutional codes of DVB-S. Combined with an outer BCH code to catch residual errors, this coding scheme enables satellite links to work at SNRs where older systems would fail completely. Understanding LDPC and BCH is essential for anyone working with modern satellite modems or designing link budgets.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The evolution of satellite FEC
+
+```
+Forward Error Correction Evolution:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DVB-S (1994): Concatenated Codes                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Data → [Reed-Solomon] → [Interleaver] → [Viterbi]    │         │
+│  │            outer            spread        inner        │         │
+│  │           (204,188)        bursts       convolutional  │         │
+│  │                                                        │         │
+│  │  Gap to Shannon: ~3 dB                                │         │
+│  │  Complexity: Moderate                                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DVB-S2 (2005): LDPC + BCH                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Data → [BCH] → [LDPC]                                │         │
+│  │          outer    inner                                │         │
+│  │        (cleans    (near Shannon)                      │         │
+│  │         floor)                                         │         │
+│  │                                                        │         │
+│  │  Gap to Shannon: ~0.7-1.2 dB                          │         │
+│  │  Complexity: Higher (but silicon is cheap now)        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WHY THE IMPROVEMENT?                                               │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Shannon (1948): Theoretical limit exists             │         │
+│  │  Turbo codes (1993): First codes within 1 dB         │         │
+│  │  LDPC rediscovered (1996): Even closer, parallelizable│         │
+│  │                                                        │         │
+│  │  LDPC advantage over Turbo:                           │         │
+│  │  • Better parallelization in hardware                │         │
+│  │  • Lower error floor                                 │         │
+│  │  • More flexibility in rate/length                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### LDPC intuition: sparse parity checks
+
+```
+LDPC: Low-Density Parity-Check
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KEY INSIGHT: Use MANY simple parity checks, not few complex ones  │
+│                                                                      │
+│  TRADITIONAL PARITY (one check):                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  [b1] [b2] [b3] [b4] [b5] [b6] [b7] [P]               │         │
+│  │   │    │    │    │    │    │    │    │                │         │
+│  │   └────┴────┴────┴────┴────┴────┴────┘                │         │
+│  │                    │                                   │         │
+│  │                  XOR = 0                               │         │
+│  │                                                        │         │
+│  │  Problem: One error anywhere → knows something wrong  │         │
+│  │           but can't locate which bit                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LDPC (many sparse checks):                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Bits:    b1  b2  b3  b4  b5  b6  b7  b8  b9  b10     │         │
+│  │            │       │   │       │           │          │         │
+│  │  Check 1:  ●───────●───●───────●                      │         │
+│  │                                                        │         │
+│  │            │   │           │       │   │              │         │
+│  │  Check 2:  ●───●───────────●───────●───●              │         │
+│  │                                                        │         │
+│  │                │   │       │   │           │          │         │
+│  │  Check 3:  ────●───●───────●───●───────────●          │         │
+│  │                                                        │         │
+│  │                    │           │   │   │   │          │         │
+│  │  Check 4:  ────────●───────────●───●───●───●          │         │
+│  │                                                        │         │
+│  │  "Low Density": Each check involves few bits (~6)    │         │
+│  │                 Each bit in few checks (~3)           │         │
+│  │                                                        │         │
+│  │  Decoding: Bits share information through checks     │         │
+│  │            Iteratively refine probabilities          │         │
+│  │            "Message passing" or "belief propagation" │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### BCH: cleaning up the error floor
+
+```
+Why BCH After LDPC?
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LDPC ERROR FLOOR PROBLEM:                                          │
+│                                                                      │
+│  BER                                                                │
+│   │                                                                 │
+│   │ ╲                                                               │
+│   │  ╲                                                              │
+│   │   ╲  LDPC waterfall                                            │
+│   │    ╲ (steep drop)                                              │
+│   │     ╲                                                           │
+│   │      ╲___________  ← Error floor (~10⁻⁷)                       │
+│   │                                                                 │
+│   └────────────────────────────── SNR                              │
+│                                                                      │
+│  At high SNR, LDPC hits a "floor" where BER stops improving.       │
+│  Caused by: short cycles in the parity check graph (trapping sets) │
+│                                                                      │
+│  SOLUTION: Add outer BCH code                                       │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Data → BCH encoder → LDPC encoder → [channel]       │         │
+│  │                                                        │         │
+│  │  [channel] → LDPC decoder → BCH decoder → Data       │         │
+│  │                                                        │         │
+│  │  BCH corrects the few residual errors LDPC missed    │         │
+│  │                                                        │         │
+│  │  DVB-S2 BCH parameters:                               │         │
+│  │  • Corrects t = 8, 10, or 12 errors (depending on rate)│        │
+│  │  • Adds 128-192 parity bits                          │         │
+│  │  • Algebraic decoder (deterministic, not iterative)  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  RESULT: Combined BER < 10⁻¹⁰ (quasi-error-free)                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### DVB-S2 FEC structure
+
+```
+DVB-S2 FEC Encoding Flow:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  INPUT: Baseband frame (BBFrame)                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │ BBHEADER │           DATA FIELD           │ PADDING   │         │
+│  │  80 bits │        Kbch - 80 bits          │           │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  STEP 1: BCH Encoding                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  BBFrame (Kbch bits) → BCH(Nbch, Kbch, t)            │         │
+│  │                                                        │         │
+│  │  Normal frame: Nbch = 16200 or 64800 after BCH       │         │
+│  │  BCH parity: 128-192 bits (t = 8-12 errors)          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  STEP 2: LDPC Encoding                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  BCH output → LDPC(Nldpc, Kldpc)                     │         │
+│  │                                                        │         │
+│  │  Normal frame: Nldpc = 64800 bits total              │         │
+│  │  Short frame:  Nldpc = 16200 bits total              │         │
+│  │                                                        │         │
+│  │  Code rates: 1/4, 1/3, 2/5, 1/2, 3/5, 2/3, 3/4,     │         │
+│  │              4/5, 5/6, 8/9, 9/10                      │         │
+│  │                                                        │         │
+│  │  Example (rate 1/2, normal):                         │         │
+│  │    Kldpc = 32400 info bits                           │         │
+│  │    Nldpc = 64800 total bits                          │         │
+│  │    Parity = 32400 bits (50% overhead)                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  OUTPUT: FEC Frame (ready for modulation)                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  BCH-coded data  │       LDPC parity                 │         │
+│  │    (Kldpc bits)  │    (Nldpc - Kldpc bits)           │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### LDPC decoder operation
+
+```
+LDPC Iterative Decoding (Belief Propagation):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TANNER GRAPH: Bipartite graph of bits and checks                  │
+│                                                                      │
+│  Variable nodes (bits):    ○ ○ ○ ○ ○ ○ ○ ○ ○ ○                    │
+│                             │ │ │ │ │ │ │ │ │ │                     │
+│                            ─┼─┼─┼─┼─┼─┼─┼─┼─┼─┼─                   │
+│                             │ │ │ │ │ │ │ │ │ │                     │
+│  Check nodes:              □   □   □   □   □                        │
+│                                                                      │
+│  ITERATION 1:                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Variable → Check messages:                        │         │
+│  │     "Based on channel + other checks, I think I'm 0" │         │
+│  │     Send log-likelihood ratio (LLR) to each check    │         │
+│  │                                                        │         │
+│  │  2. Check → Variable messages:                        │         │
+│  │     "Based on other bits in my check, you should be 1"│        │
+│  │     Combine incoming LLRs (tanh rule)                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ITERATIONS 2-50:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Repeat message passing                               │         │
+│  │  Each iteration: beliefs become more confident       │         │
+│  │                                                        │         │
+│  │  Early termination: if all checks satisfied, stop    │         │
+│  │  (saves power, typically converges in 10-30 iters)   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  FINAL DECISION:                                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Sum all messages for each bit                        │         │
+│  │  LLR > 0 → bit = 0                                   │         │
+│  │  LLR < 0 → bit = 1                                   │         │
+│  │                                                        │         │
+│  │  If checks still fail after max iterations:          │         │
+│  │  → Uncorrectable error (rare, BCH might still fix)   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Performance comparison
+
+```
+FEC Performance Comparison (BER = 10⁻⁵):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  QPSK COMPARISON:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Code                    │ Required Eb/N0 │ Gap to Shannon│     │
+│  │  ────────────────────────┼────────────────┼──────────────│     │
+│  │  Uncoded QPSK            │ 9.6 dB         │ N/A          │     │
+│  │  DVB-S (RS+Conv 1/2)     │ 4.5 dB         │ ~3.5 dB      │     │
+│  │  DVB-S2 (LDPC+BCH 1/2)   │ 1.0 dB         │ ~0.9 dB      │     │
+│  │  Shannon limit (rate 1/2)│ 0.1 dB         │ 0 dB         │     │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CODING GAIN BY RATE:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Rate │ DVB-S2 Eb/N0 │ Shannon │ Gap   │ Coding Gain  │         │
+│  │  ─────┼──────────────┼─────────┼───────┼─────────────  │         │
+│  │  1/4  │ -2.4 dB      │ -3.0 dB │ 0.6 dB│ 12 dB        │         │
+│  │  1/2  │  1.0 dB      │  0.1 dB │ 0.9 dB│ 8.6 dB       │         │
+│  │  2/3  │  3.1 dB      │  2.2 dB │ 0.9 dB│ 6.5 dB       │         │
+│  │  3/4  │  4.0 dB      │  3.2 dB │ 0.8 dB│ 5.6 dB       │         │
+│  │  5/6  │  4.7 dB      │  4.0 dB │ 0.7 dB│ 4.9 dB       │         │
+│  │  9/10 │  5.5 dB      │  4.9 dB │ 0.6 dB│ 4.1 dB       │         │
+│  │                                                        │         │
+│  │  Note: Lower rate = more redundancy = works lower SNR │         │
+│  │        but also = lower spectral efficiency           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**LDPC/BCH parameter analysis:**
+
+```python
+import numpy as np
+
+# DVB-S2 FEC parameters
+DVB_S2_CODES = {
+    "normal": {
+        "Nldpc": 64800,
+        "rates": {
+            "1/4":  {"Kldpc": 16200,  "t_bch": 12, "Kbch": 16008},
+            "1/3":  {"Kldpc": 21600,  "t_bch": 12, "Kbch": 21408},
+            "2/5":  {"Kldpc": 25920,  "t_bch": 12, "Kbch": 25728},
+            "1/2":  {"Kldpc": 32400,  "t_bch": 12, "Kbch": 32208},
+            "3/5":  {"Kldpc": 38880,  "t_bch": 12, "Kbch": 38688},
+            "2/3":  {"Kldpc": 43200,  "t_bch": 10, "Kbch": 43040},
+            "3/4":  {"Kldpc": 48600,  "t_bch": 12, "Kbch": 48408},
+            "4/5":  {"Kldpc": 51840,  "t_bch": 12, "Kbch": 51648},
+            "5/6":  {"Kldpc": 54000,  "t_bch": 10, "Kbch": 53840},
+            "8/9":  {"Kldpc": 57600,  "t_bch": 8,  "Kbch": 57472},
+            "9/10": {"Kldpc": 58320,  "t_bch": 8,  "Kbch": 58192},
+        }
+    },
+    "short": {
+        "Nldpc": 16200,
+        "rates": {
+            "1/4":  {"Kldpc": 4050,   "t_bch": 12, "Kbch": 3792},
+            "1/3":  {"Kldpc": 5400,   "t_bch": 12, "Kbch": 5232},
+            "1/2":  {"Kldpc": 8100,   "t_bch": 12, "Kbch": 7932},
+            "2/3":  {"Kldpc": 10800,  "t_bch": 12, "Kbch": 10632},
+            "3/4":  {"Kldpc": 12150,  "t_bch": 12, "Kbch": 11982},
+            "5/6":  {"Kldpc": 13500,  "t_bch": 12, "Kbch": 13332},
+        }
+    }
+}
+
+# Required Es/N0 for quasi-error-free (QEF) operation
+REQUIRED_ES_N0 = {
+    "1/4": -2.35, "1/3": -1.24, "2/5": -0.30, "1/2": 1.00,
+    "3/5": 2.23, "2/3": 3.10, "3/4": 4.03, "4/5": 4.68,
+    "5/6": 5.18, "8/9": 6.20, "9/10": 6.42
+}
+
+def shannon_limit(rate):
+    """Shannon limit for binary input AWGN channel (Eb/N0 in dB)."""
+    return 10 * np.log10((2 ** (2 * rate) - 1) / (2 * rate))
+
+print("DVB-S2 LDPC/BCH Code Analysis")
+print("=" * 70)
+
+print("\n1. Code Parameters (Normal Frame)")
+print("-" * 70)
+
+print(f"  {'Rate':<6} {'Kbch':<8} {'Kldpc':<8} {'Nldpc':<8} {'BCH t':<7} {'LDPC Parity':<12}")
+print("-" * 70)
+
+for rate, params in DVB_S2_CODES["normal"]["rates"].items():
+    Nldpc = DVB_S2_CODES["normal"]["Nldpc"]
+    ldpc_parity = Nldpc - params["Kldpc"]
+    print(f"  {rate:<6} {params['Kbch']:<8} {params['Kldpc']:<8} {Nldpc:<8} {params['t_bch']:<7} {ldpc_parity:<12}")
+
+print("\n2. Code Efficiency Analysis")
+print("-" * 70)
+
+print(f"  {'Rate':<6} {'Info bits':<10} {'Total bits':<12} {'Overhead %':<12} {'Actual Rate':<12}")
+print("-" * 70)
+
+for rate, params in DVB_S2_CODES["normal"]["rates"].items():
+    Nldpc = DVB_S2_CODES["normal"]["Nldpc"]
+    info_bits = params["Kbch"] - 80  # Subtract BBHeader
+    overhead = (Nldpc - info_bits) / info_bits * 100
+    actual_rate = info_bits / Nldpc
+    print(f"  {rate:<6} {info_bits:<10} {Nldpc:<12} {overhead:<12.1f} {actual_rate:<12.3f}")
+
+print("\n3. Gap to Shannon Limit")
+print("-" * 70)
+
+print(f"  {'Rate':<6} {'Es/N0 req':<12} {'Shannon':<10} {'Gap (dB)':<10} {'Coding Gain':<12}")
+print("-" * 70)
+
+uncoded_qpsk = 9.6  # dB for BER = 10^-5
+
+for rate, es_n0 in REQUIRED_ES_N0.items():
+    rate_float = eval(rate)
+    shannon = shannon_limit(rate_float)
+    gap = es_n0 - shannon
+    coding_gain = uncoded_qpsk - es_n0
+    print(f"  {rate:<6} {es_n0:<12.2f} {shannon:<10.2f} {gap:<10.2f} {coding_gain:<12.1f}")
+
+print("\n4. LDPC Decoder Complexity")
+print("-" * 70)
+
+# Approximate decoder complexity metrics
+iterations_typical = 25
+iterations_max = 50
+
+for frame_type in ["normal", "short"]:
+    Nldpc = DVB_S2_CODES[frame_type]["Nldpc"]
+    
+    # Rough estimate: ~10 operations per bit per iteration
+    ops_per_frame = Nldpc * iterations_typical * 10
+    
+    # At 30 Msps with QPSK (2 bits/symbol)
+    symbol_rate = 30e6
+    bits_per_symbol = 2
+    frames_per_sec = symbol_rate * bits_per_symbol / Nldpc
+    
+    gops = ops_per_frame * frames_per_sec / 1e9
+    
+    print(f"  {frame_type.capitalize()} frame ({Nldpc} bits):")
+    print(f"    Frames/sec at 30 Msps QPSK: {frames_per_sec:.1f}")
+    print(f"    Estimated GOPS: {gops:.1f}")
+    print()
+
+print("5. BCH Error Correction Capability")
+print("-" * 70)
+
+print(f"  {'Rate':<6} {'BCH t':<8} {'BCH parity bits':<16} {'Error floor':<15}")
+print("-" * 70)
+
+for rate, params in DVB_S2_CODES["normal"]["rates"].items():
+    t = params["t_bch"]
+    # BCH parity bits ≈ m × t where m ≈ 16 for DVB-S2
+    parity_bits = params["Kldpc"] - params["Kbch"]
+    floor = f"< 10^-{7 + t//2}"  # Rough estimate
+    print(f"  {rate:<6} {t:<8} {parity_bits:<16} {floor:<15}")
+
+print("\n6. Latency Analysis")
+print("-" * 70)
+
+symbol_rate_msps = 30
+
+for frame_type in ["normal", "short"]:
+    Nldpc = DVB_S2_CODES[frame_type]["Nldpc"]
+    
+    # Encoding latency (full frame)
+    encode_symbols = Nldpc / 2  # QPSK
+    encode_time_us = encode_symbols / symbol_rate_msps
+    
+    # Decoding latency (iterations)
+    decode_time_us = encode_time_us + iterations_typical * 10  # ~10 µs per iteration
+    
+    print(f"  {frame_type.capitalize()} frame:")
+    print(f"    Frame duration: {encode_time_us:.0f} µs")
+    print(f"    Encode latency: ~{encode_time_us:.0f} µs (one frame)")
+    print(f"    Decode latency: ~{decode_time_us:.0f} µs ({iterations_typical} iterations)")
+    print()
+```
+
+**Key specifications:**
+
+| Parameter | Normal Frame | Short Frame |
+|-----------|-------------|-------------|
+| Total bits | 64,800 | 16,200 |
+| Code rates | 1/4 to 9/10 | 1/4 to 5/6 |
+| BCH t | 8-12 errors | 12 errors |
+| Typical iterations | 25 | 25 |
+| Gap to Shannon | 0.6-1.0 dB | 0.8-1.2 dB |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring BCH overhead.** BCH adds 128-192 bits; account for it in rate calculations.
+
+2. **Fixed iteration count.** Early termination saves 30-50% power. Check if your modem supports it.
+
+3. **Short frame inefficiency.** Short frames have ~0.3 dB worse performance than normal frames at same rate.
+
+4. **LDPC error floor.** Without BCH, LDPC floors at ~10⁻⁷ BER. BCH is essential for QEF operation.
+
+5. **Decoder throughput.** LDPC needs ~1-2 GOPS at 30 Msps. Verify your FPGA/ASIC can handle it.
+
+6. **Interleaving assumptions.** DVB-S2 bit interleaver differs by modulation. Don't swap QPSK/8PSK interleavers.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ETSI EN 302 307-1 (DVB-S2 FEC specification)
+- Gallager, "Low-Density Parity-Check Codes" (1963, rediscovered 1996)
+- Richardson & Urbanke, "Modern Coding Theory" (Cambridge, 2008)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [DVB-S2 and DVB-S2X](/en/space/modulation-coding-satellite/dvb-s2-s2x/) — the standard using these codes
+- [MODCODs](/en/space/modulation-coding-satellite/modcods/) — how coding rate combines with modulation
+- [ACM](/en/space/modulation-coding-satellite/acm/) — adapting code rate to channel conditions
+
+</section>

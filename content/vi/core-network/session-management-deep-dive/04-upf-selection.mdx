@@ -8,17 +8,358 @@ track: n3
 unit: session-management-deep-dive
 order: 4
 level: L4
-estimatedReadingMinutes: 5
-title: "Lua chon UPF"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-session-management-deep-dive-01-pdu-session-establishment"]
+spiralRevisits: ["core-network-n5-edge-computing-01-mec"]
+title: "Lua Chon UPF"
+description: "SMF chon UPF nhu the nao — vi tri, DNN, slicing, va cac che do SSC."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 23.502"]
+tags: ["upf", "5g", "smf", "ssc-mode", "edge-computing"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Lua chon UPF
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Khi UE yeu cau PDU session, SMF phai chon UPF nao xu ly luu luong. Chon sai = do tre cao, dinh tuyen khong toi uu, hoac khong the ap dung policy.
+
+Trong edge computing va 5G slicing, lua chon UPF tro nen quan trong — UPF quyet dinh noi luu luong vao mang du lieu.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Yeu to anh huong lua chon UPF
+
+```
+Cac Yeu to Lua chon UPF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dua tren vi tri:                                       │
+│  ├── Vi tri UE (TAI, cell ID)                          │
+│  ├── Thong tin vi tri nguoi dung tu AMF                │
+│  └── Gan ve dia ly voi DN                              │
+│                                                          │
+│  Dua tren dich vu:                                      │
+│  ├── DNN (Data Network Name)                           │
+│  ├── Network slice (S-NSSAI)                           │
+│  └── Yeu cau che do SSC                                │
+│                                                          │
+│  Dua tren kha nang:                                     │
+│  ├── Tinh nang UPF (LADN, UL classifier)               │
+│  ├── Giao dien den DN cu the                           │
+│  └── Dung luong/tai UPF                                │
+│                                                          │
+│  Dua tren policy:                                       │
+│  ├── SM policy tu PCF                                  │
+│  ├── Du lieu thue bao tu UDM                           │
+│  └── Cau hinh cuc bo                                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac mo hinh trien khai UPF
+
+```
+Cac Kich ban Trien khai UPF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Tap trung:                                             │
+│  ┌────────────────────────────────────────────────┐     │
+│  │                                                 │     │
+│  │   gNB ─────────────────► UPF Trung tam ─► DN  │     │
+│  │   gNB ─────────────────►                │      │     │
+│  │   gNB ─────────────────►                │      │     │
+│  │                                                 │     │
+│  │   + Don gian, it UPF can quan ly              │     │
+│  │   - Do tre cao hon cho luu luong edge         │     │
+│  │                                                 │     │
+│  └────────────────────────────────────────────────┘     │
+│                                                          │
+│  Phan tan (Edge):                                       │
+│  ┌────────────────────────────────────────────────┐     │
+│  │                                                 │     │
+│  │   gNB ──► Edge UPF ──► DN Cuc bo (MEC)        │     │
+│  │           │                                    │     │
+│  │           └──► UPF Trung tam ──► Internet     │     │
+│  │                                                 │     │
+│  │   + Do tre thap cho app edge                  │     │
+│  │   - Nhieu UPF hon, lua chon phuc tap          │     │
+│  │                                                 │     │
+│  └────────────────────────────────────────────────┘     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Thuat toan lua chon co ban
+
+```
+Lua chon UPF cua SMF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Lay vi tri UE tu AMF                                │
+│     - TAI (Tracking Area Identity)                      │
+│     - Cell ID (neu co)                                  │
+│                                                          │
+│  2. Doi chieu yeu cau DNN                               │
+│     - UPF nao phuc vu DNN nay?                         │
+│     - Loc den cac UPF tuong thich                      │
+│                                                          │
+│  3. Doi chieu S-NSSAI (slice)                           │
+│     - UPF phai thuoc slice                              │
+│     - Loc tiep                                          │
+│                                                          │
+│  4. Ap dung che do SSC                                  │
+│     - SSC 1: UPF neo, khong doi khi di dong             │
+│     - SSC 2: UPF thay doi theo vi tri                   │
+│     - SSC 3: UPF cu + moi trong qua trinh chuyen       │
+│                                                          │
+│  5. Xem xet tinh cuc bo                                 │
+│     - Voi SSC 2/3, uu tien UPF cuc bo                  │
+│     - Voi app edge, chon UPF gan nhat                  │
+│                                                          │
+│  6. Kiem tra dung luong/tai                             │
+│     - Tranh UPF qua tai                                │
+│     - Can bang tai giua cac UPF du dieu kien           │
+│                                                          │
+│  7. Lua chon cuoi cung                                  │
+│     - SMF tao N4 session voi UPF da chon               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Giai thich cac che do SSC
+
+```
+Cac Che do Lien tuc Session va Dich vu:
+
+Che do SSC 1 (Neo):
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dia chi IP duoc giu nguyen, cung UPF trong suot session│
+│                                                          │
+│  Di chuyen 1: gNB-A ──► UPF ──► DN                     │
+│  Di chuyen 2: gNB-B ──► UPF ──► DN  (cung UPF)         │
+│                                                          │
+│  Truong hop: Ket noi dai (SSH, VPN)                     │
+│  Nhuoc diem: Duong khong toi uu neu UE di xa            │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+Che do SSC 2 (Ngat-truoc-khi-tao):
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Session giai phong, session moi voi UPF moi            │
+│                                                          │
+│  Di chuyen 1: gNB-A ──► UPF-A ──► DN                   │
+│  Trigger:     UE di chuyen den vung moi                 │
+│  Giai phong:  Session den UPF-A bi xoa                  │
+│  Thiet lap:   gNB-B ──► UPF-B ──► DN (IP moi)          │
+│                                                          │
+│  Truong hop: Duyet web, ket noi ngan                    │
+│  Nhuoc diem: Gian doan dich vu ngan                     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+Che do SSC 3 (Tao-truoc-khi-ngat):
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UPF moi thiet lap truoc khi UPF cu giai phong          │
+│                                                          │
+│  Di chuyen 1: gNB-A ──► UPF-A ──► DN                   │
+│  Trigger:     UE di chuyen den vung moi                 │
+│  Song song:   UPF-B tao, multi-homed trong choc lat    │
+│  Giai phong:  UPF-A xoa sau chuyen doi                  │
+│  Ket qua:     gNB-B ──► UPF-B ──► DN (IP moi)          │
+│                                                          │
+│  Truong hop: Chuyen doi edge lien mach                  │
+│  Nhuoc diem: Phuc tap, ca hai UPF hoat dong trong choc  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Edge computing va LADN
+
+```
+Local Area Data Network (LADN):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  LADN = DNN chi kha dung trong vung cu the              │
+│                                                          │
+│  Vi du: Ung dung MEC san nha may                        │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Vung Dich vu LADN (TA 1, TA 2, TA 3)            │    │
+│  │                                                  │    │
+│  │   gNB-1 ──┐                                     │    │
+│  │   gNB-2 ──┼──► Edge UPF ──► MEC Nha may        │    │
+│  │   gNB-3 ──┘                                     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Ben ngoai vung LADN:                                   │
+│  - UE khong the thiet lap session den DNN nay           │
+│  - Hoac session hien co bi giai phong                   │
+│                                                          │
+│  SMF biet vung dich vu LADN va thuc thi:                │
+│  - Tu choi PDU session neu UE ngoai vung                │
+│  - Kich hoat giai phong khi UE roi vung                 │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### UL classifier va phan nhanh
+
+```
+Uplink Classifier (UL CL):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Chia luu luong den cac DN khac nhau dua tren bo loc    │
+│                                                          │
+│                    ┌──► Edge UPF ──► DN Cuc bo          │
+│                    │    (match: dest = 10.0.0.0/8)      │
+│  UE ──► gNB ──► UPF (UL CL)                             │
+│                    │                                     │
+│                    └──► UPF Trung tam ──► Internet      │
+│                         (dinh tuyen mac dinh)            │
+│                                                          │
+│  Truong hop:                                            │
+│  - Luu luong gaming → server edge cuc bo                │
+│  - Luu luong web → internet breakout trung tam          │
+│                                                          │
+│  Mot PDU session, mot IP, nhieu duong                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Kham pha UPF qua NRF
+
+```
+Kham pha UPF qua NRF:
+
+SMF                    NRF
+│                       │
+│ Nnrf_NFDiscovery     │
+│ Truy van:            │
+│ - NF type: UPF       │
+│ - S-NSSAI: eMBB      │
+│ - DNN: internet      │
+│ - TAI: TA1           │
+│────────────────────►│
+│                       │
+│ Discovery Response   │
+│ - UPF-1: tai 80%    │
+│ - UPF-2: tai 40%    │
+│ - UPF-3: tai 60%    │
+│◄────────────────────│
+│                       │
+│ [SMF chon UPF-2      │
+│  dua tren tai]       │
+│                       │
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tieu chi lua chon theo kich ban:**
+
+| Kich ban | Tieu chi Chinh | Che do SSC |
+|----------|----------------|------------|
+| Internet co ban | DNN, slice, tai | SSC 1 |
+| Gaming edge | Vi tri, do tre | SSC 2 hoac 3 |
+| VPN doanh nghiep | DNN, yeu cau neo | SSC 1 |
+| LADN nha may | Vung dich vu, UPF cuc bo | SSC 2 |
+| Streaming video | Dung luong, DNN | SSC 1 hoac 2 |
+
+**Debug lua chon UPF:**
+
+```bash
+# Kiem tra NRF cho UPF da dang ky
+curl -X GET "http://nrf:8080/nnrf-disc/v1/nf-instances?target-nf-type=UPF"
+
+# Log SMF cho quyet dinh lua chon
+grep "UPF selection" /var/log/smf/*.log
+
+# Xac minh N4 session den UPF dung
+tcpdump -i any port 8805 -w pfcp.pcap
+
+# Trang thai PFCP association
+pfcp_client status
+```
+
+**Cac xem xet cau hinh:**
+
+| Cau hinh | Anh huong |
+|----------|-----------|
+| Vung dich vu UPF | Gioi han noi UPF co the duoc chon |
+| Anh xa DNN-den-UPF | UPF nao phuc vu DNN nao |
+| S-NSSAI-den-UPF | Pool UPF danh rieng cho slice |
+| Cau hinh LADN | Ranh gioi dich vu dia ly |
+| Nguong tai | Khi nao tranh UPF qua tai |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Khong co UPF cho slice.** Neu S-NSSAI yeu cau khong co UPF dang ky, thiet lap session that bai. Xac minh cau hinh slice.
+
+2. **DNN khong duoc phuc vu.** UPF phai co giao dien den DNN yeu cau. Thieu giao dien N6 = session bi tu choi.
+
+3. **Khong khop che do SSC.** UE yeu cau SSC 2 nhung thue bao chi cho phep SSC 1 → dam phan hoac tu choi.
+
+4. **LADN ngoai vung.** UE yeu cau LADN DNN nhung o ngoai vung dich vu → thiet lap bi tu choi.
+
+5. **Chon UPF qua tai.** Khong co can bang tai dung cach, SMF co the chon UPF tac nghen. Su dung thong tin tai NRF.
+
+6. **Edge UPF khong the lien lac.** Neu edge UPF bi loi, can fallback ve UPF trung tam. Lap ke hoach du phong.
+
+7. **Cau hinh sai UL classifier.** Bo loc goi sai gui luu luong den UPF sai. Kiem tra quy tac dinh tuyen.
+
+8. **Du lieu NRF cu.** Cache NRF co the co thong tin UPF loi thoi. Dam bao heartbeat/subscription hoat dong.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.501, "System Architecture for 5GS"
+- 3GPP TS 23.502, "Procedures for 5GS"
+- 3GPP TS 23.548, "5GS Enhancements for Edge Computing"
+- 3GPP TS 29.510, "NRF Services"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [QoS flow](/vi/core-network/session-management-deep-dive/qos-flows/) — phan biet luu luong sau lua chon UPF
+- [Edge computing](/vi/core-network/edge-computing/mec-overview/) — tai sao edge UPF quan trong
+- [Network slicing](/vi/core-network/network-slicing/slice-architecture/) — UPF danh rieng cho slice
+
+</section>

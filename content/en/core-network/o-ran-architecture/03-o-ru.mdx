@@ -8,17 +8,350 @@ track: n6
 unit: o-ran-architecture
 order: 3
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n6-o-ran-architecture-02-o-du"]
+spiralRevisits: []
 title: "O-RU — Radio Unit"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The O-RAN Radio Unit — RF, low-PHY, antenna interface, and the hardware at the cell site."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG4.CUS", "O-RAN.WG4.MP"]
+tags: ["o-ran", "5g", "ru", "rf", "antenna", "fronthaul"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# O-RU — Radio Unit
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+The O-RU is the only part of the RAN that actually touches RF. It converts digital IQ samples to radio waves and vice versa. Everything else is digital processing.
+
+In O-RAN, the RU becomes interchangeable. Understanding O-RU capabilities and constraints is essential for multi-vendor deployments and site planning.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### O-RU functions
+
+```
+What O-RU Does:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  From O-DU (Fronthaul):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ IQ samples (frequency domain)                   │    │
+│  │ C-Plane: PRB allocation, beamforming weights   │    │
+│  └────────────────────┬────────────────────────────┘    │
+│                       │                                  │
+│                       ▼                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                    O-RU                          │    │
+│  │                                                  │    │
+│  │  ┌───────────────────────────────────────────┐  │    │
+│  │  │ Low-PHY (optional, depends on split)      │  │    │
+│  │  │ - IFFT / FFT                              │  │    │
+│  │  │ - Cyclic prefix add/remove                │  │    │
+│  │  │ - Digital beamforming (if Cat-B)          │  │    │
+│  │  └───────────────────────────────────────────┘  │    │
+│  │                       │                          │    │
+│  │  ┌───────────────────────────────────────────┐  │    │
+│  │  │ Digital Front End (DFE)                   │  │    │
+│  │  │ - Digital up/down conversion              │  │    │
+│  │  │ - Crest factor reduction (CFR)            │  │    │
+│  │  │ - Digital pre-distortion (DPD)            │  │    │
+│  │  └───────────────────────────────────────────┘  │    │
+│  │                       │                          │    │
+│  │  ┌───────────────────────────────────────────┐  │    │
+│  │  │ RF (Radio Frequency)                      │  │    │
+│  │  │ - DAC / ADC                               │  │    │
+│  │  │ - Power amplifier                         │  │    │
+│  │  │ - Low noise amplifier                     │  │    │
+│  │  │ - Filters, duplexer                       │  │    │
+│  │  └───────────────────────────────────────────┘  │    │
+│  │                       │                          │    │
+│  │  ┌───────────────────────────────────────────┐  │    │
+│  │  │ Antenna Interface                         │  │    │
+│  │  │ - Antenna ports (2T2R, 4T4R, 64T64R...)  │  │    │
+│  │  │ - Calibration                             │  │    │
+│  │  └───────────────────────────────────────────┘  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                       │                                  │
+│                       ▼                                  │
+│               📡 Over the Air                           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### O-RU categories
+
+```
+O-RAN RU Categories:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Category A (Cat-A):                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Beamforming: Done at O-DU (precoding matrix)   │    │
+│  │  O-RU: Simple, RF + basic processing           │    │
+│  │  Fronthaul: One stream per layer               │    │
+│  │                                                  │    │
+│  │  Use case: Lower MIMO (2x2, 4x4)               │    │
+│  │  Fronthaul BW: Higher (per-layer IQ)           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Category B (Cat-B):                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Beamforming: Done at O-RU (beam weights)       │    │
+│  │  O-RU: Complex, includes digital beamforming   │    │
+│  │  Fronthaul: Beamformed streams + weights       │    │
+│  │                                                  │    │
+│  │  Use case: Massive MIMO (32T32R, 64T64R)       │    │
+│  │  Fronthaul BW: Lower (beams, not layers)       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Choice depends on:                                     │
+│  - MIMO configuration                                  │
+│  - Fronthaul capacity                                  │
+│  - O-RU complexity/cost                                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Open Fronthaul protocol stack
+
+```
+Fronthaul Protocol Layers:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ eCPRI (enhanced CPRI)                           │    │
+│  │ - Message types: IQ data, C-plane, etc.        │    │
+│  │ - Section headers for PRB allocation           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                       │                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Ethernet (or UDP/IP over Ethernet)             │    │
+│  │ - VLAN tagging for plane separation            │    │
+│  │ - PCP for priority                             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                       │                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Timing (S-Plane)                                │    │
+│  │ - PTP (IEEE 1588) for synchronization          │    │
+│  │ - SyncE for frequency                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Bandwidth requirements (100 MHz, Cat-B, 64T64R):       │
+│  - U-Plane: ~25 Gbps peak                              │
+│  - C-Plane: ~100 Mbps                                  │
+│  - Total: 25G or 100G Ethernet typical                 │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Timing requirements
+
+```
+O-RU Timing Constraints:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Timing Parameter        │ Requirement                  │
+│  ────────────────────────┼──────────────────────────────│
+│                          │                              │
+│  Frequency accuracy      │ ±50 ppb (normal)            │
+│  (SyncE / GPS)           │ ±16 ppb (high accuracy)     │
+│                          │                              │
+│  Phase accuracy (TDD)    │ ±1.5 µs at air interface    │
+│                          │ ±3.0 µs at antenna          │
+│                          │                              │
+│  Fronthaul delay         │ T1a (min/max) per O-RAN     │
+│  (C-Plane → U-Plane)     │ Typically 200-500 µs        │
+│                          │                              │
+│  Symbol alignment        │ CP length tolerance         │
+│                          │                              │
+│  Why critical:                                          │
+│  - TDD: UL/DL collision if timing wrong                │
+│  - FDD: Inter-cell interference                        │
+│  - MIMO: Beamforming coherence requires phase sync     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### IQ compression
+
+```
+Fronthaul IQ Compression:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Problem: 64T64R @ 100 MHz = 50+ Gbps uncompressed     │
+│                                                          │
+│  Solution: Compress IQ samples                          │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Block Floating Point (BFP):                     │    │
+│  │                                                  │    │
+│  │ 16-bit I, Q (raw)     → 9-bit I, Q + exponent   │    │
+│  │                                                  │    │
+│  │ Exponent shared across PRB (12 subcarriers)     │    │
+│  │ Compression ratio: ~50%                         │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Modulation Compression:                         │    │
+│  │                                                  │    │
+│  │ Uses modulation type info from C-Plane          │    │
+│  │ QPSK: 2 bits/symbol, 256QAM: 8 bits/symbol     │    │
+│  │ Higher compression for lower modulation         │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Trade-off: Compression adds quantization noise         │
+│  (affects EVM, throughput at cell edge)                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### M-Plane configuration
+
+```
+O-RU Management (M-Plane):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Protocol: NETCONF/YANG                                 │
+│                                                          │
+│  Configuration:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Carrier configuration (frequency, BW, SCS)   │    │
+│  │ - Antenna configuration (port mapping)          │    │
+│  │ - Compression settings (BFP, mod-comp)          │    │
+│  │ - Timing parameters                             │    │
+│  │ - Beamforming capabilities                     │    │
+│  │ - TX power settings                            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Supervision:                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Alarms (VSWR, temperature, power)            │    │
+│  │ - Performance counters                          │    │
+│  │ - Logs                                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  M-Plane can be:                                        │
+│  - Hierarchical: O-DU manages O-RU                     │
+│  - Hybrid: SMO manages some, O-DU manages rest         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**O-RU selection criteria:**
+
+| Factor | Small cell | Macro (4T4R) | Massive MIMO |
+|--------|------------|--------------|--------------|
+| Category | A | A or B | B |
+| Power | 1-5W | 20-80W | 200W+ |
+| Antenna | 2T2R | 4T4R | 64T64R |
+| Fronthaul | 10G | 25G | 25G-100G |
+| Weight | < 5 kg | 10-20 kg | 30-50 kg |
+
+**Debugging O-RU:**
+
+```bash
+# Check fronthaul link
+ethtool eth0 | grep "Speed\|Link"
+
+# PTP sync status
+pmc -u -b 0 'GET TIME_STATUS_NP'
+
+# O-RU alarms via NETCONF
+netconf-cli get --filter "<alarms/>"
+
+# eCPRI statistics
+ecpri-cli show stats
+
+# VSWR check
+oru-cli show vswr --port all
+```
+
+**Common O-RU parameters:**
+
+| Parameter | Typical Range | Notes |
+|-----------|---------------|-------|
+| TX power | 2-200W per port | Class defines max |
+| Frequency bands | 600 MHz - 40 GHz | Per O-RU model |
+| Bandwidth | 5-100 MHz | Per carrier |
+| SCS | 15, 30, 60, 120 kHz | Band dependent |
+| EVM | < 8% (256QAM) | RF quality metric |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Timing sync loss.** If PTP fails, TDD O-RU must stop transmitting. Ensure redundant timing sources.
+
+2. **VSWR alarm.** High VSWR indicates antenna/feeder issue. Can damage PA if ignored.
+
+3. **Thermal throttling.** O-RU reduces power in high temperature. Site cooling is critical.
+
+4. **Fronthaul jitter.** Late packets are dropped. Use traffic shaping and priority queuing.
+
+5. **IQ compression artifacts.** Aggressive compression degrades EVM. Monitor cell edge performance.
+
+6. **Cat-A/B mismatch.** O-DU must know O-RU category. Wrong assumption breaks beamforming.
+
+7. **Carrier aggregation timing.** Multiple carriers require tight phase alignment. Verify per-carrier sync.
+
+8. **Firmware incompatibility.** O-RAN spec evolves. O-DU and O-RU firmware versions must be compatible.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- O-RAN Alliance WG4, "Management Plane Specification"
+- IEEE 1588, "Precision Time Protocol (PTP)"
+- O-RAN.WG4.IOT, "O-RU Conformance Test Specification"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [RIC overview](/en/core-network/o-ran-architecture/ric-overview/) — intelligent controller
+- [O-DU](/en/core-network/o-ran-architecture/o-du/) — Distributed Unit
+- [Fronthaul requirements](/en/core-network/functional-splits/fronthaul-requirements/) — transport
+
+</section>

@@ -8,17 +8,320 @@ track: n0
 unit: mpls-vlan-vrf
 order: 2
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 14
+prerequisites: ["core-network-n0-routing-and-switching-03-routing-protocols-overview"]
+spiralRevisits: ["core-network-n1-mpls-vlan-vrf-03-vrf-concepts"]
 title: "MPLS label switching"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "How MPLS uses labels instead of IP lookups to forward packets — and why telcos love it."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["RFC 3031", "RFC 3032"]
+tags: ["mpls", "label-switching", "networking", "telecom"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# MPLS label switching
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+IP routing works, but it has limitations. Every router does a full IP lookup. Traffic engineering is hard. VPNs are complex.
+
+MPLS (Multiprotocol Label Switching) solves these problems. It adds a simple label to packets, enabling fast forwarding, traffic engineering, and VPN services. Every major telco backbone runs MPLS.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What is MPLS?
+
+MPLS is a **forwarding mechanism** that uses short labels instead of long IP addresses to make forwarding decisions.
+
+```
+Traditional IP routing:          MPLS forwarding:
+
+Packet: [IP: 203.0.113.5]       Packet: [Label: 42]
+           │                              │
+           ▼                              ▼
+    ┌──────────────┐                ┌──────────────┐
+    │ IP lookup in │                │ Label lookup │
+    │ routing table│                │ in LFIB      │
+    │ (complex)    │                │ (simple)     │
+    └──────────────┘                └──────────────┘
+           │                              │
+           ▼                              ▼
+    Decision: eth1                  Decision: eth1, swap to 57
+```
+
+**Key insight:** Labels are local to each router. Router A might use label 42, but the next router might use label 57 for the same path. This is called **label swapping**.
+
+### Why MPLS?
+
+| Problem | MPLS solution |
+|---------|---------------|
+| Slow IP lookups | Fixed-size label lookup (20 bits vs 128 bits for IPv6) |
+| Traffic engineering | Explicit paths via RSVP-TE or Segment Routing |
+| VPN services | Label stacking enables L2/L3 VPNs |
+| Fast reroute | Pre-computed backup paths |
+| Protocol-agnostic | Works with IP, Ethernet, ATM |
+
+### The MPLS label
+
+An MPLS label is a 32-bit header inserted between Layer 2 and Layer 3.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ L2 Header │ MPLS Label │ IP Header │ Payload            │
+└──────────────────────────────────────────────────────────┘
+                │
+                ▼
+┌───────────────────────────────────────┐
+│ Label (20 bits) │ TC │ S │ TTL       │
+│                 │ 3b │1b │ 8 bits    │
+└───────────────────────────────────────┘
+```
+
+**Label fields:**
+- **Label (20 bits):** The actual label value (0-1,048,575)
+- **TC (3 bits):** Traffic Class (QoS)
+- **S (1 bit):** Bottom of Stack (1 if this is the last label)
+- **TTL (8 bits):** Time to Live (like IP TTL)
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### MPLS domain and router roles
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    MPLS Domain                           │
+│                                                          │
+│   ┌─────┐     ┌─────┐     ┌─────┐     ┌─────┐          │
+│   │ LER │────►│ LSR │────►│ LSR │────►│ LER │          │
+│   │(PE) │     │ (P) │     │ (P) │     │(PE) │          │
+│   └─────┘     └─────┘     └─────┘     └─────┘          │
+│   Ingress     Transit     Transit     Egress           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+     ▲                                        │
+     │                                        ▼
+ Unlabeled                              Unlabeled
+  packets                                packets
+```
+
+**LER (Label Edge Router) / PE (Provider Edge):**
+- Sits at the edge of MPLS domain
+- **Ingress LER:** Pushes label onto packet
+- **Egress LER:** Pops label, forwards as IP
+
+**LSR (Label Switch Router) / P (Provider):**
+- Core router in MPLS domain
+- Swaps labels (never looks at IP header)
+
+### Label operations
+
+Three fundamental operations:
+
+| Operation | Where | What happens |
+|-----------|-------|--------------|
+| **Push** | Ingress LER | Add label to packet |
+| **Swap** | Transit LSR | Replace label with new one |
+| **Pop** | Egress LER | Remove label |
+
+**Example path:**
+
+```
+Packet: Dst 203.0.113.5
+
+    Customer ──► Ingress LER ──► LSR ──► LSR ──► Egress LER ──► Customer
+                     │           │       │           │
+                   PUSH        SWAP    SWAP        POP
+                  Label 42   42→57   57→31      Remove
+```
+
+### Label Distribution Protocol (LDP)
+
+How do routers know which labels to use?
+
+**LDP** automatically distributes labels across the MPLS domain.
+
+1. Routers establish LDP sessions (TCP port 646)
+2. Each router advertises: "For prefix 10.0.0.0/8, use label 42 when sending to me"
+3. Routers build **LFIB (Label Forwarding Information Base)**
+
+```
+Router A's LFIB:
+┌─────────────────────────────────────────────────┐
+│ Incoming Label │ Outgoing Label │ Next Hop     │
+├─────────────────────────────────────────────────┤
+│ 42             │ 57             │ Router B     │
+│ 43             │ 58             │ Router B     │
+│ 100            │ Pop            │ Local        │
+└─────────────────────────────────────────────────┘
+```
+
+### Label stacking
+
+MPLS supports multiple labels (a **label stack**). This enables powerful features.
+
+```
+┌────────┬────────┬────────┬──────────┬─────────┐
+│ L2 Hdr │Label 1 │Label 2 │ IP Header│ Payload │
+└────────┴────────┴────────┴──────────┴─────────┘
+          │        │
+          │        └── Inner label (VPN label)
+          └─────────── Outer label (transport)
+```
+
+**Use cases:**
+- **L3 VPN:** Outer = transport, Inner = VPN identifier
+- **Traffic engineering:** Multiple labels for segment routing
+- **Hierarchy:** Different labels for different services
+
+The **S bit** indicates bottom of stack. When S=1, this is the last label.
+
+### Penultimate Hop Popping (PHP)
+
+An optimization: the second-to-last router pops the label, so the egress LER doesn't have to look at both label AND IP header.
+
+```
+Without PHP:                    With PHP:
+
+LSR ──[Label 57]──► Egress      LSR ──[No label]──► Egress
+                    1. Pop                          Just route IP
+                    2. IP lookup
+```
+
+**Implicit null label (3):** Advertised by egress LER to signal "pop before sending to me."
+
+### Forwarding Equivalence Class (FEC)
+
+A **FEC** is a group of packets that are forwarded the same way.
+
+Examples of FECs:
+- All packets to destination 10.0.0.0/8
+- All packets for VPN customer X
+- All packets with DSCP EF (expedited forwarding)
+
+The ingress LER classifies packets into FECs and assigns labels accordingly.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**MPLS vs IP comparison:**
+
+| Aspect | IP Routing | MPLS |
+|--------|------------|------|
+| Lookup | Longest prefix match | Exact label match |
+| Path control | IGP decides | Can be explicit (TE) |
+| VPN support | Complex (GRE tunnels) | Native (VPN labels) |
+| QoS | DSCP in IP header | TC in MPLS header |
+| Fast reroute | Protocol-dependent | Sub-50ms with FRR |
+
+**When to use MPLS:**
+
+- **Service provider backbone:** Always. Enables L2/L3 VPNs, traffic engineering.
+- **Large enterprise:** Often. Simplifies WAN, enables private VPNs.
+- **Small network:** Usually not. Complexity doesn't justify benefits.
+
+**MPLS VPN architecture:**
+
+```
+Customer A                                     Customer A
+Site 1                                         Site 2
+   │                                              │
+   ▼                                              ▼
+┌─────┐     ┌─────┐     ┌─────┐     ┌─────┐     ┌─────┐
+│ CE  │────►│ PE  │────►│  P  │────►│ PE  │────►│ CE  │
+└─────┘     └─────┘     └─────┘     └─────┘     └─────┘
+             │                         │
+             │◄── MPLS backbone ──────►│
+             │   (Label stacked:       │
+             │    Transport + VPN)     │
+```
+
+**Troubleshooting MPLS:**
+
+1. **LDP session not up:**
+   - Check IP connectivity between routers
+   - Verify LDP is enabled on interfaces
+   - Check router-id configuration
+
+2. **Label not in LFIB:**
+   - Is the prefix in IGP?
+   - Is LDP advertising labels?
+   - Check for filtering
+
+3. **Packets dropped in MPLS core:**
+   - Check label path with traceroute MPLS
+   - Verify MTU (MPLS adds 4+ bytes per label)
+   - Check TTL propagation settings
+
+**Useful commands (Cisco-style):**
+
+```bash
+# Show LDP neighbors
+show mpls ldp neighbor
+
+# Show label bindings
+show mpls ldp bindings
+
+# Show LFIB
+show mpls forwarding-table
+
+# Traceroute with MPLS
+traceroute mpls ipv4 10.0.0.1/32
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Thinking MPLS replaces IP.** MPLS is a forwarding mechanism, not a routing protocol. You still need IGP (OSPF/IS-IS) and possibly BGP. MPLS just changes how packets are forwarded.
+
+2. **Ignoring MTU.** Each MPLS label adds 4 bytes. With label stacking, this adds up. Plan for larger MTU in the core (typically 9000+ bytes).
+
+3. **PHP confusion.** If PHP is disabled and the egress router gets a labeled packet, it must do both label pop AND IP lookup. Understand your PHP settings.
+
+4. **LDP vs RSVP-TE.** LDP follows IGP shortest path. RSVP-TE allows explicit paths. They serve different purposes. Know which you need.
+
+5. **Forgetting TTL.** By default, IP TTL is copied to MPLS TTL. This reveals your internal topology to traceroute. Some providers disable TTL propagation for security.
+
+6. **Over-engineering small networks.** MPLS adds complexity. For small networks, the operational burden may outweigh benefits.
+
+7. **Label exhaustion.** 20 bits = ~1 million labels. Usually plenty, but VPN-heavy deployments with many routes can hit limits. Monitor label usage.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- RFC 3031, "Multiprotocol Label Switching Architecture"
+- RFC 3032, "MPLS Label Stack Encoding"
+- RFC 5036, "LDP Specification"
+- Minei & Lucek, *MPLS-Enabled Applications*, Wiley, 2011
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [VRF concepts](/en/core-network/mpls-vlan-vrf/vrf-concepts/) — virtual routing tables
+- [Segment routing](/en/core-network/mpls-vlan-vrf/segment-routing/) — source-routed MPLS
+- [L3VPN](/en/core-network/mpls-vlan-vrf/l3vpn/) — MPLS-based VPN services
+
+</section>

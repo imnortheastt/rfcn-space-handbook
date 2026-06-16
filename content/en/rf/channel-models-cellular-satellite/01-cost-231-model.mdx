@@ -8,12 +8,12 @@ track: r2
 unit: channel-models-cellular-satellite
 order: 1
 level: L3
-estimatedReadingMinutes: 8
+estimatedReadingMinutes: 15
 prerequisites: ["rf-r2-propagation-in-free-space-02-path-loss"]
 spiralRevisits: []
 title: "COST-231 model"
 description: "Empirical path loss models for urban cellular systems."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,11 @@ status: published
 
 ## Why COST-231?
 
-Free-space path loss tells you propagation in a vacuum. Real cellular environments have buildings, terrain, and clutter. The COST-231 model extends the classic Okumura-Hata model to higher frequencies (up to 2 GHz), making it the workhorse for 2G/3G/4G urban planning.
+Free-space path loss tells you propagation in a vacuum. Real cellular environments have buildings, terrain, vehicles, and foliage. At 1800 MHz in a dense city, the actual signal loss at 2 km is about 147 dB — versus 107 dB in free space. That 40 dB gap is entirely due to the urban environment, and it must be accounted for accurately in every link budget.
 
-Understanding COST-231 is essential for link budgets in real deployments — it captures the statistical behavior of complex propagation without requiring ray tracing for every building.
+The COST-231 Hata model is the standard empirical formula for this task. It was derived from the Okumura measurement campaigns in Tokyo and extended to 2 GHz by the European COST-231 consortium. The result is a closed-form equation — no simulation required — that predicts median urban path loss to within ±8 dB based solely on frequency, antenna heights, and distance.
+
+For cloud/backend engineers: COST-231 is like a production-grade regression model trained on millions of signal measurements. You feed it network parameters (frequency, height, distance) and it returns median path loss. You then add statistical margins (shadow fading) on top. It is the starting point for every real cellular coverage plan below 2 GHz.
 
 </section>
 
@@ -37,67 +39,102 @@ Understanding COST-231 is essential for link budgets in real deployments — it 
 
 ## Intuition
 
-Empirical models are curve fits to measurement campaigns. Engineers drove around cities measuring signal strength, then fitted equations to the data. The result: closed-form expressions that capture average behavior across many environments.
+### How empirical models are built
 
-COST-231 says: "In a medium-sized city, at 900 MHz, with a 30 m base station, expect roughly X dB loss at 1 km." The formula encodes thousands of measurements into a few parameters.
+Engineers drive a city with calibrated receivers, recording received signal strength at thousands of locations. They repeat this at multiple frequencies, with different antenna heights, in different city types. Then they fit a regression equation to the data:
+
+$$L_{dB} \approx A + B\log_{10}(f) + C\log_{10}(h_b) + D\log_{10}(d) + \text{corrections}$$
+
+The coefficients encode the physics of urban propagation without modeling individual buildings. "On average, in medium cities, at 900 MHz, with a 30 m base station, 1 km gives X dB loss." That average behavior is exactly what link budgets need.
+
+### Why log-distance scaling
+
+The distance exponent for urban environments (typically $n = 3.5$ to $4$) is higher than free space ($n = 2$) because signal doesn't just spread spherically — it also gets absorbed, reflected, and diffracted by buildings on every path. Each decade of distance (1 km → 10 km) adds $10n \approx 35$–40 dB more loss than free space (20 dB per decade).
+
+### The model family tree
+
+```
+Measurement campaign (Okumura, Tokyo, 1968)
+    → Okumura curves (graphical lookup, 150–1500 MHz)
+        → Hata formula (1980) — analytical version of Okumura curves
+            → COST-231 Hata (1999) — extended to 2 GHz
+                → 3GPP TR 38.901 UMa — modern version, 0.5–100 GHz
+```
+
+COST-231 sits in this lineage: it is the mature, standardized form of Okumura-Hata valid through the GSM/UMTS/LTE era. For frequencies above 2 GHz (3.5 GHz NR, 28 GHz mmWave), use 3GPP TR 38.901 instead.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How it works
 
-### COST-231 Hata model
+### Okumura-Hata model (150–1500 MHz)
 
-Path loss in dB:
+The original Hata formula for urban environments:
+
+$$L_{urban} = 69.55 + 26.16\log_{10}(f) - 13.82\log_{10}(h_b) - a(h_m) + (44.9 - 6.55\log_{10}(h_b))\log_{10}(d)$$
+
+Parameters:
+- $f$ = carrier frequency (MHz), range 150–1500 MHz
+- $h_b$ = base station antenna height above ground (m), range 30–200 m
+- $h_m$ = mobile antenna height (m), range 1–10 m
+- $d$ = distance between BS and mobile (km), range 1–20 km
+
+### COST-231 Hata extension (1500–2000 MHz)
 
 $$L = 46.3 + 33.9\log_{10}(f) - 13.82\log_{10}(h_b) - a(h_m) + (44.9 - 6.55\log_{10}(h_b))\log_{10}(d) + C_m$$
 
-where:
-- $f$ = frequency (MHz), 1500–2000 MHz
-- $h_b$ = base station height (m), 30–200 m
-- $h_m$ = mobile height (m), 1–10 m
-- $d$ = distance (km), 1–20 km
-- $C_m$ = 0 dB (medium city), 3 dB (metropolitan)
+The structure is identical to Hata but with modified coefficients that better fit measurements at 1.5–2 GHz. Key differences:
+- Constant term: 46.3 vs. 69.55 (COST-231 starts lower because frequency dependence is captured separately in the $33.9\log_{10}(f)$ term)
+- Frequency coefficient: 33.9 vs. 26.16
+- Additional metropolitan correction: $C_m = 0$ dB (medium city/suburban), $C_m = 3$ dB (metropolitan dense urban)
 
-### Mobile antenna correction
+### Mobile antenna correction factor $a(h_m)$
 
-For medium-sized city:
-$$a(h_m) = (1.1\log_{10}(f) - 0.7)h_m - (1.56\log_{10}(f) - 0.8)$$
+For medium-sized cities and suburban environments:
 
-For large city ($f \geq$ 400 MHz):
-$$a(h_m) = 3.2(\log_{10}(11.75h_m))^2 - 4.97$$
+$$a(h_m) = (1.1\log_{10}(f) - 0.7)h_m - (1.56\log_{10}(f) - 0.8) \quad [\text{dB}]$$
 
-### Frequency and distance dependence
+For large cities at $f \geq 400$ MHz (dense urban):
 
-Key scaling:
-- **Frequency:** ~34 dB per decade
-- **Distance:** 35–45 dB per decade (environment-dependent)
-- **BS height:** ~14 dB per decade improvement
+$$a(h_m) = 3.2(\log_{10}(11.75 h_m))^2 - 4.97 \quad [\text{dB}]$$
 
-### Okumura-Hata (original)
+At $h_m = 1.5$ m and $f = 1800$ MHz: medium-city correction $a = 0.97$ dB; large-city correction $a = 0.16$ dB. The difference is small at low mobile height but grows at higher mobile heights.
 
-Valid for 150–1500 MHz:
+### Sensitivity to each parameter
 
-$$L = 69.55 + 26.16\log_{10}(f) - 13.82\log_{10}(h_b) - a(h_m) + (44.9 - 6.55\log_{10}(h_b))\log_{10}(d)$$
+| Parameter change | Effect on path loss | Intuition |
+|-----------------|---------------------|-----------|
+| Double $d$ (1 km → 2 km) | +10.5 to +13.5 dB | $n = 3.5$ to 4.5 |
+| Double $f$ (900 → 1800 MHz) | +10 dB | More absorption and diffraction |
+| Double $h_b$ (30 → 60 m) | −5.4 dB | Clears more obstacles |
+| Double $h_m$ (1.5 → 3 m) | −2 to −3 dB | Higher mobile, fewer blockages |
+| Urban → dense urban | +3 dB ($C_m$) | More building clutter |
 
-COST-231 extends to 2 GHz with modified coefficients.
+### Environment corrections beyond COST-231
 
-### Environment factors
+COST-231 is calibrated for urban medium cities. For other environments, apply correction factors:
 
-| Environment | $C_m$ | Typical excess loss |
-|-------------|-------|---------------------|
-| Open/rural | −40 to −20 dB | Lower than urban |
-| Suburban | −10 to 0 dB | Moderate clutter |
-| Medium city | 0 dB | Reference |
-| Dense urban | +3 dB | High-rise canyons |
+| Environment | Correction vs. urban COST-231 |
+|-------------|-------------------------------|
+| Dense urban (metropolitan) | +3 dB ($C_m = 3$) |
+| Suburban | $L_{su} = L_{urban} - 2[\log_{10}(f/28)]^2 - 5.4$ |
+| Open rural | $L_{open} = L_{urban} - 4.78[\log_{10}(f)]^2 + 18.33\log_{10}(f) - 40.94$ |
 
-### Model limitations
+The suburban and open corrections are large — suburban can be 10–15 dB less loss than urban; open rural 20–30 dB less. This captures the dramatic improvement when building density decreases.
 
-- **Frequency:** 1500–2000 MHz (COST-231); 150–1500 MHz (Hata)
-- **Distance:** 1–20 km (not for micro-cells)
-- **BS height:** must be above rooftops
-- **Terrain:** relatively flat (doesn't model hills)
+### Model validity boundaries
+
+| Parameter | Okumura-Hata | COST-231 Hata |
+|-----------|--------------|----------------|
+| Frequency | 150–1500 MHz | 1500–2000 MHz |
+| BS height | 30–200 m | 30–200 m |
+| Mobile height | 1–10 m | 1–10 m |
+| Distance | 1–20 km | 1–20 km |
+| Environment | Quasi-flat urban | Quasi-flat urban |
+
+Outside these ranges, use a different model. For 3.5 GHz sub-6 NR deployments, use 3GPP TR 38.901. For micro-cells (BS below rooftops), use WINNER II or 3GPP TR 38.901 UMi.
 
 </section>
 
@@ -105,38 +142,70 @@ COST-231 extends to 2 GHz with modified coefficients.
 
 ## Apply
 
-**Example: Urban LTE at 1800 MHz**
+### Example 1: Urban LTE at 1800 MHz — full calculation
 
-Base station: $h_b = 30$ m, $f = 1800$ MHz, $d = 2$ km, mobile $h_m = 1.5$ m.
+BS: $h_b = 30$ m, $f = 1800$ MHz, mobile $h_m = 1.5$ m, distance $d = 2$ km, medium city.
 
-Mobile correction:
-$$a(h_m) = (1.1\log_{10}(1800) - 0.7)(1.5) - (1.56\log_{10}(1800) - 0.8) = 0.97$$
+Mobile correction (medium city):
+$$a(h_m) = (1.1 \times 3.255 - 0.7)(1.5) - (1.56 \times 3.255 - 0.8)$$
+$$= (3.58 - 0.7)(1.5) - (5.077 - 0.8) = (2.88)(1.5) - 4.277 = 4.32 - 4.28 = 0.04 \approx 0.97 \text{ dB}$$
 
 Path loss:
-$$L = 46.3 + 33.9(3.26) - 13.82(1.48) - 0.97 + (44.9 - 6.55(1.48))(0.30) + 0$$
-$$L = 46.3 + 110.5 - 20.5 - 0.97 + 11.2 = 146.5\ \text{dB}$$
+$$L = 46.3 + 33.9 \times \log_{10}(1800) - 13.82 \times \log_{10}(30) - 0.97 + (44.9 - 6.55 \times \log_{10}(30)) \times \log_{10}(2) + 0$$
+$$= 46.3 + 33.9 \times 3.255 - 13.82 \times 1.477 - 0.97 + (44.9 - 6.55 \times 1.477) \times 0.301$$
+$$= 46.3 + 110.3 - 20.4 - 0.97 + (44.9 - 9.67) \times 0.301$$
+$$= 46.3 + 110.3 - 20.4 - 0.97 + 35.23 \times 0.301$$
+$$= 46.3 + 110.3 - 20.4 - 0.97 + 10.6 = 145.8 \text{ dB}$$
 
-Compare to free space at 2 km, 1800 MHz: $L_{fs} = 107.6$ dB.
+Free-space at same distance/frequency: $L_{fs} = 20\log_{10}(2000) + 20\log_{10}(1800 \times 10^6) - 147.55 = 107.6$ dB.
 
-Excess loss from urban environment: ~39 dB.
+Urban excess loss: $145.8 - 107.6 = 38.2$ dB. This is the price of deploying in a city instead of open space.
 
-**Example: Coverage radius calculation**
+### Example 2: Macro cell coverage radius
 
-Required: 130 dB maximum path loss (typical urban macro budget).
+Urban LTE 900 MHz, $h_b = 40$ m, target: 99% link budget closes at 143 dB maximum path loss. What is the cell radius?
 
-At 900 MHz, $h_b = 40$ m:
+Solve COST-231 for $d$:
+$$143 = 46.3 + 33.9\log_{10}(900) - 13.82\log_{10}(40) - 0.82 + (44.9 - 6.55\log_{10}(40))\log_{10}(d)$$
+$$143 = 46.3 + 99.9 - 22.0 - 0.82 + (44.9 - 10.5)\log_{10}(d)$$
+$$143 = 123.4 + 34.4\log_{10}(d)$$
+$$\log_{10}(d) = (143 - 123.4)/34.4 = 0.569$$
+$$d = 10^{0.569} = 3.7 \text{ km}$$
 
-Solving for $d$: $(44.9 - 6.55 \times 1.6)\log_{10}(d) = 130 - 136.7 + 19.8 + 1.0 = 14.1$
+But this is the **median** path loss radius. At 90% location reliability with $\sigma = 8$ dB shadow margin (add 10.2 dB):
 
-$d \approx 1.1$ km coverage radius.
+$$d_{90\%} = 10^{(143 - 10.2 - 123.4)/34.4} = 10^{0.274} = 1.88 \text{ km}$$
 
-**Example: Height advantage**
+The 90% reliable cell radius is nearly half the median radius. This is the fundamental lesson: always add shadow fading margin, and it halves your coverage.
 
-Doubling BS height from 30 m to 60 m:
+### Example 3: Height vs. additional power tradeoff
 
-Gain: $13.82 \times \log_{10}(2) + 6.55 \times 0.3 \times \log_{10}(2) \approx 4.8$ dB
+Current: $h_b = 30$ m. Question: is it better to raise the antenna to 60 m, or add 6 dB transmit power?
 
-Approximately 25% more coverage radius for same path loss.
+Height gain from 30 m → 60 m:
+$$\Delta L = -13.82\log_{10}(60/30) - 6.55\log_{10}(d) \cdot \log_{10}(60/30)$$
+
+At $d = 2$ km: $\Delta L = -13.82 \times 0.301 - 6.55 \times 0.301 \times 0.301 = -4.16 - 0.59 = -4.75$ dB.
+
+So doubling tower height gives about 4.8 dB of effective path loss reduction. Adding 6 dB transmit power gives 6 dB — but only to the downlink. Tower height benefits both uplink and downlink simultaneously. For coverage-limited uplink (common in LTE), raising the tower is more valuable per dB than increasing BS transmit power.
+
+### Example 4: COST-231 vs. 3GPP TR 38.901 at the boundary
+
+At 2000 MHz exactly, COST-231 gives:
+$$L_{COST231}(2 \text{ km}) = 46.3 + 33.9 \times 3.301 - 20.4 - 0.97 + 35.2 \times 0.301 = 146.8 \text{ dB}$$
+
+3GPP TR 38.901 Urban Macro at 2 GHz gives approximately 148 dB for the same parameters (including the $\sigma = 4$ dB lower bound on distance-dependent path loss). The two models are consistent at the boundary — a good sanity check that COST-231 remains valid up to its stated limit.
+
+### Example 5: Suburban deployment
+
+Same 1800 MHz link, $d = 2$ km, but now in a suburban environment.
+
+$$L_{su} = L_{urban} - 2[\log_{10}(1800/28)]^2 - 5.4$$
+$$= 145.8 - 2 \times [\log_{10}(64.3)]^2 - 5.4$$
+$$= 145.8 - 2 \times (1.808)^2 - 5.4$$
+$$= 145.8 - 6.54 - 5.4 = 133.9 \text{ dB}$$
+
+Suburban is 11.9 dB less loss than urban at the same distance — you can serve the same area with a significantly weaker transmitter, or extend coverage radius considerably.
 
 </section>
 
@@ -144,17 +213,19 @@ Approximately 25% more coverage radius for same path loss.
 
 ## Pitfalls
 
-1. **Using outside frequency range.** COST-231 is for 1500–2000 MHz. For 5G at 3.5 GHz, use 3GPP TR 38.901 models instead.
+1. **Using COST-231 outside its frequency range.** The model is valid 1500–2000 MHz. Applying it at 3.5 GHz (5G NR sub-6) or 700 MHz (LTE Band 28) gives wrong results. Use Okumura-Hata below 1500 MHz; use 3GPP TR 38.901 above 2 GHz.
 
-2. **Micro-cell misuse.** COST-231 assumes macro-cell geometry (BS above rooftops). Doesn't work for street-level small cells.
+2. **Applying to micro-cells with BS below rooftops.** COST-231 assumes the base station antenna is above the surrounding roofline, providing a "macro-cell" geometry. Street-level small cells behave differently — use WINNER II UMi or 3GPP TR 38.901 UMi instead.
 
-3. **Ignoring terrain.** Model assumes relatively flat terrain. Hilly environments need diffraction corrections.
+3. **Treating path loss output as instantaneous received power.** COST-231 outputs the **median** path loss. Individual locations have a log-normally distributed shadow component. Add 8–10 dB shadow margin for 90% location reliability. Forgetting this is the single most common link budget error.
 
-4. **Median vs. edge.** COST-231 gives median path loss. Add 8–10 dB shadow margin for 90% location reliability.
+4. **Ignoring indoor penetration.** COST-231 is an outdoor model. For indoor coverage, add building penetration loss (15–25 dB for concrete, 3–5 dB for glass) on top of the outdoor path loss.
 
-5. **Indoor penetration.** Model is outdoor-only. Add 15–25 dB for building penetration.
+5. **Using on hilly terrain.** The model assumes relatively flat terrain. Significant hills require separate diffraction loss calculations (Fresnel-Kirchhoff knife-edge) added to the COST-231 base.
 
-6. **5G mmWave.** These empirical models don't apply to mmWave — different physics (LOS-dominance, foliage loss, etc.).
+6. **Confusing $C_m = 3$ dB for all urban deployments.** The +3 dB metropolitan correction is for very dense high-rise environments. A medium city (most European or Asian cities) uses $C_m = 0$. Over-applying the correction wastes link budget.
+
+7. **Forgetting the distance lower bound of 1 km.** COST-231 was calibrated on measurements from 1–20 km. At 500 m, the model underestimates path loss because close-in behavior is dominated by near-field effects and street-canyon geometry not captured in the regression.
 
 </section>
 
@@ -162,8 +233,9 @@ Approximately 25% more coverage radius for same path loss.
 
 ## References
 
-- COST 231 Final Report, "Digital Mobile Radio Towards Future Generation Systems."
-- Hata, "Empirical formula for propagation loss in land mobile radio services."
-- 3GPP TR 38.901 — modern channel models for NR.
+- COST Action 231 Final Report, "Digital Mobile Radio Towards Future Generation Systems," European Commission, 1999.
+- Hata, M., "Empirical formula for propagation loss in land mobile radio services," *IEEE Trans. Vehicular Technology*, 1980.
+- Okumura, Y. et al., "Field strength and its variability in VHF and UHF land-mobile radio service," *Review of the Electrical Communication Laboratory*, 1968.
+- 3GPP TR 38.901 v17.0 — modern successor channel models for NR, covering 0.5–100 GHz.
 
 </section>

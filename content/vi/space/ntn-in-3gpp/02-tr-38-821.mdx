@@ -9,16 +9,445 @@ unit: ntn-in-3gpp
 order: 2
 level: L4
 estimatedReadingMinutes: 5
-title: "TR 38.821 — Giai phap NR ho tro NTN"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "TR 38.821 — Giai phap NR Ho tro NTN"
+description: "Bao cao ky thuat 3GPP dinh nghia giai phap cu the cho timing, HARQ, di dong, va quan ly beam trong 5G NR dua tren ve tinh."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TR 38.821"]
+tags: ["ntn", "3gpp", "5g-nr", "timing-advance", "harq", "di-dong"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# TR 38.821 — Giai phap NR ho tro NTN
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+TR 38.821 la noi ly thuyet gap ky thuat. Trong khi TR 38.811 xac dinh cac thach thuc cua 5G dua tren ve tinh, TR 38.821 dinh nghia cac giai phap thuc te: cach mo rong timing advance cho khoang cach 600+ km, cach sua doi HARQ cho khu hoi 500+ ms, va cach xu ly handover beam khi ve tinh bay ngang qua bau troi. Tai lieu nay dat nen mong cho cac dac ta NTN quy pham trong Release 17.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Tu van de den giai phap
+
+```
+TR 38.821: Giai quyet cac Thach thuc NTN tu TR 38.811
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  THACH THUC (38.811)       │  GIAI PHAP (38.821)                    │
+│  ──────────────────────────┼──────────────────────────────────────  │
+│  TA gioi han 2 ms          │  Bu truoc dua tren GNSS +              │
+│                            │  Phat TA-Common + TA-Offset            │
+│                            │                                         │
+│  Thoi gian HARQ qua ngan   │  Vo hieu hoa HARQ hoac nhieu tien     │
+│                            │  trinh song song (len den 32)          │
+│                            │                                         │
+│  Doppler ±48 kHz           │  UE bu truoc dung ephemeris            │
+│                            │  + ho tro mang                          │
+│                            │                                         │
+│  Beam di chuyen nhanh      │  Handover co dieu kien, vung theo      │
+│                            │  doi co dinh Mat dat                   │
+│                            │                                         │
+│  Tham chieu cell thay doi  │  TA chung cho tam cell +               │
+│                            │  chenh lech rieng UE                   │
+│                            │                                         │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Quyet dinh kien truc chinh
+
+```
+TR 38.821 Dua ra Ba Lua chon Co ban:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. GNSS LA BAT BUOC CHO UE NTN                                    │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Khong co GNSS, UE khong the:                                  │ │
+│  │    • Bu truoc tre lan truyen                                   │ │
+│  │    • Bu truoc dich Doppler                                     │ │
+│  │    • Biet no dang o beam nao cho handover                      │ │
+│  │                                                                 │ │
+│  │  UE NTN = UE 5G chuan + bo thu GNSS + bo giai ma ephemeris    │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  2. MANG CUNG CAP EPHEMERIS VE TINH                               │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  SIB19 phat:                                                   │ │
+│  │    • Vi tri ve tinh (phan tu quy dao hoac vecto trang thai)   │ │
+│  │    • Vecto van toc                                             │ │
+│  │    • Tham chieu thoi gian chung                                │ │
+│  │                                                                 │ │
+│  │  UE ket hop GNSS + ephemeris → tinh tre & Doppler             │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  3. PHAN CHIA BU TIMING/DOPPLER                                    │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Hai tuy chon nghien cuu:                                      │ │
+│  │    A) UE bu day du (UE xu ly tat ca)                           │ │
+│  │    B) Mang bu (gNB xu ly, UE chi theo)                         │ │
+│  │                                                                 │ │
+│  │  Lua chon cuoi: UE bu day du cho tai trong trong suot         │ │
+│  │  (ve tinh don gian hon, chi phi thap hon)                      │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Giai phap timing advance
+
+```
+Kien truc Timing Advance TR 38.821:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TONG TA = TA-Common + TA-Offset + TA-UE                           │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. TA-Common (phat trong SIB):                                │ │
+│  │     • Tre tham chieu tu diem nadir ve tinh                    │ │
+│  │     • Chia se boi tat ca UE trong beam                         │ │
+│  │     • Cap nhat khi ve tinh di chuyen                           │ │
+│  │     • Do phan giai: 4.072 μs (16 × Tc × 64)                   │ │
+│  │                                                                 │ │
+│  │  2. TA-Offset (UE tinh tu GNSS + ephemeris):                  │ │
+│  │     • Chenh lech giua vi tri UE va diem tham chieu            │ │
+│  │     • UE biet vi/kinh do tu GNSS                              │ │
+│  │     • UE biet vi tri ve tinh tu ephemeris                     │ │
+│  │     • UE tinh chenh lech khoang cach nghieng → TA-Offset      │ │
+│  │                                                                 │ │
+│  │  3. TA-UE (dieu chinh TA NR chuan tu MAC-CE):                 │ │
+│  │     • Tinh chinh tu do luong timing mang                      │ │
+│  │     • Giong 5G NR mat dat                                     │ │
+│  │     • Sua sai so du                                           │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  VI DU (LEO-600, mep beam):                                        │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  TA-Common (nadir):        4.0 ms                              │ │
+│  │  TA-Offset (mep):          +2.5 ms                             │ │
+│  │  TA-UE (tinh chinh):       +0.1 ms                             │ │
+│  │  ─────────────────────────────────                             │ │
+│  │  Tong TA:                  6.6 ms                              │ │
+│  │                                                                 │ │
+│  │  NR chuan chi co the bieu dien 2 ms — DA GIAI QUYET!          │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Sua doi HARQ
+
+```
+Giai phap HARQ TR 38.821:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TUY CHON 1: VO HIEU HOA HARQ                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Cho GEO (RTT ~540 ms):                                        │ │
+│  │    • Truyen lai HARQ them 540 ms nua                          │ │
+│  │    • Tong tre voi mot NACK: 1080 ms                           │ │
+│  │    • Tot hon dua vao RLC ARQ (truyen lai lop ung dung)        │ │
+│  │                                                                 │ │
+│  │  UE cau hinh voi:                                              │ │
+│  │    • harq-FeedbackDisabled = true                              │ │
+│  │    • Ma hoa FEC manh (nhieu du thua hon)                       │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TUY CHON 2: MO RONG TIEN TRINH HARQ                              │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Cho LEO (RTT 4-26 ms):                                        │ │
+│  │    • HARQ van huu ich (tre quan ly duoc)                       │ │
+│  │    • Nhung can nhieu tien trinh song song hon                  │ │
+│  │                                                                 │ │
+│  │  NR chuan:     16 tien trinh HARQ                              │ │
+│  │  NTN mo rong:  Len den 32 tien trinh HARQ                      │ │
+│  │                                                                 │ │
+│  │  Tinh toan (LEO-600, goc nang 30°):                           │ │
+│  │    RTT = 13 ms                                                 │ │
+│  │    Thoi luong slot = 0.5 ms (30 kHz SCS)                      │ │
+│  │    Slot moi RTT = 26                                           │ │
+│  │    Tien trinh toi thieu = 26 (de tiep tuc truyen)             │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Bu Doppler
+
+```
+Bu truoc Doppler TR 38.821:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  THACH THUC: Doppler LEO co the vuot khoang cach song mang         │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  LEO-600 tai 2 GHz:  ±36 kHz Doppler                          │ │
+│  │  15 kHz SCS:         ICI pha huy tin hieu (>100% cua SCS)     │ │
+│  │  30 kHz SCS:         Van >100% cua SCS                        │ │
+│  │  60 kHz SCS:         ~60% cua SCS (ranh gioi)                 │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  GIAI PHAP: UE bu truoc truoc khi truyen                           │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. UE nhan ephemeris ve tinh trong SIB19                     │ │
+│  │  2. UE biet vi tri tu GNSS                                    │ │
+│  │  3. UE tinh Doppler: f_d = (v · r̂) / c × f_c                 │ │
+│  │  4. UE dich tan so truyen cua no -f_d                         │ │
+│  │  5. Tin hieu den ve tinh voi Doppler gan bang khong           │ │
+│  │                                                                 │ │
+│  │  ┌───────────────────────────────────────────────────────┐    │ │
+│  │  │   UE TX tai (f_c - f_d)                                │    │ │
+│  │  │         │                                              │    │ │
+│  │  │         ▼  (+f_d tu chuyen dong)                      │    │ │
+│  │  │   Ve tinh RX tai ≈ f_c                                │    │ │
+│  │  │                                                        │    │ │
+│  │  │   Doppler du: thuong < 1 kHz                          │    │ │
+│  │  │   (trong pham vi AFC tinh cua bo thu)                  │    │ │
+│  │  └───────────────────────────────────────────────────────┘    │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  DUONG XUONG: Mang bu tai bo phat gateway                          │
+│  DUONG LEN:   UE bu dung ephemeris + GNSS                          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**May tinh bu timing va Doppler TR 38.821:**
+
+```python
+import math
+
+def tinh_thanh_phan_ta(ue_lat, ue_lon, sat_lat, sat_lon, sat_alt_km, 
+                       ref_lat, ref_lon):
+    """
+    Tinh TA-Common va TA-Offset theo TR 38.821.
+    """
+    def khoang_cach_nghieng(lat1, lon1, lat2, lon2, alt):
+        R = 6371
+        lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+        
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+        c = 2 * math.asin(math.sqrt(a))
+        kc_mat_dat = R * c
+        
+        nghieng = math.sqrt(kc_mat_dat**2 + alt**2 + 2 * R * alt)
+        
+        return nghieng
+    
+    c = 299792.458
+    
+    ref_nghieng = khoang_cach_nghieng(ref_lat, ref_lon, sat_lat, sat_lon, sat_alt_km)
+    ta_common_ms = (2 * ref_nghieng / c) * 1000
+    
+    ue_nghieng = khoang_cach_nghieng(ue_lat, ue_lon, sat_lat, sat_lon, sat_alt_km)
+    ta_offset_ms = (2 * (ue_nghieng - ref_nghieng) / c) * 1000
+    
+    tong_ta_ms = ta_common_ms + ta_offset_ms
+    
+    return {
+        "ref_nghieng_km": ref_nghieng,
+        "ue_nghieng_km": ue_nghieng,
+        "ta_common_ms": ta_common_ms,
+        "ta_offset_ms": ta_offset_ms,
+        "tong_ta_ms": tong_ta_ms
+    }
+
+def tinh_bu_doppler(ue_lat, ue_lon, van_toc_ve_tinh_km_s, 
+                    huong_ve_tinh_do, tan_so_ghz):
+    """
+    Tinh dich Doppler va bu can thiet.
+    """
+    c = 299792.458
+    
+    doppler_hz = (van_toc_ve_tinh_km_s / c) * tan_so_ghz * 1e9 * math.cos(math.radians(30))
+    
+    bu_hz = -doppler_hz
+    
+    return {
+        "doppler_hz": doppler_hz,
+        "bu_hz": bu_hz,
+        "doppler_khz": doppler_hz / 1000,
+        "tuong_doi_15khz_scs": abs(doppler_hz) / 15000 * 100,
+        "tuong_doi_30khz_scs": abs(doppler_hz) / 30000 * 100
+    }
+
+def tinh_tien_trinh_harq(rtt_ms, thoi_luong_slot_ms):
+    """
+    Tinh yeu cau tien trinh HARQ cho NTN.
+    """
+    slot_dang_bay = math.ceil(rtt_ms / thoi_luong_slot_ms)
+    
+    tien_trinh_toi_thieu = slot_dang_bay + 1
+    
+    tien_trinh_chuan = 16
+    tien_trinh_mo_rong = 32
+    
+    if tien_trinh_toi_thieu <= tien_trinh_chuan:
+        khuyen_nghi = tien_trinh_chuan
+        che_do = "NR Chuan"
+    elif tien_trinh_toi_thieu <= tien_trinh_mo_rong:
+        khuyen_nghi = tien_trinh_mo_rong
+        che_do = "NTN Mo rong"
+    else:
+        khuyen_nghi = None
+        che_do = "Vo hieu hoa HARQ"
+    
+    return {
+        "rtt_ms": rtt_ms,
+        "slot_dang_bay": slot_dang_bay,
+        "tien_trinh_toi_thieu": tien_trinh_toi_thieu,
+        "tien_trinh_khuyen_nghi": khuyen_nghi,
+        "che_do": che_do
+    }
+
+print("Phan tich Giai phap NTN TR 38.821")
+print("=" * 70)
+
+print("\n1. Phan giai Timing Advance (LEO-600)")
+print("-" * 70)
+
+ta = tinh_thanh_phan_ta(
+    ue_lat=40.0, ue_lon=-74.0,
+    sat_lat=45.0, sat_lon=-70.0, sat_alt_km=600,
+    ref_lat=42.0, ref_lon=-72.0
+)
+
+print(f"""
+  Diem tham chieu (tam beam):
+    Vi tri: 42.0°N, 72.0°W
+    Khoang cach nghieng: {ta['ref_nghieng_km']:.1f} km
+    
+  Vi tri UE:
+    Vi tri: 40.0°N, 74.0°W  
+    Khoang cach nghieng: {ta['ue_nghieng_km']:.1f} km
+    
+  Thanh phan Timing Advance:
+    TA-Common (phat):     {ta['ta_common_ms']:.2f} ms
+    TA-Offset (UE tinh):  {ta['ta_offset_ms']:.2f} ms
+    ─────────────────────────────────────
+    Tong TA:              {ta['tong_ta_ms']:.2f} ms
+    
+  Ghi chu: TA NR chuan toi da = 2 ms (se that bai neu khong mo rong)
+""")
+
+print("\n2. Yeu cau Tien trinh HARQ")
+print("-" * 70)
+
+kich_ban = [
+    ("LEO-600 (30° el)", 13),
+    ("LEO-1200 (30° el)", 26),
+    ("MEO-8000 (20° el)", 134),
+    ("GEO (10° el)", 541),
+]
+
+print(f"  {'Kich ban':<20} {'RTT':>8} {'Slot':>8} {'TT toi thieu':>12} {'Che do':<18}")
+print(f"  {'-'*68}")
+
+for ten, rtt in kich_ban:
+    harq = tinh_tien_trinh_harq(rtt, 0.5)
+    tt_str = str(harq['tien_trinh_khuyen_nghi']) if harq['tien_trinh_khuyen_nghi'] else "N/A"
+    print(f"  {ten:<20} {rtt:>6}ms {harq['slot_dang_bay']:>8} {harq['tien_trinh_toi_thieu']:>12} {harq['che_do']:<18}")
+
+print("\n3. Bang Tom tat Giai phap")
+print("-" * 70)
+print("""
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Thach thuc          │ Giai phap TR 38.821                         │
+  │  ────────────────────┼────────────────────────────────────────────│
+  │  Timing > 2 ms       │ TA-Common + TA-Offset + TA-UE              │
+  │  Doppler > SCS       │ UE bu truoc dung GNSS + ephemeris          │
+  │  HARQ timeout        │ Mo rong tien trinh (32) hoac vo hieu HARQ  │
+  │  Handover thuong xuyen│ CHO + vung theo doi co dinh Mat dat       │
+  │  Phat hien cell      │ SIB19 voi ephemeris + vi tri tham chieu    │
+  └─────────────────────────────────────────────────────────────────────┘
+""")
+```
+
+**Cong thuc chinh tu TR 38.821:**
+
+| Tham so | Cong thuc |
+|---------|-----------|
+| Tong TA | TA-Common + TA-Offset + TA-UE |
+| TA-Offset | 2 × (UE_nghieng - Ref_nghieng) / c |
+| Bu Doppler | -f_d = -(v · r̂) / c × f_c |
+| Tien trinh HARQ toi thieu | ceil(RTT / thoi_luong_slot) + 1 |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Gia dinh UE co GNSS hoan hao.** UE trong nha hoac hem pho thanh thi co the co GNSS kem. Co che du phong ton tai nhung giam hieu suat.
+
+2. **Bo qua ephemeris cu.** Vi tri ve tinh thay doi — ephemeris cu gay loi timing/Doppler. SIB19 phai duoc lam moi thuong xuyen.
+
+3. **Quen timing lien ket feeder.** Cho tai trong trong suot, tre gateway-den-ve tinh cong vao tong TA. Bao gom ca hai nhay.
+
+4. **Su dung sai dau Doppler.** Doppler duong khi ve tinh toi gan, am khi xa di. Bu truoc phai dung dau nguoc lai.
+
+5. **Danh gia thap tan suat HO.** Chom sao LEO co the yeu cau 50+ handover moi gio. Overhead tin hieu la dang ke.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TR 38.821 v16.1.0 — Giai phap cho NR ho tro mang khong mat dat
+- 3GPP TS 38.213 — Thu tuc lop vat ly cho dieu khien (HARQ)
+- 3GPP TS 38.331 — Dac ta giao thuc RRC (di dong)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [TR 38.811](/vi/space/ntn-in-3gpp/tr-38-811/) — nghien cuu xac dinh cac thach thuc nay
+- [NR-NTN](/vi/space/ntn-in-3gpp/nr-ntn/) — dac ta quy pham xay dung tren cac giai phap nay
+- [IoT-NTN](/vi/space/ntn-in-3gpp/iot-ntn/) — giai phap don gian hoa cho thiet bi IoT
+
+</section>

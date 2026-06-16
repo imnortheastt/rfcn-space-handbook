@@ -8,12 +8,12 @@ track: r0
 unit: fourier-methods
 order: 1
 level: L1
-estimatedReadingMinutes: 10
+estimatedReadingMinutes: 13
 prerequisites: []
 spiralRevisits: []
 title: "Chuỗi Fourier"
-description: "Phân tích tín hiệu tuần hoàn thành các sóng sin và cosin."
-authors: ["tindang"]
+description: "Phân tích tín hiệu tuần hoàn thành tổng các sin và cos."
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,11 @@ status: published
 
 ## Tại sao cần chuỗi Fourier?
 
-Sóng vuông không giống sóng sin, nhưng FFT trên máy hiện sóng hiển thị các đỉnh tần số riêng biệt. Đó là vì bất kỳ tín hiệu tuần hoàn nào — dù răng cưa đến đâu — đều có thể được xây dựng từ tổng các sóng sin ở bội số nguyên của tần số cơ bản.
+Sóng vuông không trông giống sóng sin, vậy mà FFT của máy hiện sóng hiển thị các gai tần số rõ ràng tại các bội lẻ của tần số cơ bản. Tín hiệu xung nhịp trên PCB không phải tín hiệu 100 MHz thuần khiết — nó bức xạ ở 100 MHz, 300 MHz, 500 MHz, và hơn nữa. Một bộ khuếch đại được cấp một tín hiệu sin đơn có thể xuất ra các sóng hài (harmonic) ở 2f, 3f, 4f vì nó phi tuyến.
 
-Chuỗi Fourier là công cụ toán học phân tích tín hiệu tuần hoàn thành các thành phần hài. Đây là lý do chúng ta có thể nói về "méo hài bậc 3" của bộ khuếch đại hay "băng thông" của chuỗi xung.
+Chuỗi Fourier là nền tảng toán học cho tất cả những điều này. Nó nói rằng: mọi tín hiệu tuần hoàn — dù có dạng gì, dù phức tạp đến đâu — đều có thể biểu diễn chính xác dưới dạng tổng các sóng sin tại các bội nguyên của tần số cơ bản. Sự phân tích này ánh xạ dạng sóng miền thời gian thành phổ vạch rời: dấu vân tay của tín hiệu trong miền tần số.
+
+Với kỹ thuật RF và kỹ thuật số, chuỗi Fourier là điểm khởi đầu cho phân tích phổ, méo hài, tuân thủ EMI, và tính toàn vẹn tín hiệu. Bạn không thể lý giải tại sao xung nhịp 10 MHz gây nhiễu ở 70 MHz mà không hiểu sóng hài. Bạn không thể xác định băng thông cần thiết cho tín hiệu xung mà không biết bao trùm phổ của nó. Chuỗi Fourier cho bạn sự hiểu biết đó.
 
 </section>
 
@@ -37,11 +39,29 @@ Chuỗi Fourier là công cụ toán học phân tích tín hiệu tuần hoàn 
 
 ## Trực giác
 
-Hãy nghĩ về một hợp âm trên piano. Bạn nghe một âm thanh, nhưng thực ra là nhiều nốt rung cùng nhau. Tương tự, tín hiệu điện tuần hoàn là sự chồng chất của các âm thuần (hình sin) ở tần số cơ bản và các hài của nó.
+### Phép tương tự hợp âm piano
 
-**Tần số cơ bản** $f_0 = 1/T$ định cao độ. **Các hài** ở $2f_0, 3f_0, \ldots$ thêm màu sắc và hình dạng. Sóng vuông cần nhiều hài lẻ để tạo cạnh sắc. Sóng tam giác có ít hài hơn và cạnh mềm hơn.
+Hãy nghĩ đến một hợp âm trên piano. Bạn nghe một âm thanh phức tạp duy nhất, nhưng nó được tạo từ nhiều dây đang rung ở các tần số cụ thể — nốt cơ bản cộng với các âm bội (harmonics) của nó. Thân đàn piano định hình xem harmonics nào to và cái nào nhỏ, tạo ra âm sắc đặc trưng của từng nhạc cụ.
 
-Chuỗi Fourier cho bạn công thức: tần số nào và bao nhiêu của mỗi tần số.
+Tín hiệu điện tuần hoàn hoạt động theo cùng cách đó. **Tần số cơ bản** ở $f_0 = 1/T$ là "nốt gốc." Các **sóng hài** ở $2f_0, 3f_0, 4f_0, \ldots$ là các âm bội. Chuỗi Fourier cho bạn biên độ và pha của mỗi sóng hài — công thức đầy đủ cho phổ của tín hiệu.
+
+### Tại sao cạnh sắc đòi hỏi sóng hài cao
+
+Sóng vuông lý tưởng có cạnh vô cùng sắc — chuyển đổi thẳng đứng giữa hai mức điện áp. Chuyển đổi sắc trong miền thời gian có nghĩa là năng lượng trải rộng qua nhiều tần số. Cụ thể:
+
+- Sóng hài thứ $n$ của sóng vuông có biên độ $\propto 1/n$
+- Chỉ các sóng hài lẻ xuất hiện (1, 3, 5, ...)
+- Chuỗi không bao giờ kết thúc — bạn cần vô số số hạng để có cạnh hoàn toàn sắc
+
+Đây không phải lỗi. Đây là sự đánh đổi cơ bản của tín hiệu số: cạnh nhanh hơn đòi hỏi băng thông nhiều hơn. Thời gian tăng 1 ns cần băng thông lên đến khoảng $0,35/t_r \approx 350$ MHz. Toàn bộ băng thông đó đang mang các sóng hài cao hơn của dạng sóng.
+
+### Tính trực giao: tại sao phép phân tích hoạt động
+
+Lý do bạn có thể trích xuất mỗi sóng hài một cách độc lập là tính trực giao (orthogonality). Các hàm sin $\cos(m\omega_0 t)$ và $\cos(n\omega_0 t)$ trực giao với nhau trên một chu kỳ: tích phân tích của chúng bằng 0 khi $m \neq n$.
+
+$$\int_0^T \cos(m\omega_0 t)\cos(n\omega_0 t)\,dt = \begin{cases} 0 & m \neq n \\ T/2 & m = n \end{cases}$$
+
+Điều này có nghĩa là mỗi sóng hài "sống" trong chiều không gian riêng của nó. Để tìm biên độ của sóng hài thứ $n$, bạn nhân tín hiệu với $\cos(n\omega_0 t)$ và lấy tích phân — mọi thứ khác triệt tiêu. Đây chính xác là những gì máy phân tích phổ làm bằng điện tử với các bộ lọc thông dải trung tâm tại mỗi sóng hài.
 
 </section>
 
@@ -55,36 +75,48 @@ Tín hiệu tuần hoàn $x(t)$ với chu kỳ $T$ có thể viết:
 
 $$x(t) = a_0 + \sum_{n=1}^{\infty} \left[ a_n \cos(n\omega_0 t) + b_n \sin(n\omega_0 t) \right]$$
 
-trong đó $\omega_0 = 2\pi/T$ là tần số góc cơ bản.
+trong đó $\omega_0 = 2\pi/T = 2\pi f_0$ là tần số góc cơ bản.
 
 ### Hệ số Fourier
 
-$$a_0 = \frac{1}{T} \int_0^T x(t)\, dt$$
+$$a_0 = \frac{1}{T} \int_0^T x(t)\, dt \quad \text{(thành phần DC — giá trị trung bình)}$$
 
-$$a_n = \frac{2}{T} \int_0^T x(t) \cos(n\omega_0 t)\, dt$$
+$$a_n = \frac{2}{T} \int_0^T x(t) \cos(n\omega_0 t)\, dt \quad \text{(biên độ cosine của sóng hài thứ } n\text{)}$$
 
-$$b_n = \frac{2}{T} \int_0^T x(t) \sin(n\omega_0 t)\, dt$$
+$$b_n = \frac{2}{T} \int_0^T x(t) \sin(n\omega_0 t)\, dt \quad \text{(biên độ sine của sóng hài thứ } n\text{)}$$
+
+Biên độ của sóng hài thứ $n$ là $\sqrt{a_n^2 + b_n^2}$ và pha là $\arctan(-b_n/a_n)$.
 
 ### Dạng hàm mũ phức
 
-Gọn hơn dùng công thức Euler:
+Gọn hơn và chuẩn trong RF và truyền thông sử dụng công thức Euler $e^{j\theta} = \cos\theta + j\sin\theta$:
 
 $$x(t) = \sum_{n=-\infty}^{\infty} c_n e^{jn\omega_0 t}$$
 
-trong đó:
+$$c_n = \frac{1}{T} \int_0^T x(t)\, e^{-jn\omega_0 t}\, dt$$
 
-$$c_n = \frac{1}{T} \int_0^T x(t) e^{-jn\omega_0 t}\, dt$$
+Hệ số phức $c_n$ mã hóa cả biên độ ($|c_n|$) và pha ($\angle c_n$). Quan hệ với hệ số thực: $c_n = (a_n - jb_n)/2$ với $n > 0$, $c_0 = a_0$, và $c_{-n} = c_n^*$ (đối xứng liên hợp cho tín hiệu thực).
 
-Dạng này là chuẩn trong RF vì xử lý pha tự nhiên.
+Dạng phức tổng quát hóa trực tiếp sang biến đổi Fourier (cho tín hiệu không tuần hoàn) và DFT (cho tín hiệu thời gian rời rạc tuần hoàn).
 
-### Các tín hiệu phổ biến
+### Phổ sóng hài của các dạng sóng phổ biến
 
-| Tín hiệu | Hài khác không | Mẫu hệ số |
-|----------|----------------|-----------|
-| Sóng vuông | Chỉ lẻ (1,3,5,...) | $\propto 1/n$ |
-| Sóng tam giác | Chỉ lẻ | $\propto 1/n^2$ |
-| Sóng răng cưa | Tất cả hài | $\propto 1/n$ |
-| Chuỗi xung | Tất cả hài | $\propto \text{sinc}(n\cdot\text{duty})$ |
+| Tín hiệu | Sóng hài khác không | Hệ số $c_n$ | Ghi chú |
+|----------|---------------------|-------------|---------|
+| Sóng vuông (duty 50%) | Lẻ: 1, 3, 5, ... | $2A/(jn\pi)$ với $n$ lẻ | Giảm theo $1/n$ |
+| Sóng tam giác | Lẻ | $\pm 2A/(n\pi)^2$ với $n$ lẻ | Giảm theo $1/n^2$ — êm hơn |
+| Sóng răng cưa | Tất cả: 1, 2, 3, ... | $jA/(n\pi)$ | Giảm theo $1/n$ |
+| Chuỗi xung (duty $D$) | Tất cả | $AD\,\text{sinc}(nD)$ | Null tại $n = 1/D, 2/D, ...$ |
+
+Hệ số giảm $1/n$ của sóng vuông và răng cưa có nghĩa là phổ của chúng giảm ở tốc độ $-20$ dB/thập phân. Sóng tam giác giảm ở $-40$ dB/thập phân — hiệu quả băng thông hơn nhiều. Đây là lý do tại sao một số tiêu chuẩn số quy định giới hạn thời gian tăng để giảm năng lượng sóng hài và EMI.
+
+### Định lý Parseval
+
+Tổng công suất trong miền thời gian bằng tổng công suất trong miền tần số:
+
+$$P = \frac{1}{T}\int_0^T |x(t)|^2\,dt = \sum_{n=-\infty}^{\infty} |c_n|^2$$
+
+Mỗi sóng hài $c_n$ đóng góp $|c_n|^2$ watt vào tổng công suất. Đây là cơ sở cho các phép đo công suất sóng hài — mỗi vạch phổ trên máy phân tích công suất biểu diễn công suất thực trong sóng hài đó.
 
 </section>
 
@@ -92,23 +124,66 @@ Dạng này là chuẩn trong RF vì xử lý pha tự nhiên.
 
 ## Áp dụng
 
-**Ví dụ: Phổ sóng vuông**
+### Ví dụ 1: Phổ sóng vuông và yêu cầu băng thông
 
-Sóng vuông biên độ $A$ và chu kỳ $T$:
+Tín hiệu xung nhịp số: sóng vuông, biên độ $A = 1$ V, tần số $f_0 = 100$ MHz, duty cycle 50%.
 
-$$x(t) = \frac{4A}{\pi} \left[ \sin(\omega_0 t) + \frac{1}{3}\sin(3\omega_0 t) + \frac{1}{5}\sin(5\omega_0 t) + \cdots \right]$$
+Chuỗi Fourier (lấy tâm ở 0 V):
 
-Tần số cơ bản có biên độ $4A/\pi \approx 1.27A$. Hài bậc 3 bằng 1/3 đó. Hài bậc 5 bằng 1/5.
+$$x(t) = \frac{4A}{\pi}\left[\sin(\omega_0 t) + \frac{1}{3}\sin(3\omega_0 t) + \frac{1}{5}\sin(5\omega_0 t) + \cdots\right]$$
 
-Để truyền sóng vuông sạch, kênh của bạn phải xử lý băng thông ít nhất đến hài bậc 5 hoặc 7. Sóng vuông 1 MHz cần băng thông ~7 MHz để độ trung thực hợp lý.
+Biên độ sóng hài:
 
-**Ví dụ: Méo hài**
+| Sóng hài | Tần số | Biên độ | Mức (dBc) |
+|----------|--------|---------|-----------|
+| 1 (cơ bản) | 100 MHz | $4/\pi \approx 1,273$ V | 0 dBc |
+| 3 | 300 MHz | $4/(3\pi) \approx 0,424$ V | -9,5 dBc |
+| 5 | 500 MHz | $4/(5\pi) \approx 0,255$ V | -14,0 dBc |
+| 7 | 700 MHz | $4/(7\pi) \approx 0,182$ V | -16,9 dBc |
 
-Bộ khuếch đại xuất $v(t) = A_1\sin(\omega t) + A_3\sin(3\omega t)$. Méo hài bậc 3 (THD3) là:
+**Quy tắc thực hành băng thông:** Để truyền sóng vuông với độ trung thực chấp nhận được (overshoot cạnh < 10%), cần ít nhất đến sóng hài thứ 5. Với xung nhịp 100 MHz: tối thiểu 500 MHz băng thông. Đây là lý do tại sao đường dây PCB trông bình thường ở DC có thể trở thành nguồn bức xạ EMI ở 500 MHz — nó đang mang sóng hài thứ 5 của xung nhịp.
 
-$$\text{THD3} = \frac{A_3}{A_1} \times 100\%$$
+### Ví dụ 2: Méo hài trong bộ khuếch đại
 
-Phân tích Fourier của đầu ra cho thấy bộ khuếch đại thêm bao nhiêu méo.
+Bộ khuếch đại công suất được đặc trưng bởi méo hài bậc 3 (HD3). Đầu vào: $v_{in}(t) = 0,5\sin(2\pi \times 1\,\text{MHz} \times t)$ V. Đầu ra đo trên máy phân tích phổ:
+
+- Cơ bản ở 1 MHz: 5,00 V
+- Sóng hài 2 ở 2 MHz: 0,15 V
+- Sóng hài 3 ở 3 MHz: 0,08 V
+
+HD2 = $0,15/5,00 = 3\%$ = $-34,4$ dBc
+
+HD3 = $0,08/5,00 = 1,6\%$ = $-36,0$ dBc
+
+Tổng méo hài: $\text{THD} = \sqrt{0,15^2 + 0,08^2}/5,00 \approx 3,4\%$
+
+Phân tích Fourier của dạng sóng đầu ra trực tiếp cho bạn các con số này. Chuỗi Fourier là nền tảng lý thuyết cho hiển thị máy phân tích phổ và đặc trưng méo hài trong datasheet bộ khuếch đại.
+
+### Ví dụ 3: Bao trùm phổ chuỗi xung và duty cycle
+
+Bus tín hiệu số chạy ở 10 Mbps với độ rộng xung $\tau = 50$ ns (duty cycle $D = 0,5$, $T = 100$ ns, $f_0 = 10$ MHz).
+
+Hệ số Fourier phức:
+
+$$c_n = A D\,\text{sinc}(nD) = A \cdot 0,5 \cdot \text{sinc}(0,5n)$$
+
+Điểm null xảy ra tại $n = 1/D = 2$: sóng hài thứ 2 (20 MHz) có công suất bằng không với duty cycle 50% — đây là lý do xung nhịp 50% không có sóng hài chẵn, chỉ có lẻ.
+
+Bây giờ xét xung hẹp hơn: $\tau = 10$ ns, $D = 0,1$. Điểm null phổ đầu tiên dịch về $n = 10$ (100 MHz). Dưới điểm null đó, tất cả các sóng hài từ 10 MHz đến 90 MHz đều có mặt. Năng lượng tần số cao tập trung gần điểm null này khiến bus xung bức xạ mạnh lên đến 100 MHz — vấn đề tuân thủ EMI phổ biến với PCB tốc độ cao.
+
+### Ví dụ 4: Hiện tượng Gibbs tại cạnh
+
+Cắt cụt chuỗi sóng vuông tại $N$ số hạng. Tại cạnh chuyển đổi, tổng riêng phần luôn vượt quá khoảng 8,9% chiều cao bậc nhảy, bất kể $N$ lớn đến đâu:
+
+$$\lim_{N\to\infty} x_N\left(0^+\right) \approx A + 0,089 \cdot 2A = 1,178A$$
+
+Overshoot 9% này tại cạnh tăng tương ứng với cộng hưởng của chuỗi Fourier bị cắt cụt — gợn dải dừng của bộ lọc brick-wall (sinc lý tưởng) áp dụng cho bậc nhảy. Trong hệ thống RF, điều này biểu hiện thành:
+
+- Dao động (ringing) trên xung qua kênh băng thông giới hạn
+- Sidelobe trong máy phân tích phổ với cửa sổ miền thời gian chữ nhật
+- Thay đổi trở kháng anten gần cạnh dải bộ lọc
+
+Các hàm cửa sổ (Hann, Hamming, Blackman) trong phân tích FFT giảm hiện tượng Gibbs với chi phí là độ phân giải tần số — một sự đánh đổi kỹ thuật có gốc trực tiếp từ lý thuyết Fourier.
 
 </section>
 
@@ -116,15 +191,15 @@ Phân tích Fourier của đầu ra cho thấy bộ khuếch đại thêm bao nh
 
 ## Lỗi thường gặp
 
-1. **Chỉ tín hiệu tuần hoàn.** Chuỗi Fourier giả định tín hiệu lặp lại mãi mãi. Với tín hiệu không tuần hoàn, dùng biến đổi Fourier thay thế.
+1. **Chuỗi Fourier chỉ dành cho tín hiệu tuần hoàn.** Nếu tín hiệu không lặp lại với chu kỳ cố định, chuỗi Fourier không áp dụng được. Dùng biến đổi Fourier cho tín hiệu năng lượng hữu hạn tùy ý, hoặc DFT/FFT cho dữ liệu lấy mẫu. Áp dụng công thức chuỗi Fourier cho tín hiệu không tuần hoàn cho kết quả vô nghĩa.
 
-2. **Hiện tượng Gibbs.** Gần điểm gián đoạn (như cạnh sóng vuông), chuỗi Fourier vọt quá khoảng 9% bất kể bạn thêm bao nhiêu số hạng. Đây là cơ bản, không phải lỗi cắt ngắn.
+2. **Hiện tượng Gibbs không phải lỗi số.** Overshoot 9% gần điểm gián đoạn là thuộc tính toán học của việc cắt cụt chuỗi Fourier — nó không biến mất với nhiều số hạng hơn, chỉ vùng chuyển đổi hẹp hơn. Đây là lý do tại sao hệ thống băng thông giới hạn lý tưởng (bộ lọc brick-wall) tạo ra dao động với đầu vào xung.
 
-3. **Hội tụ.** Chuỗi hội tụ đến tín hiệu tại các điểm liên tục. Tại điểm gián đoạn, nó hội tụ đến điểm giữa của bước nhảy.
+3. **Thành phần DC $a_0$ là giá trị trung bình.** Bỏ qua nó dịch chuyển tín hiệu tái tạo. Chuỗi xung với các xung dương duy nhất có offset DC khác không — $a_0 = D \cdot A$ với $D$ là duty cycle. Phép đo máy phân tích phổ phải bao gồm thành phần DC để tính đúng tổng công suất.
 
-4. **Thành phần DC.** $a_0$ là giá trị trung bình (độ lệch DC). Quên nó dịch chuyển tái tạo của bạn.
+4. **Đối xứng chẵn hay lẻ giảm một nửa công việc.** Tín hiệu chẵn ($x(t) = x(-t)$) chỉ có số hạng cosine: $b_n = 0$. Tín hiệu lẻ ($x(t) = -x(-t)$) chỉ có số hạng sine: $a_n = 0$. Đối xứng nửa sóng ($x(t + T/2) = -x(t)$) loại bỏ tất cả sóng hài chẵn. Nhận ra những đối xứng này trước khi tính hệ số tiết kiệm nhiều công sức.
 
-5. **Đối xứng chẵn vs. lẻ.** Hàm chẵn chỉ có số hạng cosin ($b_n = 0$). Hàm lẻ chỉ có số hạng sin ($a_n = 0$). Nhận ra đối xứng giảm nửa công việc.
+5. **dBc là tỉ lệ biên độ, không phải tỉ lệ công suất.** Mức sóng hài biểu diễn bằng dBc là $20\log_{10}(V_n/V_1)$, không phải $10\log_{10}(P_n/P_1)$. Vì công suất $\propto V^2$, cả hai biểu thức bằng nhau tính bằng dB cho cùng trở kháng — nhưng hệ số 20 (không phải 10) là quy ước tỉ số điện áp. Nhầm lẫn hai điều này tạo ra sai số hệ số 2 trong dB.
 
 </section>
 
@@ -132,7 +207,8 @@ Phân tích Fourier của đầu ra cho thấy bộ khuếch đại thêm bao nh
 
 ## Tài liệu tham khảo
 
-- Oppenheim & Willsky, *Signals and Systems*, Chương 3 — trình bày chặt chẽ chuỗi Fourier.
-- Haykin, *Communication Systems*, Chương 2 — phương pháp Fourier trong truyền thông.
+- Oppenheim & Willsky, *Signals and Systems*, Chương 3 — xử lý chuỗi Fourier nghiêm ngặt với điều kiện hội tụ.
+- Haykin, *Communication Systems*, Chương 2 — phương pháp Fourier trong truyền thông với ví dụ kỹ thuật.
+- Ott, *Electromagnetic Compatibility Engineering*, Chương 1 — hàm lượng sóng hài của dạng sóng số và ý nghĩa EMI.
 
 </section>

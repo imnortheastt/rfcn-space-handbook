@@ -8,17 +8,448 @@ track: s1
 unit: interplanetary-trajectories
 order: 1
 level: L4
-estimatedReadingMinutes: 5
-title: "Patched conics method"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: []
+spiralRevisits: []
+title: "Patched Conics Method"
+description: "Approximating interplanetary trajectories by stitching together two-body solutions at sphere-of-influence boundaries."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["patched-conics", "interplanetary", "sphere-of-influence", "hyperbolic-excess", "transfer"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Patched conics method
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Flying from Earth to Mars involves three gravitational fields: Earth's near the departure, the Sun's through interplanetary space, and Mars's at arrival. Solving all three simultaneously is computationally expensive. The patched conics method breaks the problem into manageable two-body problems, stitched together at boundaries. It's how Apollo missions were designed and remains the foundation for mission planning today.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Three-body problem approximation
+
+```
+Interplanetary Transfer Breakdown:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ACTUAL TRAJECTORY:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Continuous curve under Sun + Earth + Mars      │    │
+│  │  gravity simultaneously                         │    │
+│  │                                                  │    │
+│  │  Complex N-body numerical integration           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  PATCHED CONICS APPROXIMATION:                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  🌍                        ☀️                 🔴 │    │
+│  │  Earth                     Sun                Mars│    │
+│  │                                                  │    │
+│  │  ┌─────┐         ┌─────────────┐        ┌─────┐ │    │
+│  │  │Phase│──patch──│   Phase 2   │──patch─│Phase│ │    │
+│  │  │  1  │         │             │        │  3  │ │    │
+│  │  │Earth│         │Heliocentric │        │Mars │ │    │
+│  │  │ SOI │         │   cruise    │        │ SOI │ │    │
+│  │  └─────┘         └─────────────┘        └─────┘ │    │
+│  │                                                  │    │
+│  │  Phase 1: Hyperbola around Earth               │    │
+│  │  Phase 2: Ellipse around Sun                   │    │
+│  │  Phase 3: Hyperbola around Mars                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Sphere of influence
+
+```
+Sphere of Influence (SOI):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  DEFINITION:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Region where planet's gravity dominates over   │    │
+│  │  Sun's gravity for trajectory calculations      │    │
+│  │                                                  │    │
+│  │  r_SOI = a × (m_planet / m_Sun)^(2/5)          │    │
+│  │                                                  │    │
+│  │  a = planet's semi-major axis                   │    │
+│  │  m = mass                                       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  PLANET SOI RADII:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Planet   │ SOI radius │ Planet radius ratio    │    │
+│  │  ─────────┼────────────┼─────────────────────   │    │
+│  │  Earth    │  924,000 km│  ~145 Earth radii      │    │
+│  │  Mars     │  577,000 km│  ~170 Mars radii       │    │
+│  │  Jupiter  │ 48,200,000 │  ~687 Jupiter radii    │    │
+│  │  Moon     │   66,000 km│  ~38 Moon radii        │    │
+│  │                                                  │    │
+│  │  Note: Earth's SOI ~0.6% of Earth-Sun distance │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  VISUAL:                                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │              ☀️ Sun                              │    │
+│  │               │                                 │    │
+│  │               │  1 AU (150M km)                 │    │
+│  │               │                                 │    │
+│  │           ┌───┴───┐                             │    │
+│  │           │  SOI  │  ← ~0.92M km               │    │
+│  │           │  🌍   │                             │    │
+│  │           │ Earth │                             │    │
+│  │           └───────┘                             │    │
+│  │                                                  │    │
+│  │  Inside SOI: Earth dominates (two-body Earth)  │    │
+│  │  Outside SOI: Sun dominates (two-body Sun)     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Patching procedure
+
+```
+Step-by-Step Patched Conics:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  STEP 1: HELIOCENTRIC TRANSFER (Phase 2 first!)         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Ignore planets, just Sun + spacecraft          │    │
+│  │                                                  │    │
+│  │  🌍 ─────────────────────────────────▶ 🔴       │    │
+│  │  Earth orbit       Transfer orbit      Mars orbit│    │
+│  │                                                  │    │
+│  │  Design Hohmann or other transfer ellipse       │    │
+│  │  Get: V_inf at Earth (departure)                │    │
+│  │       V_inf at Mars (arrival)                   │    │
+│  │                                                  │    │
+│  │  V_inf = |V_spacecraft - V_planet| at SOI      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  STEP 2: DEPARTURE HYPERBOLA (Phase 1)                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │       SOI boundary                              │    │
+│  │          │                                      │    │
+│  │          ▼    V_inf from Step 1                 │    │
+│  │      ┌──────────────────▶                       │    │
+│  │      │                                          │    │
+│  │  🌍──┘  Hyperbola                               │    │
+│  │      ╲                                          │    │
+│  │       ╲  parking orbit                          │    │
+│  │        ●                                        │    │
+│  │                                                  │    │
+│  │  Given: V_inf, parking orbit altitude           │    │
+│  │  Solve: Δv required for trans-planetary inject  │    │
+│  │                                                  │    │
+│  │  V_periapsis² = V_inf² + 2μ/r_periapsis        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  STEP 3: ARRIVAL HYPERBOLA (Phase 3)                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  V_inf from Step 1    SOI boundary              │    │
+│  │          ▼               │                      │    │
+│  │      ───────────────────▶│                      │    │
+│  │                          │    🔴 Mars           │    │
+│  │                          │   ╱                  │    │
+│  │                          │  ╱  capture orbit    │    │
+│  │                          │ ●                    │    │
+│  │                          ╲│                     │    │
+│  │                           ╲ Hyperbola          │    │
+│  │                                                  │    │
+│  │  Given: V_inf, desired capture orbit            │    │
+│  │  Solve: Δv for orbit insertion burn             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Hyperbolic excess velocity
+
+```
+V-infinity (V∞) Concept:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  DEFINITION:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  V∞ = velocity at infinite distance from planet│    │
+│  │     = asymptotic velocity of hyperbola          │    │
+│  │                                                  │    │
+│  │  From energy: V∞² = V² - 2μ/r                   │    │
+│  │                                                  │    │
+│  │  At SOI (effectively "infinity"):               │    │
+│  │  V∞ ≈ V_helio,sc - V_helio,planet              │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  VELOCITY TRIANGLE:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │        V_spacecraft (heliocentric)              │    │
+│  │           ╱│                                    │    │
+│  │          ╱ │                                    │    │
+│  │         ╱  │                                    │    │
+│  │   V∞   ╱   │ V_planet (heliocentric)           │    │
+│  │       ╱    │                                    │    │
+│  │      ╱     │                                    │    │
+│  │     ╱      ▼                                    │    │
+│  │    ▼                                            │    │
+│  │                                                  │    │
+│  │  V∞ = vector difference (not scalar!)          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  EXAMPLE: EARTH TO MARS HOHMANN                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Earth departure V∞: ~2.9 km/s                  │    │
+│  │  Mars arrival V∞: ~2.6 km/s                     │    │
+│  │                                                  │    │
+│  │  These set the hyperbola shapes at each end    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Computing Δv
+
+```
+Departure and Arrival Burns:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TRANS-PLANETARY INJECTION (TPI):                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Parking orbit: r_p, V_circular                 │    │
+│  │                                                  │    │
+│  │  Required periapsis velocity for escape:        │    │
+│  │  V_p² = V∞² + 2μ_Earth/r_p                     │    │
+│  │                                                  │    │
+│  │  Δv_departure = V_p - V_circular               │    │
+│  │                                                  │    │
+│  │  Example (200 km parking orbit):                │    │
+│  │  r_p = 6578 km                                  │    │
+│  │  V_circular = 7.78 km/s                        │    │
+│  │  V∞ = 2.9 km/s                                 │    │
+│  │  V_p = √(2.9² + 2×398600/6578) = 11.3 km/s    │    │
+│  │  Δv = 11.3 - 7.78 = 3.5 km/s                  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  MARS ORBIT INSERTION (MOI):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Arriving on hyperbola with V∞                  │    │
+│  │  Want to capture into orbit at r_p             │    │
+│  │                                                  │    │
+│  │  V_p,hyp² = V∞² + 2μ_Mars/r_p                  │    │
+│  │  V_p,capture = desired orbit periapsis velocity│    │
+│  │                                                  │    │
+│  │  Δv_arrival = V_p,hyp - V_p,capture            │    │
+│  │                                                  │    │
+│  │  Example (400 km capture orbit):                │    │
+│  │  r_p = 3790 km (Mars radius + 400)             │    │
+│  │  V∞ = 2.6 km/s                                 │    │
+│  │  V_p,hyp = √(2.6² + 2×42828/3790) = 5.4 km/s  │    │
+│  │  V_p,circ = √(42828/3790) = 3.4 km/s          │    │
+│  │  Δv = 5.4 - 3.4 = 2.0 km/s                    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Patched conics calculations:**
+
+```python
+import numpy as np
+
+# Gravitational parameters (km³/s²)
+MU_SUN = 1.327e11
+MU_EARTH = 398600
+MU_MARS = 42828
+
+# Orbital radii (km)
+R_EARTH_ORBIT = 149.6e6  # 1 AU
+R_MARS_ORBIT = 227.9e6   # 1.524 AU
+R_EARTH = 6378
+R_MARS = 3390
+
+def sphere_of_influence(a, m_planet, m_sun):
+    """Calculate sphere of influence radius."""
+    return a * (m_planet / m_sun) ** 0.4
+
+def hohmann_v_inf(r1, r2, mu_sun):
+    """
+    Calculate V_inf at departure and arrival for Hohmann transfer.
+    
+    Returns: (v_inf_depart, v_inf_arrive)
+    """
+    # Transfer orbit semi-major axis
+    a_transfer = (r1 + r2) / 2
+    
+    # Velocities
+    v_planet1 = np.sqrt(mu_sun / r1)  # Earth orbital velocity
+    v_planet2 = np.sqrt(mu_sun / r2)  # Mars orbital velocity
+    
+    # Spacecraft velocity on transfer at each end
+    v_sc_depart = np.sqrt(mu_sun * (2/r1 - 1/a_transfer))
+    v_sc_arrive = np.sqrt(mu_sun * (2/r2 - 1/a_transfer))
+    
+    # V_infinity (hyperbolic excess)
+    v_inf_depart = abs(v_sc_depart - v_planet1)
+    v_inf_arrive = abs(v_planet2 - v_sc_arrive)
+    
+    return v_inf_depart, v_inf_arrive
+
+def departure_dv(v_inf, r_park, mu_planet):
+    """
+    Calculate Δv for trans-planetary injection from parking orbit.
+    """
+    v_circ = np.sqrt(mu_planet / r_park)
+    v_periapsis = np.sqrt(v_inf**2 + 2 * mu_planet / r_park)
+    return v_periapsis - v_circ
+
+def arrival_dv(v_inf, r_capture, mu_planet, capture_type='circular'):
+    """
+    Calculate Δv for orbit insertion.
+    
+    capture_type: 'circular' or 'elliptical'
+    """
+    v_p_hyp = np.sqrt(v_inf**2 + 2 * mu_planet / r_capture)
+    
+    if capture_type == 'circular':
+        v_p_capture = np.sqrt(mu_planet / r_capture)
+    else:
+        # For elliptical, would need apoapsis specification
+        v_p_capture = np.sqrt(mu_planet / r_capture)
+    
+    return v_p_hyp - v_p_capture
+
+# Example: Earth to Mars Hohmann transfer
+print("Earth-Mars Hohmann Transfer (Patched Conics):")
+print("=" * 55)
+
+# SOI calculation
+soi_earth = sphere_of_influence(R_EARTH_ORBIT, MU_EARTH, MU_SUN)
+soi_mars = sphere_of_influence(R_MARS_ORBIT, MU_MARS, MU_SUN)
+print(f"Earth SOI: {soi_earth/1e6:.2f} million km")
+print(f"Mars SOI: {soi_mars/1e6:.2f} million km")
+
+# Heliocentric transfer
+v_inf_earth, v_inf_mars = hohmann_v_inf(R_EARTH_ORBIT, R_MARS_ORBIT, MU_SUN)
+print(f"\nHeliocentric phase:")
+print(f"  V∞ at Earth departure: {v_inf_earth:.2f} km/s")
+print(f"  V∞ at Mars arrival: {v_inf_mars:.2f} km/s")
+
+# Departure from 200 km parking orbit
+r_park = R_EARTH + 200
+dv_depart = departure_dv(v_inf_earth, r_park, MU_EARTH)
+print(f"\nDeparture (200 km parking orbit):")
+print(f"  Δv for TPI: {dv_depart:.2f} km/s")
+
+# Arrival to 400 km Mars orbit
+r_capture = R_MARS + 400
+dv_arrive = arrival_dv(v_inf_mars, r_capture, MU_MARS)
+print(f"\nArrival (400 km Mars orbit):")
+print(f"  Δv for MOI: {dv_arrive:.2f} km/s")
+
+# Total mission Δv
+total_dv = dv_depart + dv_arrive
+print(f"\nTotal mission Δv: {total_dv:.2f} km/s")
+```
+
+**Mission comparison:**
+
+| Mission Type | Departure V∞ | Arrival V∞ | Total Δv |
+|--------------|--------------|------------|----------|
+| Earth-Mars Hohmann | 2.9 km/s | 2.6 km/s | ~5.6 km/s |
+| Earth-Venus Hohmann | 2.5 km/s | 2.7 km/s | ~5.0 km/s |
+| Earth-Jupiter | 8.8 km/s | 5.6 km/s | ~9+ km/s |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **SOI is arbitrary.** The boundary isn't a sharp line—it's where we choose to "patch." Results sensitive to exact location.
+
+2. **Plane changes ignored.** Planets aren't coplanar; real missions need additional Δv for inclination.
+
+3. **V∞ direction matters.** The velocity triangle depends on geometry at departure/arrival.
+
+4. **Launch window.** Patched conics assumes ideal geometry; real missions constrained by synodic period.
+
+5. **No perturbations.** Ignores other planets, solar radiation pressure, non-spherical gravity.
+
+6. **Patching error.** Discontinuity at SOI boundary introduces small errors vs true trajectory.
+
+7. **Timing.** Flight time calculation needs more care—doesn't account for planet motion during flight.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Bate, Mueller, White, "Fundamentals of Astrodynamics"
+- Vallado, "Fundamentals of Astrodynamics and Applications"
+- Curtis, "Orbital Mechanics for Engineering Students"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Hohmann Transfer](/en/space/interplanetary-trajectories/hohmann-transfer/) — optimal two-impulse transfer
+- [Gravity Assist](/en/space/interplanetary-trajectories/gravity-assist/) — using planets for free Δv
+- [Lambert Problem](/en/space/interplanetary-trajectories/lambert-problem/) — computing transfers between two positions
+
+</section>

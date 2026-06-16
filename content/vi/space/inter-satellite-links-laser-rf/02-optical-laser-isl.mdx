@@ -8,17 +8,518 @@ track: s7
 unit: inter-satellite-links-laser-rf
 order: 2
 level: L4
-estimatedReadingMinutes: 5
-title: "ISL quang/laser"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: ["rf-isl"]
+spiralRevisits: []
+title: "ISL Quang Laser — Ket noi Cheo Toc do Cao tai Toc do Anh sang"
+description: "Hieu lien ket lien ve tinh quang khong gian tu do cho mang chom sao nhieu Gbps."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["quang", "laser", "isl", "fsoc", "ket-noi-cheo", "chom-sao"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# ISL quang/laser
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Trong khi RF ISL la cong nghe da duoc chung minh, chung bi gioi han bang thong boi tinh kha dung pho va kich thuoc anten. Lien ket lien ve tinh quang (laser) hoat dong tai buoc song hong ngoai noi bang thong gan nhu khong gioi han va anten thu nho xuong kinh vien vong co centimeters. Mang luoi laser cua Starlink chung minh rang ISL quang cho phep ket noi do tre thap toan cau ma khong phu thuoc tram mat dat. Hieu vat ly va ky thuat ISL quang la quan trong cho thiet ke chom sao the he tiep theo.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Tai sao quang thang ve bang thong
+
+```
+So sanh RF vs ISL Quang:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PHO DIEN TU:                                                       │
+│                                                                      │
+│  Tan so:     10 GHz    100 GHz    1 THz    100 THz    1000 THz     │
+│              │         │          │        │          │             │
+│  ────────────┼─────────┼──────────┼────────┼──────────┼──────────   │
+│              │    RF   │          │        │  Quang   │             │
+│              │   ISL   │          │        │   ISL    │             │
+│              │         │          │        │          │             │
+│  Buoc song:  3 cm      3 mm       300 μm   3 μm      300 nm        │
+│                                            │                        │
+│                                         1550 nm                     │
+│                                        (vien thong)                 │
+│                                                                      │
+│  ────────────────────────────────────────────────────────────────   │
+│                                                                      │
+│  Thong tin quan trong: Tan so quang cao hon Ka-band ~10,000 lan    │
+│  Bang thong kha dung ty le voi tan so song mang!                   │
+│                                                                      │
+│  Ka-band (25 GHz):  ~1 GHz bang thong kha dung → ~2 Gbps           │
+│  Quang (193 THz):   ~1 THz bang thong kha dung → ~1 Tbps           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Kien truc dau cuoi quang
+
+```
+So do Khoi Dau cuoi Truyen thong Laser (LCT):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DUONG PHAT:                                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────┐│         │
+│  │  │  Du lieu│───→│ Nguon   │───→│ Dieu    │───→│Kinh ││         │
+│  │  │ Vao     │    │ Laser   │    │  che    │    │vien ││         │
+│  │  │(10 Gbps)│    │(1550 nm)│    │ (DPSK)  │    │vong ││         │
+│  │  └─────────┘    └─────────┘    └─────────┘    └──┬──┘│         │
+│  │                                                   │   │         │
+│  │                     Quang     Khuech dai   Mo rong│   │         │
+│  │                     soi       (EDFA)       buc xa │   │         │
+│  │                                                   │   │         │
+│  └───────────────────────────────────────────────────┼───┘         │
+│                                                      │              │
+│                                              ┌───────▼───────┐      │
+│                                              │   BO CHI      │      │
+│                                              │   HUONG       │      │
+│                                              │               │      │
+│                                              │ • Tho (°)     │      │
+│                                              │ • Tinh (μrad) │      │
+│                                              │               │      │
+│                                              └───────┬───────┘      │
+│                                                      │              │
+│  DUONG THU:                                          │              │
+│  ┌───────────────────────────────────────────────────┼───┐         │
+│  │                                                   │   │         │
+│  │  ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌──▼──┐│         │
+│  │  │  Du lieu│←───│Giai dieu│←───│ Bo tach │←───│Kinh ││         │
+│  │  │ Ra      │    │  che    │    │  quang  │    │vien ││         │
+│  │  │(10 Gbps)│    │         │    │ (APD)   │    │vong ││         │
+│  │  └─────────┘    └─────────┘    └─────────┘    └─────┘│         │
+│  │                                                       │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  Cac thanh phan chinh:                                              │
+│  • Laser: 1550 nm (bang C vien thong), 1-5 W cong suat quang       │
+│  • Kinh vien vong: khau do 5-10 cm (nho hon nhieu so voi RF!)      │
+│  • Bo tach: Photodiode thac hoac may thu ket hop                   │
+│  • Chi huong: Yeu cau do chinh xac duoi microradian                │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Ngan sach lien ket quang
+
+```
+Ngan sach Lien ket ISL Quang (1550 nm, 2000 km):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PHIA PHAT:                                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Tham so                │ Gia tri   │ Ghi chu         │         │
+│  │  ──────────────────────┼───────────┼─────────────────│         │
+│  │  Cong suat laser       │ +37 dBm   │ 5 W quang       │         │
+│  │  Tang ich kinh vien Tx │ +113 dBi  │ khau do 8 cm    │         │
+│  │  Hieu suat Tx          │ -2 dB     │ ton hao quang   │         │
+│  │  ──────────────────────┼───────────┼─────────────────│         │
+│  │  EIRP (tuong duong)    │ +148 dBm  │                 │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DUONG TRUYEN:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Ton hao khong gian tu do tai 1550 nm:                │         │
+│  │  FSPL = 20log(4πd/λ)                                  │         │
+│  │  FSPL = 20log(4π × 2×10⁹ m / 1.55×10⁻⁶ m)            │         │
+│  │  FSPL = -292 dB (!)                                   │         │
+│  │                                                        │         │
+│  │  So sanh voi Ka-band: -206 dB                         │         │
+│  │  Chenh lech: 86 dB ton hao nhieu hon!                 │         │
+│  │                                                        │         │
+│  │  Nhung tang ich anten quang cao hon ~80 dB           │         │
+│  │  (khau do nho tai buoc song ngan = tang ich lon)     │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PHIA THU:                                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Tang ich kinh vien Rx │ +113 dBi  │ khau do 8 cm    │         │
+│  │  Hieu suat Rx          │ -2 dB     │ ton hao quang   │         │
+│  │  Ton hao chi huong     │ -3 dB     │ hinh phat rung  │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  BIEN DO LIEN KET:                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Cong suat nhan = 148 - 292 + 113 - 2 - 3            │         │
+│  │                 = -36 dBm = 250 nW                    │         │
+│  │                                                        │         │
+│  │  Do nhay bo tach (10 Gbps DPSK): -45 dBm              │         │
+│  │                                                        │         │
+│  │  Bien do lien ket: -36 - (-45) = 9 dB                │         │
+│  │                                                        │         │
+│  │  Du cho hoat dong tin cay voi bien do cho            │         │
+│  │  loi chi huong va suy giam linh kien                 │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Yeu cau do chinh xac chi huong
+
+```
+Phan ky Buc xa Quang va Chi huong:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PHAN KY BUC XA:                                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Phan ky goc day du ≈ 2.44 × λ/D                      │         │
+│  │                                                        │         │
+│  │  Cho khau do 8 cm tai 1550 nm:                        │         │
+│  │  θ = 2.44 × 1.55 μm / 80 mm                           │         │
+│  │  θ = 47 μrad = 0.0027° = 9.7 giay cung                │         │
+│  │                                                        │         │
+│  │  Tai tam 2000 km:                                     │         │
+│  │  Dau chan buc xa = 2000 km × 47 μrad = duong kinh 94 m│         │
+│  │                                                        │         │
+│  │  So sanh voi Ka-band (dia 0.5m):                      │         │
+│  │  Dau chan buc xa ≈ duong kinh 60 km                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  YEU CAU CHI HUONG:                                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Can do chinh xac chi huong < phan ky buc xa / 10     │         │
+│  │  Yeu cau: < 5 μrad = 1 giay cung                      │         │
+│  │                                                        │         │
+│  │  Day la CUC KY chinh xac:                             │         │
+│  │                                                        │         │
+│  │       ┌──────────────────────────────────┐            │         │
+│  │       │         │          │             │            │         │
+│  │       │  Mat    │  Theo doi│  Chi huong  │            │         │
+│  │       │  nguoi  │  sao     │  ISL quang  │            │         │
+│  │       │         │          │             │            │         │
+│  │       │ 60"     │  1-10"   │  &lt;1"        │            │         │
+│  │       │         │          │             │            │         │
+│  │       └──────────────────────────────────┘            │         │
+│  │                                                        │         │
+│  │  Giai phap:                                           │         │
+│  │  • Chi huong tho: gimbal (±60°, do chinh xac 1 mrad) │         │
+│  │  • Chi huong tinh: guong lai nhanh (±1°, &lt;1 μrad)    │         │
+│  │  • Theo doi: beacon + phan hoi bo tach tu te bao     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KIEN TRUC CHI HUONG:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Muc       │ Co che           │ Pham vi  │ Do chinh xac│        │
+│  │  ──────────┼──────────────────┼──────────┼────────────│         │
+│  │  Tau vu tru│ Banh xe phan ung │ Toan bau │ ~100 μrad  │         │
+│  │  Tho       │ Bo gimbal        │ ±60°     │ ~1 mrad    │         │
+│  │  Tinh      │ Guong lai        │ ±1°      │ &lt;1 μrad    │         │
+│  │            │ nhanh (FSM)      │          │            │         │
+│  │  ──────────┴──────────────────┴──────────┴────────────│         │
+│  │                                                        │         │
+│  │  Bang thong vong lap: 100-1000 Hz cho loai bo rung   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Dieu che va tach song
+
+```
+Cac Phuong phap Dieu che Quang:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DIEU CHE CUONG DO (IM/DD - cu hon):                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Laser ──────┬──────┬──────┬──────► Thoi gian         │         │
+│  │  Cong suat  BAT    TAT    BAT     TAT                 │         │
+│  │             "1"    "0"    "1"     "0"                 │         │
+│  │                                                        │         │
+│  │  Uu diem: Don gian, chi phi thap                      │         │
+│  │  Nhuoc diem: Do nhay thap hon, hinh phat ~3 dB vs ket hop│      │
+│  │  Toc do: Len den ~10 Gbps thuc te                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DPSK (Dieu che Dich Pha Vi sai):                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Pha: ───0°──180°──0°──0°──180°──► Thoi gian          │         │
+│  │        "1"   "0"  "1" "1"  "0"                        │         │
+│  │                                                        │         │
+│  │  Uu diem: Do nhay tot hon IM/DD                       │         │
+│  │  Nhuoc diem: Can bo tach giao thoa                    │         │
+│  │  Toc do: 10-25 Gbps moi buoc song                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KET HOP (QPSK, 16-QAM):                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │       Q                                               │         │
+│  │       │     ●         ●                               │         │
+│  │       │                                               │         │
+│  │  ─────┼───────────────────── I                        │         │
+│  │       │                                               │         │
+│  │       │     ●         ●                               │         │
+│  │       │                                               │         │
+│  │       QPSK: 4 ky hieu → 2 bits/ky hieu               │         │
+│  │                                                        │         │
+│  │  Uu diem: Do nhay tot nhat, hieu suat pho cao nhat   │         │
+│  │  Nhuoc diem: Phuc tap, can laser dao dong cuc bo     │         │
+│  │  Toc do: 100+ Gbps moi buoc song (voi WDM: Tbps!)    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**May tinh ngan sach lien ket ISL quang:**
+
+```python
+import numpy as np
+
+# Hang so
+C = 299792458  # m/s
+H_PLANCK = 6.62607015e-34  # J·s
+
+def optical_fspl_db(distance_km, wavelength_nm):
+    """Ton hao khong gian tu do cho buoc song quang."""
+    d_m = distance_km * 1000
+    lambda_m = wavelength_nm * 1e-9
+    return 20 * np.log10(4 * np.pi * d_m / lambda_m)
+
+def telescope_gain_db(aperture_m, wavelength_nm, efficiency=0.8):
+    """Tang ich kinh vien vong (gioi han nhieu xa)."""
+    lambda_m = wavelength_nm * 1e-9
+    area = np.pi * (aperture_m / 2) ** 2
+    gain = efficiency * (np.pi * aperture_m / lambda_m) ** 2
+    return 10 * np.log10(gain)
+
+def beam_divergence_urad(aperture_m, wavelength_nm):
+    """Phan ky buc xa goc day tinh bang microradians."""
+    lambda_m = wavelength_nm * 1e-9
+    theta = 2.44 * lambda_m / aperture_m
+    return theta * 1e6  # Chuyen doi sang μrad
+
+def beam_footprint_m(range_km, divergence_urad):
+    """Duong kinh buc xa tai tam muc tieu."""
+    return range_km * 1000 * divergence_urad * 1e-6
+
+def photons_per_bit(rx_power_dbm, data_rate_gbps, wavelength_nm):
+    """Tinh so photon nhan duoc moi bit."""
+    rx_power_w = 10 ** ((rx_power_dbm - 30) / 10)
+    lambda_m = wavelength_nm * 1e-9
+    photon_energy = H_PLANCK * C / lambda_m
+    photons_per_sec = rx_power_w / photon_energy
+    bits_per_sec = data_rate_gbps * 1e9
+    return photons_per_sec / bits_per_sec
+
+def optical_isl_link_budget(tx_power_dbm, tx_aperture_m, rx_aperture_m,
+                            wavelength_nm, range_km, 
+                            tx_loss_db=2, rx_loss_db=2, pointing_loss_db=3):
+    """Ngan sach lien ket ISL quang day du."""
+    # Tang ich
+    tx_gain = telescope_gain_db(tx_aperture_m, wavelength_nm)
+    rx_gain = telescope_gain_db(rx_aperture_m, wavelength_nm)
+    
+    # Ton hao duong truyen
+    fspl = optical_fspl_db(range_km, wavelength_nm)
+    
+    # Cong suat nhan
+    rx_power = (tx_power_dbm + tx_gain - tx_loss_db 
+                - fspl + rx_gain - rx_loss_db - pointing_loss_db)
+    
+    # Tham so buc xa
+    divergence = beam_divergence_urad(tx_aperture_m, wavelength_nm)
+    footprint = beam_footprint_m(range_km, divergence)
+    pointing_req = divergence / 10  # μrad
+    
+    return {
+        'tx_power_dbm': tx_power_dbm,
+        'tx_gain_dbi': tx_gain,
+        'rx_gain_dbi': rx_gain,
+        'fspl_db': fspl,
+        'rx_power_dbm': rx_power,
+        'divergence_urad': divergence,
+        'footprint_m': footprint,
+        'pointing_req_urad': pointing_req,
+        'pointing_req_arcsec': pointing_req * 0.206,
+    }
+
+def detector_sensitivity_dbm(modulation, data_rate_gbps):
+    """Do nhay bo tach gan dung cho dieu che cho truoc."""
+    # Do nhay theo photons/bit, sau do chuyen doi sang dBm
+    ppb = {
+        'OOK': 100,       # On-off keying
+        'DPSK': 30,       # Differential PSK
+        'BPSK_ket_hop': 10,   # BPSK ket hop
+        'QPSK_ket_hop': 15,   # QPSK ket hop
+    }
+    
+    if modulation not in ppb:
+        return None
+    
+    wavelength_nm = 1550
+    lambda_m = wavelength_nm * 1e-9
+    photon_energy = H_PLANCK * C / lambda_m
+    
+    power_w = ppb[modulation] * photon_energy * data_rate_gbps * 1e9
+    return 10 * np.log10(power_w) + 30  # dBm
+
+# Phan tich
+print("Phan tich Ngan sach Lien ket ISL Quang")
+print("=" * 60)
+
+# ISL quang lop Starlink
+print("\n1. ISL Quang LEO (lop Starlink)")
+print("-" * 60)
+budget = optical_isl_link_budget(
+    tx_power_dbm=37,         # 5 W quang
+    tx_aperture_m=0.08,      # kinh vien vong 8 cm
+    rx_aperture_m=0.08,
+    wavelength_nm=1550,      # Bang C vien thong
+    range_km=2000,
+)
+
+for k, v in budget.items():
+    if 'db' in k.lower():
+        print(f"  {k:20}: {v:+.1f} dB")
+    elif 'urad' in k.lower():
+        print(f"  {k:20}: {v:.1f} μrad")
+    elif 'arcsec' in k.lower():
+        print(f"  {k:20}: {v:.1f} giay cung")
+    elif '_m' in k.lower() and 'dbm' not in k.lower():
+        print(f"  {k:20}: {v:.1f} m")
+    else:
+        print(f"  {k:20}: {v:.1f}")
+
+# Kiem tra bien do cho cac dieu che khac nhau
+print("\n  Phan tich Dieu che (10 Gbps):")
+print(f"  {'Dieu che':15} {'Do nhay':>12} {'Bien do':>10}")
+for mod in ['OOK', 'DPSK', 'BPSK_ket_hop', 'QPSK_ket_hop']:
+    sens = detector_sensitivity_dbm(mod, 10)
+    margin = budget['rx_power_dbm'] - sens
+    print(f"  {mod:15} {sens:>10.1f} dBm {margin:>8.1f} dB")
+
+# Photon moi bit
+ppb = photons_per_bit(budget['rx_power_dbm'], 10, 1550)
+print(f"\n  Photon moi bit (10 Gbps): {ppb:.0f}")
+
+# Kich ban tam xa hon (chuyen tiep GEO)
+print("\n2. Lien ket Quang GEO-LEO (lop EDRS)")
+print("-" * 60)
+budget2 = optical_isl_link_budget(
+    tx_power_dbm=40,         # 10 W quang
+    tx_aperture_m=0.135,     # 13.5 cm (thong so EDRS)
+    rx_aperture_m=0.135,
+    wavelength_nm=1064,      # Nd:YAG
+    range_km=45000,          # Khoang cach GEO-LEO
+)
+
+for k, v in budget2.items():
+    if 'db' in k.lower():
+        print(f"  {k:20}: {v:+.1f} dB")
+    elif 'urad' in k.lower():
+        print(f"  {k:20}: {v:.1f} μrad")
+    elif 'arcsec' in k.lower():
+        print(f"  {k:20}: {v:.1f} giay cung")
+    elif '_m' in k.lower() and 'dbm' not in k.lower():
+        print(f"  {k:20}: {v:.1f} m")
+
+# Bang so sanh
+print("\n" + "=" * 60)
+print("So sanh RF vs ISL Quang (2000 km)")
+print("-" * 60)
+print(f"{'Tham so':25} {'Ka-band RF':>15} {'Quang':>15}")
+print("-" * 60)
+print(f"{'Buoc song':25} {'12 mm':>15} {'1.55 μm':>15}")
+print(f"{'Tan so':25} {'25 GHz':>15} {'193 THz':>15}")
+print(f"{'Anten/khau do':25} {'dia 0.5 m':>15} {'kinh 8 cm':>15}")
+print(f"{'Tang ich anten':25} {'~35 dBi':>15} {'~113 dBi':>15}")
+print(f"{'FSPL':25} {'~207 dB':>15} {'~292 dB':>15}")
+print(f"{'Do rong buc xa':25} {'~1.7°':>15} {'~0.003°':>15}")
+print(f"{'Do chinh xac chi huong':25} {'~0.2°':>15} {'~1 giay cung':>15}")
+print(f"{'Toc do du lieu dien hinh':25} {'1-2 Gbps':>15} {'10-100 Gbps':>15}")
+print(f"{'Khoi luong (dau cuoi)':25} {'~10 kg':>15} {'~3-5 kg':>15}")
+print(f"{'Giay phep pho':25} {'Bat buoc':>15} {'Khong can':>15}")
+```
+
+**He thong ISL quang dang van hanh:**
+
+| He thong | Nha van hanh | Buoc song | Toc do | Tam | Trang thai |
+|----------|--------------|-----------|--------|-----|------------|
+| Starlink v1.5+ | SpaceX | 1550 nm | ~100 Gbps | 2,000 km | Van hanh |
+| EDRS | ESA | 1064 nm | 1.8 Gbps | 45,000 km | Van hanh |
+| LCRD | NASA | 1550 nm | 1.2 Gbps | GEO-mat dat | Van hanh |
+| SDA Tranche 1 | US DoD | 1550 nm | 10 Gbps | mang LEO | Dang trien khai |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Chi huong la tat ca.** Loi chi huong 5 μrad mat 3 dB; 20 μrad mat hau het tin hieu.
+
+2. **Thoi gian thu.** Tim ve tinh doi tac mat 10-60 giay; lap ke hoach cho khoang trong chuyen giao.
+
+3. **Choi loa Mat Troi.** Khi Mat Troi gan duong ngam, bo tach bao hoa; co the can cat lien ket.
+
+4. **Nhieu nen.** Phan xa Trai Dat, phan xa Mat Troi tu muc tieu co the tang san nhieu.
+
+5. **Quan ly nhiet.** Laser sinh nhiet; van hanh on dinh can dieu khien nhiet chu dong.
+
+6. **Lua chon buoc song quan trong.** 1550 nm co nen mat troi thap hon nhung 1064 nm co laser cong suat cao hon.
+
+7. **Danh doi ket hop vs khong ket hop.** Tach song ket hop can laser do rong vach khop — them phuc tap.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Hemmati, H. "Deep Space Optical Communications" (JPL)
+- ESA EDRS System Description Document
+- CCSDS 141.0-B-1: Optical Communications Physical Layer
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Chi huong & Thu ISL](/vi/space/inter-satellite-links-laser-rf/isl-pointing-acquisition/) — trinh tu thu
+- [RF ISL](/vi/space/inter-satellite-links-laser-rf/rf-isl/) — cong nghe so sanh
+- [Kien truc Chom sao LEO](/vi/space/leo-constellation-architecture/starlink-class-design/) — mang luoi
+
+</section>

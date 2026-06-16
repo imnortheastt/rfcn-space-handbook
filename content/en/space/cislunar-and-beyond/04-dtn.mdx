@@ -8,17 +8,504 @@ track: s11
 unit: cislunar-and-beyond
 order: 4
 level: L5
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
 title: "Delay-Tolerant Networking (DTN)"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Bundle Protocol, store-and-forward, and interplanetary networking."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["dtn", "bundle-protocol", "ltp", "interplanetary"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Delay-Tolerant Networking (DTN)
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+TCP assumes packets reach their destination in milliseconds with stable, always-connected links. Space breaks every one of those assumptions: minutes to hours of delay, links that disappear when planets rotate, and hops through relay orbiters that may hold data for hours. Delay-Tolerant Networking (DTN) was built specifically for this environment—it's the networking architecture that makes interplanetary data transfer actually work. Understanding DTN is essential for anyone building cislunar or deep space communication systems.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### TCP vs DTN: fundamentally different models
+
+```
+Why TCP Fails and DTN Succeeds in Space:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TCP MODEL (Connection-Oriented):                                   │
+│                                                                      │
+│  Source ←─────── LIVE CONNECTION ──────→ Destination               │
+│    │                                           │                     │
+│    │ Both ends must be UP at the same time   │                     │
+│    │ Connection state maintained end-to-end  │                     │
+│    │ ACKs expected within timeout (~seconds)  │                     │
+│    │ Packet loss = retransmit immediately    │                     │
+│                                                                      │
+│  PROBLEM IN SPACE:                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Mars rover can't maintain "connection" to Earth     │         │
+│  │  when Mars rotates away for 12 hours!                │         │
+│  │                                                        │         │
+│  │  Relay orbiter passes over rover for 8 minutes,      │         │
+│  │  then orbits around and is out of sight for 2 hours. │         │
+│  │                                                        │         │
+│  │  Deep Space Network dish is scheduled—not available  │         │
+│  │  24/7 for any single mission.                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DTN MODEL (Store-and-Forward):                                     │
+│                                                                      │
+│  Source ═══► Node A ═══► Node B ═══► Destination                   │
+│    │          ▲           ▲           │                              │
+│    │          │           │           │                              │
+│    │    (stores data) (stores data)   │                              │
+│    │    (waits for    (waits for      │                              │
+│    │     next link)    next link)     │                              │
+│                                                                      │
+│  KEY INSIGHT: No end-to-end connection required!                   │
+│  Each node takes CUSTODY of data until successfully forwarded.     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### The Bundle Protocol concept
+
+```
+Bundle Protocol Architecture:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  WHAT IS A BUNDLE?                                                  │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  BUNDLE                                                      │   │
+│  │  ┌──────────────┬──────────────┬───────────────────────┐   │   │
+│  │  │ Primary      │ Extension    │ Payload               │   │   │
+│  │  │ Block        │ Blocks       │ Block                 │   │   │
+│  │  │              │ (optional)   │                       │   │   │
+│  │  │ - Source     │ - Previous   │ - Application         │   │   │
+│  │  │ - Dest       │   Node       │   Data                │   │   │
+│  │  │ - Timestamps │ - Hop Count  │ - Science telemetry   │   │   │
+│  │  │ - Lifetime   │ - Bundle Age │ - Commands            │   │   │
+│  │  │ - Priority   │ - Security   │ - Images              │   │   │
+│  │  └──────────────┴──────────────┴───────────────────────┘   │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  KEY FEATURES:                                                      │
+│                                                                      │
+│  1. SELF-DESCRIBING: Bundle carries everything needed to route     │
+│     itself, even if path changes mid-flight                        │
+│                                                                      │
+│  2. LIFETIME: "Deliver within 7 days or discard"                   │
+│     (No zombie bundles clogging the network)                       │
+│                                                                      │
+│  3. CUSTODY TRANSFER: Node accepts responsibility for delivery    │
+│     Source can delete its copy once custody transferred            │
+│                                                                      │
+│  4. PRIORITY: Bulk science vs. urgent commands                    │
+│     Network can prioritize limited link time                       │
+│                                                                      │
+│  5. FRAGMENTATION: Split large bundles across contacts            │
+│     Reassemble at destination                                      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Contact graph routing
+
+```
+How DTN Knows When to Forward:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SPACE LINKS ARE PREDICTABLE (unlike Earth Internet)               │
+│                                                                      │
+│  We know EXACTLY when:                                              │
+│  • Mars orbiter will be over rover (orbital mechanics)             │
+│  • Earth-Mars line-of-sight opens (planetary positions)           │
+│  • DSN dish is scheduled for this mission (ground schedule)       │
+│                                                                      │
+│  CONTACT GRAPH: Schedule of future link opportunities             │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Time        │ Contact           │ Data Rate │ Volume │         │
+│  │  ────────────┼───────────────────┼───────────┼────────│         │
+│  │  14:00-14:08 │ Rover→MRO         │ 2 Mbps    │ 120 MB │         │
+│  │  15:30-16:45 │ MRO→DSN-Goldstone │ 6 Mbps    │ 337 MB │         │
+│  │  17:00-17:15 │ Rover→MAVEN       │ 1 Mbps    │ 112 MB │         │
+│  │  18:20-20:00 │ MAVEN→DSN-Madrid  │ 4 Mbps    │ 480 MB │         │
+│  │  ...                                                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CONTACT GRAPH ROUTING (CGR):                                       │
+│                                                                      │
+│  Bundle arrives with: dest=Earth, priority=bulk, size=50MB        │
+│                                                                      │
+│  CGR computes: "Best path is Rover→MRO at 14:00, then             │
+│                MRO→DSN at 15:30. Arrival at Earth: 15:43"          │
+│                                                                      │
+│  If MRO contact is full, CGR recomputes: "Use MAVEN path instead" │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### DTN protocol stack
+
+```
+DTN Protocol Layers:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  APPLICATION LAYER                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Science data, commands, telemetry, file transfers   │         │
+│  │  (Uses Bundle Protocol services)                      │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  BUNDLE LAYER (BP - RFC 9171)                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  • Bundle creation, fragmentation, reassembly        │         │
+│  │  • Custody transfer                                   │         │
+│  │  • Contact Graph Routing (CGR)                       │         │
+│  │  • Priority queuing                                   │         │
+│  │  • Lifetime management                               │         │
+│  │  • Bundle Protocol Security (BPSec - RFC 9172)       │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  CONVERGENCE LAYER (CLA)                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Adapts BP to underlying transport:                  │         │
+│  │  • LTP-CLA: For long-delay space links              │         │
+│  │  • TCP-CLA: For ground networks                     │         │
+│  │  • UDP-CLA: For local testing                       │         │
+│  │  • STCP-CLA: For reliable ground links             │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  LINK LAYER                                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  • LTP (Licklider Transmission Protocol) for space  │         │
+│  │  • TCP/UDP for ground segments                       │         │
+│  │  • AOS/CCSDS for RF link framing                    │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### LTP: reliable transport for space
+
+```
+LTP (Licklider Transmission Protocol):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PROBLEM: TCP retransmission doesn't work with 20-minute RTT      │
+│                                                                      │
+│  LTP SOLUTION: Checkpoint-based acknowledgment                     │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  SENDER                           RECEIVER            │         │
+│  │                                                        │         │
+│  │  Data Block 1 ─────────────────────►                  │         │
+│  │  Data Block 2 ─────────────────────►                  │         │
+│  │  Data Block 3 ─────────────────────►                  │         │
+│  │  ...                                                  │         │
+│  │  Data Block N ─────────────────────►                  │         │
+│  │  CHECKPOINT ═══════════════════════►                  │         │
+│  │                                                        │         │
+│  │     (20 minutes pass...)                              │         │
+│  │                                                        │         │
+│  │  ◄═════════════════════════════════ REPORT            │         │
+│  │                                      "Got 1,2,4-N     │         │
+│  │                                       Missing: 3"     │         │
+│  │                                                        │         │
+│  │  Data Block 3 (retransmit) ────────►                  │         │
+│  │  CHECKPOINT ═══════════════════════►                  │         │
+│  │                                                        │         │
+│  │     (20 minutes pass...)                              │         │
+│  │                                                        │         │
+│  │  ◄═════════════════════════════════ REPORT            │         │
+│  │                                      "Complete"       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KEY DIFFERENCES FROM TCP:                                          │
+│                                                                      │
+│  1. NO CONNECTION STATE: Works without handshake                   │
+│  2. LARGE BLOCKS: Send many segments before checkpoint             │
+│  3. SELECTIVE ACK: Report exactly what's missing                   │
+│  4. ASYNCHRONOUS: No waiting for ACK after each segment           │
+│  5. DESIGNED FOR DELAY: Timeouts based on known RTT               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Real deployment: Mars relay network
+
+```
+DTN in Action: Mars Data Return:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SCENARIO: Perseverance rover has 2 GB of science data            │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │                          ┌──────────┐                       │   │
+│  │                          │   MRO    │                       │   │
+│  │                          │ (relay)  │                       │   │
+│  │                          └────┬─────┘                       │   │
+│  │                               │                              │   │
+│  │        ┌──────────┐          │          ┌──────────┐        │   │
+│  │        │ MAVEN    │──────────┼──────────│  DSN     │        │   │
+│  │        │ (relay)  │          │          │ (Earth)  │        │   │
+│  │        └────┬─────┘          │          └──────────┘        │   │
+│  │             │                │                               │   │
+│  │        ┌────┴────────────────┴─────┐                        │   │
+│  │        │        MARS               │                        │   │
+│  │        │  ┌──────────────────┐     │                        │   │
+│  │        │  │   Perseverance   │     │                        │   │
+│  │        │  │      (rover)     │     │                        │   │
+│  │        │  └──────────────────┘     │                        │   │
+│  │        └───────────────────────────┘                        │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  DATA FLOW (DTN-enabled):                                          │
+│                                                                      │
+│  1. Rover creates bundles (priority: bulk science)                 │
+│  2. Contact: Rover→MRO (8 min window, 2 Mbps = ~120 MB)           │
+│     - Rover transmits 120 MB, custody transfers to MRO            │
+│     - Rover deletes those bundles from its limited storage        │
+│  3. MRO stores bundles, waits for Earth contact                   │
+│  4. Contact: MRO→DSN (75 min window, 6 Mbps)                      │
+│     - MRO transmits all stored bundles                            │
+│     - DSN acknowledges receipt                                     │
+│  5. Repeat over multiple sols until 2 GB transferred             │
+│                                                                      │
+│  WITHOUT DTN: Rover would need to maintain "connection" to        │
+│  Earth—impossible when Mars rotates or no DSN dish available.     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**DTN throughput and storage analysis:**
+
+```python
+import numpy as np
+
+def contact_volume_mb(duration_min, rate_mbps, efficiency=0.85):
+    """Calculate data volume transferable in a contact window."""
+    return duration_min * 60 * rate_mbps * efficiency / 8
+
+def days_to_transfer(total_mb, contacts_per_day):
+    """Calculate days needed to transfer data given contact list."""
+    daily_volume = sum(c['volume_mb'] for c in contacts_per_day)
+    return total_mb / daily_volume if daily_volume > 0 else float('inf')
+
+# Example: Mars relay network contacts
+print("DTN Data Return Analysis")
+print("=" * 60)
+
+# Define typical daily contacts for Mars rover
+rover_contacts = [
+    {"name": "Rover→MRO (pass 1)", "duration_min": 8, "rate_mbps": 2},
+    {"name": "Rover→MRO (pass 2)", "duration_min": 6, "rate_mbps": 2},
+    {"name": "Rover→MAVEN", "duration_min": 10, "rate_mbps": 1},
+]
+
+relay_contacts = [
+    {"name": "MRO→DSN", "duration_min": 75, "rate_mbps": 6},
+    {"name": "MAVEN→DSN", "duration_min": 45, "rate_mbps": 4},
+]
+
+print("\n1. Daily Contact Windows")
+print("-" * 60)
+
+rover_daily = 0
+relay_daily = 0
+
+print("Surface-to-Relay:")
+for c in rover_contacts:
+    vol = contact_volume_mb(c["duration_min"], c["rate_mbps"])
+    c["volume_mb"] = vol
+    rover_daily += vol
+    print(f"  {c['name']:<25} {c['duration_min']:>3} min × {c['rate_mbps']} Mbps = {vol:.0f} MB")
+
+print(f"\n  Total surface uplift: {rover_daily:.0f} MB/sol")
+
+print("\nRelay-to-Earth:")
+for c in relay_contacts:
+    vol = contact_volume_mb(c["duration_min"], c["rate_mbps"])
+    c["volume_mb"] = vol
+    relay_daily += vol
+    print(f"  {c['name']:<25} {c['duration_min']:>3} min × {c['rate_mbps']} Mbps = {vol:.0f} MB")
+
+print(f"\n  Total Earth downlink: {relay_daily:.0f} MB/sol")
+
+# Bottleneck analysis
+print("\n2. Bottleneck Analysis")
+print("-" * 60)
+
+bottleneck = min(rover_daily, relay_daily)
+print(f"  Surface-to-relay capacity: {rover_daily:.0f} MB/sol")
+print(f"  Relay-to-Earth capacity:   {relay_daily:.0f} MB/sol")
+print(f"  System bottleneck:         {bottleneck:.0f} MB/sol")
+
+if rover_daily < relay_daily:
+    print("  → Bottleneck is surface-to-relay (typical)")
+else:
+    print("  → Bottleneck is relay-to-Earth")
+
+# Mission data return
+print("\n3. Mission Data Return Estimation")
+print("-" * 60)
+
+science_targets = [
+    ("Sol's imaging (typical)", 500),
+    ("Major discovery cache", 2000),
+    ("Helicopter video (10 min)", 800),
+    ("Sample cache documentation", 5000),
+]
+
+for name, size_mb in science_targets:
+    sols = size_mb / bottleneck
+    print(f"  {name:<30} {size_mb:>5} MB → {sols:.1f} sols")
+
+# Storage requirements
+print("\n4. Node Storage Requirements")
+print("-" * 60)
+
+# MRO must store data between rover contact and Earth contact
+worst_case_gap_hours = 12  # If MRO passes rover, then waits for DSN
+max_stored = rover_daily  # One sol's worth
+
+print(f"  Worst case Earth contact gap: {worst_case_gap_hours} hours")
+print(f"  Max data accumulation: {max_stored:.0f} MB")
+print(f"  Recommended relay storage: {max_stored * 1.5:.0f} MB (50% margin)")
+
+# LTP efficiency
+print("\n5. LTP vs TCP Efficiency")
+print("-" * 60)
+
+one_way_light_time_sec = 12.5 * 60  # Average Mars distance
+rtt_sec = 2 * one_way_light_time_sec
+link_rate_mbps = 2
+block_size_mb = 10
+
+# TCP: wait for ACK after each segment (simplified)
+tcp_segments = block_size_mb * 8 / 0.001472  # ~1500 byte segments
+tcp_time = tcp_segments * rtt_sec / 60  # minutes
+
+# LTP: send all, then checkpoint
+ltp_transfer_time = block_size_mb * 8 / link_rate_mbps  # seconds
+ltp_time = (ltp_transfer_time + rtt_sec) / 60  # minutes (one RTT for report)
+
+print(f"  One-way light time: {one_way_light_time_sec/60:.1f} min")
+print(f"  Round-trip time: {rtt_sec/60:.1f} min")
+print(f"  Block size: {block_size_mb} MB")
+print()
+print(f"  TCP approach (per-segment ACK): Would take ~forever")
+print(f"  LTP approach (checkpoint-based): {ltp_time:.1f} min")
+print()
+print("  LTP is essential for space links!")
+
+# Bundle lifetime calculation
+print("\n6. Bundle Lifetime Considerations")
+print("-" * 60)
+
+scenarios = [
+    ("Lunar relay", 3, 1),      # 3 days, 1 day typical
+    ("Mars (opposition)", 22, 7),  # 22 min OWLT, 7 days typical
+    ("Mars (conjunction)", 22, 30),  # Solar conjunction = no comm
+    ("Outer planets", 60*4, 90),  # 4 hours OWLT, 90 days
+]
+
+print(f"  {'Scenario':<25} {'Typical Lifetime':>18}")
+print("-" * 60)
+
+for name, owlt_min, lifetime_days in scenarios:
+    print(f"  {name:<25} {lifetime_days:>15} days")
+
+print("\n  Rule: Lifetime > max expected delay to destination")
+print("  Too short = data dropped; too long = storage fills up")
+```
+
+**Key metrics:**
+
+| Parameter | LEO | Lunar | Mars | Outer |
+|-----------|-----|-------|------|-------|
+| OWLT | 1 ms | 1.3 s | 3-22 min | 35+ min |
+| Bundle lifetime | minutes | hours | days | weeks |
+| Custody storage | small | moderate | large | very large |
+| CGR complexity | simple | moderate | complex | static |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using DTN where TCP works.** DTN has overhead. For LEO with stable links, standard protocols may be simpler.
+
+2. **Underestimating storage needs.** Custody transfer means nodes must store data—sometimes for days. Size storage for worst-case contact gaps.
+
+3. **Ignoring contact graph updates.** Orbital mechanics are predictable, but spacecraft anomalies and DSN schedule changes require CGR updates.
+
+4. **Wrong bundle lifetimes.** Too short: data dies before delivery. Too long: storage fills with stale bundles.
+
+5. **Forgetting BPSec.** Bundle Protocol Security is essential—bundles may traverse untrusted nodes over weeks.
+
+6. **Assuming immediate custody.** Custody transfer requires explicit acceptance. Don't delete source data until confirmed.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- RFC 9171 (Bundle Protocol Version 7)
+- RFC 9172 (Bundle Protocol Security)
+- RFC 5326 (Licklider Transmission Protocol)
+- CCSDS 734.2 (CCSDS Bundle Protocol Specification)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Time-Delayed Communications](/en/space/cislunar-and-beyond/time-delayed-comms/) — the problem DTN solves
+- [Lunar Comms Architectures](/en/space/cislunar-and-beyond/lunar-comms-architectures/) — relay networks
+- [Lunar Gateway](/en/space/cislunar-and-beyond/lunar-gateway/) — DTN node in cislunar space
+
+</section>

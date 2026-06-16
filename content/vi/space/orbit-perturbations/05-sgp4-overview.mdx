@@ -8,17 +8,401 @@ track: s1
 unit: orbit-perturbations
 order: 5
 level: L3
-estimatedReadingMinutes: 5
-title: "Nhieu loan tong quat don gian hoa (SGP4)"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: ["space-s1-orbit-perturbations-01-j2-effect", "space-s1-orbit-perturbations-02-atmospheric-drag"]
+spiralRevisits: []
+title: "SGP4 — Nhieu loan Tong quat Don gian hoa"
+description: "Thuat toan chuan de lan truyen bo phan tu Hai dong, duoc su dung tren toan the gioi de theo doi ve tinh."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["sgp4", "tle", "norad", "lan-truyen", "space-track", "theo-doi-ve-tinh"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Nhieu loan tong quat don gian hoa (SGP4)
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Moi ve tinh ban theo doi truc tuyen deu su dung SGP4. Do la thuat toan bien bo Phan tu Hai dong (TLE) thanh du doan vi tri. Space-Track.org, Celestrak, va moi nguoi theo doi ve tinh nghiep du deu dua vao thuat toan 50 nam tuoi nay—hieu diem manh va han che cua no la thiet yeu cho bat ky ai lam viec voi du lieu quy dao.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### SGP4 la gi?
+
+```
+SGP4 trong Boi canh:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TLE (Bo Phan tu Hai dong)                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1 25544U 98067A   24001.50000000  .00001234    │    │
+│  │    00000-0  12345-4 0  9999                     │    │
+│  │  2 25544  51.6400 123.4567 0006789  12.3456     │    │
+│  │    123.4567 15.50000000123456                   │    │
+│  │                                                  │    │
+│  │  Chua: epoch, chuyen dong trung binh, so hang can,│   │
+│  │  do nghieng, RAAN, do lech tam, tham so can diem,│    │
+│  │  di thuong trung binh                           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│              │                                           │
+│              ▼                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │              THUAT TOAN SGP4                    │    │
+│  │                                                  │    │
+│  │  • Hieu ung the ky (J2, J3, J4)                 │    │
+│  │  • Hieu ung chu ky ngan                         │    │
+│  │  • Luc can khi quyen (LEO)                      │    │
+│  │  • Cong huong khong gian sau (SDP4)             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│              │                                           │
+│              ▼                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  DAU RA: Vi tri & Van toc trong he TEME         │    │
+│  │  r = [x, y, z] km                               │    │
+│  │  v = [vx, vy, vz] km/s                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Giai phau dinh dang TLE
+
+```
+Cau truc Bo Phan tu Hai dong:
+
+Dong 0 (tuy chon):
+ISS (ZARYA)                    ← Ten ve tinh
+
+Dong 1:
+1 25544U 98067A   24001.50000000  .00001234 00000-0  12345-4 0  9999
+│ │    │ │     │   │              │         │        │       │  │
+│ │    │ │     │   │              │         │        │       │  └─ So bo phan tu
+│ │    │ │     │   │              │         │        │       └─ Phan loai
+│ │    │ │     │   │              │         │        └─ So hang can B*
+│ │    │ │     │   │              │         └─ Dao ham bac 2 (thuong 0)
+│ │    │ │     │   │              └─ Dao ham bac 1 chuyen dong tb (revs/day²)
+│ │    │ │     │   └─ Epoch (NNDDD.phan_le)
+│ │    │ │     └─ Ma quoc te (manh phong)
+│ │    │ └─ Phan loai (U=khong mat)
+│ │    └─ So danh muc NORAD
+│ └─ So dong
+└─ So the
+
+Dong 2:
+2 25544  51.6400 123.4567 0006789  12.3456 123.4567 15.50000000123456
+│ │      │       │        │        │       │        │
+│ │      │       │        │        │       │        └─ Chuyen dong tb (revs/day) + so vong
+│ │      │       │        │        │       └─ Di thuong trung binh (°)
+│ │      │       │        │        └─ Tham so can diem (°)
+│ │      │       │        └─ Do lech tam (gia dinh dau thap phan)
+│ │      │       └─ RAAN (°)
+│ │      └─ Do nghieng (°)
+│ └─ So danh muc NORAD
+└─ So dong
+```
+
+### SGP4 vs cac bo lan truyen khac
+
+```
+So sanh Bo lan truyen:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Bo lan truyen  Truong hop dung  Do chinh xac  Toc do   │
+│  ─────────────────────────────────────────────────────  │
+│  Hai vat        Uoc tinh nhanh   ~1 km/vong    ████████ │
+│  SGP4           Theo doi TLE     ~1 km (LEO)   ███████  │
+│  HPOP           Van hanh chinh xac ~10 m       ███      │
+│  Tich phan so   Nghien cuu       ~1 m          █        │
+│                                                          │
+│  ─────────────────────────────────────────────────────  │
+│                                                          │
+│  HAN CHE DO CHINH XAC SGP4:                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  LEO (400 km):  ~1 km sau 1 ngay                │    │
+│  │  MEO:           ~1-5 km sau 1 ngay              │    │
+│  │  GEO:           ~5-10 km sau 1 ngay             │    │
+│  │  HEO:           Thay doi nhieu                  │    │
+│  │                                                  │    │
+│  │  Sai so tang theo:                              │    │
+│  │  • Thoi gian tu epoch TLE                       │    │
+│  │  • Bat dinh hoat dong mat troi (luc can)        │    │
+│  │  • Dieu dong (TLE khong hop le sau do!)         │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Tong quan thuat toan SGP4
+
+```
+Cac buoc Xu ly SGP4:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  BUOC 1: KHOI TAO TU TLE                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Chuyen phan tu TLE sang don vi noi bo:         │    │
+│  │  • Chuyen dong trung binh: revs/day → rad/min   │    │
+│  │  • Phan tu trung binh → phan tu Brouwer tb      │    │
+│  │  • Tinh cac dai luong dan xuat (a, p, etc.)     │    │
+│  │                                                  │    │
+│  │  Chon bo lan truyen:                            │    │
+│  │  • Chu ky < 225 phut → SGP4 (gan Trai Dat)      │    │
+│  │  • Chu ky ≥ 225 phut → SDP4 (khong gian sau)    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  BUOC 2: CAP NHAT THE KY                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Cap nhat phan tu trung binh cho thoi gian Δt:  │    │
+│  │  • M = M₀ + n×Δt + (so hang the ky J2, J3, J4)  │    │
+│  │  • Ω = Ω₀ + Ω̇×Δt (lui nut tu J2)               │    │
+│  │  • ω = ω₀ + ω̇×Δt (tien ap tu J2)               │    │
+│  │  • Suy giam luc can (so hang B* cho LEO)        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  BUOC 3: HIEU CHINH CHU KY                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Them dao dong chu ky ngan:                     │    │
+│  │  • So hang chu ky ngan J2/J3                    │    │
+│  │  • Chuyen phan tu trung binh → tiep xuc         │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  BUOC 4: CHUYEN SANG VI TRI/VAN TOC                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Phuong trinh Kepler: M → E → ν                 │    │
+│  │  Vi tri va van toc mat phang quy dao            │    │
+│  │  Xoay sang TEME (Xich dao Thuc Xuan phan Tb)    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### So hang can B*
+
+```
+Hieu ve B* (BSTAR):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  B* KHONG PHAI he so ballistic!                         │
+│                                                          │
+│  DINH NGHIA:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │       ρ₀ × C_D × A                              │    │
+│  │  B* = ──────────── × (1 ban kinh Trai Dat)      │    │
+│  │         2 × m                                    │    │
+│  │                                                  │    │
+│  │  ρ₀ = mat do tham chieu tai do cao can diem     │    │
+│  │  Don vi: ban kinh Trai Dat⁻¹                    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  MA HOA TLE:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Vi du: 12345-4 nghia la 0.12345 × 10⁻⁴         │    │
+│  │           = 1.2345 × 10⁻⁵ ban kinh TD⁻¹         │    │
+│  │                                                  │    │
+│  │  Gia tri dien hinh:                             │    │
+│  │  • ISS: ~10⁻⁴ (luc can cao)                     │    │
+│  │  • GPS: ~10⁻⁷ (luc can toi thieu)               │    │
+│  │  • GEO: ~10⁻⁸ (thuc chat bang khong)            │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  CANH BAO: B* hap thu TAT CA luc chua mo hinh!          │
+│  • Hieu ung SRP nhap vao B*                             │
+│  • Hoat dong mat troi → B* thay doi giua cac TLE        │
+│  • Khong co y nghia vat ly—tham so fit                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### He toa do TEME
+
+```
+Xich dao Thuc Xuan phan Trung binh (TEME):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  HE DAU RA SGP4:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  • X: Huong xuan phan trung binh                │    │
+│  │  • Z: Cuc thien cau thuc (voi chuong dong)      │    │
+│  │  • Y: Hoan thanh he thuan tay phai              │    │
+│  │                                                  │    │
+│  │  KHONG giong voi:                               │    │
+│  │  • J2000 ECI (tien dong/chuong dong khac)       │    │
+│  │  • GCRF (he chuan IERS)                         │    │
+│  │  • ECEF (co dinh Trai Dat, quay)                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  CHUYEN SANG HE KHAC:                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  TEME → ITRF (ECEF):                            │    │
+│  │  1. Ap dung chuyen dong cuc (x_p, y_p)          │    │
+│  │  2. Ap dung quay Trai Dat (GAST hoac GMST)      │    │
+│  │                                                  │    │
+│  │  TEME → J2000/GCRF:                             │    │
+│  │  1. Ap dung phuong trinh xuan phan              │    │
+│  │  2. Ap dung chuong dong                         │    │
+│  │  3. Ap dung tien dong                           │    │
+│  │                                                  │    │
+│  │  Cho do chinh xac ~1 km: quay GMST du           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Su dung SGP4 trong Python:**
+
+```python
+from sgp4.api import Satrec, jday
+from sgp4 import exporter
+import numpy as np
+
+# TLE vi du (ISS)
+line1 = "1 25544U 98067A   24001.50000000  .00001234  00000-0  12345-4 0  9999"
+line2 = "2 25544  51.6400 123.4567 0006789  12.3456 123.4567 15.50000000123456"
+
+# Tao doi tuong ve tinh
+satellite = Satrec.twoline2rv(line1, line2)
+
+# Lan truyen den thoi gian cu the
+# jday(nam, thang, ngay, gio, phut, giay)
+jd, fr = jday(2024, 1, 1, 12, 0, 0)
+
+# Lay vi tri va van toc trong TEME
+error, r, v = satellite.sgp4(jd, fr)
+
+if error == 0:
+    print(f"Vi tri (TEME): {r} km")
+    print(f"Van toc (TEME): {v} km/s")
+else:
+    print(f"Ma loi SGP4: {error}")
+
+# Lan truyen qua khoang thoi gian
+def propagate_tle(sat, start_jd, duration_hours, step_min=1):
+    """Lan truyen TLE va tra ve vi tri"""
+    positions = []
+    t = 0
+    while t < duration_hours * 60:
+        jd = start_jd + t / 1440  # Chuyen phut sang ngay
+        e, r, v = sat.sgp4(jd, 0.0)
+        if e == 0:
+            positions.append(r)
+        t += step_min
+    return np.array(positions)
+
+# Chuyen TEME sang ECEF (don gian hoa)
+def teme_to_ecef(r_teme, gmst_rad):
+    """Xoay TEME sang ECEF dung GMST"""
+    c, s = np.cos(gmst_rad), np.sin(gmst_rad)
+    R = np.array([[c, s, 0], [-s, c, 0], [0, 0, 1]])
+    return R @ r_teme
+
+# Tinh GMST (don gian hoa)
+def gmst(jd):
+    """Gio Thien van Trung binh Greenwich (radian)"""
+    T = (jd - 2451545.0) / 36525.0
+    gmst_sec = 67310.54841 + (876600*3600 + 8640184.812866)*T + 0.093104*T**2
+    return np.radians((gmst_sec % 86400) / 240)  # Chuyen sang radian
+
+print("\nVi du lan truyen:")
+jd_start, _ = jday(2024, 1, 1, 0, 0, 0)
+positions = propagate_tle(satellite, jd_start, 2)  # 2 gio
+print(f"Tao {len(positions)} diem vi tri")
+```
+
+**Nguon TLE:**
+
+| Nguon | URL | Truy cap |
+|-------|-----|----------|
+| Space-Track | space-track.org | Can tai khoan |
+| Celestrak | celestrak.org | Mien phi, du lieu GP |
+| AMSAT | amsat.org | Ve tinh nghiep du |
+| Planet Labs | planet.com | Thuong mai |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Epoch TLE quan trong.** Do chinh xac giam nhanh; dung TLE moi.
+
+2. **Khong hop le sau dieu dong.** TLE khong hop le sau bat ky dieu dong nao; cho cap nhat.
+
+3. **He TEME.** Dau ra la TEME, khong phai J2000 hay ECEF; chuyen khi can.
+
+4. **Hieu sai B*.** B* khong phai he so ballistic; dung dung cho vat ly.
+
+5. **Nguong khong gian sau.** Chu ky > 225 phut kich hoat SDP4; thuat toan khac.
+
+6. **Loi checksum.** Xac nhan checksum TLE truoc khi su dung.
+
+7. **Trung binh vs tiep xuc.** Phan tu TLE la phan tu trung binh, khong phai tiep xuc.
+
+8. **Hoat dong mat troi.** Bat dinh luc can tu hoat dong mat troi chu dao sai so LEO.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Vallado, D., "Revisiting Spacetrack Report #3"
+- Hoots, F.R., Roehrich, R.L., "Spacetrack Report #3"
+- Celestrak, "TLE Tutorial" (celestrak.org)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Xac dinh Quy dao](/vi/space/orbit-determination/basics/) — cach TLE duoc tao
+- [Danh gia Giao hoi](/vi/space/space-situational-awareness/conjunction-assessment/) — dung SGP4 du doan va cham
+- [Lan truyen So](/vi/space/orbit-propagation/numerical-methods/) — phuong an do tin cay cao hon
+
+</section>

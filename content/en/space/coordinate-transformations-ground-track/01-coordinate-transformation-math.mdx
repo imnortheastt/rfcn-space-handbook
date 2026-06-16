@@ -8,17 +8,443 @@ track: s1
 unit: coordinate-transformations-ground-track
 order: 1
 level: L2
-estimatedReadingMinutes: 5
-title: "Coordinate transformation mathematics"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Coordinate Transformation Mathematics"
+description: "ECI, ECEF, and geographic frames with rotation matrices."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["coordinates", "ECI", "ECEF", "rotation-matrix"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Coordinate transformation mathematics
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Satellites orbit in inertial space while ground stations rotate with Earth. Transforming between these frames is fundamental to tracking, communication, and navigation. Get the math wrong, and your antenna points at empty sky. Master these transformations, and you can predict where any satellite appears from any location on Earth.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The three key frames
+
+```
+Coordinate Reference Frames:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. ECI (Earth-Centered Inertial)                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │            Z (North Pole)                             │         │
+│  │             ↑                                         │         │
+│  │             │                                         │         │
+│  │             │       ★ Satellite                       │         │
+│  │             │      /                                  │         │
+│  │             │     /                                   │         │
+│  │             ●────────→ X (Vernal Equinox)            │         │
+│  │            /                                          │         │
+│  │           /                                           │         │
+│  │          ↓ Y                                          │         │
+│  │                                                        │         │
+│  │  • Origin at Earth's center                          │         │
+│  │  • X points to vernal equinox (fixed in space)       │         │
+│  │  • Z along Earth's rotation axis                     │         │
+│  │  • Frame does NOT rotate with Earth                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  2. ECEF (Earth-Centered Earth-Fixed)                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │            Z (North Pole)                             │         │
+│  │             ↑                                         │         │
+│  │             │                                         │         │
+│  │             │                                         │         │
+│  │             │                                         │         │
+│  │             ●────────→ X (0° longitude)              │         │
+│  │            /                                          │         │
+│  │           /                                           │         │
+│  │          ↓ Y (90° E)                                  │         │
+│  │                                                        │         │
+│  │  • Origin at Earth's center                          │         │
+│  │  • X through prime meridian (0° lon, 0° lat)        │         │
+│  │  • Frame ROTATES with Earth                          │         │
+│  │  • GPS uses this frame                               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  3. Geodetic (Latitude, Longitude, Altitude)                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • λ (lambda) = longitude (-180° to +180°)           │         │
+│  │  • φ (phi) = latitude (-90° to +90°)                 │         │
+│  │  • h = altitude above reference ellipsoid            │         │
+│  │                                                        │         │
+│  │  Reference: WGS84 ellipsoid                          │         │
+│  │  • Semi-major axis a = 6,378,137 m                   │         │
+│  │  • Flattening f = 1/298.257223563                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Why multiple frames?
+
+```
+Frame Selection by Application:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  APPLICATION           │ PREFERRED FRAME │ REASON                   │
+│  ══════════════════════╪═════════════════╪══════════════════════════│
+│                                                                      │
+│  Orbit propagation     │ ECI             │ Newton's laws work       │
+│  (Kepler, SGP4)        │                 │ in inertial frame        │
+│                                                                      │
+│  GPS positioning       │ ECEF            │ Receiver on rotating     │
+│                        │                 │ Earth                    │
+│                                                                      │
+│  Antenna pointing      │ Topocentric     │ Az/El relative to        │
+│  (Az/El)               │ (local)         │ ground station           │
+│                                                                      │
+│  Maps & visualization  │ Geodetic        │ Human-readable           │
+│                        │ (lat/lon)       │ coordinates              │
+│                                                                      │
+│  Ground track          │ ECEF → Geodetic │ Show satellite path      │
+│                        │                 │ over Earth surface       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### ECI to ECEF transformation
+
+```
+The Core Rotation — Greenwich Sidereal Time:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ECEF frame rotates relative to ECI by θ_GMST (Greenwich Mean       │
+│  Sidereal Time), the angle between vernal equinox and prime         │
+│  meridian:                                                          │
+│                                                                      │
+│                    ┌ cos(θ)   sin(θ)   0 ┐                         │
+│  R_z(θ_GMST) =     │ -sin(θ)  cos(θ)   0 │                         │
+│                    └ 0        0        1 ┘                          │
+│                                                                      │
+│  r_ECEF = R_z(θ_GMST) × r_ECI                                       │
+│                                                                      │
+│  θ_GMST increases ~360.9856° per day (Earth rotates once plus      │
+│  ~1° of orbital motion around Sun)                                  │
+│                                                                      │
+│  ┌────────────────────────────────────────┐                        │
+│  │                                         │                        │
+│  │   ECI X ──────────┐                    │                        │
+│  │   (vernal         │ θ_GMST            │                        │
+│  │   equinox)        │                    │                        │
+│  │                   ↓                    │                        │
+│  │   ECEF X ─────────●                    │                        │
+│  │   (prime meridian)                     │                        │
+│  │                                         │                        │
+│  └────────────────────────────────────────┘                        │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ECEF to Geodetic
+
+```
+Iterative Conversion (Bowring's method):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Given ECEF (x, y, z):                                              │
+│                                                                      │
+│  STEP 1: Longitude (exact)                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  λ = atan2(y, x)                                      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STEP 2: Latitude (iterative due to ellipsoid)                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  p = √(x² + y²)     (distance from Z axis)           │         │
+│  │                                                        │         │
+│  │  Initial guess: φ₀ = atan2(z, p)                     │         │
+│  │                                                        │         │
+│  │  Iterate until convergence:                           │         │
+│  │  N = a / √(1 - e² sin²φ)    (radius of curvature)    │         │
+│  │  φ = atan2(z + e² N sinφ, p)                         │         │
+│  │                                                        │         │
+│  │  (converges in 2-3 iterations)                       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STEP 3: Altitude                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  h = p / cosφ - N                                     │         │
+│  │                                                        │         │
+│  │  (or h = z / sinφ - N(1 - e²) near poles)            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WGS84 constants:                                                   │
+│  a = 6,378,137 m                                                    │
+│  e² = 0.00669437999014 (eccentricity squared)                      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Geodetic to ECEF
+
+```
+Direct Conversion:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Given (λ, φ, h):                                                   │
+│                                                                      │
+│  N = a / √(1 - e² sin²φ)                                           │
+│                                                                      │
+│  x = (N + h) cosφ cosλ                                              │
+│  y = (N + h) cosφ sinλ                                              │
+│  z = (N(1 - e²) + h) sinφ                                          │
+│                                                                      │
+│  Example: New York City (40.7°N, 74.0°W, 10m)                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  λ = -74.0° = -1.2915 rad                            │         │
+│  │  φ = 40.7° = 0.7103 rad                              │         │
+│  │  h = 10 m                                             │         │
+│  │                                                        │         │
+│  │  N = 6,387,334 m                                      │         │
+│  │                                                        │         │
+│  │  x = 1,334,003 m                                      │         │
+│  │  y = -4,653,954 m                                     │         │
+│  │  z = 4,138,298 m                                      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Coordinate transformation library:**
+
+```python
+import numpy as np
+from datetime import datetime
+
+# WGS84 constants
+WGS84_A = 6378137.0  # semi-major axis (m)
+WGS84_F = 1 / 298.257223563  # flattening
+WGS84_E2 = 2 * WGS84_F - WGS84_F**2  # eccentricity squared
+
+def gmst_degrees(dt):
+    """
+    Compute Greenwich Mean Sidereal Time in degrees.
+    Approximate formula valid for dates near J2000.
+    """
+    # Julian date
+    jd = (dt - datetime(2000, 1, 1, 12, 0, 0)).total_seconds() / 86400.0 + 2451545.0
+    
+    # Centuries from J2000
+    T = (jd - 2451545.0) / 36525.0
+    
+    # GMST in degrees (simplified IAU formula)
+    gmst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + 0.000387933 * T**2
+    
+    return gmst % 360.0
+
+def eci_to_ecef(r_eci, dt):
+    """
+    Transform ECI coordinates to ECEF.
+    
+    Args:
+        r_eci: [x, y, z] in meters (ECI frame)
+        dt: datetime (UTC)
+    
+    Returns:
+        [x, y, z] in meters (ECEF frame)
+    """
+    theta = np.radians(gmst_degrees(dt))
+    
+    # Rotation matrix around Z axis
+    c, s = np.cos(theta), np.sin(theta)
+    R = np.array([
+        [c, s, 0],
+        [-s, c, 0],
+        [0, 0, 1]
+    ])
+    
+    return R @ np.array(r_eci)
+
+def ecef_to_eci(r_ecef, dt):
+    """Transform ECEF coordinates to ECI."""
+    theta = np.radians(gmst_degrees(dt))
+    
+    # Inverse rotation (transpose)
+    c, s = np.cos(theta), np.sin(theta)
+    R = np.array([
+        [c, -s, 0],
+        [s, c, 0],
+        [0, 0, 1]
+    ])
+    
+    return R @ np.array(r_ecef)
+
+def ecef_to_geodetic(r_ecef):
+    """
+    Convert ECEF to geodetic coordinates (Bowring's method).
+    
+    Returns:
+        (lon_deg, lat_deg, alt_m)
+    """
+    x, y, z = r_ecef
+    
+    # Longitude (exact)
+    lon = np.arctan2(y, x)
+    
+    # Latitude (iterative)
+    p = np.sqrt(x**2 + y**2)
+    lat = np.arctan2(z, p)  # initial guess
+    
+    for _ in range(5):
+        N = WGS84_A / np.sqrt(1 - WGS84_E2 * np.sin(lat)**2)
+        lat = np.arctan2(z + WGS84_E2 * N * np.sin(lat), p)
+    
+    # Altitude
+    N = WGS84_A / np.sqrt(1 - WGS84_E2 * np.sin(lat)**2)
+    alt = p / np.cos(lat) - N if abs(lat) < np.radians(89) else z / np.sin(lat) - N * (1 - WGS84_E2)
+    
+    return np.degrees(lon), np.degrees(lat), alt
+
+def geodetic_to_ecef(lon_deg, lat_deg, alt_m):
+    """
+    Convert geodetic to ECEF coordinates.
+    """
+    lon = np.radians(lon_deg)
+    lat = np.radians(lat_deg)
+    
+    N = WGS84_A / np.sqrt(1 - WGS84_E2 * np.sin(lat)**2)
+    
+    x = (N + alt_m) * np.cos(lat) * np.cos(lon)
+    y = (N + alt_m) * np.cos(lat) * np.sin(lon)
+    z = (N * (1 - WGS84_E2) + alt_m) * np.sin(lat)
+    
+    return np.array([x, y, z])
+
+# Example: ISS position conversion
+print("Coordinate Transformation Examples")
+print("=" * 60)
+
+# Scenario: ISS at some ECI position
+dt = datetime(2026, 6, 3, 12, 0, 0)
+r_eci = np.array([4000e3, 5000e3, 3000e3])  # ECI (m)
+
+print(f"\n1. ECI to ECEF")
+print(f"   Time: {dt}")
+print(f"   GMST: {gmst_degrees(dt):.2f}°")
+print(f"   ECI:  x={r_eci[0]/1e3:.1f} km, y={r_eci[1]/1e3:.1f} km, z={r_eci[2]/1e3:.1f} km")
+
+r_ecef = eci_to_ecef(r_eci, dt)
+print(f"   ECEF: x={r_ecef[0]/1e3:.1f} km, y={r_ecef[1]/1e3:.1f} km, z={r_ecef[2]/1e3:.1f} km")
+
+print(f"\n2. ECEF to Geodetic")
+lon, lat, alt = ecef_to_geodetic(r_ecef)
+print(f"   Longitude: {lon:.2f}°")
+print(f"   Latitude:  {lat:.2f}°")
+print(f"   Altitude:  {alt/1e3:.1f} km")
+
+print(f"\n3. Round-trip verification")
+r_ecef_back = geodetic_to_ecef(lon, lat, alt)
+error = np.linalg.norm(r_ecef - r_ecef_back)
+print(f"   ECEF error: {error:.6f} m (should be ~0)")
+
+r_eci_back = ecef_to_eci(r_ecef, dt)
+error2 = np.linalg.norm(r_eci - r_eci_back)
+print(f"   ECI error:  {error2:.6f} m (should be ~0)")
+
+# Ground station example
+print(f"\n4. Ground Station: Tokyo (139.7°E, 35.7°N, 40m)")
+tokyo_ecef = geodetic_to_ecef(139.7, 35.7, 40)
+print(f"   ECEF: x={tokyo_ecef[0]/1e3:.1f} km, y={tokyo_ecef[1]/1e3:.1f} km, z={tokyo_ecef[2]/1e3:.1f} km")
+
+# Distance from Earth center
+dist = np.linalg.norm(tokyo_ecef)
+print(f"   Distance from center: {dist/1e3:.1f} km")
+print(f"   WGS84 equatorial radius: {WGS84_A/1e3:.1f} km")
+```
+
+**Key formulas:**
+
+| Transform | Formula | Notes |
+|-----------|---------|-------|
+| ECI→ECEF | R_z(θ_GMST) | Simple rotation |
+| ECEF→Geodetic | Iterative | Bowring's method |
+| Geodetic→ECEF | Direct | Closed form |
+| Altitude | h = p/cosφ - N | p = √(x²+y²) |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing ECI and ECEF.** Satellites orbit in ECI; Earth rotates underneath. Critical distinction.
+
+2. **Wrong GMST formula.** Many approximations exist; use validated libraries for precision work.
+
+3. **Geodetic vs geocentric latitude.** WGS84 uses geodetic; they differ by up to 0.2° at 45° latitude.
+
+4. **Forgetting ellipsoid.** Earth is oblate; spherical approximation introduces 20+ km error.
+
+5. **Sign conventions.** East longitude positive, west negative. North latitude positive, south negative.
+
+6. **Altitude datum.** WGS84 altitude is above ellipsoid, not mean sea level (geoid).
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Vallado, D.A. "Fundamentals of Astrodynamics and Applications"
+- NIMA WGS84 Technical Report
+- IERS Conventions (GMST formulas)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Ground Track Computation](/en/space/coordinate-transformations-ground-track/ground-track-computation/) — sub-satellite point
+- [Ground Track Visualization](/en/space/coordinate-transformations-ground-track/ground-track-visualization/) — map projections
+- [Orbital Elements](/en/space/orbit-fundamentals/orbital-elements/) — Kepler parameters
+
+</section>

@@ -8,17 +8,413 @@ track: n3
 unit: network-functions-overview
 order: 1
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-why-sba-architectural-shift-02-sba-design-principles"]
+spiralRevisits: ["core-network-n4-mobility-management-01-registration"]
 title: "AMF — Access and Mobility Management Function"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The signaling hub of 5G core — UE connection, mobility, and access control."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 23.502"]
+tags: ["amf", "5g", "mobility", "registration", "ngap"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# AMF — Access and Mobility Management Function
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+When your phone powers on, registers with the network, moves between cells, or transitions from idle to connected — **AMF** handles it.
+
+AMF is the **control plane anchor** for 5G. Every UE talks to AMF. Every gNB connects to AMF. Understanding AMF is understanding the heartbeat of 5G signaling.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What AMF does
+
+```
+AMF at the Center:
+
+                         ┌─────────────────┐
+                         │      UDM        │
+                         │ (subscriber data)│
+                         └────────▲────────┘
+                                  │ Nudm
+                                  │
+┌─────────┐    N2/NGAP    ┌───────┴───────┐    Nsmf     ┌─────────┐
+│  gNB    │◄─────────────►│      AMF      │◄───────────►│   SMF   │
+└─────────┘               │               │             └─────────┘
+                          │  (signaling   │
+┌─────────┐    N1/NAS     │    hub)       │    Nausf    ┌─────────┐
+│   UE    │◄─────────────►│               │◄───────────►│  AUSF   │
+└─────────┘               └───────┬───────┘             └─────────┘
+                                  │ Npcf
+                                  │
+                         ┌────────▼────────┐
+                         │      PCF        │
+                         │ (access policy) │
+                         └─────────────────┘
+```
+
+**AMF is the UE's single contact point** for all control plane signaling.
+
+### Key responsibilities
+
+| Responsibility | What it means |
+|----------------|---------------|
+| **Registration** | UE attachment, authentication coordination |
+| **Connection management** | Idle/Connected state, paging |
+| **Mobility management** | Handover, TAI list management |
+| **Access control** | Network slice selection, access restrictions |
+| **NAS termination** | End-to-end NAS signaling with UE |
+| **N2 termination** | Control plane signaling with gNB |
+
+### From 4G MME to 5G AMF
+
+```
+4G MME vs 5G AMF:
+
+┌─────────────────────────────────────────────────────────┐
+│                      4G MME                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Registration │ Mobility │ Session │ Bearer     │    │
+│  │              │          │ Mgmt    │ Mgmt       │    │
+│  └─────────────────────────────────────────────────┘    │
+│  All in one monolith                                    │
+└─────────────────────────────────────────────────────────┘
+                         │
+                         ▼ Decomposition
+┌─────────────────────────────────────────────────────────┐
+│                      5G SBA                              │
+│                                                          │
+│  ┌───────────┐    ┌───────────┐    ┌───────────┐       │
+│  │    AMF    │    │    SMF    │    │    UPF    │       │
+│  │           │    │           │    │           │       │
+│  │ Mobility  │    │ Session   │    │ User      │       │
+│  │ Access    │    │ Mgmt      │    │ Plane     │       │
+│  └───────────┘    └───────────┘    └───────────┘       │
+│                                                          │
+│  Session management split off to SMF                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key difference:** AMF handles mobility and access; SMF handles sessions. Clean separation.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### AMF services (SBI)
+
+AMF exposes these services via HTTP/2:
+
+```
+AMF Services:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Namf_Communication                                     │
+│  ├── N1N2MessageTransfer      (forward NAS to UE)       │
+│  ├── UEContextTransfer        (inter-AMF mobility)      │
+│  └── EBIAssignment            (EPS bearer ID)           │
+│                                                          │
+│  Namf_EventExposure                                     │
+│  ├── Subscribe                (event notifications)     │
+│  ├── Unsubscribe                                        │
+│  └── Notify                                             │
+│                                                          │
+│  Namf_Location                                          │
+│  └── ProvidePositioningInfo   (location services)       │
+│                                                          │
+│  Namf_MT                                                │
+│  └── EnableUEReachability     (mobile terminated)       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Registration procedure
+
+```
+UE Registration with AMF:
+
+UE              gNB              AMF              AUSF/UDM
+│                │                │                   │
+│ RRC Connection │                │                   │
+│───────────────►│                │                   │
+│                │                │                   │
+│        Registration Request     │                   │
+│        (via NAS over N1)        │                   │
+│───────────────────────────────►│                   │
+│                │                │                   │
+│                │                │   Nausf_Auth      │
+│                │                │──────────────────►│
+│                │                │                   │
+│                │                │   Auth vectors    │
+│                │                │◄──────────────────│
+│                │                │                   │
+│  Auth Request (via NAS)         │                   │
+│◄───────────────────────────────│                   │
+│                │                │                   │
+│  Auth Response                  │                   │
+│───────────────────────────────►│                   │
+│                │                │                   │
+│                │                │   Nudm_UECM      │
+│                │                │   (registration)  │
+│                │                │──────────────────►│
+│                │                │                   │
+│  Registration Accept            │                   │
+│  (5G-GUTI, TAI list)            │                   │
+│◄───────────────────────────────│                   │
+│                │                │                   │
+```
+
+**Result:** UE registered with AMF, has 5G-GUTI, knows its allowed Tracking Areas.
+
+### UE context in AMF
+
+```
+AMF UE Context:
+
+┌─────────────────────────────────────────────────────────┐
+│  UE Context (per subscriber)                             │
+│                                                          │
+│  Identity:                                              │
+│  ├── SUPI: 310260123456789                              │
+│  ├── 5G-GUTI: assigned by AMF                           │
+│  └── PEI: device IMEI (if requested)                    │
+│                                                          │
+│  Security:                                              │
+│  ├── K_AMF: derived key                                 │
+│  ├── NAS security algorithms                            │
+│  └── Security context state                              │
+│                                                          │
+│  Mobility:                                              │
+│  ├── Registration state (registered/deregistered)       │
+│  ├── CM state (connected/idle)                          │
+│  ├── Current TAI (Tracking Area)                        │
+│  └── Allowed NSSAI (network slices)                     │
+│                                                          │
+│  Session info (pointers):                               │
+│  ├── PDU session 1 → SMF-A                              │
+│  └── PDU session 2 → SMF-B                              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Connection management (CM) states
+
+```
+CM State Machine:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ┌──────────┐                         │
+│  UE powers on ──► │ CM-IDLE  │                         │
+│                    └────┬─────┘                         │
+│                         │                                │
+│           Service Request / Paging Response              │
+│                         │                                │
+│                         ▼                                │
+│                    ┌──────────┐                         │
+│                    │CM-CONNECTED│                       │
+│                    └────┬─────┘                         │
+│                         │                                │
+│                  Inactivity timeout                      │
+│                  RRC release                             │
+│                         │                                │
+│                         ▼                                │
+│                    ┌──────────┐                         │
+│                    │ CM-IDLE  │                         │
+│                    └──────────┘                         │
+│                                                          │
+│  CM-IDLE: No N1/N2 connection, UE reachable via paging  │
+│  CM-CONNECTED: Active signaling connection              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Paging procedure
+
+```
+Paging (UE in CM-IDLE):
+
+External      SMF              AMF              gNBs in TAI
+ Service                                          list
+   │           │                │                   │
+   │  Downlink │                │                   │
+   │  data     │  N11 (notify)  │                   │
+   │──────────►│───────────────►│                   │
+   │           │                │                   │
+   │           │                │   Paging (N2)     │
+   │           │                │──────────────────►│
+   │           │                │                   │
+   │           │                │              (broadcast
+   │           │                │               paging in
+   │           │                │               all cells)
+   │           │                │                   │
+   │           │                │   Paging Response │
+   │           │                │◄──────────────────│
+   │           │                │                   │
+   │           │   UE Context   │                   │
+   │           │   Restored     │                   │
+   │           │◄───────────────│                   │
+   │           │                │                   │
+```
+
+### AMF selection
+
+When UE first connects, the network selects an AMF:
+
+```
+AMF Selection Factors:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. GUAMI in Initial UE Message (if present)            │
+│     - UE provides previous AMF identifier               │
+│     - Network tries to route to same AMF                │
+│                                                          │
+│  2. Requested NSSAI                                     │
+│     - AMF must support UE's requested slices            │
+│     - NSSF may assist in selection                      │
+│                                                          │
+│  3. Registration Area                                   │
+│     - AMF serves specific TAIs                          │
+│     - gNB routes to appropriate AMF                     │
+│                                                          │
+│  4. Load balancing                                      │
+│     - Distribute UEs across AMF pool                    │
+│     - Weight-based or round-robin                       │
+│                                                          │
+│  5. Operator policy                                     │
+│     - VIP subscribers to specific AMF                   │
+│     - Geographic considerations                          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### N2 interface (NGAP)
+
+```
+AMF-gNB Communication (NGAP):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  NGAP Procedures:                                       │
+│                                                          │
+│  Interface Management:                                  │
+│  ├── NG Setup                   (gNB → AMF connect)     │
+│  ├── AMF Configuration Update                           │
+│  └── NG Reset                                           │
+│                                                          │
+│  UE Context Management:                                 │
+│  ├── Initial UE Message                                 │
+│  ├── Initial Context Setup                              │
+│  ├── UE Context Release                                 │
+│  └── UE Context Modification                            │
+│                                                          │
+│  Mobility:                                              │
+│  ├── Handover Required/Request                          │
+│  ├── Handover Command/Preparation                       │
+│  ├── Path Switch Request                                │
+│  └── Handover Cancel                                    │
+│                                                          │
+│  Paging:                                                │
+│  └── Paging                                             │
+│                                                          │
+│  Transport: SCTP over IP                                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**AMF configuration parameters:**
+
+| Parameter | Purpose | Typical value |
+|-----------|---------|---------------|
+| PLMN ID | Served PLMN | MCC-MNC (e.g., 310-260) |
+| AMF Set ID | AMF pool grouping | 0-1023 |
+| AMF Pointer | AMF within set | 0-63 |
+| TAI List | Served tracking areas | List of TAIs |
+| Supported NSSAIs | Slice support | SST/SD combinations |
+| T3512 | Periodic registration timer | 54 min default |
+| T3502 | Registration retry timer | 12 min default |
+
+**AMF capacity planning:**
+
+| Metric | Description |
+|--------|-------------|
+| Max UE contexts | Number of registered UEs |
+| Registration rate | Registrations per second |
+| Paging capacity | Pages per second |
+| N2 connections | Number of gNBs |
+| SBI throughput | HTTP/2 requests per second |
+
+**Troubleshooting checklist:**
+
+| Issue | Check |
+|-------|-------|
+| Registration fails | AUSF/UDM reachable, NRF registration |
+| Paging fails | TAI list correct, gNB N2 status |
+| Handover fails | Target AMF reachable, GUAMI routing |
+| Slow performance | CPU/memory, SBI latency, N2 congestion |
+| UE unreachable | CM state, last known TAI, paging timer |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing AMF with MME.** AMF doesn't handle sessions — that's SMF. Don't expect bearer management in AMF.
+
+2. **Ignoring TAI planning.** Poor TAI design causes excessive registration updates. Plan TAI lists for mobility patterns.
+
+3. **Underestimating paging load.** IoT devices with frequent data can overwhelm paging. Consider always-connected strategies.
+
+4. **Single AMF deployment.** AMF pools with load balancing are essential for resilience and scale.
+
+5. **Forgetting inter-AMF mobility.** UE moving between AMFs requires context transfer. Test inter-AMF handover.
+
+6. **NAS security misconfiguration.** Wrong algorithm support breaks authentication. Verify NAS security capability.
+
+7. **N2 SCTP issues.** SCTP multi-homing and heartbeats require network configuration. Firewalls often block SCTP.
+
+8. **Timer misalignment.** T3512 (periodic registration) should align with expected UE behavior and network load.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System architecture for 5G System"
+- 3GPP TS 23.502, "Procedures for 5G System"
+- 3GPP TS 24.501, "NAS protocol for 5G System"
+- 3GPP TS 38.413, "NG-RAN; NG Application Protocol (NGAP)"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [SMF](/en/core-network/network-functions-overview/smf/) — session management partner
+- [Registration procedures](/en/core-network/mobility-management/registration/) — deep dive
+- [Handover](/en/core-network/mobility-management/handover/) — mobility in action
+
+</section>

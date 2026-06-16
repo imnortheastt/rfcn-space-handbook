@@ -8,17 +8,397 @@ track: n6
 unit: o-ran-architecture
 order: 4
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n6-o-ran-architecture-03-o-ru"]
+spiralRevisits: []
 title: "RIC — Bo dieu khien thong minh RAN"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Bo dieu khien thong minh RAN — Near-RT RIC, Non-RT RIC, xApps, rApps, va toi uu RAN bang AI/ML."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG1", "O-RAN.WG2", "O-RAN.WG3"]
+tags: ["o-ran", "5g", "ric", "xapp", "rapp", "ai-ml"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# RIC — Bo dieu khien thong minh RAN
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+RAN truyen thong dong va tinh. Sau khi trien khai, toi uu can su tham gia cua vendor va dieu chinh thu cong.
+
+RIC mang den kha nang lap trinh. Ung dung ben thu ba co the quan sat trang thai RAN, chay mo hinh ML, va day quyet dinh — ma khong can cham vao code cua vendor. Day la diem khac biet chinh cua O-RAN.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Kien truc RIC
+
+```
+RIC trong Kien truc O-RAN:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    SMO (Quan ly va Dieu phoi            │
+│                    Dich vu)                             │
+│                         │                               │
+│                         │ A1                            │
+│                         ▼                               │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │               Non-RT RIC                         │   │
+│  │  ┌─────────────────────────────────────────┐    │   │
+│  │  │ rApps (dieu khien > 1 giay)             │    │   │
+│  │  │ - Huan luyen mo hinh ML                  │    │   │
+│  │  │ - Tao chinh sach                         │    │   │
+│  │  │ - Toi uu dai han                        │    │   │
+│  │  └─────────────────────────────────────────┘    │   │
+│  │                         │ A1 Policy               │   │
+│  └─────────────────────────┼───────────────────────┘   │
+│                            │                            │
+│                            ▼                            │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │               Near-RT RIC                        │   │
+│  │  ┌─────────────────────────────────────────┐    │   │
+│  │  │ xApps (dieu khien 10 ms - 1 s)          │    │   │
+│  │  │ - Toi uu handover                        │    │   │
+│  │  │ - Can bang tai                           │    │   │
+│  │  │ - Quan ly nhieu                          │    │   │
+│  │  └─────────────────────────────────────────┘    │   │
+│  │                         │ E2                     │   │
+│  └─────────────────────────┼───────────────────────┘   │
+│                            │                            │
+│                            ▼                            │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │            O-CU / O-DU (E2 Nodes)               │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Near-RT vs Non-RT
+
+```
+Thoi gian Vong lap Dieu khien:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Non-RT RIC (> 1 giay):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Muc dich:                                      │    │
+│  │  - Huan luyen mo hinh ML tren du lieu lich su  │    │
+│  │  - Tao chinh sach                               │    │
+│  │  - Thong tin lam giau (du lieu ngoai)          │    │
+│  │  - Day A1 policy den Near-RT RIC               │    │
+│  │                                                  │    │
+│  │  Moc thoi gian: Phut den gio                   │    │
+│  │                                                  │    │
+│  │  Vi du:                                         │    │
+│  │  - Huan luyen mo hinh tren luu luong 24h qua   │    │
+│  │  - Tao nguong MLB cho ngay mai                 │    │
+│  │  - Cap nhat thong so danh doi vung phu/dung    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Near-RT RIC (10 ms - 1 giay):                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Muc dich:                                      │    │
+│  │  - Giam sat RAN thoi gian thuc                  │    │
+│  │  - Quyet dinh dieu khien duoi giay              │    │
+│  │  - Suy luan ML (khong huan luyen)              │    │
+│  │  - Interface E2 den CU/DU                       │    │
+│  │                                                  │    │
+│  │  Moc thoi gian: Mili giay den giay             │    │
+│  │                                                  │    │
+│  │  Vi du:                                         │    │
+│  │  - Quyet dinh handover tung UE                 │    │
+│  │  - Kich hoat can bang tai                       │    │
+│  │  - Dieu chinh QoS                               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Thoi gian thuc (< 10 ms):                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Xu ly ben trong CU/DU — KHONG phai RIC         │    │
+│  │  (lap lich, HARQ, beamforming)                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Interface E2
+
+```
+Interface E2 (Near-RT RIC ↔ E2 Nodes):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Ngan xep Giao thuc:                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ E2AP (E2 Application Protocol)                  │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ SCTP                                            │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ IP                                              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Thu tuc E2AP:                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  REPORT:     E2 Node → RIC (do luong)          │    │
+│  │  - KPM (Giam sat KPI)                           │    │
+│  │  - Do luong tung UE                             │    │
+│  │                                                  │    │
+│  │  INSERT:     RIC → E2 Node (can thiep)         │    │
+│  │  - Tam dung thu tuc, doi quyet dinh RIC        │    │
+│  │  - Vi du: chan handover                         │    │
+│  │                                                  │    │
+│  │  CONTROL:    RIC → E2 Node (hanh dong)         │    │
+│  │  - Ep handover den cell cu the                  │    │
+│  │  - Doi beam phuc vu                             │    │
+│  │                                                  │    │
+│  │  POLICY:     RIC → E2 Node (quy tac)           │    │
+│  │  - Dat nguong cho hanh dong tu dong            │    │
+│  │  - Cau hinh thong so MLB                        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Mo hinh Dich vu E2 (E2SM):                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ E2SM-KPM:  Giam sat KPI                         │    │
+│  │ E2SM-RC:   Dieu khien RAN                       │    │
+│  │ E2SM-NI:   Quan ly interface mang              │    │
+│  │ E2SM-CCC: Cau hinh va dieu khien cell          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Interface A1
+
+```
+Interface A1 (Non-RT RIC ↔ Near-RT RIC):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Giao thuc: HTTP/REST tren JSON                         │
+│                                                          │
+│  Dich vu A1:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Quan ly Chinh sach:                            │    │
+│  │  - Tao/xoa/cap nhat chinh sach                  │    │
+│  │  - Loai va instance chinh sach                  │    │
+│  │                                                  │    │
+│  │  Thong tin Lam giau:                            │    │
+│  │  - Ngu canh ngoai (thoi tiet, su kien)         │    │
+│  │  - Du lieu du doan                              │    │
+│  │                                                  │    │
+│  │  Quan ly Mo hinh ML:                            │    │
+│  │  - Trien khai mo hinh da huan luyen den Near-RT│    │
+│  │  - Cap nhat/quay lui mo hinh                    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Vi du Chinh sach (MLB):                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ {                                                │    │
+│  │   "policyId": "mlb-001",                        │    │
+│  │   "policyType": "load-balancing",               │    │
+│  │   "scope": {                                    │    │
+│  │     "cellIds": ["cell-1", "cell-2", "cell-3"]  │    │
+│  │   },                                            │    │
+│  │   "policy": {                                   │    │
+│  │     "threshold": 80,                            │    │
+│  │     "targetLoad": 60,                           │    │
+│  │     "algorithm": "proportional"                 │    │
+│  │   }                                             │    │
+│  │ }                                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Kien truc xApp
+
+```
+Cau truc xApp:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Thanh phan xApp:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐    │    │
+│  │  │ Logic xApp                              │    │    │
+│  │  │ - Logic nghiep vu / suy luan ML         │    │    │
+│  │  │ - Thuat toan quyet dinh                 │    │    │
+│  │  └────────────────┬────────────────────────┘    │    │
+│  │                   │                              │    │
+│  │  ┌────────────────┴────────────────────────┐    │    │
+│  │  │ Framework xApp (RIC SDK)                │    │    │
+│  │  │ - Quan ly subscription                  │    │    │
+│  │  │ - Xu ly tin nhan E2                     │    │    │
+│  │  │ - Truy cap SDL (Shared Data Layer)      │    │    │
+│  │  │ - RMR (RIC Message Router)              │    │    │
+│  │  └─────────────────────────────────────────┘    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Nen tang Near-RT RIC:                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐       │    │
+│  │  │xApp 1 │ │xApp 2 │ │xApp 3 │ │xApp N │       │    │
+│  │  └───┬───┘ └───┬───┘ └───┬───┘ └───┬───┘       │    │
+│  │      │         │         │         │            │    │
+│  │  ┌───┴─────────┴─────────┴─────────┴───┐       │    │
+│  │  │ RIC Message Router (RMR)            │       │    │
+│  │  └─────────────────────────────────────┘       │    │
+│  │                   │                             │    │
+│  │  ┌────────────────┴────────────────────┐       │    │
+│  │  │ Shared Data Layer (SDL / Redis)     │       │    │
+│  │  │ - Context UE                         │       │    │
+│  │  │ - Trang thai cell                    │       │    │
+│  │  │ - Du lieu chia se giua xApp          │       │    │
+│  │  └─────────────────────────────────────┘       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Truong hop: Toi uu handover
+
+```
+Luong Toi uu Handover bang xApp:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Thiet lap Subscription:                             │
+│  xApp ─── E2 Subscribe (KPM, RC) ───► O-CU             │
+│                                                          │
+│  2. Thu thap Do luong:                                  │
+│  O-CU ─── REPORT (RSRP, RSRQ moi UE) ───► xApp         │
+│                                                          │
+│  3. Chan Handover:                                      │
+│  O-CU ─── INSERT (HO sap kich hoat) ───► xApp          │
+│       "UE 1234 HO den Cell-B dang cho"                  │
+│                                                          │
+│  4. Quyet dinh xApp:                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Truy van SDL: Tai Cell-B = 90%                  │    │
+│  │ Truy van SDL: Tai Cell-C = 40%                  │    │
+│  │ Suy luan ML: Cell-C tot hon                     │    │
+│  │ Quyet dinh: Doi sang Cell-C                     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  5. Dieu khien:                                         │
+│  xApp ─── CONTROL (HO den Cell-C) ───► O-CU            │
+│                                                          │
+│  6. O-CU thuc hien handover den Cell-C thay vi B       │
+│                                                          │
+│  Ket qua: Can bang tai + trai nghiem nguoi dung tot hon│
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Phan loai xApp:**
+
+| Loai | Vong lap Dieu khien | Vi du |
+|------|---------------------|-------|
+| Dieu huong luu luong | 100-500 ms | Toi uu HO, can bang tai |
+| Quan ly QoS | 200 ms - 1 s | Thuc thi SLA slice |
+| Phat hien bat thuong | 500 ms - 1 s | Phat hien nhieu |
+| Tiet kiem nang luong | 1+ s | Bat/tat cell, che do ngu |
+
+**Debug RIC:**
+
+```bash
+# Trang thai ket noi E2
+kubectl -n ricplt exec -it e2term-0 -- e2cli status
+
+# Trang thai subscription xApp
+kubectl -n ricxapp logs <xapp-pod> | grep -i subscribe
+
+# Du lieu SDL
+kubectl -n ricplt exec -it dbaas-0 -- redis-cli KEYS "*"
+
+# Bang dinh tuyen RMR
+kubectl -n ricplt exec -it rtmgr-0 -- rtmgr-cli show routes
+
+# Chinh sach A1
+curl http://<a1-mediator>:10000/A1-P/v2/policytypes
+```
+
+**Cac interface chinh:**
+
+| Interface | Diem cuoi | Giao thuc | Do tre |
+|-----------|-----------|-----------|--------|
+| E2 | Near-RT RIC ↔ CU/DU | SCTP | < 10 ms |
+| A1 | Non-RT RIC ↔ Near-RT RIC | HTTP/REST | < 1 s |
+| O1 | SMO ↔ tat ca node | NETCONF | N/A |
+| O2 | SMO ↔ O-Cloud | REST | N/A |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Xung dot giua cac xApp.** Hai xApp co the gui dieu khien xung dot. Su dung framework quan ly xung dot.
+
+2. **Overhead subscription E2.** Qua nhieu subscription ap do E2 node. Thiet ke do chi tiet subscription hieu qua.
+
+3. **Nhat quan SDL.** Du lieu cu trong SDL dan den quyet dinh sai. Dat TTL phu hop.
+
+4. **Ngan sach do tre.** Quyet dinh xApp + RTT E2 phai nam trong 10ms-1s. Profile can than.
+
+5. **Troi mo hinh ML.** Mo hinh huan luyen tren du lieu cu suy giam. Trien khai huan luyen lien tuc trong Non-RT RIC.
+
+6. **Mat tin nhan RMR.** Message router co the bo khi qua tai. Trien khai thao tac idempotent.
+
+7. **Xung dot chinh sach A1.** Chinh sach xung dot tu Non-RT RIC. Xac thuc tuong thich chinh sach truoc khi day.
+
+8. **Khoi dong lai E2 node.** Subscription E2 mat khi node restart. xApp phai xu ly dang ky lai.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- O-RAN Alliance WG1, "O-RAN Architecture Description"
+- O-RAN Alliance WG2, "Non-RT RIC Architecture"
+- O-RAN Alliance WG3, "Near-RT RIC Architecture and E2 Interface"
+- O-RAN SC (Software Community), "RIC Platform Documentation"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [O-CU](/vi/core-network/o-ran-architecture/o-cu/) — Don vi Trung tam
+- [O-DU](/vi/core-network/o-ran-architecture/o-du/) — Don vi Phan tan
+- [O-RU](/vi/core-network/o-ran-architecture/o-ru/) — Don vi Vo tuyen
+
+</section>

@@ -8,16 +8,16 @@ track: r2
 unit: propagation-in-real-environments
 order: 4
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 15
 prerequisites: ["rf-r2-propagation-in-real-environments-03-multipath"]
 spiralRevisits: []
-title: "Fading (suy giảm tín hiệu)"
-description: "Cường độ tín hiệu biến đổi theo thời gian từ đa đường và di động."
-authors: ["tindang"]
+title: "Fading"
+description: "Cường độ tín hiệu biến đổi theo thời gian: thống kê Rayleigh/Rician, Doppler và thời gian kết hợp."
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
-tags: ["fading", "rayleigh", "rician", "doppler", "coherence-time"]
+tags: ["fading", "rayleigh", "rician", "doppler", "coherence-time", "k-factor"]
 widgets: []
 license: CC-BY-SA-4.0
 status: published
@@ -25,9 +25,13 @@ status: published
 
 <section class="lesson-hook">
 
-## Tại sao hiểu fading?
+## Tại sao cần hiểu fading?
 
-Cường độ tín hiệu biến đổi mạnh — dao động 20-40 dB trong nửa bước sóng. Đây không phải nhiễu; đó là giao thoa đa đường thay đổi khi bạn di chuyển. Hiểu thống kê fading (Rayleigh, Rician) và động lực học (Doppler, thời gian kết hợp) cho phép bạn thiết kế hệ thống sống sót qua các dao động này.
+Bạn thiết kế liên kết cung cấp trung bình 20 dBm công suất thu, vượt xa ngưỡng độ nhạy máy thu. Nhưng hệ thống liên tục ngắt cuộc gọi tại cùng một điểm. Vấn đề là fading (suy pha): trên thang thời gian dưới giây, tín hiệu thu dao động 20–40 dB quanh giá trị trung bình khi các thành phần multipath dịch pha theo từng phần bước sóng chuyển động.
+
+Fading là hiện tượng bị hiểu sai nhiều nhất trong thiết kế hệ thống không dây. Không phải nhiễu. Không phải path loss. Đó là sự giao thoa có tính quyết định-nhưng-không-thể-đoán trước giữa nhiều bản sao kết hợp của tín hiệu. Hiểu thống kê của nó (Rayleigh, Rician) và động học thời gian của nó (Doppler, coherence time — thời gian kết hợp) là điều kiện tiên quyết để thiết kế fade margin, sơ đồ đa dạng hóa, bộ đếm thời gian phát lại HARQ và khoảng ước lượng kênh.
+
+Với hệ thống vệ tinh, fading có dạng khác: K-factor Rician chi phối cao (LOS mạnh), nhưng shadowing từ tòa nhà và cây cối điều chế nó chậm khi terminal di chuyển. Với vệ tinh LEO, Doppler có thể vượt 40 kHz ở S-band — hàng nghìn lần lớn hơn tốc độ fading mặt đất.
 
 </section>
 
@@ -35,81 +39,153 @@ Cường độ tín hiệu biến đổi mạnh — dao động 20-40 dB trong n
 
 ## Trực giác
 
-Nhiều đường tín hiệu đến với pha khác nhau. Khi bạn di chuyển, độ dài đường thay đổi, pha dịch chuyển, và các đường kết hợp khác nhau. Đôi khi chúng cộng xây dựng (tín hiệu mạnh); đôi khi phá hủy (fade sâu). Bạn di chuyển càng nhanh, fading càng nhanh.
+### Dịch pha từ chuyển động nhỏ
+
+Máy thu ở khoảng cách cố định $d$ từ máy phát nhận đường trực tiếp cộng nhiều đường phản xạ. Mỗi đường có pha $\phi_i = 2\pi d_i / \lambda$ xác định bởi độ dài $d_i$ của nó. Ở 2 GHz, $\lambda = 15$ cm — chỉ di chuyển 7.5 cm thay đổi pha một đường $\pi$ (180°). Nếu đường đó trước đây cộng xây dựng với đường trực tiếp, giờ nó trừ — tín hiệu có thể giảm đột ngột 20–30 dB.
+
+Đây là fading quy mô nhỏ. Phân bố thống kê của bao hình tín hiệu thu phụ thuộc vào việc có thành phần LOS chi phối hay không:
+
+- **Không có thành phần LOS** (tán xạ thuần túy): nhiều đường độc lập, mỗi đường pha ngẫu nhiên. Thành phần đồng pha và vuông pha mỗi cái tổng theo Gaussian (theo CLT). Bao hình tuân theo phân bố **Rayleigh**.
+- **Thành phần LOS mạnh** cộng tán xạ: bao hình tuân theo phân bố **Rician**. Tỷ lệ công suất LOS với công suất tán xạ là **K-factor**.
+
+### Phổ K-factor
+
+```
+K-factor và đặc tính kênh:
+
+K = -∞ dB   K = 0 dB     K = 5 dB    K = 10 dB    K → ∞
+   |            |            |            |            |
+   ▼            ▼            ▼            ▼            ▼
+  NLOS      Rayleigh    LOS nhẹ     LOS mạnh    Giống AWGN
+  đô thị   (chỉ tán      (ngoại      (khu vực    (vệ tinh
+  dày đặc   xạ)          ô, có LOS)  thoáng,      bầu trời
+                                      vệ tinh)     quang)
+  
+  Fading tệ nhất ←──────────────────────────────→ Fading tốt nhất
+  Độ sâu fade lớn nhất                            Fade nông nhất
+```
+
+### Doppler — tốc độ fading
+
+Khi máy thu di chuyển, độ dài đường thay đổi, pha dịch chuyển, và sự chồng lên nhau thay đổi. Máy thu di chuyển ở vận tốc $v$ thấy tần số sóng mang bị dịch Doppler:
+
+$$f_D = \frac{v}{\lambda} \cos\theta = \frac{v f_c}{c} \cos\theta$$
+
+trong đó $\theta$ là góc giữa hướng chuyển động và sóng đến.
+
+Các thành phần multipath khác nhau đến từ các góc khác nhau, mỗi cái có dịch Doppler khác nhau. Tín hiệu thu có phổ Doppler trải qua $[-f_{D,max}, +f_{D,max}]$. Tốc độ fading (kênh thay đổi nhanh đến mức nào) tỷ lệ với $f_{D,max}$. Di chuyển nhanh hơn hoặc dùng tần số cao hơn = fading nhanh hơn.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Cơ chế
+## Cơ chế hoạt động
 
-### Phân phối fading quy mô nhỏ
+### Phân bố fading Rayleigh
 
-**Fading Rayleigh (không LOS):**
+Khi không có thành phần LOS chi phối và nhiều đường tán xạ độc lập tồn tại, bao hình thu $r$ tuân theo phân bố Rayleigh:
 
-Khi nhiều đường tán xạ, không có LOS chiếm ưu thế:
+$$f_R(r) = \frac{r}{\sigma^2} \exp\left(-\frac{r^2}{2\sigma^2}\right), \quad r \geq 0$$
 
-$$f_R(r) = \frac{r}{\sigma^2} e^{-r^2/2\sigma^2}, \quad r \geq 0$$
+trong đó $\sigma^2$ là công suất một trong hai thành phần vuông pha (tổng công suất trung bình = $2\sigma^2$).
 
-Trung bình: $E[R] = \sigma\sqrt{\pi/2}$
-Công suất: $E[R^2] = 2\sigma^2$
+Thống kê chính:
+- Trung bình: $E[r] = \sigma\sqrt{\pi/2} \approx 1.25\sigma$
+- Công suất trung bình: $E[r^2] = 2\sigma^2$
+- CDF: $P(r \leq R) = 1 - \exp(-R^2 / 2\sigma^2)$
 
-**Fading Rician (có LOS):**
+**Xác suất dưới công suất trung bình X dB:**
 
-Đường LOS chiếm ưu thế cộng đường tán xạ:
+Với fading Rayleigh, xác suất công suất tức thời thấp hơn công suất trung bình hơn $x$ dB xấp xỉ:
 
-$$f_R(r) = \frac{r}{\sigma^2} e^{-(r^2+s^2)/2\sigma^2} I_0\left(\frac{rs}{\sigma^2}\right)$$
+$$P(\text{độ sâu fade} > x \text{ dB}) \approx 1 - e^{-10^{-x/10}}$$
 
-trong đó s = biên độ thành phần LOS, $I_0$ = hàm Bessel sửa đổi.
+| Độ sâu fade | Xác suất |
+|-------------|----------|
+| 10 dB | 10% |
+| 20 dB | 1% |
+| 30 dB | 0.1% |
 
-**Hệ số K:**
-$$K = \frac{s^2}{2\sigma^2} = \frac{\text{công suất LOS}}{\text{công suất tán xạ}}$$
+Xác suất 10% bị fade 10 dB nghĩa là hệ thống thiết kế đúng phải có ít nhất 10 dB fade margin để đạt 90% độ tin cậy tức thời — ngay cả khi SNR trung bình đủ.
 
-K = 0: Rayleigh
-K → ∞: Không fading (giống AWGN)
-Điển hình: K = 3-10 dB cho LOS vừa phải.
+### Phân bố fading Rician
 
-### Hiệu ứng Doppler
+Với thành phần LOS chi phối biên độ $s$ cộng các thành phần tán xạ với công suất $2\sigma^2$:
 
-Di chuyển vận tốc v, tần số sóng mang f_c:
+$$f_R(r) = \frac{r}{\sigma^2} \exp\left(-\frac{r^2 + s^2}{2\sigma^2}\right) I_0\left(\frac{rs}{\sigma^2}\right), \quad r \geq 0$$
 
-**Dịch Doppler tối đa:**
-$$f_D = \frac{v}{\lambda} = \frac{vf_c}{c}$$
+trong đó $I_0$ là hàm Bessel loại một biến dạng, bậc không.
 
-**Phổ Doppler (mô hình Jakes):**
+**K-factor (hệ số Rician):**
 
-$$S(f) = \frac{1}{\pi f_D \sqrt{1 - (f/f_D)^2}}, \quad |f| < f_D$$
+$$K = \frac{s^2}{2\sigma^2} = \frac{\text{công suất thành phần LOS}}{\text{công suất thành phần tán xạ}}$$
 
-Phổ hình U với đỉnh ở ±f_D.
+Các trường hợp giới hạn:
+- $K = 0$: $s = 0$, không LOS → phân bố Rayleigh
+- $K \to \infty$: tán xạ biến mất → bao hình không đổi (không fading, giống AWGN)
 
-### Thời gian kết hợp
+Giá trị K-factor điển hình:
 
-Thời gian mà kênh giữ nguyên xấp xỉ không đổi:
+| Kịch bản | K (dB) |
+|----------|---------|
+| Đô thị dày đặc NLOS | -3 đến 0 |
+| Đô thị có một số LOS | 0 đến 6 |
+| Ngoại ô ngoài trời | 5 đến 10 |
+| Nông thôn thoáng | 10 đến 15 |
+| Vệ tinh LEO (nông thôn) | 10 đến 20 |
+| Vệ tinh GEO (bầu trời quang) | 15 đến 25 |
 
-$$T_c \approx \frac{0.423}{f_D} = \frac{0.423c}{vf_c}$$
+### Dịch Doppler và phổ
 
-Hoặc: $T_c \approx \frac{1}{f_D}$ (bậc độ lớn).
+Máy phát đứng yên, máy thu di chuyển ở vận tốc $v$:
 
-### Fading nhanh vs. chậm
+**Tần số Doppler tối đa:**
+$$f_{D,max} = \frac{v f_c}{c} = \frac{v}{\lambda}$$
 
-| Điều kiện | Loại | Hiệu ứng |
-|-----------|------|----------|
-| $T_s << T_c$ | Fading chậm | Kênh không đổi qua ký hiệu |
-| $T_s >> T_c$ | Fading nhanh | Kênh biến đổi trong ký hiệu |
+**Phổ Doppler Jakes (Clarke)** — mô hình cổ điển cho tán xạ đẳng hướng:
 
-### Tốc độ vượt mức
+$$S(f) = \frac{1}{\pi f_{D,max} \sqrt{1 - \left(\frac{f}{f_{D,max}}\right)^2}}, \quad |f| < f_{D,max}$$
 
-Số lần trung bình biên độ vượt mức R mỗi giây:
+Phổ hình chữ U này đạt đỉnh tại $\pm f_{D,max}$ — hệ quả trực tiếp của sự tập trung các bộ tán xạ gần đường chân trời.
 
-$$N_R = \sqrt{2\pi} f_D \rho e^{-\rho^2}$$
+**Giá trị Doppler tham khảo:**
 
-trong đó $\rho = R/R_{rms}$.
+| Kịch bản | $f_c$ | $v$ | $f_{D,max}$ |
+|----------|--------|-----|-------------|
+| Đi bộ | 2 GHz | 1.5 m/s | 10 Hz |
+| Ô tô đô thị | 2 GHz | 50 km/h | 93 Hz |
+| Cao tốc | 2 GHz | 120 km/h | 222 Hz |
+| Tàu cao tốc | 3.5 GHz | 300 km/h | 972 Hz |
+| Vệ tinh LEO (đường chân trời) | 2 GHz | 7500 m/s | 50 kHz |
+| mmWave người đi bộ | 28 GHz | 1.5 m/s | 140 Hz |
 
-### Thời gian fade trung bình
+### Coherence time (thời gian kết hợp)
 
-Thời gian trung bình dưới ngưỡng R:
+Coherence time $T_c$ là khoảng thời gian trong đó đáp ứng xung kênh xấp xỉ không đổi. Nó tỷ lệ nghịch với Doppler tối đa:
 
-$$\bar{\tau} = \frac{e^{\rho^2} - 1}{\rho \sqrt{2\pi} f_D}$$
+$$T_c \approx \frac{0.423}{f_{D,max}}$$
+
+Xấp xỉ đơn giản hơn nhưng phổ biến:
+$$T_c \approx \frac{1}{f_{D,max}}$$
+
+**Fading chậm vs. nhanh:**
+
+| Điều kiện | Loại fading | Hiệu ứng |
+|-----------|-------------|----------|
+| Chu kỳ ký tự $T_s \ll T_c$ | Fading chậm | Kênh không đổi qua nhiều ký tự; ước lượng kênh hợp lệ lâu |
+| Chu kỳ ký tự $T_s \gg T_c$ | Fading nhanh | Kênh thay đổi trong một ký tự; méo nghiêm trọng |
+
+### Tốc độ vượt mức và thời gian fade trung bình
+
+**Tốc độ vượt mức (LCR)** — số lần trung bình mỗi giây bao hình vượt qua mức $r_0 = \rho \cdot R_{rms}$ theo chiều giảm:
+
+$$N_R = \sqrt{2\pi} \, f_{D,max} \, \rho \, e^{-\rho^2}$$
+
+**Thời gian fade trung bình (AFD)** — thời gian trung bình bao hình ở dưới ngưỡng $r_0$:
+
+$$\bar{t}_{fade} = \frac{e^{\rho^2} - 1}{\rho \, \sqrt{2\pi} \, f_{D,max}}$$
+
+Những đại lượng này quan trọng cho thiết kế giao thức: timeout ARQ phải tính đến AFD. Độ sâu bộ xen kẽ phải vượt coherence time để đạt đa dạng hóa thời gian.
 
 </section>
 
@@ -117,61 +193,82 @@ $$\bar{\tau} = \frac{e^{\rho^2} - 1}{\rho \sqrt{2\pi} f_D}$$
 
 ## Áp dụng
 
-**Ví dụ: Xe ở 60 mph**
+### Ví dụ 1: Fading xe cộ ở 60 km/h
 
-Tần số: 2 GHz
-Vận tốc: 60 mph ≈ 27 m/s
+Tần số: 2 GHz, $v = 60$ km/h = 16.7 m/s.
 
-$$f_D = \frac{27 \times 2 \times 10^9}{3 \times 10^8} = 180 \text{ Hz}$$
+$$f_{D,max} = \frac{16.7 \times 2 \times 10^9}{3 \times 10^8} = 111 \text{ Hz}$$
 
-Thời gian kết hợp:
-$$T_c = \frac{0.423}{180} = 2.4 \text{ ms}$$
+$$T_c = \frac{0.423}{111} = 3.8 \text{ ms}$$
 
-LTE slot = 0.5 ms < 2.4 ms — fading chậm mỗi slot ✓.
+Slot LTE = 0.5 ms $\ll$ 3.8 ms → fading chậm. Ước lượng kênh hợp lệ mỗi slot. Nhưng tín hiệu tham chiếu (DMRS) mỗi slot vẫn cần vì kênh trôi giữa các slot.
 
-**Ví dụ: Người đi bộ**
+### Ví dụ 2: Thiết kế fade margin cho kênh Rayleigh
 
-Vận tốc: 1.5 m/s (đi bộ), 900 MHz
+Mục tiêu: 99% thời gian trên ngưỡng độ nhạy máy thu.
 
-$$f_D = \frac{1.5 \times 900 \times 10^6}{3 \times 10^8} = 4.5 \text{ Hz}$$
+Yêu cầu: xác suất độ sâu fade $> M$ nhỏ hơn 1%.
 
-$$T_c = \frac{0.423}{4.5} = 94 \text{ ms}$$
+Từ CDF Rayleigh: $P(\text{fade} > M) = e^{-10^{M/10}} < 0.01$.
 
-Kênh thay đổi ~10× mỗi giây — đủ chậm cho CSI chính xác.
+$$10^{M/10} > -\ln(0.01) = 4.6 \Rightarrow M > 6.6 \text{ dB}$$
 
-**Ví dụ: Xác suất fade sâu**
+Fade margin 6.6 dB đạt 99% độ tin cậy tức thời trong fading Rayleigh. Với 99.9%: $M = 8.4$ dB.
 
-Fading Rayleigh. P(tín hiệu 20 dB dưới trung bình) là gì?
+Đây là fade margin quy mô nhỏ, tách biệt với shadow fade margin được thảo luận trong bài shadowing.
 
-20 dB dưới = $10^{-2}$ công suất trung bình.
+### Ví dụ 3: LCR và AFD ở tốc độ cao tốc
 
-$$P(|h|^2 < 0.01) = 1 - e^{-0.01} \approx 1\%$$
+$f_{D,max} = 222$ Hz (120 km/h, 2 GHz), ngưỡng -10 dB dưới RMS ($\rho = 0.316$).
 
-~1% thời gian trong fade 20 dB.
+Tốc độ vượt mức:
+$$N_R = \sqrt{2\pi} \times 222 \times 0.316 \times e^{-0.1} = 2.507 \times 222 \times 0.316 \times 0.906 = 160 \text{ lần/giây}$$
 
-**Ví dụ: Thời gian fade**
+Thời gian fade trung bình:
+$$\bar{t}_{fade} = \frac{e^{0.1} - 1}{0.316 \times \sqrt{2\pi} \times 222} = \frac{0.105}{175.4} = 0.6 \text{ ms}$$
 
-Doppler 180 Hz, ngưỡng fade 10 dB (ρ = 0.316).
+Diễn giải: ở 120 km/h, fade -10 dB xảy ra ~160 lần mỗi giây và kéo dài ~0.6 ms trung bình. Ở 128 kbps, fade 0.6 ms xóa ~77 bit. Mã sửa lỗi tiến (FEC) phải xử lý các cụm lỗi độ dài này.
 
-$$\bar{\tau} = \frac{e^{0.1} - 1}{0.316 \times \sqrt{2\pi} \times 180} = \frac{0.105}{142} = 0.74 \text{ ms}$$
+### Ví dụ 4: Ảnh hưởng K-factor vệ tinh
 
-Fade 10 dB trung bình kéo dài 0.74 ms — ~100 bit ở 128 kbps.
+Vệ tinh LEO ở góc ngẩng 45°, môi trường ngoại ô. K-factor = 8 dB (LOS vừa phải).
+
+Chuyển đổi: $K_{tuyến tính} = 10^{0.8} = 6.3$.
+
+Phần công suất trong LOS: $K/(K+1) = 86\%$.
+Phần công suất trong tán xạ: $14\%$.
+
+Xác suất fade sâu cho Rician so với Rayleigh ở ngưỡng -20 dB:
+
+Rayleigh: ~1%. Rician (K=8 dB): thấp hơn nhiều — thành phần LOS ngăn fade sâu. Hệ thống cần ít fade margin hơn so với NLOS mặt đất.
+
+### Ví dụ 5: Người đi bộ mmWave — Doppler ở 28 GHz
+
+Đi bộ ở 1.5 m/s, 28 GHz.
+
+$$f_{D,max} = \frac{1.5 \times 28 \times 10^9}{3 \times 10^8} = 140 \text{ Hz}$$
+
+$$T_c = \frac{0.423}{140} = 3 \text{ ms}$$
+
+Ở 28 GHz, ngay cả đi bộ tạo ra Doppler 140 Hz — tương đương fading xe cộ ở 2 GHz. Hệ thống mmWave phải ước lượng lại kênh mỗi vài millisecond ngay cả cho người dùng đi bộ. Điều này thúc đẩy thiết kế tín hiệu tham chiếu dày đặc trong 5G NR ở mmWave.
 
 </section>
 
 <section class="lesson-pitfalls">
 
-## Lỗi thường gặp
+## Các bẫy thường gặp
 
-1. **Giả định Rayleigh khắp nơi.** Trong nhà/đô thị có thể có LOS → Rician. Vệ tinh gần như luôn Rician.
+1. **Giả định Rayleigh ở khắp nơi.** Đô thị NLOS là Rayleigh. Ngoại ô, hành lang trong nhà, vệ tinh và liên kết nông thôn thường có LOS — dùng Rician. K-factor ảnh hưởng mạnh đến fade margin cần thiết; dùng Rayleigh cho kênh Rician K=10 dB lãng phí 5–8 dB link budget.
 
-2. **Bỏ qua Doppler ở tốc độ thấp.** Ngay 5 m/s ở 60 GHz cho 1 kHz Doppler — đáng kể cho mmWave.
+2. **Bỏ qua Doppler ở tần số cao.** Ở 60 GHz, ngay cả người đi bộ 1.5 m/s tạo ra Doppler 300 Hz. Với OFDM khoảng cách subcarrier hẹp, điều này gây ICI. Luôn kiểm tra $f_D \ll \Delta f_{subcarrier}$.
 
-3. **Nhầm thời gian kết hợp và phân tán trễ.** Thời gian kết hợp là thời gian; băng thông kết hợp là tần số. Hiện tượng khác nhau.
+3. **Nhầm lẫn coherence time và delay spread.** Coherence time là thuộc tính thời gian (kênh thay đổi nhanh đến mức nào); delay spread/coherence bandwidth là thuộc tính tần số (kênh có chọn lọc tần số không). Chúng độc lập. Kênh người đi bộ có thể vừa fading chậm VỪA chọn lọc tần số.
 
-4. **Giả định kênh tĩnh.** Ước lượng kênh cũ. Ước lượng lại ít nhất mỗi Tc.
+4. **Kênh tĩnh cho ước lượng kênh.** Ước lượng kênh giả định kênh không đổi trong khoảng ước lượng. Nếu coherence time ngắn hơn khoảng cách pilot, ước lượng kênh hết hiệu lực và hiệu suất bộ cân bằng giảm. Trong 5G NR, mật độ pilot theo thời gian được cấu hình dựa trên lớp vận tốc UE.
 
-5. **Đánh giá thấp độ sâu fade.** Fade Rayleigh có thể vượt 30 dB. Thiết kế dự trữ cho outage, không phải trung bình.
+5. **Đánh giá thấp độ sâu fade.** Fading Rayleigh có thể tạo fade tức thời 30–40 dB. Hệ thống thiết kế chỉ với 10 dB fade margin sẽ gặp outage ~1% thời gian trong Rayleigh — không chấp nhận được cho thoại. Dịch vụ quan trọng cần margin 20+ dB hoặc kết hợp đa dạng hóa.
+
+6. **AFD vs. độ dài lỗi burst.** Thời gian fade trung bình cho giá trị trung bình. Các fade cá nhân có thể dài hơn nhiều. Bộ xen kẽ hay hệ thống ARQ được định cỡ cho AFD trung bình sẽ thất bại trong đuôi dài của phân bố thời gian fade. Dùng phân vị thứ 90 hoặc 99 của thời gian fade để thiết kế mạnh mẽ.
 
 </section>
 
@@ -179,8 +276,10 @@ Fade 10 dB trung bình kéo dài 0.74 ms — ~100 bit ở 128 kbps.
 
 ## Tài liệu tham khảo
 
-- Rappaport, *Wireless Communications*, Chapter 5.
-- Goldsmith, *Wireless Communications*, Chapter 3.
-- Jakes, *Microwave Mobile Communications*, Chapter 1.
+- Rappaport, T.S., *Wireless Communications*, xuất bản lần 2, Chương 5 — Rayleigh, Rician, Doppler, LCR, AFD.
+- Goldsmith, A., *Wireless Communications*, Chương 3 — mô hình fading thống kê và hàm ý dung lượng kênh.
+- Jakes, W.C., *Microwave Mobile Communications*, Chương 1 — tài liệu tham khảo kinh điển cho phổ Doppler và mô hình Clarke.
+- 3GPP TR 38.901 v17.0, Mục 7.7 — mô hình K-factor cho môi trường 5G NR.
+- Parsons, J.D., *The Mobile Radio Propagation Channel*, Chương 5 — đặc trưng thống kê kênh fading.
 
 </section>

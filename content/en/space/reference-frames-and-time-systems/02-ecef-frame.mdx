@@ -9,16 +9,562 @@ unit: reference-frames-and-time-systems
 order: 2
 level: L2
 estimatedReadingMinutes: 5
-title: "ECEF (Earth-Centered Earth-Fixed) frame"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "ECEF (Earth-Centered Earth-Fixed) Frame"
+description: "The rotating reference frame for ground stations, GPS, and Earth-relative operations."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["ecef", "wgs84", "reference-frame", "gps", "geodetic"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# ECEF (Earth-Centered Earth-Fixed) frame
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Ground stations don't move. Cities don't orbit. When you need to point an antenna at a satellite, compute a footprint, or determine if a spacecraft is over a specific country, you need coordinates that rotate with Earth. ECEF (Earth-Centered Earth-Fixed) is that frame — the coordinate system where ground locations have constant coordinates. GPS, Google Maps, and every ground-based radar uses ECEF (specifically WGS84). Understanding ECEF is essential for satellite ground track plotting, coverage analysis, and any operation involving Earth-fixed infrastructure.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Why Earth-fixed matters
+
+```
+The Ground Station Problem:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  IN ECI (Inertial):                  IN ECEF (Earth-Fixed):        │
+│                                                                      │
+│  ┌─────────────────────────┐   ┌─────────────────────────┐         │
+│  │                         │   │                         │         │
+│  │  Ground station 📡     │   │  Ground station 📡     │         │
+│  │  "moves" 463 m/s       │   │  stays at fixed        │         │
+│  │  at equator            │   │  (lat, lon, alt)       │         │
+│  │                         │   │                         │         │
+│  │     ╭────🛰️            │   │     ╭────🛰️            │         │
+│  │    ╱      ╲            │   │    ╱      ╲            │         │
+│  │   ╱   🌍   ╲           │   │   ╱   🌍   ╲           │         │
+│  │  ╱   ↻     ╲          │   │  ╱  📡      ╲          │         │
+│  │ ╱  📡→      ╲         │   │ ╱  (fixed)   ╲         │         │
+│  │                         │   │                         │         │
+│  └─────────────────────────┘   └─────────────────────────┘         │
+│                                                                      │
+│  USE ECEF WHEN:                                                     │
+│  • Computing antenna pointing angles                               │
+│  • Calculating satellite footprints                                │
+│  • Determining ground track                                        │
+│  • GPS positioning                                                 │
+│  • Any Earth-surface operation                                     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ECEF coordinate system
+
+```
+ECEF Frame Definition:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                          Z (North Pole)                             │
+│                          │                                          │
+│                          │   Aligned with Earth's                  │
+│                          │   rotation axis                         │
+│                          │                                          │
+│                          │                                          │
+│                          │                                          │
+│                          │       /                                  │
+│                          │      / Prime Meridian                   │
+│                          │     /  (0° longitude)                   │
+│                          │    /                                     │
+│                          │   /                                      │
+│              ────────────┼──/──────────────────Y                    │
+│                         ╱│ ╱                                        │
+│                        ╱ │╱                                         │
+│                       ╱  │     🌍 rotates WITH                      │
+│                      X   │     the coordinate axes                  │
+│                     ↑                                               │
+│               Points to                                             │
+│               lat=0°, lon=0°                                        │
+│               (Gulf of Guinea)                                      │
+│                                                                      │
+│  ORIGIN: Earth's center of mass                                    │
+│  X-AXIS: Intersection of equator and prime meridian (0°N, 0°E)     │
+│  Z-AXIS: Earth's rotation axis (toward North Pole)                 │
+│  Y-AXIS: Completes right-handed system (90°E on equator)          │
+│                                                                      │
+│  KEY DIFFERENCE FROM ECI:                                           │
+│  ECEF rotates with Earth at ~15°/hour (360°/day)                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Cartesian vs geodetic coordinates
+
+```
+Two Ways to Express ECEF Position:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CARTESIAN (X, Y, Z):          GEODETIC (lat, lon, alt):           │
+│                                                                      │
+│  ┌─────────────────────┐       ┌─────────────────────┐             │
+│  │                     │       │                     │             │
+│  │  X = -2694.892 km   │       │  lat = 37.7749°N    │             │
+│  │  Y = -4293.467 km   │       │  lon = 122.4194°W   │             │
+│  │  Z =  3854.740 km   │       │  alt = 16 m         │             │
+│  │                     │       │                     │             │
+│  │  (San Francisco)    │       │  (San Francisco)    │             │
+│  │                     │       │                     │             │
+│  └─────────────────────┘       └─────────────────────┘             │
+│                                                                      │
+│  SAME POINT, TWO REPRESENTATIONS:                                   │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Cartesian            │  Geodetic                     │         │
+│  │  ─────────────────────┼──────────────────────────     │         │
+│  │  Linear algebra easy  │  Human-readable              │         │
+│  │  Distance: Euclidean  │  Maps, navigation            │         │
+│  │  Orbit calculations   │  Ground operations           │         │
+│  │                                                        │         │
+│  │  Convert between them using WGS84 ellipsoid          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  GEODETIC LATITUDE ≠ GEOCENTRIC LATITUDE                           │
+│  (differ by up to 0.19° due to Earth's flattening)                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### WGS84 ellipsoid parameters
+
+```
+WGS84 Reference Ellipsoid:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Earth is not a sphere — it's an oblate spheroid                   │
+│  (flattened at poles, bulging at equator)                          │
+│                                                                      │
+│                     ← 6356.752 km →                                 │
+│                    ┌─────────────────┐                              │
+│                   ╱                   ╲                             │
+│                  ╱                     ╲                            │
+│                 │                       │  ↑                        │
+│                 │          🌍           │  6378.137 km              │
+│                 │                       │  ↓                        │
+│                  ╲                     ╱                            │
+│                   ╲                   ╱                             │
+│                    └─────────────────┘                              │
+│                                                                      │
+│  WGS84 DEFINING PARAMETERS:                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Parameter           │ Symbol │ Value                 │         │
+│  │  ────────────────────┼────────┼────────────────────── │         │
+│  │  Semi-major axis     │ a      │ 6378137.0 m          │         │
+│  │  Flattening          │ f      │ 1/298.257223563      │         │
+│  │  Semi-minor axis     │ b      │ 6356752.3142 m       │         │
+│  │  Eccentricity²       │ e²     │ 0.00669437999014     │         │
+│  │  Angular velocity    │ ω      │ 7.292115×10⁻⁵ rad/s  │         │
+│  │  GM                  │ μ      │ 3.986004418×10¹⁴ m³/s²│        │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  Equatorial bulge: a - b = 21.385 km                               │
+│  This matters for precision positioning!                           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Geodetic to Cartesian conversion
+
+```
+Converting Geodetic (lat, lon, alt) to ECEF (X, Y, Z):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Given: latitude φ, longitude λ, altitude h                        │
+│                                                                      │
+│  STEP 1: Calculate radius of curvature in prime vertical          │
+│                                                                      │
+│         N = a / √(1 - e²·sin²φ)                                    │
+│                                                                      │
+│  STEP 2: Convert to Cartesian                                      │
+│                                                                      │
+│         X = (N + h) · cos φ · cos λ                                │
+│         Y = (N + h) · cos φ · sin λ                                │
+│         Z = (N·(1 - e²) + h) · sin φ                               │
+│                                                                      │
+│  EXAMPLE: San Francisco (37.7749°N, 122.4194°W, 16m)              │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  φ = 37.7749° = 0.6592 rad                            │         │
+│  │  λ = -122.4194° = -2.1366 rad                         │         │
+│  │  h = 16 m                                              │         │
+│  │                                                        │         │
+│  │  N = 6390825.5 m                                       │         │
+│  │                                                        │         │
+│  │  X = -2694892.5 m                                      │         │
+│  │  Y = -4293467.0 m                                      │         │
+│  │  Z =  3854740.1 m                                      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  REVERSE (ECEF to geodetic) is iterative — use Bowring's method   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ECI to ECEF transformation
+
+```
+Converting Between ECI and ECEF:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  The ONLY difference: rotation about Z-axis by Earth rotation      │
+│                                                                      │
+│  ECI → ECEF:                                                        │
+│                                                                      │
+│  ┌                     ┐   ┌                    ┐ ┌      ┐         │
+│  │ X_ecef              │   │ cos(θ)  sin(θ)  0 │ │ X_eci│         │
+│  │ Y_ecef              │ = │ -sin(θ) cos(θ)  0 │ │ Y_eci│         │
+│  │ Z_ecef              │   │ 0       0       1 │ │ Z_eci│         │
+│  └                     ┘   └                    ┘ └      ┘         │
+│                                                                      │
+│  Where θ = GMST (Greenwich Mean Sidereal Time)                     │
+│                                                                      │
+│  GMST changes by ~360° per sidereal day (23h 56m 4s)              │
+│                                                                      │
+│  For velocity transformation, also account for ω×r term:           │
+│                                                                      │
+│  v_ecef = R(θ) · v_eci - ω × r_ecef                               │
+│                                                                      │
+│  where ω = [0, 0, 7.292115×10⁻⁵] rad/s                            │
+│                                                                      │
+│  PRECISION NOTES:                                                   │
+│  • For &lt;1m accuracy, include polar motion (x_p, y_p)              │
+│  • For &lt;1cm accuracy, include Earth orientation parameters (EOP)   │
+│  • IERS provides daily EOP bulletins                               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Common ECEF realizations
+
+```
+ECEF Frame Variants:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Frame    │ Definition            │ Use Case                       │
+│  ─────────┼───────────────────────┼──────────────────────────────  │
+│           │                       │                                 │
+│  WGS84    │ GPS reference frame   │ GPS receivers, aviation,      │
+│           │ maintained by NGA     │ mapping, most applications    │
+│           │                       │                                 │
+│  ITRF     │ IERS Terrestrial      │ Highest precision geodesy,    │
+│           │ Reference Frame       │ scientific applications       │
+│           │ (versioned: ITRF2020) │                                │
+│           │                       │                                 │
+│  NAD83    │ North American Datum  │ US/Canada surveying           │
+│           │ (aligned to WGS84)    │                                │
+│           │                       │                                 │
+│  PZ-90    │ Russian GLONASS frame │ GLONASS positioning           │
+│           │                       │                                 │
+│  GTRF     │ Galileo Terrestrial   │ Galileo navigation           │
+│           │ Reference Frame       │                                │
+│                                                                      │
+│  DIFFERENCES:                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  WGS84 vs ITRF2020: ~1-2 cm (varies by location)     │         │
+│  │  WGS84 vs PZ-90.11: ~3-5 cm                          │         │
+│  │  WGS84 vs NAD83: ~1-2 m (continental drift effect)   │         │
+│  │                                                        │         │
+│  │  For most satellite ops, these differences are small │         │
+│  │  For precision geodesy, frame alignment is critical  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Working with ECEF coordinates:**
+
+```python
+import numpy as np
+
+# WGS84 ellipsoid parameters
+WGS84_A = 6378137.0           # Semi-major axis (m)
+WGS84_F = 1 / 298.257223563   # Flattening
+WGS84_B = WGS84_A * (1 - WGS84_F)  # Semi-minor axis
+WGS84_E2 = 2 * WGS84_F - WGS84_F**2  # Eccentricity squared
+OMEGA_EARTH = 7.292115e-5     # Earth rotation rate (rad/s)
+
+def geodetic_to_ecef(lat_deg, lon_deg, alt_m):
+    """Convert geodetic (lat, lon, alt) to ECEF (X, Y, Z)."""
+    lat = np.radians(lat_deg)
+    lon = np.radians(lon_deg)
+    
+    sin_lat = np.sin(lat)
+    cos_lat = np.cos(lat)
+    sin_lon = np.sin(lon)
+    cos_lon = np.cos(lon)
+    
+    # Radius of curvature in prime vertical
+    N = WGS84_A / np.sqrt(1 - WGS84_E2 * sin_lat**2)
+    
+    X = (N + alt_m) * cos_lat * cos_lon
+    Y = (N + alt_m) * cos_lat * sin_lon
+    Z = (N * (1 - WGS84_E2) + alt_m) * sin_lat
+    
+    return np.array([X, Y, Z])
+
+def ecef_to_geodetic(X, Y, Z, tol=1e-12, max_iter=10):
+    """Convert ECEF (X, Y, Z) to geodetic (lat, lon, alt) using Bowring's method."""
+    lon = np.arctan2(Y, X)
+    
+    p = np.sqrt(X**2 + Y**2)
+    
+    # Initial estimate using Bowring's method
+    lat = np.arctan2(Z, p * (1 - WGS84_E2))
+    
+    for _ in range(max_iter):
+        sin_lat = np.sin(lat)
+        N = WGS84_A / np.sqrt(1 - WGS84_E2 * sin_lat**2)
+        lat_new = np.arctan2(Z + WGS84_E2 * N * sin_lat, p)
+        
+        if abs(lat_new - lat) < tol:
+            break
+        lat = lat_new
+    
+    sin_lat = np.sin(lat)
+    cos_lat = np.cos(lat)
+    N = WGS84_A / np.sqrt(1 - WGS84_E2 * sin_lat**2)
+    
+    if abs(cos_lat) > 1e-10:
+        alt = p / cos_lat - N
+    else:
+        alt = abs(Z) - WGS84_B
+    
+    return np.degrees(lat), np.degrees(lon), alt
+
+def gmst_rad(jd):
+    """Calculate Greenwich Mean Sidereal Time (radians)."""
+    T = (jd - 2451545.0) / 36525
+    gmst_deg = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + \
+               0.000387933 * T**2 - T**3 / 38710000
+    return np.radians(gmst_deg % 360)
+
+def eci_to_ecef(r_eci, v_eci, jd):
+    """Convert ECI state to ECEF state."""
+    theta = gmst_rad(jd)
+    cos_t = np.cos(theta)
+    sin_t = np.sin(theta)
+    
+    # Rotation matrix
+    R = np.array([
+        [cos_t, sin_t, 0],
+        [-sin_t, cos_t, 0],
+        [0, 0, 1]
+    ])
+    
+    r_ecef = R @ r_eci
+    
+    # Velocity includes Earth rotation effect
+    omega = np.array([0, 0, OMEGA_EARTH])
+    v_ecef = R @ v_eci - np.cross(omega, r_ecef)
+    
+    return r_ecef, v_ecef
+
+def satellite_elevation_azimuth(sat_ecef, station_lat, station_lon, station_alt):
+    """Calculate satellite elevation and azimuth from ground station."""
+    station_ecef = geodetic_to_ecef(station_lat, station_lon, station_alt)
+    
+    # Vector from station to satellite
+    delta = sat_ecef - station_ecef
+    
+    # Local ENU (East-North-Up) transformation
+    lat = np.radians(station_lat)
+    lon = np.radians(station_lon)
+    
+    sin_lat = np.sin(lat)
+    cos_lat = np.cos(lat)
+    sin_lon = np.sin(lon)
+    cos_lon = np.cos(lon)
+    
+    # ECEF to ENU rotation matrix
+    R = np.array([
+        [-sin_lon, cos_lon, 0],
+        [-sin_lat*cos_lon, -sin_lat*sin_lon, cos_lat],
+        [cos_lat*cos_lon, cos_lat*sin_lon, sin_lat]
+    ])
+    
+    enu = R @ delta
+    E, N, U = enu
+    
+    # Elevation and azimuth
+    horiz_dist = np.sqrt(E**2 + N**2)
+    elevation = np.degrees(np.arctan2(U, horiz_dist))
+    azimuth = np.degrees(np.arctan2(E, N)) % 360
+    
+    return elevation, azimuth
+
+print("ECEF Reference Frame Examples")
+print("=" * 70)
+
+# Example: Famous locations
+print("\n1. Geodetic to ECEF Conversion")
+print("-" * 70)
+
+locations = [
+    {"name": "San Francisco", "lat": 37.7749, "lon": -122.4194, "alt": 16},
+    {"name": "Tokyo", "lat": 35.6762, "lon": 139.6503, "alt": 40},
+    {"name": "London", "lat": 51.5074, "lon": -0.1278, "alt": 11},
+    {"name": "Equator/Prime Meridian", "lat": 0.0, "lon": 0.0, "alt": 0},
+]
+
+print(f"  {'Location':<25} {'Lat':<10} {'Lon':<12} {'X (km)':<12} {'Y (km)':<12} {'Z (km)':<12}")
+print("-" * 85)
+
+for loc in locations:
+    ecef = geodetic_to_ecef(loc["lat"], loc["lon"], loc["alt"])
+    print(f"  {loc['name']:<25} {loc['lat']:<10.4f} {loc['lon']:<12.4f} "
+          f"{ecef[0]/1000:<12.3f} {ecef[1]/1000:<12.3f} {ecef[2]/1000:<12.3f}")
+
+# Round-trip conversion
+print("\n2. Round-Trip Conversion (ECEF → Geodetic)")
+print("-" * 70)
+
+test_ecef = np.array([-2694892.5, -4293467.0, 3854740.1])  # San Francisco
+lat, lon, alt = ecef_to_geodetic(*test_ecef)
+print(f"  Input ECEF: [{test_ecef[0]:.1f}, {test_ecef[1]:.1f}, {test_ecef[2]:.1f}] m")
+print(f"  Output geodetic: {lat:.6f}°, {lon:.6f}°, {alt:.1f} m")
+
+# ECI to ECEF conversion
+print("\n3. ECI to ECEF Transformation")
+print("-" * 70)
+
+r_eci = np.array([-2436.45, -2436.45, 6891.04]) * 1000  # m
+v_eci = np.array([-5.654, 4.830, 2.312]) * 1000  # m/s
+jd = 2451545.0 + 26 * 365.25 + 154  # Approximate JD for 2026-06-03
+
+r_ecef, v_ecef = eci_to_ecef(r_eci, v_eci, jd)
+
+print(f"  ECI Position:  [{r_eci[0]/1000:.2f}, {r_eci[1]/1000:.2f}, {r_eci[2]/1000:.2f}] km")
+print(f"  ECI Velocity:  [{v_eci[0]/1000:.3f}, {v_eci[1]/1000:.3f}, {v_eci[2]/1000:.3f}] km/s")
+print(f"  GMST: {np.degrees(gmst_rad(jd)):.2f}°")
+print(f"  ECEF Position: [{r_ecef[0]/1000:.2f}, {r_ecef[1]/1000:.2f}, {r_ecef[2]/1000:.2f}] km")
+print(f"  ECEF Velocity: [{v_ecef[0]/1000:.3f}, {v_ecef[1]/1000:.3f}, {v_ecef[2]/1000:.3f}] km/s")
+
+# Satellite ground track
+lat_sat, lon_sat, alt_sat = ecef_to_geodetic(*r_ecef)
+print(f"\n  Satellite sub-point: {lat_sat:.2f}°, {lon_sat:.2f}°")
+print(f"  Satellite altitude: {alt_sat/1000:.1f} km")
+
+# Antenna pointing calculation
+print("\n4. Antenna Pointing Calculation")
+print("-" * 70)
+
+station = {"name": "NOAA Fairbanks", "lat": 64.8378, "lon": -147.7164, "alt": 156}
+el, az = satellite_elevation_azimuth(r_ecef, station["lat"], station["lon"], station["alt"])
+
+print(f"  Ground station: {station['name']}")
+print(f"  Station location: {station['lat']:.4f}°N, {abs(station['lon']):.4f}°W")
+print(f"  Satellite elevation: {el:.2f}°")
+print(f"  Satellite azimuth: {az:.2f}°")
+
+if el > 5:
+    print("  Status: Satellite VISIBLE (above horizon)")
+else:
+    print("  Status: Satellite NOT VISIBLE (below horizon)")
+
+# WGS84 ellipsoid properties
+print("\n5. WGS84 Ellipsoid Properties")
+print("-" * 70)
+
+print(f"  Semi-major axis (a): {WGS84_A:.3f} m")
+print(f"  Semi-minor axis (b): {WGS84_B:.3f} m")
+print(f"  Flattening (f): 1/{1/WGS84_F:.9f}")
+print(f"  Eccentricity² (e²): {WGS84_E2:.11f}")
+print(f"  Equatorial bulge (a-b): {WGS84_A - WGS84_B:.3f} m")
+print(f"  Earth rotation rate: {OMEGA_EARTH:.9e} rad/s")
+print(f"  Equatorial surface speed: {OMEGA_EARTH * WGS84_A:.1f} m/s")
+```
+
+**Key ECEF properties:**
+
+| Property | WGS84 Value |
+|----------|-------------|
+| Origin | Earth center of mass |
+| X-axis | Equator/Prime Meridian intersection |
+| Z-axis | Conventional Terrestrial Pole |
+| Rotation | With Earth (~15°/hour) |
+| Semi-major axis | 6,378,137.0 m |
+| Flattening | 1/298.257223563 |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Geodetic vs geocentric latitude.** They differ by up to 0.19° at 45° latitude. GPS uses geodetic.
+
+2. **Altitude reference.** WGS84 altitude is above ellipsoid, not mean sea level (geoid). Difference up to ±100m.
+
+3. **Forgetting Earth rotation for velocity.** ECEF velocity includes Earth rotation. ECI to ECEF velocity transform needs ω×r term.
+
+4. **Mixing datums.** WGS84, NAD83, ITRF differ by cm-m. Mixing them corrupts precision.
+
+5. **Assuming spherical Earth.** Using R_earth = 6371 km instead of WGS84 ellipsoid causes km-level errors at high latitudes.
+
+6. **ECEF for orbit propagation.** Never propagate orbits in ECEF — fictitious forces make equations complex. Use ECI, then transform.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- NGA, "Department of Defense World Geodetic System 1984" (WGS84 specification)
+- IERS Conventions (2010) — ITRF definition
+- GPS Interface Control Document (IS-GPS-200)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [ECI Frame](/en/space/reference-frames-and-time-systems/eci-frame/) — the inertial frame for orbit propagation
+- [Frame Transformations](/en/space/reference-frames-and-time-systems/frame-transformations/) — converting between all frames
+- [Time Systems](/en/space/reference-frames-and-time-systems/time-systems-ut1-utc-tai/) — the time scales that drive ECI↔ECEF conversion
+
+</section>

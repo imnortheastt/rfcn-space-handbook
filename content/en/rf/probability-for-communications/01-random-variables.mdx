@@ -8,12 +8,12 @@ track: r0
 unit: probability-for-communications
 order: 1
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 14
 prerequisites: []
 spiralRevisits: []
 title: "Random variables"
 description: "Probability fundamentals for communication systems."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -25,9 +25,15 @@ status: published
 
 <section class="lesson-hook">
 
-## Why random variables?
+## Why wireless systems need probability
 
-Wireless signals are inherently random — noise is random, fading is random, interference is random. To design communication systems that work reliably, you need to describe and manipulate these random quantities mathematically. Random variables are the foundation.
+You deploy a microservice behind a load balancer. Under normal conditions, the response time is 50 ms. Occasionally — when a garbage collection cycle fires, or a cache misses, or a noisy neighbor spikes — it jumps to 500 ms. You characterize this with a histogram: most requests are fast, rare ones are slow. You set a p99 latency target.
+
+Wireless communication has the same structure, but the randomness is physical and unavoidable. The signal arriving at a receiver is not a clean copy of what was sent. Thermal noise from electron jitter, multipath reflections that randomly add or cancel, interference from neighboring cells, shadowing from buildings — all of these are random processes. You cannot eliminate them. You can only characterize them statistically and design systems that work reliably despite them.
+
+**Random variables** are the mathematical tool for this characterization. A random variable assigns a number to each possible outcome of a random experiment. Instead of tracking every possible scenario, you describe the signal with a probability distribution. Design decisions — how much power to transmit, what modulation to use, how much redundancy to add — all flow from understanding these distributions.
+
+If you want to design a system that achieves BER of $10^{-6}$ in Rayleigh fading, you must understand what a Rayleigh distribution is and how to compute tail probabilities. There is no shortcut.
 
 </section>
 
@@ -35,9 +41,19 @@ Wireless signals are inherently random — noise is random, fading is random, in
 
 ## Intuition
 
-A random variable assigns a number to each outcome of a random experiment. Instead of tracking every possible scenario, you work with probability distributions that summarize what's likely to happen.
+A random variable $X$ is a function that maps outcomes of a random experiment to real numbers. The random experiment could be "measure the received signal amplitude" or "generate one sample of thermal noise." The outcome is a specific number each time you run the experiment.
 
-Think of it as replacing "the signal could be anywhere from -1 to +1" with "the signal is uniformly distributed on [-1, 1]."
+The key insight: you do not need to know the exact outcome in advance. You need to know the **probability distribution** — how likely each range of values is.
+
+**Discrete vs. continuous:**
+- Discrete: $X$ takes on countable values (number of bit errors in a packet)
+- Continuous: $X$ takes on any value in a range (received signal voltage)
+
+For wireless communications, the important quantities — noise voltage, channel amplitude, interference power — are continuous. They are described by **probability density functions (PDFs)**, which tell you how the probability is distributed over the range of values.
+
+Think of a PDF as a histogram with infinitely narrow bins, normalized so the total area under the curve is 1. The height of the curve at $x$ is not the probability of getting exactly $x$ (that is always zero for a continuous variable), but the probability density — the probability per unit $x$.
+
+**Why this matters for system design:** Communication systems often fail in the tails of distributions, not at the mean. A BER of $10^{-6}$ means one bit in a million is wrong — this is determined entirely by the tail of the noise distribution, not by the average noise level. Understanding distributions, especially their tails, is the core skill.
 
 </section>
 
@@ -47,67 +63,118 @@ Think of it as replacing "the signal could be anywhere from -1 to +1" with "the 
 
 ### Probability density function (PDF)
 
-For continuous random variable X:
+For a continuous random variable $X$, the PDF $f_X(x)$ satisfies:
 
-$$f_X(x) = \frac{dF_X(x)}{dx}$$
+$$P(a \leq X \leq b) = \int_a^b f_X(x) \, dx$$
 
-Properties:
-- $f_X(x) \geq 0$
-- $\int_{-\infty}^{\infty} f_X(x) \, dx = 1$
+Two required properties:
+- $f_X(x) \geq 0$ for all $x$ (density is non-negative)
+- $\int_{-\infty}^{\infty} f_X(x) \, dx = 1$ (total probability equals 1)
 
-Probability: $P(a < X < b) = \int_a^b f_X(x) \, dx$
+Note that $f_X(x)$ itself can exceed 1 — it is a density, not a probability.
 
 ### Cumulative distribution function (CDF)
+
+The CDF $F_X(x)$ gives the probability that $X$ does not exceed $x$:
 
 $$F_X(x) = P(X \leq x) = \int_{-\infty}^{x} f_X(t) \, dt$$
 
 Properties:
-- $0 \leq F_X(x) \leq 1$
-- Monotonically non-decreasing
+- $0 \leq F_X(x) \leq 1$ for all $x$
+- $F_X$ is non-decreasing
 - $\lim_{x \to -\infty} F_X(x) = 0$, $\lim_{x \to \infty} F_X(x) = 1$
+- $f_X(x) = dF_X(x)/dx$ (PDF is the derivative of CDF)
 
-### Expected value (mean)
+The CDF is what you use for outage calculations: "What fraction of time does the SNR fall below the threshold?" = $F_\text{SNR}(\text{threshold})$.
+
+### Expected value and variance
+
+The **expected value** (mean) is the probability-weighted average:
 
 $$\mu = E[X] = \int_{-\infty}^{\infty} x \cdot f_X(x) \, dx$$
 
-For function g(X):
+For a function $g(X)$:
 $$E[g(X)] = \int_{-\infty}^{\infty} g(x) \cdot f_X(x) \, dx$$
 
-### Variance
-
+The **variance** measures spread around the mean:
 $$\sigma^2 = \text{Var}(X) = E[(X - \mu)^2] = E[X^2] - (E[X])^2$$
 
-Standard deviation: $\sigma = \sqrt{\text{Var}(X)}$
+The **standard deviation** $\sigma = \sqrt{\text{Var}(X)}$ has the same units as $X$.
 
-### Key distributions for RF
+For power calculations: if $X$ is a zero-mean voltage, $E[X^2] = \sigma^2$ is the average power (in units of $V^2$/Ω, or normalized to 1 Ω).
 
-**Gaussian (Normal):**
-$$f_X(x) = \frac{1}{\sqrt{2\pi\sigma^2}} e^{-\frac{(x-\mu)^2}{2\sigma^2}}$$
+### Gaussian (Normal) distribution
 
-Models thermal noise, sum of many independent sources.
+$$f_X(x) = \frac{1}{\sqrt{2\pi\sigma^2}} \exp\!\left(-\frac{(x-\mu)^2}{2\sigma^2}\right)$$
 
-**Rayleigh:**
-$$f_R(r) = \frac{r}{\sigma^2} e^{-\frac{r^2}{2\sigma^2}}, \quad r \geq 0$$
+Parameters: mean $\mu$, variance $\sigma^2$. Written $X \sim \mathcal{N}(\mu, \sigma^2)$.
 
-Models envelope of complex Gaussian (fading amplitude).
+**Why it dominates:** The Central Limit Theorem says the sum of many independent random variables, each with finite variance, converges to Gaussian regardless of the individual distributions. Thermal noise is the sum of contributions from $\sim 10^{23}$ electrons — it is Gaussian to extraordinary precision.
 
-**Exponential:**
-$$f_X(x) = \lambda e^{-\lambda x}, \quad x \geq 0$$
+The standard Gaussian has $\mu = 0$, $\sigma^2 = 1$, written $Z \sim \mathcal{N}(0, 1)$.
 
-Models fading power ($|h|^2$ when h is complex Gaussian).
+Key property: if $X \sim \mathcal{N}(\mu_1, \sigma_1^2)$ and $Y \sim \mathcal{N}(\mu_2, \sigma_2^2)$ are independent, then:
+$$X + Y \sim \mathcal{N}(\mu_1 + \mu_2, \sigma_1^2 + \sigma_2^2)$$
 
-**Rician:**
-$$f_R(r) = \frac{r}{\sigma^2} e^{-\frac{r^2 + s^2}{2\sigma^2}} I_0\left(\frac{rs}{\sigma^2}\right)$$
+Gaussian noise sources add in power (variance), not in amplitude. Two −90 dBm noise sources combine to about −87 dBm, not −180 dBm.
 
-Models fading with LOS component.
+### Q-function: the Gaussian tail
 
-### Q-function
+$$Q(x) = P(Z > x) = \frac{1}{\sqrt{2\pi}} \int_x^{\infty} e^{-t^2/2} \, dt = \frac{1}{2}\operatorname{erfc}\!\left(\frac{x}{\sqrt{2}}\right)$$
 
-Tail probability of standard Gaussian:
+The Q-function gives the probability that a standard Gaussian exceeds $x$. It is the fundamental tool for BER calculations. Key values:
 
-$$Q(x) = \frac{1}{\sqrt{2\pi}} \int_x^{\infty} e^{-t^2/2} \, dt = \frac{1}{2}\text{erfc}\left(\frac{x}{\sqrt{2}}\right)$$
+| $x$ | $Q(x)$ |
+|---|---|
+| 1 | 0.159 |
+| 2 | 0.023 |
+| 3 | $1.35 \times 10^{-3}$ |
+| 4 | $3.17 \times 10^{-5}$ |
+| 5 | $2.87 \times 10^{-7}$ |
 
-Used for BER calculations.
+Each additional unit of $x$ cuts the tail probability by roughly a factor of 10. This extreme sensitivity of the tail to the argument is why SNR improvements of even 1–2 dB can change BER by orders of magnitude.
+
+### Rayleigh distribution
+
+When the received signal is the sum of many multipath components with random phases and amplitudes — none dominant — the envelope (amplitude) follows a Rayleigh distribution:
+
+$$f_R(r) = \frac{r}{\sigma^2} \exp\!\left(-\frac{r^2}{2\sigma^2}\right), \quad r \geq 0$$
+
+This arises from $R = \sqrt{X^2 + Y^2}$ where $X, Y \sim \mathcal{N}(0, \sigma^2)$ are independent (in-phase and quadrature components of the received phasor).
+
+Mean: $E[R] = \sigma\sqrt{\pi/2}$
+
+Mean power: $E[R^2] = 2\sigma^2$
+
+CDF: $F_R(r) = 1 - \exp(-r^2/(2\sigma^2))$
+
+The power $P = R^2$ follows an exponential distribution with mean $2\sigma^2$.
+
+### Rician distribution
+
+When there is a strong line-of-sight (LOS) component of amplitude $s$ in addition to scattered components:
+
+$$f_R(r) = \frac{r}{\sigma^2} \exp\!\left(-\frac{r^2 + s^2}{2\sigma^2}\right) I_0\!\left(\frac{rs}{\sigma^2}\right), \quad r \geq 0$$
+
+where $I_0$ is the modified Bessel function of the first kind, order zero.
+
+The **K-factor** $K = s^2/(2\sigma^2)$ is the ratio of LOS power to scattered power. $K = 0$ gives Rayleigh; $K \to \infty$ gives a deterministic (no fading) channel.
+
+Typical K-factors: 0–1 (dense urban, heavy scattering), 5–10 (suburban LOS), 10–20 (open field LOS).
+
+### Exponential distribution
+
+The power in a Rayleigh fading channel follows an exponential distribution:
+
+$$f_X(x) = \frac{1}{\bar{x}} \exp\!\left(-\frac{x}{\bar{x}}\right), \quad x \geq 0$$
+
+where $\bar{x} = E[X]$ is the mean power.
+
+CDF: $F_X(x) = 1 - \exp(-x/\bar{x})$
+
+This is used for outage probability calculations. The probability that the instantaneous SNR falls below a threshold $\gamma_0$ given average SNR $\bar{\gamma}$:
+
+$$P_\text{out} = 1 - \exp\!\left(-\frac{\gamma_0}{\bar{\gamma}}\right)$$
 
 </section>
 
@@ -115,39 +182,55 @@ Used for BER calculations.
 
 ## Apply
 
-**Example: Thermal noise power**
+**Example 1: Thermal noise power**
 
-Noise follows $n \sim \mathcal{N}(0, \sigma^2)$.
+Thermal noise is $n \sim \mathcal{N}(0, \sigma^2)$.
 
-Power: $E[n^2] = \sigma^2$
+Average power: $E[n^2] = \sigma^2$
 
-For $\sigma^2 = 10^{-12}$ W: noise power = -90 dBm.
+At room temperature, noise power spectral density: $N_0 = kT = 1.38 \times 10^{-23} \times 290 = 4 \times 10^{-21}$ W/Hz = −174 dBm/Hz.
 
-**Example: Rayleigh fading probability**
+For bandwidth $B = 10$ MHz: $\sigma^2 = N_0 B = 4 \times 10^{-21} \times 10^7 = 4 \times 10^{-14}$ W = −104 dBm.
 
-Channel amplitude h is Rayleigh with $E[|h|^2] = 1$.
+Standard deviation (RMS noise voltage across 50 Ω): $\sigma = \sqrt{4 \times 10^{-14} \times 50} \approx 45$ μV.
 
-Probability of deep fade ($|h|^2 < 0.1$):
+**Example 2: Rayleigh fading deep-fade probability**
 
-$$P(|h|^2 < 0.1) = 1 - e^{-0.1} \approx 9.5\%$$
+Channel amplitude $R$ is Rayleigh with mean power $E[R^2] = 1$ (normalized), so $\sigma^2 = 0.5$.
 
-~10% of the time, you lose 10 dB.
+Probability of a 10 dB deep fade (instantaneous power more than 10 dB below mean, i.e., $R^2 < 0.1$):
 
-**Example: Outage calculation**
+$$P(R^2 < 0.1) = F_R(\sqrt{0.1}) = 1 - e^{-0.1/(2\times 0.5)} = 1 - e^{-0.1} \approx 9.5\%$$
 
-Required SNR: 10 dB. Average SNR: 20 dB.
+About 1 in 10 channel samples falls more than 10 dB below the mean. This is why diversity and coding are essential in mobile systems.
 
-For Rayleigh fading: outage occurs when instantaneous SNR < 10 dB.
+**Example 3: Outage calculation for LTE**
 
-$$P_{out} = 1 - e^{-10/100} = 1 - e^{-0.1} \approx 9.5\%$$
+Required SNR for 16-QAM at target BER: $\gamma_0 = 12$ dB = 15.8 (linear).
+Average received SNR: $\bar{\gamma} = 20$ dB = 100 (linear).
 
-**Example: Sum of Gaussians**
+In Rayleigh fading, outage probability:
 
-If $X \sim \mathcal{N}(\mu_1, \sigma_1^2)$ and $Y \sim \mathcal{N}(\mu_2, \sigma_2^2)$ independent:
+$$P_\text{out} = 1 - e^{-15.8/100} = 1 - e^{-0.158} \approx 14.6\%$$
 
-$$X + Y \sim \mathcal{N}(\mu_1 + \mu_2, \sigma_1^2 + \sigma_2^2)$$
+14.6% outage — unacceptable for voice. This is why LTE uses HARQ (hybrid ARQ retransmission) and adaptive modulation to handle fading channels.
 
-Two noise sources with -90 dBm and -93 dBm: total ≈ -87 dBm.
+**Example 4: Adding independent Gaussian noise sources**
+
+LNA thermal noise: $\sigma_1^2 = -104$ dBm = $4 \times 10^{-14}$ W.
+Phase noise from oscillator leakage: $\sigma_2^2 = -110$ dBm = $10^{-14}$ W.
+
+Total noise power (linear): $\sigma^2 = (4 + 1) \times 10^{-14} = 5 \times 10^{-14}$ W = $10\log_{10}(5 \times 10^{-14}/10^{-3}) \approx -103$ dBm.
+
+Note: −104 dBm + (−110 dBm) ≠ −207 dBm. Powers add linearly, not logarithmically.
+
+**Example 5: Q-function for reliability target**
+
+A system requires BER = $10^{-5}$. The BER for BPSK in AWGN is $Q(\sqrt{2E_b/N_0})$.
+
+We need $Q(x) = 10^{-5}$, which gives $x \approx 4.26$ (from tables or numerical computation).
+
+So $\sqrt{2E_b/N_0} = 4.26$, giving $E_b/N_0 = 4.26^2/2 = 9.07 = 9.6$ dB.
 
 </section>
 
@@ -155,15 +238,17 @@ Two noise sources with -90 dBm and -93 dBm: total ≈ -87 dBm.
 
 ## Pitfalls
 
-1. **Confusing PDF and CDF.** PDF gives probability density (can exceed 1); CDF gives cumulative probability (always ≤ 1).
+1. **PDF vs. CDF confusion.** PDF values can exceed 1 (it is a density). CDF values are always between 0 and 1. For "what fraction of time is the SNR below X," use the CDF, not the PDF.
 
-2. **Forgetting independence.** Many formulas assume independent random variables. Correlated variables need joint distributions.
+2. **Independence assumption.** Many results (variance of sum = sum of variances, CLT) require independence. Correlated noise sources (e.g., phase noise affecting both I and Q simultaneously) require joint distributions or correlation coefficients.
 
-3. **Wrong units.** Noise power in linear vs. dB. Always convert to linear for calculations, then back to dB.
+3. **Gaussian tails fall off faster than you think.** $Q(5) \approx 3 \times 10^{-7}$. A BER of $10^{-9}$ requires $Q^{-1}(10^{-9}) \approx 6$, which means $E_b/N_0 \approx 12.6$ dB. The required SNR grows only slowly with BER target — each decade of BER improvement costs about 1 dB for BPSK.
 
-4. **Assuming Gaussian.** Central limit theorem requires many independent sources. Few dominant interferers aren't Gaussian.
+4. **CLT requires many independent sources.** A single dominant interferer is not Gaussian — it is whatever distribution the interferer has. The Gaussian approximation fails badly for interference-limited systems (like dense cellular) if you model a few strong interferers as Gaussian noise.
 
-5. **Ignoring tails.** Communication systems care about rare events (10⁻⁶ BER). The distribution tail matters more than the mean.
+5. **Mean power vs. mean amplitude.** For Rayleigh fading, $E[R^2]$ (mean power) $\neq (E[R])^2$ (squared mean amplitude). Link budget calculations use mean power, not mean amplitude.
+
+6. **Outage probability vs. average BER.** Average BER integrates BER over the fading distribution. Outage probability asks how often SNR falls below a threshold. These answer different design questions — outage is for voice (care about continuous coverage); average BER is for data (care about overall error rate).
 
 </section>
 
@@ -171,8 +256,9 @@ Two noise sources with -90 dBm and -93 dBm: total ≈ -87 dBm.
 
 ## References
 
-- Papoulis and Pillai, *Probability, Random Variables, and Stochastic Processes*, Chapters 4-5.
-- Proakis and Salehi, *Digital Communications*, Chapter 2.
-- Tse and Viswanath, *Fundamentals of Wireless Communication*, Appendix A.
+- Papoulis, A. & Pillai, S.U., *Probability, Random Variables, and Stochastic Processes*, 4th ed., Chapters 4–5 — foundational treatment of continuous distributions.
+- Proakis, J.G. & Salehi, M., *Digital Communications*, 5th ed., Chapter 2 — distributions for communications.
+- Tse, D. & Viswanath, P., *Fundamentals of Wireless Communication*, Appendix A — fading distributions and outage.
+- Goldsmith, A., *Wireless Communications*, Chapter 3 — statistical channel models and their implications for system design.
 
 </section>

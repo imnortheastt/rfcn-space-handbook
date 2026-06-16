@@ -8,17 +8,419 @@ track: n3
 unit: network-functions-overview
 order: 4
 level: L3
-estimatedReadingMinutes: 5
-title: "AUSF va UDM — Xac thuc va quan ly du lieu"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-network-functions-overview-01-amf"]
+spiralRevisits: ["core-network-n4-security-01-5g-aka"]
+title: "AUSF va UDM — Xac Thuc va Du Lieu Thue Bao"
+description: "Nen tang bao mat va du lieu — cach 5G xac thuc nguoi dung va quan ly thue bao."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 33.501"]
+tags: ["ausf", "udm", "5g", "authentication", "subscriber-data"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# AUSF va UDM — Xac thuc va quan ly du lieu
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Khi ban lap SIM va ket noi voi mang 5G, hai dieu xay ra: mang xac minh ban la thue bao thuc (**xac thuc**), va lay du lieu thue bao cua ban (**ban la ai va duoc phep lam gi**).
+
+**AUSF** xu ly xac thuc. **UDM** quan ly du lieu thue bao. Cung nhau, chung la nen tang tin tuong cua 5G.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### AUSF va UDM trong kien truc
+
+```
+Luong xac thuc va du lieu:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ┌─────────┐                          │
+│                    │   UDR   │ (database)               │
+│                    └────▲────┘                          │
+│                         │ Nudr                          │
+│                         │                                │
+│  ┌─────────┐      ┌─────┴─────┐      ┌─────────┐       │
+│  │   AMF   │◄────►│    UDM    │◄────►│  AUSF   │       │
+│  └─────────┘ Nudm │           │ Nausf└────▲────┘       │
+│       │           │ Quan ly   │           │            │
+│       │           │ du lieu TB │           │            │
+│       │           └───────────┘           │            │
+│       │                                    │            │
+│       └────────────────────────────────────┘            │
+│              Yeu cau xac thuc                           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Luong:** AMF yeu cau AUSF xac thuc → AUSF hoi UDM lay thong tin xac thuc → UDM lay tu UDR → xac thuc hoan tat.
+
+### Moi chuc nang lam gi
+
+| Chuc nang | Trach nhiem |
+|-----------|-------------|
+| **AUSF** | Thuc hien 5G-AKA/EAP-AKA', xac thuc danh tinh UE |
+| **UDM** | Du lieu thue bao, tao thong tin xac thuc, quan ly dang ky |
+| **UDR** | Luu tru database (kho du lieu khong trang thai) |
+
+### Tu 4G HSS sang 5G UDM/AUSF
+
+```
+4G HSS:
+┌─────────────────────────────────────────────────────────┐
+│                         HSS                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Tao Auth    │ Du lieu │ Cap nhat  │ Danh cho │    │
+│  │ Vector      │ thue bao│ vi tri    │ EPC      │    │
+│  └─────────────────────────────────────────────────┘    │
+│  Monolithic, chuc nang ket hop                          │
+└─────────────────────────────────────────────────────────┘
+
+5G UDM/AUSF:
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────┐      ┌─────────┐      ┌─────────┐         │
+│  │  AUSF   │      │   UDM   │      │   UDR   │         │
+│  │         │      │         │      │         │         │
+│  │ Chi     │◄────►│ Quan ly │◄────►│ Chi     │         │
+│  │ Auth    │      │ du lieu │      │ luu tru │         │
+│  └─────────┘      └─────────┘      └─────────┘         │
+│                                                          │
+│  Tach biet, co the scale, cloud-native                  │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Loi ich:** Scale xac thuc doc lap voi quan ly du lieu.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Dich vu AUSF
+
+```
+Dich vu AUSF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nausf_UEAuthentication                                 │
+│  ├── Authenticate              (bat dau xac thuc)      │
+│  └── 5G-AKA Confirmation      (xac nhan ket qua)       │
+│                                                          │
+│  Nausf_SoRProtection                                    │
+│  └── Protect                   (dieu huong roaming)    │
+│                                                          │
+│  Nausf_UPUProtection                                    │
+│  └── Protect                   (cap nhat tham so UE)   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Dich vu UDM
+
+```
+Dich vu UDM:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nudm_UEAuthentication                                  │
+│  ├── GenerateAuthData          (tao auth vector)       │
+│  ├── ConfirmAuth               (xac nhan ket qua)      │
+│  └── GetAuthData               (lay thong tin xac thuc)│
+│                                                          │
+│  Nudm_SubscriberDataManagement (SDM)                    │
+│  ├── Get                       (doc thue bao)          │
+│  ├── Subscribe                 (thong bao thay doi)    │
+│  ├── Unsubscribe                                        │
+│  └── Modify                    (cap nhat du lieu)      │
+│                                                          │
+│  Nudm_UEContextManagement (UECM)                        │
+│  ├── Registration              (UE dang ky tai AMF)    │
+│  ├── Deregistration            (UE roi di)             │
+│  └── Update                    (thay doi context)      │
+│                                                          │
+│  Nudm_ParameterProvision (PP)                           │
+│  └── Update                    (cung cap tham so)      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Luong xac thuc 5G-AKA
+
+```
+Xac thuc 5G-AKA:
+
+UE            AMF           AUSF           UDM            UDR
+│              │              │              │              │
+│ Reg Request  │              │              │              │
+│─────────────►│              │              │              │
+│              │              │              │              │
+│              │ Nausf_Auth   │              │              │
+│              │ Authenticate │              │              │
+│              │─────────────►│              │              │
+│              │              │              │              │
+│              │              │ Nudm_UEAuth  │              │
+│              │              │ GetAuthData  │              │
+│              │              │─────────────►│              │
+│              │              │              │              │
+│              │              │              │ Lay creds    │
+│              │              │              │─────────────►│
+│              │              │              │              │
+│              │              │              │ K, OPc, SQN  │
+│              │              │              │◄─────────────│
+│              │              │              │              │
+│              │              │ Auth Vector  │              │
+│              │              │ (RAND, AUTN, │              │
+│              │              │  XRES*, KAUSF)              │
+│              │              │◄─────────────│              │
+│              │              │              │              │
+│              │ Auth Vector  │              │              │
+│              │◄─────────────│              │              │
+│              │              │              │              │
+│ Auth Request │              │              │              │
+│ (RAND, AUTN) │              │              │              │
+│◄─────────────│              │              │              │
+│              │              │              │              │
+│   ┌──────────┴──────────┐   │              │              │
+│   │ UE xac thuc AUTN     │   │              │              │
+│   │ UE tinh RES*         │   │              │              │
+│   └──────────┬──────────┘   │              │              │
+│              │              │              │              │
+│ Auth Response│              │              │              │
+│ (RES*)       │              │              │              │
+│─────────────►│              │              │              │
+│              │              │              │              │
+│              │ Xac nhan     │              │              │
+│              │ (RES*)       │              │              │
+│              │─────────────►│              │              │
+│              │              │              │              │
+│              │     ┌────────┴────────┐     │              │
+│              │     │ So sanh RES*    │     │              │
+│              │     │ voi XRES*       │     │              │
+│              │     └────────┬────────┘     │              │
+│              │              │              │              │
+│              │ Auth Success │              │              │
+│              │ (KSEAF)      │              │              │
+│              │◄─────────────│              │              │
+│              │              │              │              │
+```
+
+**Khoa duoc tao:**
+- KAUSF: Khoa Authentication Server Function
+- KSEAF: Khoa Security Anchor Function (AMF dung)
+- KAMF: Khoa Access and Mobility Management Function
+
+### Cau truc du lieu thue bao
+
+```
+Du lieu thue bao UDM:
+
+┌─────────────────────────────────────────────────────────┐
+│  Ban ghi thue bao (moi SUPI)                            │
+│                                                          │
+│  Danh tinh:                                             │
+│  ├── SUPI: imsi-452021123456789                        │
+│  ├── GPSI: msisdn-+84901234567                         │
+│  └── PEI: imeisv-35123456789012                        │
+│                                                          │
+│  Xac thuc:                                              │
+│  ├── K: khoa vinh vien (128-bit)                       │
+│  ├── OPc: khoa operator (dan xuat tu K)                │
+│  ├── SQN: so thu tu (chong replay)                     │
+│  └── Truong AMF: truong quan ly xac thuc               │
+│                                                          │
+│  Thue bao Access & Mobility:                            │
+│  ├── NSSAI mac dinh: [SST=1, SST=2]                    │
+│  ├── NSSAI cho phep moi PLMN                           │
+│  ├── Han che RAT: chi NR / 4G+5G                       │
+│  └── Han che vung: TAI cho phep                        │
+│                                                          │
+│  Thue bao Session Management:                           │
+│  ├── Cau hinh DNN                                       │
+│  │   └── "internet": IPv4, QoS 9, khong IP tinh        │
+│  ├── AMBR Session: 100 Mbps DL / 50 Mbps UL            │
+│  └── 5QI mac dinh moi DNN                              │
+│                                                          │
+│  Roaming:                                               │
+│  ├── Roaming cho phep: co/khong                        │
+│  └── Du lieu dieu huong roaming                         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### UDR — kho du lieu
+
+```
+Kien truc UDR:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UDR = Kho du lieu khong trang thai                     │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                    UDR                           │    │
+│  │  ┌───────────────────────────────────────────┐  │    │
+│  │  │ Du lieu thue bao      (tu UDM)            │  │    │
+│  │  │ Du lieu policy        (tu PCF)            │  │    │
+│  │  │ Du lieu co cau truc   (tu NEF)            │  │    │
+│  │  │ Du lieu ung dung      (tu AF)             │  │    │
+│  │  └───────────────────────────────────────────┘  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                          │                               │
+│                    ┌─────▼─────┐                        │
+│                    │ Database  │                        │
+│                    │ (SQL/NoSQL)│                       │
+│                    └───────────┘                        │
+│                                                          │
+│  Giao dien Nudr: thao tac CRUD chuan                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Tai sao UDR?** Tach luu tru khoi logic. UDM/PCF/NEF chia se cung kho du lieu.
+
+### Quan ly dang ky
+
+```
+Theo doi dang ky UDM:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Khi UE dang ky tai AMF:                                │
+│                                                          │
+│  AMF ─── Nudm_UECM_Registration ───► UDM               │
+│                                                          │
+│  UDM luu:                                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ SUPI: 452021123456789                           │    │
+│  │ AMF phuc vu: amf-region1.5gc.operator.vn        │    │
+│  │ Loai truy cap: 3GPP (NR)                        │    │
+│  │ Thoi gian dang ky: 2026-06-03T10:15:00Z         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Muc dich:                                              │
+│  - Route cuoc goi/SMS MT den AMF dung                  │
+│  - Ngan dang ky kep                                     │
+│  - Huy dang ky tu AMF cu khi di dong                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cau hinh AUSF:**
+
+| Tham so | Muc dich |
+|---------|----------|
+| PLMN ID | Mang phuc vu |
+| UDM peer | Endpoint UDM |
+| Dai SUPI | Thue bao phuc vu |
+| Dan xuat khoa | Chon thuat toan |
+
+**Cau hinh UDM:**
+
+| Tham so | Muc dich |
+|---------|----------|
+| PLMN ID | Mang goc |
+| Endpoint UDR | Kho du lieu |
+| Dai SUPI | Thue bao quan ly |
+| NSSAI mac dinh | Cau hinh slice mac dinh |
+
+**Cung cap thue bao:**
+
+```yaml
+# Vi du du lieu thue bao UDM
+supi: "imsi-452021123456789"
+gpsi:
+  - "msisdn-+84901234567"
+authentication:
+  authMethod: "5G_AKA"
+  encPermanentKey: "base64-encoded-K"
+  encOpcKey: "base64-encoded-OPc"
+accessAndMobilitySubscription:
+  nssai:
+    defaultSingleNssais:
+      - sst: 1
+      - sst: 2
+        sd: "000001"
+  ratRestrictions: []
+  subscribedUeAmbr:
+    uplink: "100 Mbps"
+    downlink: "500 Mbps"
+sessionManagement:
+  - dnn: "internet"
+    sscModes:
+      defaultSscMode: "SSC_MODE_1"
+    pduSessionTypes:
+      defaultSessionType: "IPV4"
+```
+
+**Xu ly su co:**
+
+| Van de | Kiem tra |
+|--------|----------|
+| Xac thuc that bai | K/OPc khop giua UE va UDR |
+| Dong bo SQN | Thu tuc resync, SQN trong UDR |
+| Khong tim thay thue bao | SUPI da cung cap, UDR truy cap duoc |
+| Slice sai | NSSAI mac dinh cau hinh |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **AUSF luu du lieu thue bao (sai).** AUSF chi thuc hien xac thuc. UDM/UDR luu du lieu.
+
+2. **Van de dong bo SQN.** Neu SQN UE va mang lech, xac thuc that bai. Trien khai thu tuc resync.
+
+3. **K/OPc khong khop.** Khoa vinh vien phai khop chinh xac giua USIM va UDR. Bat ky khong khop = that bai xac thuc.
+
+4. **Bo qua roaming.** UDM can cau hinh dieu huong roaming (SoR) cho mang di dong.
+
+5. **UDR la diem loi duy nhat.** UDR giu tat ca du lieu thue bao. Lap ke hoach cho du phong va backup.
+
+6. **Cung ma NSSAI.** NSSAI mac dinh/cho phep nen lay tu thue bao, khong cung ma trong AMF/SMF.
+
+7. **Thieu dang ky UECM.** Neu UDM khong biet UE dang ky o dau, dich vu MT that bai.
+
+8. **Timeout xac thuc.** Do tre AUSF/UDM anh huong thoi gian dang ky. Giam sat thoi gian phan hoi SBI.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.501, "System architecture for 5G System"
+- 3GPP TS 33.501, "Security architecture and procedures"
+- 3GPP TS 29.509, "AUSF Services"
+- 3GPP TS 29.503, "UDM Services"
+- 3GPP TS 29.504, "UDR Services"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [NRF, NSSF, PCF, NEF](/vi/core-network/network-functions-overview/nrf-nssf-pcf-nef/) — cac chuc nang ho tro
+- [5G-AKA chi tiet](/vi/core-network/security/5g-aka/) — giao thuc xac thuc
+- [SUPI va SUCI](/vi/core-network/identifiers/supi-and-suci/) — bao ve danh tinh
+
+</section>

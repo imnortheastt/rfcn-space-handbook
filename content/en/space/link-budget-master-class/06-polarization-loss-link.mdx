@@ -9,16 +9,494 @@ unit: link-budget-master-class
 order: 6
 level: L3
 estimatedReadingMinutes: 5
-title: "Polarization loss"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "Polarization Loss"
+description: "Polarization mismatch, axial ratio, and cross-pol isolation."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["polarization", "axial-ratio", "cross-pol", "circular", "linear"]
+widgets: ["LinkBudget"]
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Polarization loss
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Polarization is the orientation of the electric field as it propagates. If your transmitter sends right-hand circular and your receiver expects left-hand circular, you lose nearly all the signal—potentially 20+ dB. Even with matched polarization, imperfect antennas and Faraday rotation in the ionosphere cause losses. Understanding polarization loss helps you choose the right polarization scheme, specify antenna quality, and budget for real-world impairments.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Polarization types
+
+```
+Electric Field Orientation Over Time:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LINEAR POLARIZATION (Horizontal or Vertical)                       │
+│                                                                      │
+│    y                    y                                           │
+│    │    ↕               │ ←→                                        │
+│    │    ↕               │ ←→                                        │
+│    │    ↕               │ ←→                                        │
+│    └────────→ z         └────────→ z                                │
+│    Vertical             Horizontal                                  │
+│                                                                      │
+│  CIRCULAR POLARIZATION (RHCP or LHCP)                              │
+│                                                                      │
+│    y                                                                │
+│    │    ↺  ← E-field tip traces circle as wave propagates          │
+│    │                                                                │
+│    │                                                                │
+│    └────────→ z                                                     │
+│                                                                      │
+│    RHCP: clockwise when looking toward propagation                 │
+│    LHCP: counter-clockwise when looking toward propagation         │
+│                                                                      │
+│  ELLIPTICAL POLARIZATION                                            │
+│                                                                      │
+│    y                                                                │
+│    │    ⬭  ← E-field tip traces ellipse (imperfect circular)       │
+│    │                                                                │
+│    │                                                                │
+│    └────────→ z                                                     │
+│                                                                      │
+│  All real antennas produce slightly elliptical polarization.       │
+│  Axial ratio (AR) measures how circular: AR = 1 (0 dB) is perfect. │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Polarization mismatch
+
+```
+What Happens When Polarizations Don't Match:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MATCHED POLARIZATION: No loss                                      │
+│                                                                      │
+│  TX: ↕ (Vertical)    RX: ↕ (Vertical)    → 0 dB loss               │
+│  TX: ↺ (RHCP)        RX: ↺ (RHCP)        → 0 dB loss               │
+│                                                                      │
+│  ORTHOGONAL POLARIZATION: Total loss (cross-pol isolation)         │
+│                                                                      │
+│  TX: ↕ (Vertical)    RX: ↔ (Horizontal)  → ~20-30 dB loss         │
+│  TX: ↺ (RHCP)        RX: ↻ (LHCP)        → ~20-30 dB loss         │
+│                                                                      │
+│  PARTIAL MISMATCH: cos²(θ) loss                                    │
+│                                                                      │
+│  TX: ↕ (V)           RX: ↗ (45° tilt)    → 3 dB loss               │
+│  TX: ↕ (V)           RX: ↺ (RHCP)        → 3 dB loss               │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  KEY INSIGHT:                                         │         │
+│  │                                                        │         │
+│  │  Linear-to-Linear: L = 20 log|cos(θ)|   (θ = tilt)   │         │
+│  │  Linear-to-Circular: Always 3 dB loss                │         │
+│  │  Circular-to-Circular (same hand): ~0 dB             │         │
+│  │  Circular-to-Circular (opposite): ~20+ dB loss       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Axial ratio and polarization loss
+
+```
+Axial Ratio (AR) — Measuring Polarization Purity:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  AR = (major axis) / (minor axis) of polarization ellipse          │
+│                                                                      │
+│  Perfect circular: AR = 1 (0 dB)                                   │
+│  Perfect linear:   AR = ∞ (∞ dB)                                   │
+│  Typical antenna:  AR = 1.2-2 (1.5-6 dB)                           │
+│                                                                      │
+│  AR in dB = 20 × log₁₀(AR_linear)                                  │
+│                                                                      │
+│  POLARIZATION LOSS FROM AXIAL RATIO MISMATCH:                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  For two CP antennas with same handedness:            │         │
+│  │                                                        │         │
+│  │  L_pol = 10 log[(1 + (AR₁×AR₂)²) / (2×AR₁×AR₂)]     │         │
+│  │                                                        │         │
+│  │  Simplified for matched AR antennas:                  │         │
+│  │                                                        │         │
+│  │  AR (dB) │ Loss (matched AR, same hand)              │         │
+│  │  ────────┼─────────────────────────────               │         │
+│  │  0 dB    │ 0 dB (perfect)                            │         │
+│  │  1 dB    │ 0.02 dB                                   │         │
+│  │  2 dB    │ 0.1 dB                                    │         │
+│  │  3 dB    │ 0.3 dB                                    │         │
+│  │  6 dB    │ 1.2 dB                                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  Note: AR < 3 dB is considered "good" circular polarization.      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Cross-polarization isolation
+
+```
+Cross-Pol Isolation (XPI) — Interference Between Polarizations:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Many satellite systems use dual polarization (frequency reuse):   │
+│                                                                      │
+│            Same frequency, orthogonal polarizations                │
+│                        │                                            │
+│  ┌─────────────────────┴─────────────────────┐                     │
+│  │                                            │                     │
+│  │  RHCP ↺                        LHCP ↻     │                     │
+│  │  Channel A                     Channel B  │                     │
+│  │  ────────────────────────────────────────  │                     │
+│  │                                            │                     │
+│  │  If XPI = 25 dB, Channel B sees           │                     │
+│  │  Channel A at -25 dB (interference)       │                     │
+│  │                                            │                     │
+│  └────────────────────────────────────────────┘                     │
+│                                                                      │
+│  XPI depends on:                                                    │
+│  • Antenna axial ratio (both TX and RX)                            │
+│  • Pointing error (degrades XPI off-axis)                          │
+│  • Rain depolarization (cross-pol increases in rain)               │
+│                                                                      │
+│  TYPICAL XPI VALUES:                                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  System                    │ XPI (dB)                 │         │
+│  │  ─────────────────────────┼────────────               │         │
+│  │  High-quality ground ant.  │ 30-35                    │         │
+│  │  Typical ground antenna    │ 25-30                    │         │
+│  │  Consumer VSAT             │ 20-25                    │         │
+│  │  During heavy rain (Ka)    │ 15-20                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  Rain depolarization can degrade XPI by 5-10 dB at Ka-band.       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Faraday rotation
+
+```
+Ionospheric Faraday Rotation — LP Signal Rotation:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Earth's magnetic field + ionospheric plasma rotate LP signals.    │
+│                                                                      │
+│           Satellite (LP transmit)                                   │
+│               │ ↕                                                   │
+│               │                                                      │
+│  ════════════ │ ════════  Ionosphere                               │
+│               │ ↗   ← Signal rotates θ degrees                     │
+│               │                                                      │
+│               ▼ ↗                                                   │
+│           Ground Station                                            │
+│                                                                      │
+│  ROTATION ANGLE:                                                    │
+│                                                                      │
+│  θ ∝ TEC × B / f²                                                  │
+│                                                                      │
+│  Where:                                                             │
+│  TEC = Total Electron Content (varies with solar activity)        │
+│  B = Earth's magnetic field component along path                   │
+│  f = frequency                                                      │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Freq      │ Typical rotation │ Max rotation          │         │
+│  │  ──────────┼──────────────────┼───────────────         │         │
+│  │  1 GHz     │ 10-50°           │ 100°+                 │         │
+│  │  4 GHz     │ 1-5°             │ 10-20°                │         │
+│  │  12 GHz    │ 0.1-0.5°         │ 1-2°                  │         │
+│  │  30 GHz    │ < 0.1°           │ < 0.5°                │         │
+│  │                                                        │         │
+│  │  Below C-band: CP is strongly preferred               │         │
+│  │  Above Ku-band: LP is usually acceptable              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CP is IMMUNE to Faraday rotation (phase shifts, no amplitude).   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Why satellites use different polarizations
+
+```
+Polarization Choices by Application:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CIRCULAR POLARIZATION (RHCP/LHCP):                                │
+│  + Immune to Faraday rotation                                      │
+│  + Immune to orientation mismatch (mobile/VSAT)                    │
+│  + Good for LEO/MEO (changing geometry)                            │
+│  - 3 dB loss if received by linear antenna                         │
+│  - Harder to maintain low axial ratio                              │
+│                                                                      │
+│  Use: GPS, Iridium, mobile satcom, LEO constellations             │
+│                                                                      │
+│  LINEAR POLARIZATION (H/V):                                        │
+│  + Simpler antenna design                                          │
+│  + Better cross-pol isolation possible                             │
+│  + Easy frequency reuse (H and V on same freq)                    │
+│  - Requires orientation alignment                                   │
+│  - Faraday rotation at low frequencies                             │
+│                                                                      │
+│  Use: GEO DTH, fixed earth stations, Ku/Ka-band                   │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Band     │ Typical Choice │ Reason                   │         │
+│  │  ─────────┼────────────────┼──────────────────────    │         │
+│  │  L/S-band │ Circular       │ Faraday + mobile        │         │
+│  │  C-band   │ Linear         │ Fixed stations, legacy  │         │
+│  │  Ku-band  │ Linear         │ DTH, simple terminals   │         │
+│  │  Ka-band  │ Circular       │ Rain depol mitigation   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Polarization loss calculations:**
+
+```python
+import numpy as np
+
+def linear_pol_mismatch_db(angle_deg):
+    """
+    Polarization loss for linear-to-linear mismatch.
+    
+    L = 20 log|cos(θ)|
+    """
+    if angle_deg >= 90:
+        return float('inf')  # Orthogonal = infinite loss
+    
+    angle_rad = np.radians(angle_deg)
+    loss_db = -20 * np.log10(np.abs(np.cos(angle_rad)))
+    return loss_db
+
+def ar_db_to_linear(ar_db):
+    """Convert axial ratio from dB to linear."""
+    return 10 ** (ar_db / 20)
+
+def ar_linear_to_db(ar_linear):
+    """Convert axial ratio from linear to dB."""
+    return 20 * np.log10(ar_linear)
+
+def cp_pol_loss_same_hand(ar1_db, ar2_db):
+    """
+    Polarization loss for two CP antennas with same handedness.
+    
+    Both antennas have imperfect axial ratio.
+    """
+    ar1 = ar_db_to_linear(ar1_db)
+    ar2 = ar_db_to_linear(ar2_db)
+    
+    # Formula for co-polarized CP
+    numerator = 1 + (ar1 * ar2) ** 2
+    denominator = 2 * ar1 * ar2
+    
+    loss_db = 10 * np.log10(numerator / denominator)
+    return loss_db
+
+def cp_pol_loss_opposite_hand(ar1_db, ar2_db):
+    """
+    Polarization loss for two CP antennas with opposite handedness.
+    
+    This is the cross-pol rejection / isolation.
+    """
+    ar1 = ar_db_to_linear(ar1_db)
+    ar2 = ar_db_to_linear(ar2_db)
+    
+    # Formula for cross-polarized CP
+    numerator = (ar1 * ar2 + 1) ** 2
+    denominator = (ar1 * ar2 - 1) ** 2
+    
+    isolation_db = 10 * np.log10(numerator / denominator)
+    return isolation_db
+
+def linear_to_circular_loss():
+    """Linear-to-circular always has 3 dB loss."""
+    return 3.0
+
+# Example calculations
+print("Polarization Loss Analysis")
+print("=" * 60)
+
+# Linear mismatch
+print("\n1. Linear-to-Linear Polarization Mismatch")
+print("-" * 60)
+
+angles = [0, 5, 10, 15, 30, 45, 60, 75, 85]
+
+print(f"  {'Tilt Angle':<14} {'Loss (dB)':<12}")
+print("-" * 60)
+
+for angle in angles:
+    loss = linear_pol_mismatch_db(angle)
+    print(f"  {angle}°{' ':10} {loss:.2f}")
+
+print(f"\n  Note: 45° tilt = 3 dB loss (half power to each pol)")
+
+# Circular polarization with axial ratio
+print("\n2. Circular Polarization Loss (Same Handedness)")
+print("-" * 60)
+
+ar_values = [0, 1, 2, 3, 4, 6]
+
+print(f"  TX AR (dB)    RX AR (dB)    Loss (dB)")
+print("-" * 60)
+
+for ar_tx in [1, 2, 3]:
+    for ar_rx in [1, 2, 3]:
+        loss = cp_pol_loss_same_hand(ar_tx, ar_rx)
+        print(f"  {ar_tx:<12} {ar_rx:<12} {loss:.3f}")
+
+# Cross-pol isolation
+print("\n3. Cross-Pol Isolation (Opposite Handedness)")
+print("-" * 60)
+
+print(f"  TX AR (dB)    RX AR (dB)    Isolation (dB)")
+print("-" * 60)
+
+for ar_tx in [1, 2, 3, 6]:
+    for ar_rx in [1, 2, 3, 6]:
+        isolation = cp_pol_loss_opposite_hand(ar_tx, ar_rx)
+        print(f"  {ar_tx:<12} {ar_rx:<12} {isolation:.1f}")
+
+# System comparison
+print("\n4. Polarization Loss by Scenario")
+print("-" * 60)
+
+scenarios = [
+    ("Perfect CP match (AR=0dB)", "cp_same", 0, 0),
+    ("Typical CP match (AR=2dB)", "cp_same", 2, 2),
+    ("Poor CP match (AR=6dB)", "cp_same", 6, 6),
+    ("Linear 10° misalignment", "linear", 10, 0),
+    ("Linear 20° misalignment", "linear", 20, 0),
+    ("Linear to Circular", "lin_circ", 0, 0),
+    ("Opposite CP (AR=2dB)", "cp_opp", 2, 2),
+]
+
+print(f"  {'Scenario':<35} {'Loss/Isolation':<15}")
+print("-" * 60)
+
+for name, typ, ar1, ar2 in scenarios:
+    if typ == "cp_same":
+        loss = cp_pol_loss_same_hand(ar1, ar2)
+        print(f"  {name:<35} {loss:.2f} dB loss")
+    elif typ == "cp_opp":
+        iso = cp_pol_loss_opposite_hand(ar1, ar2)
+        print(f"  {name:<35} {iso:.1f} dB isolation")
+    elif typ == "linear":
+        loss = linear_pol_mismatch_db(ar1)
+        print(f"  {name:<35} {loss:.2f} dB loss")
+    else:
+        loss = linear_to_circular_loss()
+        print(f"  {name:<35} {loss:.1f} dB loss")
+
+# Link budget allocation
+print("\n5. Typical Polarization Loss Budgets")
+print("-" * 60)
+
+budgets = [
+    ("GEO DTH (Ku LP)", "0.1-0.3 dB", "Fixed alignment, good antennas"),
+    ("GEO VSAT (Ku LP)", "0.2-0.5 dB", "Manual alignment variance"),
+    ("LEO mobile (L/S CP)", "0.2-0.5 dB", "AR imperfections"),
+    ("Ka-band gateway (CP)", "0.1-0.3 dB", "High-quality feeds"),
+    ("Consumer GPS (CP)", "0.5-1.0 dB", "Low-cost antenna AR"),
+]
+
+print(f"  {'Application':<25} {'Budget':<12} {'Notes':<30}")
+print("-" * 60)
+
+for app, budget, notes in budgets:
+    print(f"  {app:<25} {budget:<12} {notes:<30}")
+```
+
+**Polarization loss reference:**
+
+| Scenario | Typical Loss |
+|----------|--------------|
+| Matched LP, good alignment | 0.1-0.3 dB |
+| Matched LP, 10° misalignment | 0.13 dB |
+| Matched LP, 20° misalignment | 0.5 dB |
+| Matched CP, AR=2 dB both | 0.1 dB |
+| Matched CP, AR=3 dB both | 0.3 dB |
+| Linear to Circular | 3.0 dB |
+| Opposite CP (cross-pol) | 20-30 dB isolation |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing loss with isolation.** Loss is same-pol degradation; isolation is rejection of orthogonal pol. Both matter but differently.
+
+2. **Ignoring Faraday rotation at L/S-band.** Below C-band, LP signals can rotate 10-50°. Use CP for mobile/LEO.
+
+3. **Assuming perfect CP.** Real antennas have AR = 1-6 dB. Budget 0.1-0.5 dB for CP mismatch.
+
+4. **Forgetting rain depolarization.** Heavy rain at Ka-band degrades XPI by 5-10 dB. Budget for it.
+
+5. **LP alignment for VSAT.** Manual alignment by installers varies ±5-10°. Budget 0.2-0.5 dB.
+
+6. **GPS receiver assumptions.** Consumer GPS antennas have AR = 3-6 dB. Budget accordingly.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- IEEE Std 145 (Antenna terminology)
+- ITU-R P.618 (Polarization effects in propagation)
+- Collin, "Antennas and Radiowave Propagation"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Pointing Loss](/en/space/link-budget-master-class/pointing-loss/) — another mismatch effect
+- [Atmospheric Losses](/en/space/link-budget-master-class/atmospheric-losses-itu-r-p618/) — including rain depol
+- [Link Budget Example](/en/space/link-budget-master-class/link-budget-example/) — putting it all together
+
+</section>

@@ -8,17 +8,433 @@ track: s1
 unit: maneuvers-and-delta-v
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "Bi-elliptic transfer"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Bi-elliptic Transfer — When Three Burns Beat Two"
+description: "Understanding the three-burn maneuver that can outperform Hohmann for large orbit changes."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["bi-elliptic", "orbital-mechanics", "delta-v", "transfer-orbit"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Bi-elliptic transfer
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Counter-intuitively, adding a third burn can sometimes use less fuel than the "optimal" Hohmann transfer. The bi-elliptic transfer exploits the Oberth effect—burning when you're moving fastest gives more energy change per unit fuel. For orbit changes with radius ratios greater than 11.94, bi-elliptic wins on delta-v. The trade-off: much longer transfer times.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The three-burn concept
+
+```
+Bi-elliptic Transfer Geometry:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                    Intermediate apoapsis (r_b)                      │
+│                            ★                                        │
+│                          ╱   ╲                                      │
+│                        ╱       ╲                                    │
+│                      ╱           ╲                                  │
+│    2nd ellipse     ╱               ╲   1st ellipse                 │
+│                  ╱                   ╲                              │
+│                ╱                       ╲                            │
+│              ╱      Target orbit (r₂)    ╲                          │
+│            │     ╭───────────────────╮     │                        │
+│           │    ╱                       ╲    │                       │
+│           │   │    Start orbit (r₁)     │   │                       │
+│           │   │      ╭───────╮         │    │                       │
+│           │   │     │   ●    │          │   │                       │
+│           │   │     │ Earth  │          │   │                       │
+│           │   │      ╰───────╯         │    │                       │
+│           │    ╲         ↑            ╱     │                       │
+│            │     ╰───────┼─────────╯      │                        │
+│              ╲       Burn #1            ╱                           │
+│                ╲                      ╱                             │
+│                  ╲       Burn #2 ←─ ╱                               │
+│                    ╲              ╱                                 │
+│                      ╲          ╱                                   │
+│                        ╲      ╱ Burn #3                             │
+│                          ╲  ╱   ↓                                   │
+│                            ★                                        │
+│                                                                      │
+│  THREE BURNS:                                                       │
+│  1. At r₁: Raise apoapsis to r_b (very high)                       │
+│  2. At r_b: Lower periapsis to r₂                                  │
+│  3. At r₂: Circularize at target orbit                             │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### The Oberth effect explanation
+
+```
+Why Bi-elliptic Can Beat Hohmann:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  OBERTH EFFECT:                                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Kinetic energy: KE = ½mv²                            │         │
+│  │                                                        │         │
+│  │  Change in KE from adding Δv:                        │         │
+│  │  ΔKE = ½m(v + Δv)² - ½mv² = m⋅v⋅Δv + ½m(Δv)²        │         │
+│  │                                                        │         │
+│  │  The m⋅v⋅Δv term means:                              │         │
+│  │  • Higher v → more energy per unit Δv               │         │
+│  │  • Burns at periapsis (high v) are more efficient   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  BI-ELLIPTIC STRATEGY:                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Burn #1 at periapsis (r₁): v is HIGH             │         │
+│  │     → Efficient boost to very high apoapsis          │         │
+│  │                                                        │         │
+│  │  2. Burn #2 at apoapsis (r_b): v is LOW              │         │
+│  │     → Cheap retro-burn (small Δv needed)             │         │
+│  │                                                        │         │
+│  │  3. Burn #3 at periapsis (r₂): v is HIGH             │         │
+│  │     → Efficient circularization                      │         │
+│  │                                                        │         │
+│  │  For large r₂/r₁, the savings at burns #1 and #3    │         │
+│  │  outweigh the cost of burn #2                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Delta-V equations
+
+```
+Bi-elliptic Delta-V Calculation:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  GIVEN:                                                             │
+│  • r₁ = initial orbit radius                                        │
+│  • r₂ = target orbit radius                                         │
+│  • r_b = intermediate apoapsis radius (r_b > r₂)                    │
+│  • μ = GM                                                           │
+│                                                                      │
+│  TRANSFER ELLIPSES:                                                 │
+│  • 1st ellipse: a₁ = (r₁ + r_b) / 2                                │
+│  • 2nd ellipse: a₂ = (r₂ + r_b) / 2                                │
+│                                                                      │
+│  DELTA-V EQUATIONS:                                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Burn #1 (at r₁):                                     │         │
+│  │  Δv₁ = √(μ(2/r₁ - 1/a₁)) - √(μ/r₁)                  │         │
+│  │                                                        │         │
+│  │  Burn #2 (at r_b):                                    │         │
+│  │  Δv₂ = |√(μ(2/r_b - 1/a₂)) - √(μ(2/r_b - 1/a₁))|    │         │
+│  │                                                        │         │
+│  │  Burn #3 (at r₂):                                     │         │
+│  │  Δv₃ = √(μ/r₂) - √(μ(2/r₂ - 1/a₂))                  │         │
+│  │                                                        │         │
+│  │  Total: Δv_total = |Δv₁| + |Δv₂| + |Δv₃|            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### When bi-elliptic beats Hohmann
+
+```
+Bi-elliptic vs Hohmann Decision Regions:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Let R = r₂/r₁ (target/initial radius ratio)                       │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  R < 11.94:    Hohmann ALWAYS wins                   │         │
+│  │                                                        │         │
+│  │  R = 11.94:    Hohmann = Bi-elliptic (infinite r_b)  │         │
+│  │                                                        │         │
+│  │  R > 11.94:    Bi-elliptic CAN win (depends on r_b)  │         │
+│  │                                                        │         │
+│  │  R > 15.58:    Bi-elliptic ALWAYS wins (any r_b > r₂)│         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PRACTICAL APPLICATIONS:                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Transfer          │ R ratio │ Winner              │  │         │
+│  │  ──────────────────┼─────────┼─────────────────────│  │         │
+│  │  LEO → GEO         │ 6.2     │ Hohmann             │  │         │
+│  │  LEO → Moon        │ 57      │ Bi-elliptic possible│  │         │
+│  │  Earth → Mars      │ 1.5     │ Hohmann             │  │         │
+│  │  Mercury → Pluto   │ ~100    │ Bi-elliptic         │  │         │
+│  │                                                        │         │
+│  │  Note: Time cost often outweighs Δv savings         │  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Transfer time comparison
+
+```
+Time Penalty of Bi-elliptic:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Transfer time = T₁/2 + T₂/2                                        │
+│                                                                      │
+│  Where:                                                             │
+│  T₁ = 2π√(a₁³/μ) (period of 1st ellipse)                           │
+│  T₂ = 2π√(a₂³/μ) (period of 2nd ellipse)                           │
+│                                                                      │
+│  EXAMPLE: LEO to Moon orbit                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  r₁ = 6,771 km (400 km altitude)                     │         │
+│  │  r₂ = 384,400 km (lunar distance)                    │         │
+│  │  r_b = 500,000 km (intermediate apoapsis)            │         │
+│  │                                                        │         │
+│  │  Hohmann transfer time: ~5 days                      │         │
+│  │  Bi-elliptic transfer time: ~15 days                 │         │
+│  │                                                        │         │
+│  │  Δv savings: ~50-100 m/s                             │         │
+│  │  Time penalty: +10 days                              │         │
+│  │                                                        │         │
+│  │  Trade-off rarely worth it for crewed missions!      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Bi-elliptic transfer calculations:**
+
+```python
+import numpy as np
+
+MU_EARTH = 398600.4418  # km³/s²
+
+def hohmann_delta_v(r1, r2, mu=MU_EARTH):
+    """Calculate Hohmann transfer delta-v."""
+    a_t = (r1 + r2) / 2
+    
+    v1_circ = np.sqrt(mu / r1)
+    v1_trans = np.sqrt(mu * (2/r1 - 1/a_t))
+    delta_v1 = v1_trans - v1_circ
+    
+    v2_circ = np.sqrt(mu / r2)
+    v2_trans = np.sqrt(mu * (2/r2 - 1/a_t))
+    delta_v2 = v2_circ - v2_trans
+    
+    return abs(delta_v1) + abs(delta_v2)
+
+def bielliptic_delta_v(r1, r2, rb, mu=MU_EARTH):
+    """
+    Calculate bi-elliptic transfer delta-v.
+    
+    Args:
+        r1: Initial orbit radius
+        r2: Target orbit radius
+        rb: Intermediate apoapsis radius (rb > max(r1, r2))
+        mu: Gravitational parameter
+    """
+    # Semi-major axes
+    a1 = (r1 + rb) / 2  # 1st transfer ellipse
+    a2 = (r2 + rb) / 2  # 2nd transfer ellipse
+    
+    # Burn 1: at r1, boost to 1st ellipse
+    v1_circ = np.sqrt(mu / r1)
+    v1_trans1 = np.sqrt(mu * (2/r1 - 1/a1))
+    delta_v1 = abs(v1_trans1 - v1_circ)
+    
+    # Burn 2: at rb, change to 2nd ellipse
+    v_rb_trans1 = np.sqrt(mu * (2/rb - 1/a1))
+    v_rb_trans2 = np.sqrt(mu * (2/rb - 1/a2))
+    delta_v2 = abs(v_rb_trans2 - v_rb_trans1)
+    
+    # Burn 3: at r2, circularize
+    v2_trans2 = np.sqrt(mu * (2/r2 - 1/a2))
+    v2_circ = np.sqrt(mu / r2)
+    delta_v3 = abs(v2_circ - v2_trans2)
+    
+    return delta_v1, delta_v2, delta_v3, delta_v1 + delta_v2 + delta_v3
+
+def bielliptic_time(r1, r2, rb, mu=MU_EARTH):
+    """Calculate bi-elliptic transfer time."""
+    a1 = (r1 + rb) / 2
+    a2 = (r2 + rb) / 2
+    
+    t1_half = np.pi * np.sqrt(a1**3 / mu)  # Half period of 1st ellipse
+    t2_half = np.pi * np.sqrt(a2**3 / mu)  # Half period of 2nd ellipse
+    
+    return (t1_half + t2_half) / 3600  # hours
+
+def find_optimal_rb(r1, r2, mu=MU_EARTH, rb_range=None):
+    """Find optimal rb that minimizes total delta-v."""
+    if rb_range is None:
+        rb_range = np.linspace(r2 * 1.1, r2 * 10, 100)
+    
+    best_rb = rb_range[0]
+    best_dv = float('inf')
+    
+    for rb in rb_range:
+        _, _, _, total = bielliptic_delta_v(r1, r2, rb, mu)
+        if total < best_dv:
+            best_dv = total
+            best_rb = rb
+    
+    return best_rb, best_dv
+
+# Example calculations
+print("Bi-elliptic Transfer Analysis")
+print("=" * 60)
+
+# Compare with Hohmann for different radius ratios
+print("\n1. Bi-elliptic vs Hohmann by Radius Ratio")
+print("-" * 60)
+
+r1 = 6771  # LEO radius (km)
+print(f"  Starting orbit: {r1} km radius")
+print(f"")
+print(f"  {'R ratio':>8} {'r₂ (km)':>12} {'Hohmann':>10} {'Bi-elliptic':>12} {'Winner':>10}")
+print(f"  {'':>8} {'':>12} {'(km/s)':>10} {'(km/s)':>12} {'':>10}")
+print("-" * 60)
+
+for ratio in [5, 10, 11.94, 15, 20, 50]:
+    r2 = r1 * ratio
+    dv_hoh = hohmann_delta_v(r1, r2)
+    
+    # Try different rb values to find best bi-elliptic
+    rb_opt, dv_bie = find_optimal_rb(r1, r2)
+    
+    winner = "Hohmann" if dv_hoh <= dv_bie else "Bi-elliptic"
+    print(f"  {ratio:>8.2f} {r2:>12.0f} {dv_hoh:>10.3f} {dv_bie:>12.3f} {winner:>10}")
+
+# Detailed breakdown for a specific case
+print("\n2. Detailed Bi-elliptic Breakdown (R = 50)")
+print("-" * 60)
+r1 = 6771
+r2 = r1 * 50  # ~338,550 km
+rb_values = [r2 * 1.5, r2 * 2, r2 * 5, r2 * 10]
+
+print(f"  r₁ = {r1} km, r₂ = {r2} km")
+print(f"  Hohmann Δv = {hohmann_delta_v(r1, r2):.3f} km/s")
+print(f"")
+print(f"  {'r_b (km)':>15} {'Δv₁':>8} {'Δv₂':>8} {'Δv₃':>8} {'Total':>8} {'Time':>10}")
+print(f"  {'':>15} {'(km/s)':>8} {'(km/s)':>8} {'(km/s)':>8} {'(km/s)':>8} {'(hours)':>10}")
+
+for rb in rb_values:
+    dv1, dv2, dv3, total = bielliptic_delta_v(r1, r2, rb)
+    time_h = bielliptic_time(r1, r2, rb)
+    print(f"  {rb:>15.0f} {dv1:>8.3f} {dv2:>8.3f} {dv3:>8.3f} {total:>8.3f} {time_h:>10.1f}")
+
+# Practical example: LEO to GEO
+print("\n3. Practical Case: LEO (400 km) to GEO")
+print("-" * 60)
+r_leo = 6771   # km
+r_geo = 42157  # km
+ratio = r_geo / r_leo
+
+print(f"  R ratio = {ratio:.2f}")
+print(f"")
+dv_hoh = hohmann_delta_v(r_leo, r_geo)
+print(f"  Hohmann Δv = {dv_hoh:.3f} km/s (optimal)")
+
+# Try bi-elliptic with various rb
+for rb_factor in [1.5, 2.0, 5.0]:
+    rb = r_geo * rb_factor
+    _, _, _, dv_bie = bielliptic_delta_v(r_leo, r_geo, rb)
+    time_h = bielliptic_time(r_leo, r_geo, rb)
+    print(f"  Bi-elliptic (rb={rb_factor}×r₂): Δv = {dv_bie:.3f} km/s, time = {time_h:.1f} h")
+
+print(f"\n  Verdict: Hohmann wins for LEO-GEO (R < 11.94)")
+
+# Critical radius ratio
+print("\n4. Critical Radius Ratios")
+print("-" * 60)
+print("  R = 11.94:  Hohmann = Bi-elliptic (with infinite r_b)")
+print("  R > 15.58:  Bi-elliptic always wins (any r_b > r₂)")
+print("")
+print("  Practical use cases:")
+print("  • Very high Earth orbits (R > 12)")
+print("  • Lunar transfers (R ≈ 57)")
+print("  • Deep space missions with time flexibility")
+```
+
+**Summary comparison:**
+
+| Scenario | R ratio | Hohmann Δv | Bi-elliptic Δv | Winner |
+|----------|---------|------------|----------------|--------|
+| LEO → GEO | 6.2 | 3.9 km/s | 4.5 km/s | Hohmann |
+| LEO → Moon | 57 | 3.8 km/s | 3.7 km/s | Bi-elliptic |
+| LEO → 100×r₁ | 100 | 4.1 km/s | 3.5 km/s | Bi-elliptic |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **R < 11.94 wastes fuel.** Bi-elliptic never beats Hohmann below this threshold; don't use it.
+
+2. **Time cost is severe.** Transfer time can be 3-10× longer; often not worth the delta-v savings.
+
+3. **Three burns = three failure points.** More engine restarts, more risk.
+
+4. **Radiation exposure.** High apoapsis passes through Van Allen belts; bad for electronics and crew.
+
+5. **Optimal r_b is infinite.** In practice, choose r_b based on time constraints, not minimum delta-v.
+
+6. **Ignores perturbations.** Real trajectories need corrections for Moon, Sun gravity.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Vallado, D.A. "Fundamentals of Astrodynamics and Applications"
+- Curtis, H. "Orbital Mechanics for Engineering Students"
+- Bate, Mueller, White "Fundamentals of Astrodynamics"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Hohmann Transfer](/en/space/maneuvers-and-delta-v/hohmann-transfer/) — the baseline comparison
+- [Plane Change](/en/space/maneuvers-and-delta-v/plane-change/) — combined plane+altitude changes
+- [Delta-V Budget](/en/space/maneuvers-and-delta-v/delta-v-budget/) — mission planning
+
+</section>

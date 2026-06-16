@@ -8,17 +8,511 @@ track: s7
 unit: leo-constellation-architecture
 order: 2
 level: L4
-estimatedReadingMinutes: 5
-title: "Lien ket ve tinh-ve tinh (ISL)"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["starlink-class-design", "optical-laser-isl"]
+spiralRevisits: []
+title: "Lien ket Lien Ve tinh cho Chom sao Sieu lon"
+description: "Cach chom sao LEO su dung ISL de dinh tuyen luu luong ma khong can chuyen tiep mat dat."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["isl", "lien-ket-laser", "mang-luoi", "starlink", "dinh-tuyen"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Lien ket ve tinh-ve tinh (ISL)
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Cac chom sao sieu lon nhu Starlink su dung lien ket lien ve tinh (ISL) de dinh tuyen luu luong qua khong gian thay vi phan hoi moi goi tin qua gateway mat dat. Dieu nay cho phep do tre thap hon cho cac tuyen duong dai, phu song tren dai duong noi khong co gateway, va giam chi phi ha tang mat dat. Hieu topo ISL va dinh tuyen la can thiet cho bat ky ai thiet ke hoac tich hop voi he thong bang rong LEO.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Tai sao dinh tuyen qua khong gian?
+
+```
+Khong co ISL (Bent-Pipe):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Nguoi dung A       Nguoi dung B                                    │
+│  (New York)         (London)                                        │
+│     │                  │                                            │
+│     ▼                  ▼                                            │
+│    🛰️                 🛰️                                           │
+│     │                  │                                            │
+│     ▼                  ▼                                            │
+│  Gateway A          Gateway B                                       │
+│  (NY)               (London)                                        │
+│     │                  │                                            │
+│     └────── Internet ──┘  ← ~100ms qua cap quang + dinh tuyen      │
+│                                                                      │
+│  Tong do tre: ~140ms (2 nhay len khong gian + transit internet)    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+
+Voi ISL (Mang luoi):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Nguoi dung A                              Nguoi dung B             │
+│  (New York)                                (London)                 │
+│     │                                         │                     │
+│     ▼                                         ▼                     │
+│    🛰️ ←──── ISL ────→ 🛰️ ←──── ISL ────→ 🛰️                      │
+│     │                   │                   │                       │
+│     │                   │                   │                       │
+│  (chi uplink)      (dinh tuyen KG)     (chi downlink)              │
+│                                                                      │
+│  Tong do tre: ~40ms (duong ngan hon, toc do anh sang chan khong)   │
+│                                                                      │
+│  Anh sang chan khong: 299,792 km/s (vs cap quang ~200,000 km/s)    │
+│  NYC-London: ~5,600 km (duong tron lon)                             │
+│  Duong khong gian: ~8,000 km (qua luoi ISL)                        │
+│  Khong gian: 8000/299792 × 2000 = 27ms                             │
+│  Cap quang: 5600/200000 × 2000 = 56ms ← ISL thang!                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Topo ISL trong chom sao sieu lon
+
+```
+Kien truc Luoi ISL Starlink:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MOI VE TINH CO 4 DAU CUOI ISL:                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │         TRONG MAT PHANG (cung mat phang quy dao)      │         │
+│  │                                                        │         │
+│  │         🛰️ ←── ISL 1 ──→ 🛰️ ←── ISL 1 ──→ 🛰️         │         │
+│  │          │                │                │          │         │
+│  │          │ ISL 3    ISL 4 │                │          │         │
+│  │          ▼                ▼                ▼          │         │
+│  │         🛰️ ←── ISL 1 ──→ 🛰️ ←── ISL 1 ──→ 🛰️ ← MP 2  │         │
+│  │          │                │                │          │         │
+│  │          │                │                │          │         │
+│  │          ▼                ▼                ▼          │         │
+│  │         🛰️ ←── ISL 1 ──→ 🛰️ ←── ISL 1 ──→ 🛰️ ← MP 3  │         │
+│  │                                                        │         │
+│  │  ISL 1, 2: Trong mat phang (lang gieng truoc/sau)    │         │
+│  │  ISL 3, 4: Lien mat phang (lang gieng trai/phai)     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DAC TINH LIEN KET:                                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Loai lien ket │ Khoang cach │ On dinh    │ Toc do DL │         │
+│  │  ──────────────┼─────────────┼────────────┼───────────│         │
+│  │  Trong MP      │ ~2,000 km   │ Rat on dinh│ 100 Gbps  │         │
+│  │  Lien MP       │ 500-5000 km │ Dong       │ 100 Gbps  │         │
+│  │                │             │ (thay doi  │           │         │
+│  │                │             │  theo vi do)│          │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Ngan sach lien ket ISL va cong nghe
+
+```
+Ngan sach Lien ket Quang ISL (lop Starlink):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  THAM SO ISL QUANG DIEN HINH:                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Tham so               │ Gia tri                      │         │
+│  │  ─────────────────────┼────────────────────────────  │         │
+│  │  Buoc song            │ 1550 nm                      │         │
+│  │  Cong suat Tx         │ 1 W (30 dBm)                │         │
+│  │  Khau do              │ 80 mm                        │         │
+│  │  Do phan ky chum      │ ~47 μrad                    │         │
+│  │  Khoang cach lien ket │ 2,000 km (trong mat phang)  │         │
+│  │  Ton that khong gian  │ ~289 dB                     │         │
+│  │  Tang ich kinh vien (Tx)│ ~113 dB                   │         │
+│  │  Tang ich kinh vien (Rx)│ ~113 dB                   │         │
+│  │  Ton that chi huong   │ ~3 dB                       │         │
+│  │  Cong suat nhan       │ ~-36 dBm                    │         │
+│  │  Do nhay may thu      │ ~-45 dBm @ 100 Gbps        │         │
+│  │  Du tru lien ket      │ ~9 dB                       │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KIEN TRUC DAU CUOI LASER:                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    ┌─────────────┐     ┌─────────────┐               │         │
+│  │    │ Laser Soi   │────→│ Co chuan &  │               │         │
+│  │    │ 1550nm, 1W  │     │ Kinh vien   │               │         │
+│  │    └─────────────┘     └──────┬──────┘               │         │
+│  │                               │                       │         │
+│  │                        ┌──────▼──────┐               │         │
+│  │                        │   Gimbal    │               │         │
+│  │                        │  hoac Chi   │               │         │
+│  │                        │  huong Tho  │               │         │
+│  │                        └──────┬──────┘               │         │
+│  │                               │                       │         │
+│  │                        ┌──────▼──────┐               │         │
+│  │    ┌─────────────┐     │    FSM      │  ← Guong     │         │
+│  │    │ Bo theo doi │←────│ (Lai Tinh)  │    Lai       │         │
+│  │    │ 4 o         │     └─────────────┘    Nhanh     │         │
+│  │    └─────────────┘                                    │         │
+│  │                                                        │         │
+│  │  Thu nhan: ~5-30 giay (quet xoan oc)                 │         │
+│  │  Do chinh xac theo doi: < 1 μrad                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Dinh tuyen trong luoi ISL
+
+```
+Chien luoc Dinh tuyen:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DINH TUYEN DUONG NGAN NHAT (dien hinh):                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Nguon: NYC (40.7°B, 74°T)                            │         │
+│  │  Dich: Tokyo (35.7°B, 139.7°D)                        │         │
+│  │                                                        │         │
+│  │       NYC        Dai Tay Duong    Chau Au      Chau A │         │
+│  │        ●━━━━━━━━━━━●━━━━━━━━━━━●━━━━━━━━━━━●         │         │
+│  │        ↑           │           │           ↓         │         │
+│  │     ND A       ISL hops    ISL hops      ND B        │         │
+│  │                                                        │         │
+│  │  Chon duong:                                          │         │
+│  │  1. Dijkstra/SPF tren do thi luoi                    │         │
+│  │  2. Chi so: do tre truyen + do sau hang doi          │         │
+│  │  3. Tinh lai moi vai giay (topo thay doi)            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  THACH THUC:                                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. VAN DE DUONG NOI CUC:                             │         │
+│  │     O vi do cao, cac mat phang quy dao hoi tu        │         │
+│  │     Lien ket lien MP tro nen rat ngan hoac dut       │         │
+│  │                                                        │         │
+│  │     ╱╲    ╱╲    ╱╲    ╱╲   ← Mat phang hoi tu       │         │
+│  │    ╱  ╲  ╱  ╲  ╱  ╲  ╱  ╲     tai cuc               │         │
+│  │   🛰️──X──🛰️──X──🛰️──X──🛰️  X = lien ket dut        │         │
+│  │                                                        │         │
+│  │  2. DUONG NOI (mat phang quay nguoc):                │         │
+│  │     Noi nut len va xuong gap nhau                    │         │
+│  │     Van toc tuong doi ~15 km/s → khong ISL on dinh  │         │
+│  │                                                        │         │
+│  │  3. TOPO DONG:                                        │         │
+│  │     ~5,000 thay doi lien ket/gio trong he 4,000 sat │         │
+│  │     Can dinh tuyen du doan (dung ephemeris)          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### So sanh ISL vs bent-pipe
+
+```
+So sanh Kien truc:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Chi so              │ Luoi ISL          │ Chi Bent-Pipe   │        │
+│  ────────────────────┼───────────────────┼─────────────────│        │
+│  RTT duong dai       │ 20-50 ms          │ 100-150 ms      │        │
+│  Phu song dai duong  │ Day du (ko gateway)│ Khong (ko relay)│        │
+│  Yeu cau gateway     │ It hon (~10-50)   │ Nhieu (~100s)   │        │
+│  Chi phi ve tinh     │ +$1-5M/sat (LCT)  │ Co ban          │        │
+│  Dung luong he thong │ Cao hon (offload) │ Gioi han gateway│        │
+│  Do phuc tap         │ Cao (dinh tuyen)  │ Don gian (chi L2)│       │
+│  Che do loi          │ Suy giam mem      │ Loi 1 gateway   │        │
+│                      │                   │ = mat dich vu   │        │
+│  ────────────────────┴───────────────────┴─────────────────│        │
+│                                                                      │
+│  CACH TIEP CAN KET HOP (Starlink thuc te):                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  - ISL cho transit duong dai va phu song dai duong   │         │
+│  │  - Gateway cho internet peering va local pop         │         │
+│  │  - Dinh tuyen quyet dinh: duong ISL vs drop gateway  │         │
+│  │                                                        │         │
+│  │     ND → Sat → ISL → ISL → Gateway → Internet        │         │
+│  │           ↓                                           │         │
+│  │     ND → Sat → Gateway → Internet  (neu gan hon)     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Bo mo phong dinh tuyen luoi ISL:**
+
+```python
+import numpy as np
+from collections import defaultdict
+import heapq
+
+# Hang so
+R_EARTH = 6371  # km
+C_VACUUM = 299792  # km/s
+
+def latlon_to_xyz(lat_deg, lon_deg, alt_km):
+    """Chuyen lat/lon/alt sang ECEF XYZ."""
+    lat = np.radians(lat_deg)
+    lon = np.radians(lon_deg)
+    r = R_EARTH + alt_km
+    x = r * np.cos(lat) * np.cos(lon)
+    y = r * np.cos(lat) * np.sin(lon)
+    z = r * np.sin(lat)
+    return np.array([x, y, z])
+
+def distance_3d(pos1, pos2):
+    """Khoang cach Euclid giua hai vi tri 3D."""
+    return np.linalg.norm(pos1 - pos2)
+
+def propagation_delay_ms(distance_km):
+    """Do tre truyen mot chieu tinh bang mili giay."""
+    return distance_km / C_VACUUM * 1000
+
+class MegaConstellation:
+    def __init__(self, n_planes, sats_per_plane, altitude_km, inclination_deg):
+        self.n_planes = n_planes
+        self.sats_per_plane = sats_per_plane
+        self.altitude = altitude_km
+        self.inclination = inclination_deg
+        self.satellites = {}
+        self.isl_links = []
+        self._generate_constellation()
+        self._generate_isl_links()
+    
+    def _generate_constellation(self):
+        """Tao vi tri ve tinh."""
+        for p in range(self.n_planes):
+            raan = 360 * p / self.n_planes
+            for s in range(self.sats_per_plane):
+                ta = 360 * s / self.sats_per_plane + (p * 360 / self.n_planes / self.sats_per_plane)
+                lat = self.inclination * np.sin(np.radians(ta))
+                lon = raan + ta * np.cos(np.radians(self.inclination))
+                lon = (lon + 180) % 360 - 180
+                
+                sat_id = (p, s)
+                self.satellites[sat_id] = {
+                    'lat': lat,
+                    'lon': lon,
+                    'alt': self.altitude,
+                    'pos': latlon_to_xyz(lat, lon, self.altitude),
+                    'plane': p,
+                    'slot': s
+                }
+    
+    def _generate_isl_links(self):
+        """Tao lien ket ISL (4 moi ve tinh)."""
+        for p in range(self.n_planes):
+            for s in range(self.sats_per_plane):
+                sat_id = (p, s)
+                
+                # Lien ket trong mat phang
+                for ds in [-1, 1]:
+                    neighbor_s = (s + ds) % self.sats_per_plane
+                    neighbor_id = (p, neighbor_s)
+                    link = tuple(sorted([sat_id, neighbor_id]))
+                    if link not in self.isl_links:
+                        self.isl_links.append(link)
+                
+                # Lien ket lien mat phang
+                for dp in [-1, 1]:
+                    neighbor_p = (p + dp) % self.n_planes
+                    neighbor_id = (neighbor_p, s)
+                    
+                    sat_pos = self.satellites[sat_id]['pos']
+                    neighbor_pos = self.satellites[neighbor_id]['pos']
+                    dist = distance_3d(sat_pos, neighbor_pos)
+                    
+                    if dist < 5000:
+                        link = tuple(sorted([sat_id, neighbor_id]))
+                        if link not in self.isl_links:
+                            self.isl_links.append(link)
+    
+    def build_graph(self):
+        """Xay dung do thi ke voi do tre truyen."""
+        graph = defaultdict(list)
+        for sat1, sat2 in self.isl_links:
+            dist = distance_3d(
+                self.satellites[sat1]['pos'],
+                self.satellites[sat2]['pos']
+            )
+            delay = propagation_delay_ms(dist)
+            graph[sat1].append((sat2, delay))
+            graph[sat2].append((sat1, delay))
+        return graph
+    
+    def find_closest_sat(self, lat, lon):
+        """Tim ve tinh gan nhat voi diem mat dat."""
+        ground_pos = latlon_to_xyz(lat, lon, 0)
+        min_dist = float('inf')
+        closest = None
+        for sat_id, sat in self.satellites.items():
+            dist = distance_3d(ground_pos, sat['pos'])
+            if dist < min_dist:
+                min_dist = dist
+                closest = sat_id
+        return closest, min_dist
+    
+    def dijkstra(self, source, destination):
+        """Tim duong ngan nhat (do tre toi thieu) giua hai ve tinh."""
+        graph = self.build_graph()
+        
+        dist = {sat: float('inf') for sat in self.satellites}
+        dist[source] = 0
+        prev = {sat: None for sat in self.satellites}
+        pq = [(0, source)]
+        
+        while pq:
+            d, u = heapq.heappop(pq)
+            if d > dist[u]:
+                continue
+            if u == destination:
+                break
+            for v, weight in graph[u]:
+                if dist[u] + weight < dist[v]:
+                    dist[v] = dist[u] + weight
+                    prev[v] = u
+                    heapq.heappush(pq, (dist[v], v))
+        
+        path = []
+        node = destination
+        while node is not None:
+            path.append(node)
+            node = prev[node]
+        path.reverse()
+        
+        return path, dist[destination]
+
+# Su dung vi du
+print("Mo phong Dinh tuyen ISL Chom sao Sieu lon LEO")
+print("=" * 60)
+
+constellation = MegaConstellation(
+    n_planes=18,
+    sats_per_plane=22,
+    altitude_km=550,
+    inclination_deg=53
+)
+
+print(f"\nChom sao: {len(constellation.satellites)} ve tinh")
+print(f"Lien ket ISL: {len(constellation.isl_links)}")
+print(f"Lien ket trung binh moi ve tinh: {2*len(constellation.isl_links)/len(constellation.satellites):.1f}")
+
+cities = [
+    ("New York", 40.7, -74.0),
+    ("London", 51.5, -0.1),
+    ("Tokyo", 35.7, 139.7),
+    ("Sydney", -33.9, 151.2),
+]
+
+print("\n" + "=" * 60)
+print("Tuyen Diem-toi-Diem")
+print("=" * 60)
+
+for i, (city1, lat1, lon1) in enumerate(cities):
+    for city2, lat2, lon2 in cities[i+1:]:
+        sat1, dist1 = constellation.find_closest_sat(lat1, lon1)
+        sat2, dist2 = constellation.find_closest_sat(lat2, lon2)
+        
+        path, isl_delay = constellation.dijkstra(sat1, sat2)
+        
+        uplink_delay = propagation_delay_ms(dist1)
+        downlink_delay = propagation_delay_ms(dist2)
+        total_delay = uplink_delay + isl_delay + downlink_delay
+        
+        from math import radians, sin, cos, asin, sqrt
+        lat1r, lon1r = radians(lat1), radians(lon1)
+        lat2r, lon2r = radians(lat2), radians(lon2)
+        dlat, dlon = lat2r - lat1r, lon2r - lon1r
+        a = sin(dlat/2)**2 + cos(lat1r)*cos(lat2r)*sin(dlon/2)**2
+        gc_dist = 2 * R_EARTH * asin(sqrt(a))
+        fiber_delay = gc_dist / 200 * 1000 * 2
+        
+        print(f"\n{city1} → {city2}:")
+        print(f"  Duong tron lon: {gc_dist:.0f} km")
+        print(f"  ISL hops: {len(path) - 1}")
+        print(f"  Do tre duong ISL: {isl_delay:.1f} ms")
+        print(f"  Tong RTT (khong gian): {total_delay * 2:.1f} ms")
+        print(f"  RTT cap quang uoc tinh: {fiber_delay:.1f} ms")
+```
+
+**Tom tat ISL:**
+
+| Tuyen | RTT ISL | RTT Cap quang | Thang |
+|-------|---------|---------------|-------|
+| NYC-London | ~45 ms | ~56 ms | ISL |
+| NYC-Tokyo | ~70 ms | ~108 ms | ISL |
+| NYC-Sydney | ~95 ms | ~158 ms | ISL |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Duong noi cuc.** Lien ket lien mat phang dut o vi do cao noi cac mat phang hoi tu.
+
+2. **Duong noi quay nguoc.** Khong co lien ket on dinh noi nut len va xuong giao nhau (~15 km/s van toc tuong doi).
+
+3. **Thoi gian thu nhan.** Thiet lap ISL moi mat 5-30 giay—khong the chuyen giao tuc thoi.
+
+4. **Can tro khi quyen.** Ria Trai Dat chan mot so duong; phai dinh tuyen vong.
+
+5. **Chi phi.** Moi dau cuoi laser them $1-5M vao chi phi ve tinh.
+
+6. **Do phuc tap dinh tuyen.** Topo thay doi ~5,000 lan/gio; can SDN tinh vi.
+
+7. **Loi mot lien ket.** Phai co duong du phong; luoi giup nhung them phuc tap.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Handley, M. "Delay is Not an Option: Low Latency Routing in Space"
+- SpaceX FCC Filing on Laser ISL Technology
+- Del Portillo et al. "A Technical Comparison of LEO vs MEO vs GEO"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Vi tri Gateway](/vi/space/leo-constellation-architecture/gateway-placement/) — ha tang mat dat
+- [Chuyen giao](/vi/space/leo-constellation-architecture/handover-between-satellites/) — chuyen buc xa
+- [Dong luc Dung luong](/vi/space/leo-constellation-architecture/capacity-dynamics/) — can bang tai
+
+</section>

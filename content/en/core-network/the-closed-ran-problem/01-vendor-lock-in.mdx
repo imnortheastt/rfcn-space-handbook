@@ -8,17 +8,370 @@ track: n6
 unit: the-closed-ran-problem
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "Vendor lock-in in RAN"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 8
+prerequisites: []
+spiralRevisits: []
+title: "Vendor Lock-in in RAN"
+description: "How proprietary RAN architectures create dependency, limit flexibility, and increase total cost of ownership."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["ran", "vendor-lock-in", "proprietary", "tco", "open-ran"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Vendor lock-in in RAN
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Traditional RAN deployments bind operators to single vendors for 7-10 years. This lock-in drives up costs, slows innovation, and limits deployment flexibility.
+
+Understanding vendor lock-in is the first step toward evaluating Open RAN alternatives.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Traditional RAN architecture
+
+```
+Proprietary (Closed) RAN:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Vendor A (Complete Stack)                              │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  ┌──────────────────────────────────────────────┐ │  │
+│  │  │             Vendor A RRU                      │ │  │
+│  │  │  - Proprietary radio hardware                │ │  │
+│  │  │  - Custom CPRI/OBSAI interface               │ │  │
+│  │  │  - Locked firmware                           │ │  │
+│  │  └──────────────────────────────────────────────┘ │  │
+│  │                     │                             │  │
+│  │         Proprietary fronthaul protocol            │  │
+│  │                     │                             │  │
+│  │  ┌──────────────────────────────────────────────┐ │  │
+│  │  │             Vendor A BBU                      │ │  │
+│  │  │  - Proprietary baseband HW                   │ │  │
+│  │  │  - Closed-source L1/L2/L3                    │ │  │
+│  │  │  - Custom management interface               │ │  │
+│  │  └──────────────────────────────────────────────┘ │  │
+│  │                     │                             │  │
+│  │  ┌──────────────────────────────────────────────┐ │  │
+│  │  │           Vendor A EMS/NMS                    │ │  │
+│  │  │  - Vendor-specific APIs                      │ │  │
+│  │  │  - Proprietary data models                   │ │  │
+│  │  │  - Limited integration options               │ │  │
+│  │  └──────────────────────────────────────────────┘ │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  All components MUST be from Vendor A                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Lock-in mechanisms
+
+```
+How Vendor Lock-in Happens:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Proprietary Interfaces                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ RRU ←──── Custom CPRI ────→ BBU                 │    │
+│  │                                                  │    │
+│  │ Vendor A's CPRI extension ≠ Vendor B's          │    │
+│  │ Cannot mix RRU from A with BBU from B           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  2. Closed-Source Software                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ L1 PHY: Binary blob, no source                  │    │
+│  │ L2 MAC: Proprietary scheduler                   │    │
+│  │ L3 RRC: Vendor-specific extensions              │    │
+│  │                                                  │    │
+│  │ Cannot port to different hardware               │    │
+│  │ Cannot modify behavior                          │    │
+│  │ Cannot fix bugs yourself                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  3. Hardware Dependencies                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Vendor A BBU = Custom ASIC/FPGA                 │    │
+│  │ Software compiled for that specific HW          │    │
+│  │                                                  │    │
+│  │ Upgrade BBU = Buy new hardware                  │    │
+│  │ Scale capacity = Buy vendor's expansion cards   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  4. Data Model Lock-in                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Vendor A config format ≠ Vendor B config format │    │
+│  │                                                  │    │
+│  │ PM counters: proprietary naming                 │    │
+│  │ Alarms: vendor-specific codes                   │    │
+│  │ KPIs: non-standard definitions                  │    │
+│  │                                                  │    │
+│  │ OSS integration = custom adapters per vendor    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Multi-vendor reality
+
+```
+Typical Operator Network (Multi-Vendor Problem):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Region A              Region B              Region C   │
+│  ┌──────────┐         ┌──────────┐         ┌──────────┐│
+│  │ Vendor X │         │ Vendor Y │         │ Vendor Z ││
+│  │          │         │          │         │          ││
+│  │ RRU-X    │         │ RRU-Y    │         │ RRU-Z    ││
+│  │ BBU-X    │         │ BBU-Y    │         │ BBU-Z    ││
+│  │ EMS-X    │         │ EMS-Y    │         │ EMS-Z    ││
+│  └──────────┘         └──────────┘         └──────────┘│
+│       │                    │                    │       │
+│       └────────────────────┼────────────────────┘       │
+│                            │                            │
+│                    ┌───────────────┐                    │
+│                    │  Operator OSS │                    │
+│                    │               │                    │
+│                    │ 3 different   │                    │
+│                    │ NBI adapters  │                    │
+│                    │ 3 PM formats  │                    │
+│                    │ 3 alarm codes │                    │
+│                    └───────────────┘                    │
+│                                                          │
+│  Each vendor = separate contract, support, training     │
+│  Cannot move equipment between regions                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### TCO impact
+
+```
+Total Cost of Ownership Breakdown:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Closed RAN TCO Components:                             │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ CAPEX (Year 0)                                  │    │
+│  │ ├── Hardware (RRU + BBU)         ~40%           │    │
+│  │ ├── Software licenses            ~25%           │    │
+│  │ ├── Installation/integration     ~15%           │    │
+│  │ └── Vendor services              ~20%           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ OPEX (Annual)                                   │    │
+│  │ ├── Software maintenance         ~35%           │    │
+│  │ ├── Hardware support             ~25%           │    │
+│  │ ├── Feature upgrades (paid)      ~20%           │    │
+│  │ └── Professional services        ~20%           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Hidden Costs:                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Mandatory capacity license per user/cell      │    │
+│  │ - Paid feature activation (CA, MIMO, etc.)      │    │
+│  │ - Upgrade path tied to new HW purchase          │    │
+│  │ - Contract renewal at vendor's terms            │    │
+│  │ - Integration cost with other vendors           │    │
+│  │ - Limited negotiation leverage                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Typical 7-year TCO: HW cost × 3-4x in services        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Upgrade constraints
+
+```
+Closed RAN Upgrade Path:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Want: Add 5G to existing 4G network                    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Scenario A: Same Vendor                         │    │
+│  │                                                  │    │
+│  │ Options:                                        │    │
+│  │ 1. Buy vendor's 5G upgrade kit ($$$$)           │    │
+│  │ 2. Replace entire BBU with new gen ($$$$)      │    │
+│  │ 3. Wait for vendor's roadmap (12-24 months)    │    │
+│  │                                                  │    │
+│  │ Result: Pay vendor's price, on vendor's timeline│    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Scenario B: Switch Vendor                       │    │
+│  │                                                  │    │
+│  │ Reality:                                        │    │
+│  │ - Cannot reuse existing RRU hardware            │    │
+│  │ - Cannot migrate configuration                  │    │
+│  │ - Must retrain operations team                  │    │
+│  │ - Must rebuild OSS integration                  │    │
+│  │                                                  │    │
+│  │ Result: Rip-and-replace ($$$$$), typically      │    │
+│  │ only done at network refresh (every 7-10 yrs)   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Innovation Constraint:                          │    │
+│  │                                                  │    │
+│  │ New feature available from Vendor B?            │    │
+│  │ → Cannot use, locked to Vendor A                │    │
+│  │                                                  │    │
+│  │ Startup has better ML-based optimization?       │    │
+│  │ → Cannot integrate, closed interfaces           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Market concentration
+
+```
+RAN Vendor Market (2020):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Global RAN Market Share:                               │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Ericsson    ████████████████████  ~35%         │    │
+│  │  Huawei      ███████████████████   ~30%         │    │
+│  │  Nokia       ███████████           ~18%         │    │
+│  │  Samsung     ████                  ~7%          │    │
+│  │  ZTE         ███                   ~6%          │    │
+│  │  Others      ██                    ~4%          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Implications:                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  - Top 3 vendors control 83% of market          │    │
+│  │  - Limited competition = higher prices          │    │
+│  │  - Supply chain risk (single source)            │    │
+│  │  - Geopolitical constraints (Huawei bans)       │    │
+│  │  - Barrier to entry for new players             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  If operator's primary vendor exits/banned:             │
+│  → No interop path, must rip and replace               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Lock-in assessment checklist:**
+
+| Question | Red Flag |
+|----------|----------|
+| Can you mix RRU from vendor A with BBU from vendor B? | No |
+| Are config/PM formats documented publicly? | No |
+| Can you run software on commodity hardware? | No |
+| Does contract allow 3rd-party integration? | Restricted |
+| Is feature activation separate from HW purchase? | Bundled |
+| Can you port investment to next-gen platform? | No |
+
+**Negotiation leverage points:**
+
+```bash
+# Questions to ask vendor during RFP:
+
+1. Interface documentation
+   "Provide complete CPRI/fronthaul interface spec"
+   → If refused, indicates proprietary lock-in intent
+
+2. Data portability
+   "Export all PM/CM data in standard format"
+   → If non-standard, will cost to migrate
+
+3. Software flexibility
+   "Run your stack on our choice of COTS hardware"
+   → If refused, hardware lock-in
+
+4. Multi-vendor clause
+   "Integrate with competitor's EMS via open API"
+   → Resistance indicates closed ecosystem
+
+5. Exit terms
+   "What data/configs do we retain if we switch?"
+   → Vague answer = trapped
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **"Open" claims.** Vendor claims "open" but only within their ecosystem. Demand proof of 3rd-party interop.
+
+2. **Feature creep licensing.** Basic HW cheap, but every feature (CA, MIMO, beamforming) sold separately.
+
+3. **Support dependency.** Cannot troubleshoot without vendor due to closed binaries. Operations team skill atrophies.
+
+4. **Contract auto-renewal.** Multi-year contract renews automatically. Miss window, locked for another term.
+
+5. **Training lock-in.** Staff trained only on one vendor's system. Institutional knowledge becomes vendor-specific.
+
+6. **Integration debt.** Years of custom OSS adapters for one vendor. Switching means rewriting everything.
+
+7. **Sunk cost fallacy.** "We've invested too much to switch." Continues paying premium indefinitely.
+
+8. **Roadmap alignment.** Vendor's 5G timeline doesn't match operator's launch date. No alternatives.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- TeleGeography, "Global RAN Market Analysis"
+- GSMA, "Open RAN Policy Position"
+- Dell'Oro Group, "RAN Market Share Reports"
+- Operator case studies: Rakuten, Dish Network
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [The Case for Open RAN](/en/core-network/the-closed-ran-problem/the-case-for-open-ran/) — why open is better
+- [O-RAN Split Options](/en/core-network/o-ran-functional-split/split-options-overview/) — how disaggregation works
+- [Vendor Testing Plugfests](/en/core-network/interoperability-promise-vs-reality/vendor-testing-plugfests/) — proving interop
+
+</section>

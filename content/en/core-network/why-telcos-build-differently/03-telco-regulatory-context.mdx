@@ -1,24 +1,283 @@
 ---
-id: core-network-n0-why-telcos-build-differently-03-telco-regulatory-context-en
+id: core-network-n1-why-telcos-build-differently-03-telco-regulatory-context-en
 slug: telco-regulatory-context
 lang: en
-parityId: core-network-n0-why-telcos-build-differently-03-telco-regulatory-context
+parityId: core-network-n1-why-telcos-build-differently-03-telco-regulatory-context
 domain: core-network
-track: n0
+track: n1
 unit: why-telcos-build-differently
 order: 3
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n1-why-telcos-build-differently-01-carrier-grade-requirements"]
+spiralRevisits: ["core-network-n5-security-and-privacy-01-lawful-interception"]
 title: "Telco regulatory context"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "How regulations shape telecom architecture — from lawful interception to data localization."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 33.127", "ETSI LI"]
+tags: ["regulation", "compliance", "lawful-interception", "telecom"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Telco regulatory context
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+You can't build telecom systems the way you build SaaS. Regulations mandate specific architectural choices.
+
+Want to deploy a 5G core? You must support lawful interception. Want to operate in Vietnam? User data must stay within borders. Want to use cloud infrastructure? It must meet security certification requirements.
+
+Understanding these constraints helps you see why telecom architectures look the way they do — and why some cloud-native patterns simply don't apply.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Telecom is a regulated industry. Unlike web apps where you can "move fast and break things," telcos operate under strict legal frameworks:
+
+| Regulatory area | What it means | Architectural impact |
+|-----------------|---------------|---------------------|
+| Lawful interception | Must provide call/data access to law enforcement | Dedicated LI interfaces, secure audit trails |
+| Data localization | User data must stay in-country | Regional deployments, no global databases |
+| Emergency services | Must connect emergency calls even without SIM | Special routing, priority handling |
+| Number portability | Users can keep numbers when switching carriers | Centralized number databases |
+| Universal service | Must serve rural/underserved areas | Coverage obligations, cross-subsidization |
+
+**Key insight:** These aren't optional features. They're legal requirements with criminal penalties for non-compliance.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Lawful Interception (LI)
+
+**Requirement:** Operators must provide authorized access to communications content and metadata upon legal request.
+
+**3GPP architecture:**
+
+```
+┌─────────────┐     ┌─────────────┐     ┌─────────────┐
+│   ADMF      │────►│    MF       │────►│    DF       │
+│ Admin Func  │     │ Mediation   │     │ Delivery    │
+└─────────────┘     └─────────────┘     └─────────────┘
+                           │
+                           ▼
+                    ┌─────────────┐
+                    │    LEA      │
+                    │ Law Enforce │
+                    └─────────────┘
+```
+
+- **ADMF (Administration Function):** Receives warrants, manages targets
+- **MF (Mediation Function):** Collects data from network functions
+- **DF (Delivery Function):** Delivers intercepted content to law enforcement
+
+**Architectural implications:**
+- Every network function must have LI interfaces
+- Content and metadata must be separable (different warrant types)
+- Interception must be undetectable to the target
+- All LI access must be logged and auditable
+- LI systems must have high availability (evidence must not be lost)
+
+### Data Sovereignty and Localization
+
+**Requirement:** User data must be stored and processed within national borders.
+
+**Examples:**
+- **Vietnam:** Decree 13/2023 requires data localization for certain services
+- **EU:** GDPR restricts transfers outside EU without adequate protection
+- **China:** Cybersecurity Law requires critical data to stay in China
+- **Russia:** Federal Law 242-FZ mandates citizen data storage in Russia
+
+**Architectural implications:**
+- No global databases — must deploy per-region
+- Cross-border data transfers require legal basis
+- Disaster recovery sites must be in-country or in approved regions
+- Cloud providers must have local presence
+- Subscriber data (SUPI, location) has stricter requirements than metadata
+
+**Design pattern:**
+
+```
+┌─────────────────────────────────────────┐
+│           Country A                      │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  │
+│  │  UDM    │  │  AMF    │  │  SMF    │  │
+│  │(local)  │  │         │  │         │  │
+│  └─────────┘  └─────────┘  └─────────┘  │
+│        │                                 │
+│  ┌─────┴─────┐                          │
+│  │  UDR      │  (subscriber data stays) │
+│  │ (local)   │                          │
+│  └───────────┘                          │
+└─────────────────────────────────────────┘
+
+┌─────────────────────────────────────────┐
+│           Country B                      │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐  │
+│  │  UDM    │  │  AMF    │  │  SMF    │  │
+│  │(local)  │  │         │  │         │  │
+│  └─────────┘  └─────────┘  └─────────┘  │
+│        │                                 │
+│  ┌─────┴─────┐                          │
+│  │  UDR      │  (separate instance)     │
+│  │ (local)   │                          │
+│  └───────────┘                          │
+└─────────────────────────────────────────┘
+```
+
+### Emergency Services
+
+**Requirement:** Emergency calls (112, 911, etc.) must always connect, with caller location.
+
+**Implications:**
+- Emergency calls work without SIM/subscription
+- Location must be provided to emergency services (E911, AML)
+- Emergency calls get priority over normal traffic
+- Network congestion cannot block emergency calls
+- Roaming users must reach local emergency services
+
+**5G implementation:**
+- **Emergency Registration:** UE can register without authentication
+- **IMS Emergency Sessions:** Dedicated emergency call handling
+- **Location Services:** AMF provides location to emergency center
+- **Priority:** QoS flow with highest priority (5QI=1)
+
+### Spectrum Licensing
+
+**Requirement:** Radio spectrum use requires government license.
+
+**Implications:**
+- Operators bid for spectrum (often billions of dollars)
+- Coverage obligations tied to licenses
+- Maximum power and interference limits
+- Specific bands for specific uses (public safety, commercial)
+- License renewal cycles affect long-term planning
+
+### Number Portability
+
+**Requirement:** Users can keep their phone number when switching operators.
+
+**Architecture:**
+- **NPDB (Number Portability Database):** Centralized or distributed database mapping numbers to operators
+- **Query routing:** Every call must check if the number has been ported
+- **Porting process:** Standardized handoff between operators
+
+**Impact on call routing:**
+```
+1. Caller dials number
+2. Originating network queries NPDB
+3. NPDB returns: "Number ported to Operator X"
+4. Call routes to Operator X
+5. Operator X delivers call to subscriber
+```
+
+### Security Certification
+
+**Requirement:** Network equipment must meet security standards.
+
+**Examples:**
+- **NESAS (Network Equipment Security Assurance Scheme):** 3GPP/GSMA security evaluation
+- **Common Criteria:** International security certification
+- **National certifications:** Country-specific requirements (e.g., BSI in Germany)
+
+**Implications:**
+- Vendor selection limited to certified equipment
+- Software updates must maintain certification
+- Security testing and audits required
+- Documentation and process requirements
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Checklist for new market entry:**
+
+1. **Lawful interception:**
+   - [ ] LI interfaces implemented per local standards (ETSI, CALEA, etc.)
+   - [ ] Secure delivery mechanism to LEA
+   - [ ] Audit logging for all LI activities
+   - [ ] Staff cleared for LI operations
+
+2. **Data localization:**
+   - [ ] Subscriber data stored in-country
+   - [ ] Identify what data can be processed abroad
+   - [ ] Establish legal basis for any cross-border transfers
+   - [ ] Document data flows for regulator
+
+3. **Emergency services:**
+   - [ ] Emergency numbers registered with local authorities
+   - [ ] Location services configured for local format
+   - [ ] Testing with local emergency centers
+   - [ ] Backup routing if primary path fails
+
+4. **Spectrum:**
+   - [ ] Licenses acquired or leased
+   - [ ] Coverage obligations understood
+   - [ ] Interference coordination with neighbors
+   - [ ] Compliance monitoring in place
+
+5. **Security:**
+   - [ ] Equipment certified for local market
+   - [ ] Security audit completed
+   - [ ] Incident response process documented
+   - [ ] Regular penetration testing scheduled
+
+**Vietnam-specific considerations:**
+
+- **MIC (Ministry of Information and Communications):** Primary regulator
+- **Decree 13/2023:** Data localization requirements
+- **Circular 38/2016/TT-BTTTT:** Lawful interception requirements
+- **Emergency number:** 113 (police), 114 (fire), 115 (ambulance)
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming regulations are uniform.** Every country has different requirements. What works in Europe may be illegal in Asia.
+
+2. **Underestimating LI complexity.** Lawful interception isn't "just logging." It requires secure delivery, warrant management, and undetectable operation.
+
+3. **Treating data localization as optional.** Penalties can include license revocation. This is existential risk.
+
+4. **Building first, checking regulations later.** Architecture decisions made early can be expensive to change. Check requirements before design.
+
+5. **Ignoring emergency services in testing.** Emergency call failures can result in deaths and criminal liability.
+
+6. **Forgetting roaming users.** Regulations apply to all users in your network, not just your subscribers.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 33.127, "Lawful Interception (LI) architecture and functions"
+- ETSI TS 102 232, "Lawful Interception; Handover Interface"
+- GSMA PRD NG.113, "5G Security Assurance"
+- Vietnam Decree 13/2023/ND-CP, "Personal Data Protection"
+- EU Regulation 2016/679 (GDPR)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Lawful interception architecture](/en/core-network/security-and-privacy/lawful-interception/) — deep dive into LI implementation
+- [5G security architecture](/en/core-network/security-and-privacy/5g-security-overview/) — how 5G addresses regulatory security requirements
+- [SEA telecom landscape](/en/core-network/vietnamese-telecom-open-ran/sea-open-ran-landscape/) — regional regulatory context
+
+</section>

@@ -9,16 +9,497 @@ unit: modulation-coding-satellite
 order: 5
 level: L4
 estimatedReadingMinutes: 5
-title: "Danh doi hieu qua pho tan"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "Danh doi Hieu suat Pho"
+description: "Hieu danh doi co ban giua thong luong va do ben lien ket."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["hieu-suat-pho", "gioi-han-shannon", "ngan-sach-lien-ket", "dung-luong"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Danh doi hieu qua pho tan
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Moi lien ket ve tinh deu doi mat voi rang buoc co ban giong nhau: ban co the co thong luong cao HOAC hoat dong ben trong dieu kien xau — khong the ca hai dong thoi. Danh doi nay chi phoi moi quyet dinh thiet ke tu kich thuoc anten tram den phan bo margin mua. Hieu danh doi hieu suat pho cho phep ban toi uu dung luong ma khong hy sinh tinh san sang, va giai thich tai sao cac dich vu khac nhau (truyen hinh quang ba vs bang rong hang hai) dua ra lua chon thiet ke hoan toan khac nhau.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Danh doi co ban
+
+```
+Danh doi Hieu suat Pho vs Margin Lien ket:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  VAN DE COT LOI                                                     │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────┐        │
+│  │                                                          │        │
+│  │  Ngan sach lien ket co dinh (EIRP, G/T, khoang cach)   │        │
+│  │  → C/N co dinh (ty so song mang tren nhieu)            │        │
+│  │                                                          │        │
+│  │  Ban phai CHI C/N do vao MOT trong:                    │        │
+│  │                                                          │        │
+│  │  ┌──────────────────────┐  ┌──────────────────────┐    │        │
+│  │  │                      │  │                      │    │        │
+│  │  │  Thong luong cao hon │  │  Margin lon hon      │    │        │
+│  │  │  (MODCOD mao hiem)   │  │  (MODCOD than trong) │    │        │
+│  │  │                      │  │                      │    │        │
+│  │  │  + Nhieu bit/Hz hon  │  │  + Song sot khi fade │    │        │
+│  │  │  - That bai khi mua  │  │  - Dung luong thap   │    │        │
+│  │  │                      │  │                      │    │        │
+│  │  └──────────────────────┘  └──────────────────────┘    │        │
+│  │                                                          │        │
+│  │  BAN KHONG THE CO CA HAI                                │        │
+│  │                                                          │        │
+│  └─────────────────────────────────────────────────────────┘        │
+│                                                                      │
+│  Day la dinh luat Shannon trong thuc te:                            │
+│  C = B × log₂(1 + SNR)                                             │
+│                                                                      │
+│  Voi bang thong B co dinh, dung luong C chi phu thuoc SNR.         │
+│  Nhieu margin hon (SNR van hanh thap hon) = it dung luong hon.     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Truc quan hoa duong cong danh doi
+
+```
+Hieu suat Pho vs Es/N0 Yeu cau:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Hieu suat                         Gioi han Shannon                 │
+│  Pho                                (toi da ly thuyet)             │
+│  (bps/Hz)                                ╱                          │
+│     6 ┤                               ╱                             │
+│       │                             ╱   256APSK 3/4 (S2X)          │
+│     5 ┤                           ╱  ●                              │
+│       │                         ╱       128APSK                    │
+│     4 ┤                       ╱      ● 32APSK 9/10                  │
+│       │                     ╱      ●                                │
+│     3 ┤                   ╱     ● 16APSK 3/4                       │
+│       │                 ╱    ●                                      │
+│     2 ┤               ╱  ● 8PSK 2/3                                │
+│       │             ╱ ●                                             │
+│     1 ┤          ╱● QPSK 3/4                                        │
+│       │        ╱●                                                   │
+│     0 ┤    ╱● QPSK 1/4                                              │
+│       └──●──────────────────────────────────────────────────────    │
+│         -2    0    2    4    6    8   10   12   14   16   18  dB   │
+│                    Es/N0 Yeu cau (dB)                               │
+│                                                                      │
+│  ● = Diem van hanh DVB-S2/S2X MODCOD                               │
+│                                                                      │
+│  NHAN XET QUAN TRONG:                                               │
+│  Moi buoc LEN duong cong ton NHIEU dB hon buoc truoc              │
+│  Tu 1→2 bps/Hz ton ~4 dB                                           │
+│  Tu 4→5 bps/Hz ton ~3 dB (loi ich giam dan)                        │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Triet ly thiet ke theo ung dung
+
+```
+Dich vu Khac nhau, Lua chon Khac nhau:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  UNG DUNG        │ UU TIEN            │ LUA CHON DIEN HINH         │
+│  ─────────────────┼───────────────────┼───────────────────────────  │
+│                   │                   │                             │
+│  Truyen hinh DTH │ San sang 99.9%    │ CCM QPSK/8PSK + margin lon │
+│  (TV den nha)    │ Khong mat song!   │ Cung MODCOD cho moi nguoi  │
+│                   │                   │                             │
+│  ─────────────────┼───────────────────┼───────────────────────────  │
+│                   │                   │                             │
+│  VSAT Bang rong  │ Toi da dung luong │ ACM 8PSK→32APSK            │
+│  (doanh nghiep)  │ Chap nhan giam ngan│ Toi uu theo tram          │
+│                   │                   │                             │
+│  ─────────────────┼───────────────────┼───────────────────────────  │
+│                   │                   │                             │
+│  Hang hai/Hang KG│ Lien ket kho khan │ ACM QPSK→16APSK            │
+│  (di dong)       │ Thay doi nhieu    │ Can dai MODCOD rong        │
+│                   │                   │                             │
+│  ─────────────────┼───────────────────┼───────────────────────────  │
+│                   │                   │                             │
+│  Lien ket Feeder │ Thong luong toi da│ 32APSK/64APSK              │
+│  (hub-to-sat)    │ Anten lon         │ SNR cao, margin toi thieu  │
+│                   │                   │                             │
+│  ─────────────────┼───────────────────┼───────────────────────────  │
+│                   │                   │                             │
+│  Chom sao LEO    │ Kinh te quy mo    │ MODCOD mao hiem            │
+│  (Starlink etc)  │ Phu du thua       │ Lien ket ngan, SNR cao     │
+│                   │                   │                             │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Gioi han Shannon va he thong thuc te
+
+```
+Khoang cach den Gioi han Shannon:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CONG THUC DUNG LUONG SHANNON:                                      │
+│                                                                      │
+│  C = B × log₂(1 + SNR)                                             │
+│                                                                      │
+│  Trong do:                                                          │
+│  C = dung luong kenh (bit/giay)                                    │
+│  B = bang thong (Hz)                                               │
+│  SNR = ty so tin hieu tren nhieu (tuyen tinh, khong phai dB)       │
+│                                                                      │
+│  HIEU SUAT PHO TAI GIOI HAN SHANNON:                                │
+│                                                                      │
+│  η = C/B = log₂(1 + SNR) bps/Hz                                    │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  SNR (dB) │ SNR (t.tinh) │ Shannon η │ DVB-S2 η │ Gap│         │
+│  │  ─────────┼──────────────┼───────────┼──────────┼────│         │
+│  │   0       │   1.0        │ 1.00      │ 0.99     │ 0.0│         │
+│  │   5       │   3.2        │ 2.06      │ 1.87     │ 0.9│         │
+│  │  10       │  10.0        │ 3.46      │ 3.17     │ 1.0│         │
+│  │  15       │  31.6        │ 5.02      │ 4.45     │ 1.0│         │
+│  │                                                        │         │
+│  │  DVB-S2 hoat dong cach Shannon ~1 dB                  │         │
+│  │  DVB-S2X con gan hon (~0.5-0.7 dB)                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Chien luoc phan bo margin
+
+```
+Cach Chi Ngan sach Lien ket:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Tong C/N Co san: 14.0 dB (vi du lien ket Ka-band)                 │
+│                                                                      │
+│  CHIEN LUOC 1: TOI DA THONG LUONG TROI QUANG                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Nguong MODCOD:       13.1 dB (32APSK 4/5)           │         │
+│  │  Ton that trien khai:  0.5 dB                        │         │
+│  │  Tre hien ACM:         0.4 dB                        │         │
+│  │  ─────────────────────────────                       │         │
+│  │  MARGIN CON LAI:       0.0 dB ← KHONG CO MARGIN MUA  │         │
+│  │                                                        │         │
+│  │  Ket qua: 3.95 bps/Hz troi quang                     │         │
+│  │          Mat song khi BAT KY mua nao                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CHIEN LUOC 2: CAN BANG (VSAT DIEN HINH)                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Nguong MODCOD:       10.2 dB (16APSK 3/4)           │         │
+│  │  Ton that trien khai:  0.5 dB                        │         │
+│  │  Tre hien ACM:         0.3 dB                        │         │
+│  │  Margin mua:           3.0 dB (san sang 99.5%)       │         │
+│  │  ─────────────────────────────                       │         │
+│  │  TONG YEU CAU:        14.0 dB ✓                      │         │
+│  │                                                        │         │
+│  │  Ket qua: 2.97 bps/Hz troi quang                     │         │
+│  │          San sang 99.5%                              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CHIEN LUOC 3: SAN SANG CAO (QUANG BA)                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Nguong MODCOD:        4.0 dB (QPSK 3/4)             │         │
+│  │  Ton that trien khai:  0.5 dB                        │         │
+│  │  Margin co dinh:       0.5 dB                        │         │
+│  │  Margin mua:           9.0 dB (san sang 99.99%)      │         │
+│  │  ─────────────────────────────                       │         │
+│  │  TONG YEU CAU:        14.0 dB ✓                      │         │
+│  │                                                        │         │
+│  │  Ket qua: 1.49 bps/Hz luon luon                      │         │
+│  │          San sang 99.99%                             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CUNG LIEN KET, CHENH LECH DUNG LUONG 2.6x dua tren chon margin    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Phan tich loi dung luong ACM
+
+```
+So sanh Dung luong ACM vs CCM:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Tinh huong: Transponder 36 MHz, vung phu Chau Au                  │
+│  Thong ke mua: ITU-R P.618 Vung E                                  │
+│                                                                      │
+│  THIET KE CCM (mot MODCOD cho san sang 99.5%):                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  MODCOD: QPSK 3/4 (nguong 4.0 dB)                    │         │
+│  │  + Margin mua cho 99.5%: ~3 dB                       │         │
+│  │  Hieu suat: 1.49 bps/Hz                              │         │
+│  │                                                        │         │
+│  │  Toc do du lieu: 30 Msps × 1.49 = 44.7 Mbps (luon)  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  THIET KE ACM (MODCOD thay doi):                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  % Thoi gian│ Dieu kien    │ MODCOD      │ Hieu suat │         │
+│  │  ───────────┼──────────────┼─────────────┼───────────│         │
+│  │  70%        │ Troi quang   │ 16APSK 3/4  │ 2.97 bps/Hz│        │
+│  │  20%        │ Fade nhe     │ 8PSK 2/3    │ 1.98 bps/Hz│        │
+│  │   8%        │ Vua phai     │ QPSK 3/4    │ 1.49 bps/Hz│        │
+│  │   1.5%      │ Fade nang    │ QPSK 1/2    │ 0.99 bps/Hz│        │
+│  │   0.5%      │ Nghiem trong │ QPSK 1/4    │ 0.49 bps/Hz│        │
+│  │                                                        │         │
+│  │  Trung binh co trong: 2.58 bps/Hz                    │         │
+│  │  Toc do du lieu: 30 Msps × 2.58 = 77.4 Mbps (TB)    │         │
+│  │                                                        │         │
+│  │  LOI ACM: 77.4 / 44.7 = 1.73× dung luong             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ACM mang lai 73% DUNG LUONG HON voi CUNG san sang                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Phan tich va toi uu hieu suat pho:**
+
+```python
+import numpy as np
+
+def gioi_han_shannon(snr_db):
+    """Gioi han Shannon tinh bang bps/Hz cho SNR cho truoc."""
+    snr_tuyen_tinh = 10 ** (snr_db / 10)
+    return np.log2(1 + snr_tuyen_tinh)
+
+def snr_cho_hieu_suat(eta):
+    """SNR yeu cau (dB) cho hieu suat pho tai gioi han Shannon."""
+    snr_tuyen_tinh = 2 ** eta - 1
+    return 10 * np.log10(snr_tuyen_tinh)
+
+# Diem tham chieu DVB-S2
+MODCODS = [
+    {"ten": "QPSK 1/4",   "hs": 0.49, "nguong": -2.35},
+    {"ten": "QPSK 1/2",   "hs": 0.99, "nguong":  1.00},
+    {"ten": "QPSK 3/4",   "hs": 1.49, "nguong":  4.03},
+    {"ten": "8PSK 2/3",   "hs": 1.98, "nguong":  6.62},
+    {"ten": "16APSK 3/4", "hs": 2.97, "nguong": 10.21},
+    {"ten": "32APSK 4/5", "hs": 3.95, "nguong": 13.05},
+    {"ten": "32APSK 9/10","hs": 4.45, "nguong": 15.07},
+]
+
+print("Phan tich Danh doi Hieu suat Pho")
+print("=" * 70)
+
+print("\n1. Khoang cach den Gioi han Shannon theo MODCOD")
+print("-" * 70)
+print(f"  {'MODCOD':<14} {'Hieu suat':<12} {'Nguong':<12} {'Shannon':<12} {'Gap (dB)':<10}")
+print("-" * 70)
+
+for mc in MODCODS:
+    shannon_snr = snr_cho_hieu_suat(mc["hs"])
+    gap = mc["nguong"] - shannon_snr
+    print(f"  {mc['ten']:<14} {mc['hs']:<12.2f} {mc['nguong']:<12.2f} {shannon_snr:<12.2f} {gap:<10.2f}")
+
+# Phan tich phan bo margin
+print("\n2. Chien luoc Phan bo Margin (C/N co san 14 dB)")
+print("-" * 70)
+
+cn_co_san = 14.0
+ton_that_trien_khai = 0.5
+
+chien_luoc = [
+    {"ten": "Thong luong toi da", "margin_mua": 0.0, "san_sang": "~95%"},
+    {"ten": "Can bang", "margin_mua": 3.0, "san_sang": "99.5%"},
+    {"ten": "San sang cao", "margin_mua": 6.0, "san_sang": "99.9%"},
+    {"ten": "Cap quang ba", "margin_mua": 9.0, "san_sang": "99.99%"},
+]
+
+for cl in chien_luoc:
+    snr_dung_duoc = cn_co_san - ton_that_trien_khai - cl["margin_mua"]
+    
+    mc_tot_nhat = None
+    for mc in MODCODS:
+        if mc["nguong"] <= snr_dung_duoc - 0.5:
+            mc_tot_nhat = mc
+    
+    if mc_tot_nhat:
+        print(f"  {cl['ten']}:")
+        print(f"    Margin mua: {cl['margin_mua']:.1f} dB → san sang {cl['san_sang']}")
+        print(f"    SNR dung duoc: {snr_dung_duoc:.1f} dB")
+        print(f"    MODCOD tot nhat: {mc_tot_nhat['ten']} → {mc_tot_nhat['hs']:.2f} bps/Hz")
+        print()
+
+# Tinh loi dung luong ACM
+print("3. Phan tich Dung luong ACM vs CCM")
+print("-" * 70)
+
+phan_bo_fade = [
+    {"phan_tram": 70, "fade_db": 0.0, "dieu_kien": "Troi quang"},
+    {"phan_tram": 20, "fade_db": 2.0, "dieu_kien": "Fade nhe"},
+    {"phan_tram":  8, "fade_db": 5.0, "dieu_kien": "Vua phai"},
+    {"phan_tram":  1.5, "fade_db": 8.0, "dieu_kien": "Nang"},
+    {"phan_tram":  0.5, "fade_db": 12.0, "dieu_kien": "Nghiem trong"},
+]
+
+cn_troi_quang = 14.0
+toc_do_ky_hieu = 30.0
+
+def chon_modcod(snr_db, margin=0.5):
+    tot_nhat = None
+    for mc in MODCODS:
+        if mc["nguong"] <= snr_db - margin:
+            tot_nhat = mc
+    return tot_nhat
+
+print(f"  C/N troi quang: {cn_troi_quang:.1f} dB")
+print(f"  Toc do ky hieu: {toc_do_ky_hieu:.0f} Msps")
+print()
+
+print("  Van hanh ACM:")
+print(f"    {'TG %':<8} {'Fade':<8} {'C/N HD':<10} {'MODCOD':<14} {'Hieu suat':<12}")
+print("-" * 70)
+
+hs_co_trong = 0.0
+for fade in phan_bo_fade:
+    cn_hieu_dung = cn_troi_quang - fade["fade_db"]
+    mc = chon_modcod(cn_hieu_dung)
+    if mc:
+        hs = mc["hs"]
+        ten = mc["ten"]
+    else:
+        hs = 0.0
+        ten = "MAT SONG"
+    
+    hs_co_trong += (fade["phan_tram"] / 100) * hs
+    print(f"    {fade['phan_tram']:<8.1f} {fade['fade_db']:<8.1f} {cn_hieu_dung:<10.1f} {ten:<14} {hs:<12.2f}")
+
+toc_do_acm = toc_do_ky_hieu * hs_co_trong
+print(f"\n  Hieu suat co trong ACM: {hs_co_trong:.2f} bps/Hz")
+print(f"  Toc do du lieu TB ACM: {toc_do_acm:.1f} Mbps")
+
+# Baseline CCM
+modcod_ccm = chon_modcod(cn_troi_quang - 3.0)
+toc_do_ccm = toc_do_ky_hieu * modcod_ccm["hs"]
+print(f"\n  CCM co dinh ({modcod_ccm['ten']}): {modcod_ccm['hs']:.2f} bps/Hz")
+print(f"  Toc do du lieu CCM: {toc_do_ccm:.1f} Mbps")
+print(f"\n  Loi dung luong ACM: {toc_do_acm / toc_do_ccm:.2f}x ({(toc_do_acm / toc_do_ccm - 1) * 100:.0f}% hon)")
+
+# Du lieu truc quan danh doi
+print("\n4. Danh doi Hieu suat vs San sang")
+print("-" * 70)
+
+margins = [0, 2, 4, 6, 8, 10]
+print(f"  {'Margin Mua':<14} {'SNR Dung':<12} {'MODCOD TN':<14} {'Hieu suat':<12}")
+print("-" * 70)
+
+for margin in margins:
+    dung_duoc = cn_troi_quang - ton_that_trien_khai - margin
+    mc = chon_modcod(dung_duoc)
+    if mc:
+        print(f"  {margin:<14} {dung_duoc:<12.1f} {mc['ten']:<14} {mc['hs']:<12.2f}")
+    else:
+        print(f"  {margin:<14} {dung_duoc:<12.1f} {'(khong hop le)':<14} {'0.00':<12}")
+
+# Phan tich chi phi bien hieu suat
+print("\n5. Chi phi Bien cua Hieu suat")
+print("-" * 70)
+print("  Moi bps/Hz them vao ton NHIEU SNR hon:")
+print()
+
+hs_truoc = 0
+snr_truoc = -3
+for mc in MODCODS:
+    delta_hs = mc["hs"] - hs_truoc
+    delta_snr = mc["nguong"] - snr_truoc
+    chi_phi = delta_snr / delta_hs if delta_hs > 0 else 0
+    print(f"  {hs_truoc:.2f} → {mc['hs']:.2f} bps/Hz: ton {delta_snr:.1f} dB ({chi_phi:.1f} dB moi bps/Hz)")
+    hs_truoc = mc["hs"]
+    snr_truoc = mc["nguong"]
+```
+
+**Quy tac danh doi chinh:**
+
+| Quy tac | Ham y |
+|---------|-------|
+| Gioi han Shannon la cung | Khong MODCOD nao vuot log₂(1+SNR) |
+| Loi ich giam dan | MODCOD cao ton nhieu dB hon moi bps/Hz |
+| ACM phuc hoi margin | 30-70% loi dung luong so voi CCM |
+| Margin mua dat | 3 dB margin = mat 50% co hoi dung luong |
+| Kich thuoc tram doi lay margin | Dia 6 dB lon hon → cung dung luong, san sang 4× |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Thiet ke cho dung luong dinh.** Lien ket 5 bps/Hz that bai 10% thoi gian te hon 2.5 bps/Hz o 99.9%.
+
+2. **Bo qua dong hoc suy giam.** Loi dung luong ACM gia dinh thong ke fade. Mat song tuong quan (bao) giam loi thuc te.
+
+3. **Quen margin trien khai.** He thong thuc te mat 0.5-1.5 dB cho may thu khong hoan hao, nhieu pha, phuc hoi dinh thi.
+
+4. **Gia dinh margin doi xung.** Mua anh huong downlink nhieu hon uplink o Ku/Ka. Lap ngan sach bat doi xung.
+
+5. **Coi Shannon la co the dat.** He thong thuc te cach 0.5-1.5 dB. Dung lap ke hoach cho dieu bat kha thi.
+
+6. **Toi uu qua cho mot chi so.** San sang × dung luong thuong la muc tieu dung, khong phai rieng le.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Shannon, C.E. "A Mathematical Theory of Communication" (1948)
+- ETSI EN 302 307-1/2 Dac ta DVB-S2/S2X
+- ITU-R P.618 Du doan suy giam mua
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [MODCODs](/vi/space/modulation-coding-satellite/modcods/) — cac diem van hanh roi rac tren duong cong hieu suat
+- [ACM](/vi/space/modulation-coding-satellite/acm/) — theo doi dong diem toi uu
+- [Ngan sach Lien ket](/vi/space/link-budgets/basic-link-budget/) — tinh C/N co san
+
+</section>

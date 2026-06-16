@@ -8,17 +8,397 @@ track: n6
 unit: o-ran-architecture
 order: 4
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n6-o-ran-architecture-03-o-ru"]
+spiralRevisits: []
 title: "RIC — RAN Intelligent Controller"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The RAN Intelligent Controller — Near-RT RIC, Non-RT RIC, xApps, rApps, and AI/ML-driven RAN optimization."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG1", "O-RAN.WG2", "O-RAN.WG3"]
+tags: ["o-ran", "5g", "ric", "xapp", "rapp", "ai-ml"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# RIC — RAN Intelligent Controller
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Traditional RAN is closed and static. Once deployed, optimization requires vendor involvement and manual tuning.
+
+The RIC introduces programmability. Third-party applications can observe RAN state, run ML models, and push decisions — without touching vendor code. This is O-RAN's key differentiator.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### RIC architecture
+
+```
+RIC in O-RAN Architecture:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    SMO (Service Management              │
+│                    and Orchestration)                   │
+│                         │                               │
+│                         │ A1                            │
+│                         ▼                               │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │               Non-RT RIC                         │   │
+│  │  ┌─────────────────────────────────────────┐    │   │
+│  │  │ rApps (> 1 second control)              │    │   │
+│  │  │ - ML model training                      │    │   │
+│  │  │ - Policy generation                      │    │   │
+│  │  │ - Long-term optimization                │    │   │
+│  │  └─────────────────────────────────────────┘    │   │
+│  │                         │ A1 Policy               │   │
+│  └─────────────────────────┼───────────────────────┘   │
+│                            │                            │
+│                            ▼                            │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │               Near-RT RIC                        │   │
+│  │  ┌─────────────────────────────────────────┐    │   │
+│  │  │ xApps (10 ms - 1 s control)             │    │   │
+│  │  │ - Handover optimization                  │    │   │
+│  │  │ - Load balancing                         │    │   │
+│  │  │ - Interference management               │    │   │
+│  │  └─────────────────────────────────────────┘    │   │
+│  │                         │ E2                     │   │
+│  └─────────────────────────┼───────────────────────┘   │
+│                            │                            │
+│                            ▼                            │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │            O-CU / O-DU (E2 Nodes)               │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Near-RT vs Non-RT
+
+```
+Control Loop Timing:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Non-RT RIC (> 1 second):                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Purpose:                                       │    │
+│  │  - ML model training on historical data         │    │
+│  │  - Policy generation                            │    │
+│  │  - Enrichment information (external data)       │    │
+│  │  - A1 policy push to Near-RT RIC               │    │
+│  │                                                  │    │
+│  │  Timeline: Minutes to hours                     │    │
+│  │                                                  │    │
+│  │  Examples:                                      │    │
+│  │  - Train model on last 24h of traffic          │    │
+│  │  - Generate MLB thresholds for next day        │    │
+│  │  - Update coverage/capacity trade-off params   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Near-RT RIC (10 ms - 1 second):                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Purpose:                                       │    │
+│  │  - Real-time RAN monitoring                     │    │
+│  │  - Sub-second control decisions                 │    │
+│  │  - ML inference (not training)                  │    │
+│  │  - E2 interface to CU/DU                        │    │
+│  │                                                  │    │
+│  │  Timeline: Milliseconds to seconds              │    │
+│  │                                                  │    │
+│  │  Examples:                                      │    │
+│  │  - Per-UE handover decision                    │    │
+│  │  - Load balancing trigger                       │    │
+│  │  - QoS adjustment                               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Real-Time (< 10 ms):                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Handled by CU/DU internally — NOT RIC          │    │
+│  │  (scheduling, HARQ, beamforming)                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### E2 interface
+
+```
+E2 Interface (Near-RT RIC ↔ E2 Nodes):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Protocol Stack:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ E2AP (E2 Application Protocol)                  │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ SCTP                                            │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ IP                                              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  E2AP Procedures:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  REPORT:     E2 Node → RIC (telemetry)         │    │
+│  │  - KPM (KPI Monitoring)                         │    │
+│  │  - Per-UE measurements                          │    │
+│  │                                                  │    │
+│  │  INSERT:     RIC → E2 Node (intercept)         │    │
+│  │  - Pause procedure, wait for RIC decision      │    │
+│  │  - Example: intercept handover                  │    │
+│  │                                                  │    │
+│  │  CONTROL:    RIC → E2 Node (action)            │    │
+│  │  - Force handover to specific cell              │    │
+│  │  - Change serving beam                          │    │
+│  │                                                  │    │
+│  │  POLICY:     RIC → E2 Node (rules)             │    │
+│  │  - Set thresholds for autonomous actions        │    │
+│  │  - Configure MLB parameters                     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  E2 Service Models (E2SM):                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ E2SM-KPM:  KPI monitoring                       │    │
+│  │ E2SM-RC:   RAN control                          │    │
+│  │ E2SM-NI:   Network interface management        │    │
+│  │ E2SM-CCC: Cell config and control              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### A1 interface
+
+```
+A1 Interface (Non-RT RIC ↔ Near-RT RIC):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Protocol: HTTP/REST over JSON                          │
+│                                                          │
+│  A1 Services:                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Policy Management:                             │    │
+│  │  - Create/delete/update policies                │    │
+│  │  - Policy types and instances                   │    │
+│  │                                                  │    │
+│  │  Enrichment Information:                        │    │
+│  │  - External context (weather, events)           │    │
+│  │  - Prediction data                              │    │
+│  │                                                  │    │
+│  │  ML Model Management:                           │    │
+│  │  - Deploy trained model to Near-RT RIC         │    │
+│  │  - Model update/rollback                        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Policy Example (MLB):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ {                                                │    │
+│  │   "policyId": "mlb-001",                        │    │
+│  │   "policyType": "load-balancing",               │    │
+│  │   "scope": {                                    │    │
+│  │     "cellIds": ["cell-1", "cell-2", "cell-3"]  │    │
+│  │   },                                            │    │
+│  │   "policy": {                                   │    │
+│  │     "threshold": 80,                            │    │
+│  │     "targetLoad": 60,                           │    │
+│  │     "algorithm": "proportional"                 │    │
+│  │   }                                             │    │
+│  │ }                                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### xApp architecture
+
+```
+xApp Structure:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  xApp Components:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐    │    │
+│  │  │ xApp Logic                              │    │    │
+│  │  │ - Business logic / ML inference         │    │    │
+│  │  │ - Decision algorithms                   │    │    │
+│  │  └────────────────┬────────────────────────┘    │    │
+│  │                   │                              │    │
+│  │  ┌────────────────┴────────────────────────┐    │    │
+│  │  │ xApp Framework (RIC SDK)                │    │    │
+│  │  │ - Subscription management               │    │    │
+│  │  │ - E2 message handling                   │    │    │
+│  │  │ - SDL (Shared Data Layer) access        │    │    │
+│  │  │ - RMR (RIC Message Router)              │    │    │
+│  │  └─────────────────────────────────────────┘    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Near-RT RIC Platform:                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐       │    │
+│  │  │xApp 1 │ │xApp 2 │ │xApp 3 │ │xApp N │       │    │
+│  │  └───┬───┘ └───┬───┘ └───┬───┘ └───┬───┘       │    │
+│  │      │         │         │         │            │    │
+│  │  ┌───┴─────────┴─────────┴─────────┴───┐       │    │
+│  │  │ RIC Message Router (RMR)            │       │    │
+│  │  └─────────────────────────────────────┘       │    │
+│  │                   │                             │    │
+│  │  ┌────────────────┴────────────────────┐       │    │
+│  │  │ Shared Data Layer (SDL / Redis)     │       │    │
+│  │  │ - UE context                         │       │    │
+│  │  │ - Cell state                         │       │    │
+│  │  │ - xApp-shared data                   │       │    │
+│  │  └─────────────────────────────────────┘       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Use case: Handover optimization
+
+```
+xApp Handover Optimization Flow:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Subscription Setup:                                 │
+│  xApp ─── E2 Subscribe (KPM, RC) ───► O-CU             │
+│                                                          │
+│  2. Telemetry Collection:                               │
+│  O-CU ─── REPORT (RSRP, RSRQ per UE) ───► xApp         │
+│                                                          │
+│  3. Intercept Handover:                                 │
+│  O-CU ─── INSERT (HO about to trigger) ───► xApp       │
+│       "UE 1234 HO to Cell-B pending"                    │
+│                                                          │
+│  4. xApp Decision:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Query SDL: Cell-B load = 90%                    │    │
+│  │ Query SDL: Cell-C load = 40%                    │    │
+│  │ ML inference: Cell-C better                     │    │
+│  │ Decision: Override to Cell-C                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  5. Control:                                            │
+│  xApp ─── CONTROL (HO to Cell-C) ───► O-CU             │
+│                                                          │
+│  6. O-CU executes handover to Cell-C instead of B      │
+│                                                          │
+│  Result: Load balancing + better user experience       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**xApp categories:**
+
+| Category | Control Loop | Examples |
+|----------|--------------|----------|
+| Traffic steering | 100-500 ms | HO optimization, load balancing |
+| QoS management | 200 ms - 1 s | Slice SLA enforcement |
+| Anomaly detection | 500 ms - 1 s | Interference detection |
+| Energy saving | 1+ s | Cell on/off, sleep modes |
+
+**Debugging RIC:**
+
+```bash
+# E2 connection status
+kubectl -n ricplt exec -it e2term-0 -- e2cli status
+
+# xApp subscription status
+kubectl -n ricxapp logs <xapp-pod> | grep -i subscribe
+
+# SDL data
+kubectl -n ricplt exec -it dbaas-0 -- redis-cli KEYS "*"
+
+# RMR routing table
+kubectl -n ricplt exec -it rtmgr-0 -- rtmgr-cli show routes
+
+# A1 policies
+curl http://<a1-mediator>:10000/A1-P/v2/policytypes
+```
+
+**Key interfaces:**
+
+| Interface | Endpoints | Protocol | Latency |
+|-----------|-----------|----------|---------|
+| E2 | Near-RT RIC ↔ CU/DU | SCTP | < 10 ms |
+| A1 | Non-RT RIC ↔ Near-RT RIC | HTTP/REST | < 1 s |
+| O1 | SMO ↔ all nodes | NETCONF | N/A |
+| O2 | SMO ↔ O-Cloud | REST | N/A |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Conflict between xApps.** Two xApps may send conflicting controls. Use conflict management framework.
+
+2. **E2 subscription overhead.** Too many subscriptions flood E2 nodes. Design efficient subscription granularity.
+
+3. **SDL consistency.** Stale data in SDL leads to wrong decisions. Set appropriate TTLs.
+
+4. **Latency budget.** xApp decision + E2 RTT must stay within 10ms-1s. Profile carefully.
+
+5. **ML model drift.** Models trained on old data degrade. Implement continuous retraining in Non-RT RIC.
+
+6. **RMR message loss.** Message router can drop under load. Implement idempotent operations.
+
+7. **A1 policy conflict.** Conflicting policies from Non-RT RIC. Validate policy compatibility before pushing.
+
+8. **E2 node reboot.** E2 subscriptions lost on node restart. xApp must handle re-subscription.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- O-RAN Alliance WG1, "O-RAN Architecture Description"
+- O-RAN Alliance WG2, "Non-RT RIC Architecture"
+- O-RAN Alliance WG3, "Near-RT RIC Architecture and E2 Interface"
+- O-RAN SC (Software Community), "RIC Platform Documentation"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [O-CU](/en/core-network/o-ran-architecture/o-cu/) — Central Unit
+- [O-DU](/en/core-network/o-ran-architecture/o-du/) — Distributed Unit
+- [O-RU](/en/core-network/o-ran-architecture/o-ru/) — Radio Unit
+
+</section>

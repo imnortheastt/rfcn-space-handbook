@@ -8,17 +8,391 @@ track: n6
 unit: functional-splits
 order: 3
 level: L4
-estimatedReadingMinutes: 5
-title: "Fronthaul requirements per split"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n6-functional-splits-02-option-7-2x"]
+spiralRevisits: []
+title: "Fronthaul Requirements"
+description: "Bandwidth, latency, jitter, and synchronization requirements for O-RAN fronthaul transport."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG4.CUS", "IEEE 802.1CM", "ITU-T G.8275.1"]
+tags: ["o-ran", "5g", "fronthaul", "transport", "timing", "ethernet"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Fronthaul requirements per split
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+O-RAN fronthaul is not regular Ethernet. It carries real-time IQ samples with microsecond timing constraints. Miss the window, packets are dropped.
+
+Understanding fronthaul requirements is essential for transport network design. Under-provisioning causes packet loss. Over-provisioning wastes capacity and budget.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Fronthaul vs backhaul
+
+```
+Transport Network Segments:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Fronthaul (DU ↔ RU):                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Content: IQ samples (frequency domain)          │    │
+│  │ Protocol: eCPRI over Ethernet                   │    │
+│  │ Bandwidth: 10-100 Gbps (depends on MIMO)        │    │
+│  │ Latency: < 100-250 µs one-way                   │    │
+│  │ Jitter: < 10 µs                                 │    │
+│  │ Sync: ±1.5 µs phase (TDD)                       │    │
+│  │                                                  │    │
+│  │ Failure mode: Symbols dropped                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Midhaul (CU ↔ DU):                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Content: PDCP PDUs over GTP-U                   │    │
+│  │ Protocol: IP/Ethernet                           │    │
+│  │ Bandwidth: 1-25 Gbps (user data rate)           │    │
+│  │ Latency: < 1-10 ms                              │    │
+│  │ Jitter: < 1 ms                                  │    │
+│  │                                                  │    │
+│  │ Failure mode: User plane degradation            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Backhaul (CU ↔ Core):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Content: N2 signaling, N3 user plane            │    │
+│  │ Protocol: IP/Ethernet                           │    │
+│  │ Bandwidth: 1-10 Gbps                            │    │
+│  │ Latency: < 10-50 ms                             │    │
+│  │                                                  │    │
+│  │ Failure mode: Service interruption              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Bandwidth breakdown
+
+```
+Fronthaul Bandwidth Calculation (Option 7-2x):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Formula:                                               │
+│  BW = Fs × Nsymbol × Nprb × Nre × Nant × Nbits × (1+OH)│
+│                                                          │
+│  Where:                                                 │
+│  - Fs: Subframe rate (1000/s)                          │
+│  - Nsymbol: Symbols per subframe (14 × 2 for 30kHz)    │
+│  - Nprb: PRBs (273 for 100 MHz)                        │
+│  - Nre: Subcarriers per PRB (12)                       │
+│  - Nant: Antenna ports                                 │
+│  - Nbits: Bits per IQ sample (32 raw, 18 BFP)          │
+│  - OH: Overhead (~10-20%)                              │
+│                                                          │
+│  Example (100 MHz, 64T64R, Cat-B with BFP):            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Per layer: 1000 × 28 × 273 × 12 × 18 = 1.65 Gbps│   │
+│  │  8 layers (Cat-B): 8 × 1.65 = 13.2 Gbps         │    │
+│  │  With C-Plane + overhead: ~25 Gbps              │    │
+│  │                                                  │    │
+│  │  Cat-A (64 streams): ~50+ Gbps                  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Comparison by configuration:                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Config      │ Raw BW      │ Compressed (BFP)    │    │
+│  │ ────────────┼─────────────┼─────────────────────│    │
+│  │ 4T4R        │ ~10 Gbps    │ ~6 Gbps             │    │
+│  │ 32T32R Cat-A│ ~80 Gbps    │ ~45 Gbps            │    │
+│  │ 64T64R Cat-A│ ~160 Gbps   │ ~90 Gbps            │    │
+│  │ 64T64R Cat-B│ ~40 Gbps    │ ~25 Gbps            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Latency budget
+
+```
+Fronthaul Latency Components:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  DU Processing:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ MAC/PHY processing: 50-150 µs                   │    │
+│  │ Packetization: 10-20 µs                         │    │
+│  │ NIC/DMA: 5-10 µs                                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Network:                                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Ethernet switch (per hop): 5-15 µs              │    │
+│  │   - Cut-through: 5 µs                           │    │
+│  │   - Store-forward: 10-15 µs                     │    │
+│  │ Fiber propagation: 5 µs/km                      │    │
+│  │ Serialization (25G): 3 µs for 9000B frame      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  RU Processing:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ NIC/buffer: 5-10 µs                             │    │
+│  │ C-Plane processing: 10-20 µs                    │    │
+│  │ IFFT/beamforming: 20-50 µs                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Total Budget (Ta3_max = 131 µs typical):              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  DU:       100 µs                               │    │
+│  │  Network:   30 µs (1 hop, 3 km fiber)           │    │
+│  │  RU:        50 µs                               │    │
+│  │  ────────────────────────                        │    │
+│  │  Total:    180 µs → EXCEEDS 131 µs!             │    │
+│  │                                                  │    │
+│  │  Solution: Edge DU, fewer hops, shorter fiber   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Synchronization requirements
+
+```
+Fronthaul Timing and Sync:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Frequency Synchronization:                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Requirement: ±50 ppb (normal), ±16 ppb (wide)   │    │
+│  │ Method: SyncE (Synchronous Ethernet)            │    │
+│  │                                                  │    │
+│  │ Without SyncE:                                  │    │
+│  │ - Clock drift causes symbol timing errors       │    │
+│  │ - Inter-carrier interference increases          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Phase/Time Synchronization:                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Requirement (TDD):                              │    │
+│  │ - ±1.5 µs at air interface                      │    │
+│  │ - ±3.0 µs at antenna connector                  │    │
+│  │                                                  │    │
+│  │ Method: PTP (IEEE 1588v2)                       │    │
+│  │ - Profile: ITU-T G.8275.1 (full on-path)       │    │
+│  │ - Every switch must be boundary clock          │    │
+│  │                                                  │    │
+│  │ Without PTP:                                    │    │
+│  │ - TDD UL/DL collision                          │    │
+│  │ - Adjacent cell interference                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Alternative: GPS at RU                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Each RU has GPS receiver                        │    │
+│  │ + Independent of network timing                 │    │
+│  │ - Cost per RU, indoor coverage issues           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### QoS requirements
+
+```
+Fronthaul Traffic Classes (IEEE 802.1CM):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  VLAN Priority (PCP) Mapping:                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  PCP │ Traffic Class      │ Use                 │    │
+│  │  ────┼────────────────────┼─────────────────────│    │
+│  │  7   │ Network control    │ PTP, SyncE          │    │
+│  │  6   │ C-Plane            │ Scheduling info     │    │
+│  │  5   │ U-Plane (high)     │ IQ data DL          │    │
+│  │  4   │ U-Plane (normal)   │ IQ data UL          │    │
+│  │  3   │ M-Plane            │ NETCONF/YANG        │    │
+│  │  0-2 │ Best effort        │ Other               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Jitter Requirements:                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Packet Delay Variation (PDV): < 10 µs           │    │
+│  │                                                  │    │
+│  │ Sources of jitter:                              │    │
+│  │ - Switch queuing                                │    │
+│  │ - Priority inversion                            │    │
+│  │ - Traffic bursts                                │    │
+│  │                                                  │    │
+│  │ Mitigation:                                     │    │
+│  │ - Strict priority queuing                       │    │
+│  │ - Traffic shaping at DU                         │    │
+│  │ - Preemption (802.1Qbu)                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Transport options
+
+```
+Fronthaul Transport Technologies:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dark Fiber (dedicated):                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ + Lowest latency                                │    │
+│  │ + Full bandwidth control                        │    │
+│  │ + No jitter from other traffic                  │    │
+│  │ - Highest cost (fiber lease)                    │    │
+│  │ - Limited to fiber-rich areas                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Wavelength (DWDM):                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ + Shares fiber infrastructure                   │    │
+│  │ + 10-100G per wavelength                        │    │
+│  │ + Low latency (passive DWDM)                    │    │
+│  │ - ROADM adds latency (10-20 µs)                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Ethernet (switched):                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ + Cost-effective                                │    │
+│  │ + Flexible topology                             │    │
+│  │ + Statistical multiplexing                      │    │
+│  │ - Each hop adds latency                         │    │
+│  │ - Requires TSN for determinism                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Wireless (mmWave / FSO):                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ + No fiber needed                               │    │
+│  │ + Fast deployment                               │    │
+│  │ - Weather dependent (FSO)                       │    │
+│  │ - Limited bandwidth                             │    │
+│  │ - LOS required                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Requirements summary:**
+
+| Parameter | Requirement | Notes |
+|-----------|-------------|-------|
+| Bandwidth | 10-100 Gbps | Per RU, depends on MIMO |
+| Latency | < 100-250 µs | One-way, Ta3 window |
+| Jitter | < 10 µs | PDV |
+| Packet loss | < 10^-6 | Effectively zero |
+| Frequency sync | ±50 ppb | SyncE |
+| Phase sync (TDD) | ±1.5 µs | PTP G.8275.1 |
+
+**Transport planning:**
+
+```bash
+# Latency calculation
+fiber_km=5
+switch_hops=2
+switch_delay_us=10
+
+total_network_us=$((fiber_km * 5 + switch_hops * switch_delay_us))
+echo "Network latency: ${total_network_us} µs"
+
+# Bandwidth per sector
+mimo_config="64T64R"
+bw_mhz=100
+cat_b_layers=8
+bfp_bits=18
+
+# Per layer: 1000 × 28 × 273 × 12 × 18 bits/s
+per_layer_gbps=1.65
+total_gbps=$((cat_b_layers * per_layer_gbps * 12 / 10))  # with 20% overhead
+echo "Fronthaul BW: ~${total_gbps} Gbps"
+```
+
+**Switch requirements:**
+
+| Feature | Why |
+|---------|-----|
+| 25G/100G ports | Fronthaul bandwidth |
+| Cut-through | Minimize latency |
+| PTP BC | Phase synchronization |
+| SyncE | Frequency synchronization |
+| 802.1Qbv (TSN) | Deterministic latency |
+| 802.1Qbu | Frame preemption |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Latency budget exceeded.** Add up all components. One extra switch hop can break timing.
+
+2. **PTP not end-to-end.** Every switch must be PTP-aware. One transparent switch ruins phase accuracy.
+
+3. **SyncE chain break.** All switches need SyncE. One non-SyncE switch breaks frequency chain.
+
+4. **Over-subscription.** Statistical multiplexing fails for fronthaul. Peak capacity must be provisioned.
+
+5. **QoS misconfiguration.** C-Plane must have higher priority. Wrong PCP mapping drops control messages.
+
+6. **Fiber length surprise.** Underground routes are longer than line-of-sight. Survey actual path.
+
+7. **Traffic shaping absent.** Bursty DU output causes switch buffer overflow. Shape at egress.
+
+8. **Redundancy complexity.** Failover must be < 50 ms. Pre-computed protection paths required.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- IEEE 802.1CM, "Time-Sensitive Networking for Fronthaul"
+- ITU-T G.8275.1, "PTP Profile for Phase/Time Synchronization"
+- Small Cell Forum, "5G FAPI: PHY API Specification"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [eCPRI overview](/en/core-network/fronthaul-interface/ecpri-overview/) — fronthaul protocol
+- [O-RAN fronthaul spec](/en/core-network/fronthaul-interface/o-ran-fronthaul-spec/) — detailed spec
+- [Option 7-2x](/en/core-network/functional-splits/option-7-2x/) — split details
+
+</section>

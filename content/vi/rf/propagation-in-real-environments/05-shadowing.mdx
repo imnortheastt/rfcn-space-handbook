@@ -8,16 +8,16 @@ track: r2
 unit: propagation-in-real-environments
 order: 5
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 14
 prerequisites: ["rf-r2-propagation-in-real-environments-04-fading"]
 spiralRevisits: []
-title: "Che khuất"
-description: "Biến đổi tín hiệu quy mô lớn từ vật cản chặn đường truyền."
-authors: ["tindang"]
+title: "Hiệu ứng bóng tối (Shadowing)"
+description: "Biến động tín hiệu quy mô lớn do vật cản che chắn đường truyền sóng."
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
-tags: ["shadowing", "log-normal", "large-scale-fading", "propagation"]
+tags: ["shadowing", "log-normal", "large-scale-fading", "propagation", "fade-margin", "outage"]
 widgets: []
 license: CC-BY-SA-4.0
 status: published
@@ -25,9 +25,13 @@ status: published
 
 <section class="lesson-hook">
 
-## Tại sao che khuất quan trọng?
+## Tại sao shadowing quan trọng
 
-Di chuyển quanh góc tòa nhà và tín hiệu giảm 10-20 dB. Đây không phải fading nhanh — đó là che khuất từ vật cản chặn đường truyền. Che khuất tạo lỗ hổng phủ sóng kéo dài hàng mét, không phải centimet. Link budget phải tính đến hoặc đối mặt mất sóng bất ngờ.
+Bước qua góc tòa nhà, tín hiệu giảm 15 dB. Vào bên trong công trình bê tông, mất thêm 20 dB nữa. Đây không phải fading nhanh có thể trung bình hóa qua vài bước sóng — chúng duy trì trong hàng chục mét. Đây là **shadowing** (hiệu ứng bóng tối), còn gọi là large-scale fading: suy hao do vật cản che chắn một phần hoặc toàn bộ đường truyền giữa máy phát và máy thu.
+
+Shadowing là nguyên nhân chính gây ra các vùng mù phủ sóng trong mạng di động. Một link budget đạt path loss trung vị có thể vẫn thất bại tại 30–40% vị trí nếu shadow fade margin tính không đúng. Xác định đúng shadow margin là ranh giới giữa mạng đáp ứng SLA và mạng bị khiếu nại phủ sóng.
+
+Với hệ thống vệ tinh, các tòa nhà và tán lá tạo ra các sự kiện shadowing khi thiết bị di chuyển dưới mái che. Với triển khai DAS (Distributed Antenna System — hệ thống anten phân tán) trong nhà hoặc small cell, shadowing giữa các tầng và phòng thường vượt qua cả path loss do khoảng cách — cách nhau 10 m theo chiều dọc (khác tầng) gây mất nhiều hơn 100 m truyền sóng tự do ở 5 GHz.
 
 </section>
 
@@ -35,141 +39,214 @@ Di chuyển quanh góc tòa nhà và tín hiệu giảm 10-20 dB. Đây không p
 
 ## Trực giác
 
-Hãy tưởng tượng đường giữa máy phát và máy thu đi qua nhiều vật cản — tòa nhà, cây, địa hình. Mỗi vật cản suy giảm tín hiệu một lượng ngẫu nhiên. Tổng suy giảm là tích của nhiều yếu tố, theo định lý giới hạn trung tâm trở thành phân phối log-normal.
+### Tại sao phân phối log-normal?
+
+Shadowing xuất phát từ tác động tổng hợp của nhiều vật cản trên đường truyền — tòa nhà, địa hình, thảm thực vật, phương tiện. Mỗi vật cản làm suy giảm tín hiệu theo một hệ số ngẫu nhiên. Tổng suy hao là tích của tất cả các hệ số này:
+
+$$L_{shadow} = l_1 \times l_2 \times l_3 \times \ldots \times l_n$$
+
+Lấy logarithm:
+$$L_{shadow}[\text{dB}] = l_1[\text{dB}] + l_2[\text{dB}] + \ldots + l_n[\text{dB}]$$
+
+Đây là tổng các biến ngẫu nhiên. Theo **định lý giới hạn trung tâm (central limit theorem)**, tổng của nhiều biến ngẫu nhiên độc lập tiến đến phân phối Gaussian bất kể phân phối của các biến thành phần. Do đó, theo dB, shadowing xấp xỉ phân phối Gaussian — và theo công suất tuyến tính, nó là **log-normal**.
+
+### Shadowing so với small-scale fading — hai thang thời gian
+
+```
+Biến động tín hiệu khi UE di chuyển từ A đến B:
+
+Công suất (dBm)
+  -60 |
+  -70 |  ....      .....      ....
+  -80 |      ...../     \.../      ....  ← Bao shadowing
+  -90 |       /                         (thay đổi trên 10-100 m)
+ -100 |                               
+      |   Ripple nhanh = small-scale fading (thay đổi trên λ/2 ≈ 7cm tại 2GHz)
+      +---A---------------------------------B----> Khoảng cách (100m)
+
+Điểm phân biệt chính:
+  Shadowing: tương quan trên 10-100 m, do tòa nhà/địa hình che khuất
+  Fading: mất tương quan trên λ/2, do dịch pha multipath
+```
+
+Người dùng di động trải nghiệm cả hai đồng thời. Shadowing xác định giá trị trung bình cục bộ; small-scale fading gây ra các dao động nhanh quanh giá trị đó.
+
+### Tại sao bản đồ phủ sóng cần shadow margin
+
+Các mô hình path loss cho **công suất nhận trung vị** tại một khoảng cách nhất định. Tại giá trị trung vị, 50% vị trí có công suất thấp hơn — một nửa thất bại. Để đảm bảo 90% vị trí được phủ sóng, link budget phải vượt trung vị $1{,}28\sigma$ dB (với $\sigma$ là độ lệch chuẩn bóng tối). "Fade margin" này độc lập với small-scale fading margin.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Cơ chế
+## Cơ chế hoạt động
 
-### Mô hình che khuất log-normal
+### Mô hình shadowing log-normal
 
-Suy hao đường với che khuất:
+Tổng path loss bao gồm shadowing:
 
-$$PL(d) = \overline{PL}(d) + X_\sigma$$
+$$PL(d)[\text{dB}] = \overline{PL}(d) + X_\sigma$$
 
 trong đó:
-- $\overline{PL}(d)$ = suy hao đường trung bình ở khoảng cách d
-- $X_\sigma$ = biến ngẫu nhiên Gaussian trung bình zero (dB)
-- $\sigma$ = độ lệch chuẩn che khuất (dB)
+- $\overline{PL}(d)$ = path loss trung bình (xác định) tại khoảng cách $d$ từ mô hình path loss
+- $X_\sigma \sim \mathcal{N}(0, \sigma^2)$ = shadow fading, biến ngẫu nhiên Gaussian trung bình không (dB)
+- $\sigma$ = độ lệch chuẩn shadow fading (dB)
 
-### Phân phối log-normal
+Công suất nhận tuyến tính $P_r$ có phân phối log-normal với giá trị trung bình $\overline{P}_r$ (từ mô hình path loss).
 
-Công suất tuyến tính P có phân phối log-normal:
+### Độ lệch chuẩn shadow fading điển hình
 
-$$f_P(p) = \frac{10/\ln 10}{p\sqrt{2\pi}\sigma} \exp\left(-\frac{(10\log_{10}p - \mu)^2}{2\sigma^2}\right)$$
+| Môi trường | $\sigma$ (dB) | Ghi chú |
+|------------|---------------|---------|
+| Không gian tự do / LOS | 0–2 | Hầu như không có phương sai bóng |
+| Ngoại ô ngoài trời | 4–6 | Mật độ tòa nhà thấp |
+| Đô thị ngoài trời LOS | 4–6 | Hẻm phố với một số LOS |
+| Đô thị ngoài trời NLOS | 6–10 | Che khuất tòa nhà dày đặc |
+| Nông thôn ngoài trời | 6–8 | Địa hình và thảm thực vật |
+| Trong nhà LOS | 3–5 | Văn phòng không gian mở |
+| Trong nhà NLOS | 6–12 | Qua tường/sàn |
+| Đô thị dày đặc NLOS | 8–12 | Hẻm cao tầng |
 
-Trong dB, đơn giản là Gaussian với trung bình μ và std σ.
+Trong 3GPP TR 38.901, $\sigma$ phụ thuộc vào kịch bản và tần số. Với urban macro tại 2 GHz: $\sigma = 7{,}8$ dB cho NLOS, $\sigma = 4$ dB cho LOS.
 
-### Giá trị che khuất điển hình
+### Tương quan không gian của shadowing
 
-| Môi trường | σ (dB) |
-|------------|--------|
-| Không gian tự do | 0 |
-| Ngoài trời LOS | 4-6 |
-| Cellular đô thị | 6-10 |
-| Ngoại ô | 6-8 |
-| Trong nhà | 4-12 |
-| Đô thị dày đặc/NLOS | 8-12 |
+Một tính chất thường bị bỏ qua: shadowing có tương quan không gian. Hai vị trí gần nhau bị che khuất bởi cùng tòa nhà, nên giá trị bóng tối của chúng không độc lập. Tương quan giảm dần theo khoảng cách:
 
-### Khoảng cách tương quan
-
-Che khuất tương quan không gian. Khoảng cách giải tương quan:
-
-$$d_c \approx 5\lambda \text{ đến } 100\lambda$$
-
-Điển hình: 10-50 m trong môi trường đô thị.
-
-Mô hình tương quan:
 $$\rho(d) = e^{-d/d_c}$$
 
-### Xác suất outage
+trong đó $d_c$ là **khoảng cách giải tương quan** (thường 10–50 m trong môi trường đô thị, 50–100 m ở ngoại ô, có thể lớn hơn ở địa hình đồi núi).
 
-Xác suất công suất nhận giảm dưới ngưỡng:
+**Hệ quả cho thiết kế hệ thống:**
+- Vùng mù phủ sóng không phải điểm đơn lẻ — chúng là các vùng liên tục của bóng tối tương quan
+- Thuật toán handoff phải xét tương quan không gian để tránh ping-pong handoff trong vùng bóng tối tương quan
+- Xác suất outage tại cell edge phụ thuộc vào phân phối kết hợp của shadowing tại tất cả vị trí trong ô, không chỉ phân phối biên
 
-$$P_{out} = P(P_r < P_{th}) = Q\left(\frac{\bar{P}_r - P_{th}}{\sigma}\right)$$
+### Xác suất outage và độ tin cậy phủ sóng
 
-trong đó $\bar{P}_r$ = công suất nhận trung bình, Q = hàm Q.
+Xác suất công suất nhận tại vị trí ngẫu nhiên ở khoảng cách $d$ thấp hơn ngưỡng $P_{th}$:
 
-### Dự trữ fade
+$$P_{out}(d) = P(P_r < P_{th}) = Q\left(\frac{\overline{P}_r(d) - P_{th}}{\sigma}\right)$$
 
-Link budget thêm để đạt độ tin cậy mục tiêu:
+trong đó $Q(x) = \frac{1}{\sqrt{2\pi}}\int_x^\infty e^{-t^2/2}dt$ là hàm Q, và $\overline{P}_r(d)$ là công suất nhận trung bình tại khoảng cách $d$ từ mô hình path loss.
 
-Cho 90% phủ sóng: dự trữ = $1.28\sigma$
-Cho 95% phủ sóng: dự trữ = $1.65\sigma$
-Cho 99% phủ sóng: dự trữ = $2.33\sigma$
+### Fade margin theo độ tin cậy mục tiêu
 
-### Mô hình suy hao đường kết hợp
+Để đạt **độ tin cậy vị trí** $p$ (xác suất vị trí ngẫu nhiên trong ô được phủ sóng):
 
-$$PL(d) = PL_0 + 10n\log_{10}\left(\frac{d}{d_0}\right) + X_\sigma$$
+$$M_f = k_p \cdot \sigma$$
 
-trong đó:
-- PL₀ = suy hao đường ở tham chiếu d₀
-- n = số mũ suy hao đường
-- X_σ = che khuất (N(0, σ²) trong dB)
+trong đó $k_p = Q^{-1}(1-p)$:
+
+| Độ tin cậy vị trí | $k_p$ | Fade margin ($\sigma = 8$ dB) | Fade margin ($\sigma = 10$ dB) |
+|-------------------|-------|-------------------------------|--------------------------------|
+| 50% | 0 | 0 dB | 0 dB |
+| 75% | 0,67 | 5,4 dB | 6,7 dB |
+| 90% | 1,28 | 10,2 dB | 12,8 dB |
+| 95% | 1,65 | 13,2 dB | 16,5 dB |
+| 99% | 2,33 | 18,6 dB | 23,3 dB |
+
+Fade margin tăng tuyến tính theo $\sigma$ — môi trường có phương sai bóng tối cao đòi hỏi nhiều link budget hơn để đạt cùng độ tin cậy.
+
+### Tổn hao xuyên nhà là dạng shadowing đặc biệt
+
+Tổn hao xuyên nhà (building penetration loss) là một dạng shadowing chuyên biệt — giá trị trung bình xác định cộng với biến động ngẫu nhiên. Giá trị điển hình cho tường ngoài một tòa nhà:
+
+| Kết cấu | Tổn hao xuyên @ 2 GHz | @ 28 GHz |
+|---------|------------------------|-----------|
+| Mặt tiền kính | 3–5 dB | 8–15 dB |
+| Bê tông (30 cm) | 15–20 dB | 20–30 dB |
+| Bê tông cốt thép | 20–30 dB | 35–50 dB |
+| Tường gạch | 6–10 dB | 10–20 dB |
+
+**Độ lệch chuẩn tổn hao xuyên nhà**: 4–8 dB cho tòa nhà bê tông. Ngay cả tổn hao xuyên nhà cũng không xác định — biến động do cửa sổ, cửa ra vào, độ dày tường và nhiễu xạ quanh cạnh tòa nhà.
+
+### Link budget tổng hợp
+
+$$P_r = P_t + G_t + G_r - \overline{PL}(d) - M_{shadow} - M_{fade} - L_{xuyennha} - L_{khac}$$
+
+Trong đó:
+- $M_{shadow} = k_p \cdot \sigma_{shadow}$ — margin cho độ tin cậy vị trí 90% hoặc 95%
+- $M_{fade}$ — small-scale Rayleigh/Rician fade margin (thường 6–10 dB cho độ tin cậy tức thời 99%)
+- $L_{xuyennha}$ — tổn hao xuyên nhà nếu áp dụng
+
+Trong link budget urban macro được thiết kế tốt, $M_{shadow}$ (10–13 dB) thường chiếm ưu thế so với tất cả các margin khác cộng lại.
 
 </section>
 
 <section class="lesson-apply">
 
-## Áp dụng
+## Ứng dụng thực tế
 
-**Ví dụ: Quy hoạch phủ sóng cellular**
+### Ví dụ 1: Lập kế hoạch phủ sóng — fade margin cần thiết
 
-Môi trường đô thị, σ = 8 dB.
+Urban macro, 2 GHz, $\sigma = 8$ dB. Yêu cầu: 90% độ tin cậy vị trí.
 
-Mục tiêu: 95% độ tin cậy vị trí.
+Fade margin = $1{,}28 \times 8 = 10{,}2$ dB.
 
-Dự trữ fade: $1.65 \times 8 = 13.2$ dB.
+Điều này có nghĩa cần thêm 10,2 dB link budget so với tính toán path loss trung vị. Nếu link budget (công suất phát + độ lợi anten − độ nhạy máy thu) cho bán kính ô trung vị 2 km, bán kính phủ sóng tin cậy 90% thực tế là:
 
-Nếu ranh giới phủ sóng trung bình ở -100 dBm, thiết kế cho -86.8 dBm để đảm bảo 95% vị trí hoạt động.
+$$d_{90\%} = d_{50\%} \times 10^{-M_f / (10n)} = 2000 \times 10^{-10{,}2 / (10 \times 3{,}5)} = 2000 \times 10^{-0{,}29} = 2000 \times 0{,}51 = 1020 \text{ m}$$
 
-**Ví dụ: Hysteresis handoff**
+Lập kế hoạch theo giá trị trung vị cho bán kính 2 km. Bán kính phủ sóng tin cậy 90% thực tế chỉ 1 km — bằng một nửa. Bỏ qua shadow margin đồng nghĩa tuyên bố gấp đôi phủ sóng thực tế.
 
-σ = 6 dB, khoảng cách tương quan = 20 m.
+### Ví dụ 2: Cài đặt ngưỡng trễ handoff
 
-Hai trạm gốc: tín hiệu biến đổi σ = 6 dB trong ~20 m.
+Môi trường đô thị, $\sigma = 6$ dB, khoảng cách giải tương quan = 20 m.
 
-Hysteresis handoff nên > 2σ = 12 dB để tránh ping-pong.
+Ping-pong handoff xảy ra khi UE vượt biên giới ô và sự khác biệt shadowing giữa hai ô khiến best server dao động. Độ lệch chuẩn hiệu shadowing hai quá trình độc lập là $\sigma_{diff} = \sigma\sqrt{2} = 8{,}5$ dB.
 
-**Ví dụ: Xuyên tòa nhà**
+Ngưỡng trễ đề xuất: $2\sigma_{diff} = 17$ dB quá lớn (handoff quá chậm). Trong thực tế dùng ngưỡng trễ 3–6 dB, cân bằng giữa tốc độ ping-pong và độ trễ handoff. Giá trị đúng phụ thuộc tương quan không gian thực tế — shadowing tương quan từ cùng tòa nhà làm giảm $\sigma_{diff}$ hiệu quả.
 
-Suy hao xuyên tòa nhà: ~20 dB trung bình, σ = 10 dB.
+### Ví dụ 3: Lập kế hoạch DAS trong nhà
 
-Ở độ tin cậy 99%: cần dự trữ 20 + 2.33×10 = 43.3 dB cho phòng tệ nhất.
+Tòa văn phòng, 2,4 GHz, $\sigma_{indoor} = 8$ dB, tổn hao xuyên tầng = 15 dB/tầng, tổn hao xuyên từ ngoài = 20 dB.
 
-**Ví dụ: Outage kết hợp**
+DAS phải khắc phục: path loss từ anten + shadow margin trong tầng + tách tầng nếu đa tầng.
 
-Suy hao đường trung bình: 120 dB ở biên
-Che khuất: σ = 8 dB
-Tín hiệu yêu cầu: -100 dBm
-Công suất TX: 43 dBm
-Khuếch đại ăng-ten: 15 dBi tổng
+Với 90% vị trí trong nhà được phủ sóng: $M_{shadow} = 1{,}28 \times 8 = 10{,}2$ dB.
 
-Link budget: 43 + 15 - 120 = -62 dBm trung bình
+Nếu anten DAS cách điểm xa nhất trên tầng 20 m và mô hình path loss cho $L(20\text{ m}) = 60$ dB (LOS trong nhà), tổng link yêu cầu: $60 + 10{,}2 = 70{,}2$ dB. Với AP 20 dBm và độ nhạy máy thu -70 dBm, link budget là 90 dB — dư 19,8 dB. Thoải mái.
 
-Dự trữ: -62 - (-100) = 38 dB
+### Ví dụ 4: Đầu cuối vệ tinh trong môi trường đô thị
 
-Outage: $Q(38/8) = Q(4.75) < 10^{-6}$
+Đầu cuối LEO băng S, ngoại ô, $\sigma = 4$ dB (mô hình vệ tinh ngoài trời từ TR 38.811). Yêu cầu: sẵn sàng 95%.
 
-Cơ bản 100% phủ sóng ở vị trí này.
+Fade margin = $1{,}65 \times 4 = 6{,}6$ dB.
+
+Với 99% sẵn sàng: $2{,}33 \times 4 = 9{,}3$ dB.
+
+Các margin này nhỏ hơn nhiều so với terrestrial NLOS ($\sigma = 8$ dB) vì vệ tinh nhìn xuống từ góc ngẩng — ít che khuất tòa nhà hơn so với trạm gốc mặt đất ở mức mặt đất. Đây là lý do phủ sóng vệ tinh ở khu vực mở đáng tin cậy hơn terrestrial NLOS, dù công suất nhận thấp hơn.
+
+### Ví dụ 5: Ảnh hưởng của tần số đến tổn hao xuyên nhà
+
+Triển khai 5G xét cả 3,5 GHz (sub-6) và 28 GHz (mmWave) cho phủ sóng ngoài-vào-trong nhà.
+
+Tại 3,5 GHz: xuyên tường bê tông ≈ 18 dB, $\sigma_{xuyennha} = 5$ dB.
+Tại 28 GHz: xuyên tường bê tông ≈ 35 dB, $\sigma_{xuyennha} = 7$ dB.
+
+Với phủ sóng trong nhà 95% bằng 3,5 GHz: margin thêm = $18 + 1{,}65 \times 5 = 26{,}3$ dB.
+Với phủ sóng trong nhà 95% bằng 28 GHz: margin thêm = $35 + 1{,}65 \times 7 = 46{,}6$ dB.
+
+Margin thêm cần ở mmWave (46,6 dB) nhiều hơn sub-6 (26,3 dB) đến 20 dB. Khoảng cách 20 dB này không thể lấp đầy thực tế bằng độ lợi anten hay công suất — mmWave không khả thi cho phủ sóng ngoài-vào-trong qua bê tông. Đây là lý do 5G mmWave cần small cell trong nhà cho phủ sóng deep indoor.
 
 </section>
 
 <section class="lesson-pitfalls">
 
-## Lỗi thường gặp
+## Cạm bẫy thường gặp
 
-1. **Nhầm che khuất và fading.** Che khuất là quy mô lớn (mét); fading là quy mô nhỏ (bước sóng). Cả hai đều quan trọng.
+1. **Nhầm shadowing và small-scale fading.** Shadowing là quy mô lớn (thang không gian: hàng chục mét, do tòa nhà/địa hình che khuất); small-scale fading là quy mô bước sóng (thang không gian: centimet, do dịch pha multipath). Cả hai phải tính trong link budget hoàn chỉnh, nhưng chúng là hiện tượng độc lập cần các margin riêng biệt.
 
-2. **Dùng sai σ.** Độ lệch chuẩn che khuất thay đổi theo môi trường. Đừng dùng giá trị đô thị cho nông thôn.
+2. **Dùng sai $\sigma$.** Độ lệch chuẩn bóng tối biến đổi rất nhiều theo môi trường. Dùng $\sigma = 6$ dB (ngoại ô) cho kịch bản đô thị dày đặc với $\sigma = 10$ dB sẽ đánh giá thấp margin cần thiết đến 5 dB. Luôn hiệu chuẩn hoặc dùng giá trị cụ thể theo môi trường từ tiêu chuẩn liên quan (3GPP TR 38.901, ITU-R).
 
-3. **Bỏ qua tương quan.** Cell kề chia sẻ che khuất tương quan. Bản đồ phủ sóng phải mô hình hóa điều này.
+3. **Coi bóng tối là độc lập tại mọi vị trí.** Bản đồ phủ sóng giả định độc lập tại pixel kề nhau là sai — shadowing có tương quan không gian. Bản đồ phủ sóng độ phân giải 10 m với khoảng cách giải tương quan 30 m đang hiển thị artifacts. Mô phỏng tương quan dùng trường ngẫu nhiên lọc không gian.
 
-4. **Trung bình tuyến tính.** Trung bình giá trị dB, không phải công suất tuyến tính, khi phân tích thống kê che khuất.
+4. **Áp dụng độ tin cậy vị trí cho tất cả người dùng đồng thời.** Độ tin cậy vị trí 90% có nghĩa 90% vị trí ngẫu nhiên được phủ sóng — không phải 90% người dùng đang hoạt động đồng thời được phủ sóng. Đại lượng sau phụ thuộc vào phân phối không gian của người dùng và tương quan của họ. Đây là hai đại lượng khác nhau với tác động khác nhau đến KPI mạng.
 
-5. **Dự trữ fade đơn.** Ứng dụng khác cần độ tin cậy khác. IoT có thể chấp nhận 80%; giọng nói cần 99%.
+5. **Bỏ qua độ lệch chuẩn tổn hao xuyên nhà.** Tổn hao xuyên nhà thường được tính theo giá trị trung bình. Nhưng với $\sigma = 6$ dB, 5% vị trí sẽ thấy tổn hao xuyên nhà cao hơn trung bình đến 10 dB. Phủ sóng deep indoor cần margin cho cả giá trị trung bình lẫn biến động.
+
+6. **Trung bình tuyến tính các đại lượng log-normal.** Shadowing là log-normal: giá trị trung bình theo dB không bằng giá trị trung bình theo công suất tuyến tính. Khi kết hợp shadow fade margin từ nhiều hop hoặc phối hợp ô, phép tính phải nhất quán theo dB (cho phân tích Gaussian) hoặc tính đúng phân phối log-normal (cho kết hợp tuyến tính).
 
 </section>
 
@@ -177,8 +254,10 @@ Cơ bản 100% phủ sóng ở vị trí này.
 
 ## Tài liệu tham khảo
 
-- Rappaport, *Wireless Communications*, Chapter 4.
-- Goldsmith, *Wireless Communications*, Chapter 2.
-- 3GPP TR 38.901, "Channel model for frequencies from 0.5 to 100 GHz."
+- Rappaport, T.S., *Wireless Communications*, 2nd ed., Chương 4 — mô hình shadowing log-normal, xác suất outage.
+- Goldsmith, A., *Wireless Communications*, Chương 2 — shadow fading margin và độ tin cậy phủ sóng.
+- 3GPP TR 38.901 v17.0, Mục 7.4 — tham số độ lệch chuẩn shadow fading cho tất cả kịch bản 5G NR.
+- ITU-R P.1238-11 — dữ liệu truyền sóng và mô hình dự đoán cho thông tin vô tuyến trong nhà.
+- Gudmundson, M., "Correlation model for shadow fading in mobile radio systems," *Electronics Letters*, 1991 — mô hình tương quan không gian gốc.
 
 </section>

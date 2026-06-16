@@ -8,17 +8,347 @@ track: n0
 unit: osi-tcpip-backend-perspective
 order: 2
 level: L0
-estimatedReadingMinutes: 5
-title: "Ngan xep TCP/IP"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-osi-tcpip-backend-perspective-01-osi-layers"]
+spiralRevisits: ["core-network-n2-5g-core-sba-01-service-based-architecture"]
+title: "Ngăn xếp TCP/IP"
+description: "Mô hình 4 tầng thực sự chạy Internet — và cách telecom mở rộng nó với GTP, SCTP, và PFCP."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["RFC 1122", "RFC 791", "RFC 793", "RFC 4960"]
+tags: ["tcp-ip", "networking", "fundamentals", "internet", "gtp", "sctp"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Ngan xep TCP/IP
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+Không ai deploy OSI. Internet chạy trên TCP/IP.
+
+Khi bạn `curl` một API, gửi tin nhắn Slack, hay deploy lên production, dữ liệu của bạn đi qua ngăn xếp TCP/IP. Hiểu bốn tầng này — không phải bảy — là thứ bạn cần để debug hệ thống thực, đọc output `tcpdump`, và suy luận về latency.
+
+Nhưng có một điểm đặc biệt với kỹ sư telecom: user plane 5G không chạy TCP/IP thuần túy giữa base station và core network. Nó bọc user packet bên trong GTP-U tunnel được mang qua UDP. Control plane 5G không dùng TCP cho signaling — nó dùng SCTP, một transport protocol thứ ba mà hầu hết kỹ sư cloud chưa bao giờ sử dụng. Và 5G core giới thiệu PFCP như một application-layer control protocol giữa SMF và UPF.
+
+Bài học này bao gồm TCP/IP stack tiêu chuẩn và sau đó ánh xạ chính xác từng mở rộng telecom vào nó, để bạn hiểu tại sao traffic 5G hoạt động khác với traffic cloud thông thường.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+TCP/IP gộp bảy tầng OSI thành bốn tầng thực dụng:
+
+| Tầng TCP/IP | Tầng OSI | Làm gì | Protocol chính |
+|-------------|----------|--------|----------------|
+| Application | 5, 6, 7 | Protocol cho người dùng | HTTP, DNS, SSH, TLS, PFCP, Diameter |
+| Transport | 4 | Truyền end-to-end | TCP, UDP, SCTP |
+| Internet | 3 | Định tuyến qua mạng | IP, ICMP, GTP-U |
+| Link | 1, 2 | Physical + data link | Ethernet, WiFi, ARP |
+
+**Khác biệt chính với OSI:** TCP/IP được thiết kế xung quanh các protocol hoạt động, không phải các tầng trừu tượng. Session và Presentation (OSI 5-6) không tồn tại như tầng riêng — ứng dụng tự xử lý session và định dạng dữ liệu.
+
+**Mental model:** Hãy nghĩ như các phong bì lồng nhau:
+- Bạn viết thư (Application data)
+- Bỏ vào phong bì có thông tin người nhận (TCP/UDP/SCTP header)
+- Bỏ vào phong bì bưu điện có địa chỉ (IP header)
+- Đưa cho nhân viên bưu điện (Link layer)
+
+**Mở rộng telecom của mô hình này:** GTP-U thêm một phong bì bưu điện *bên trong* phong bì ngoài. Phong bì trong được địa chỉ đến UE (10.1.2.3); phong bì ngoài được địa chỉ đến UPF (10.0.1.10). Chỉ UPF mới biết cách mở phong bì ngoài và giao phong bì trong đến đích cuối cùng. Địa chỉ kép này là bản chất của user plane 5G.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### Link Layer
+
+Xử lý truyền dữ liệu trên một segment mạng. Hai công việc:
+
+1. **Truyền vật lý:** Chuyển bit thành tín hiệu (điện, quang, radio)
+2. **Đóng frame và địa chỉ:** Đóng gói dữ liệu thành frame với địa chỉ MAC
+
+**Protocol chính:** ARP (Address Resolution Protocol) — dịch địa chỉ IP sang địa chỉ MAC.
+
+```
+Who has 192.168.1.1? Tell 192.168.1.100
+192.168.1.1 is at aa:bb:cc:dd:ee:ff
+```
+
+**Liên quan backend:** Khi service của bạn không reach được database trên cùng subnet, ARP failure thường là nguyên nhân. Kiểm tra `arp -a` hoặc `ip neigh`.
+
+**Liên quan telecom:** Trong fronthaul network, Link layer mang eCPRI frame giữa Remote Radio Unit (RRU) và Distributed Unit (DU). eCPRI dùng framing Ethernet tiêu chuẩn (Tầng 2) nhưng mang I/Q sample (dữ liệu radio) thay vì IP packet. Yêu cầu timing là dưới microsecond — chặt chẽ hơn nhiều bậc so với Ethernet data center.
+
+### Internet Layer
+
+Định tuyến packet qua ranh giới mạng. IP protocol:
+
+- **Địa chỉ:** 32-bit (IPv4) hoặc 128-bit (IPv6)
+- **Định tuyến:** Quyết định interface nào để forward packet
+- **Phân mảnh:** Chia packet lớn hơn MTU (thường 1500 bytes)
+
+**IP header cơ bản:**
+```
+┌─────────────────────────────────────────────────────┐
+│ Version │ Header │  ToS  │      Total Length        │
+├─────────────────────────────────────────────────────┤
+│    Identification     │ Flags │  Fragment Offset    │
+├─────────────────────────────────────────────────────┤
+│   TTL   │ Protocol │       Header Checksum          │
+├─────────────────────────────────────────────────────┤
+│                Source IP Address                    │
+├─────────────────────────────────────────────────────┤
+│             Destination IP Address                  │
+└─────────────────────────────────────────────────────┘
+```
+
+**TTL (Time To Live):** Giảm 1 tại mỗi hop. Ngăn routing loop. Khi TTL về 0, packet bị drop và ICMP "Time Exceeded" được gửi lại. Đây là cách `traceroute` hoạt động.
+
+**Protocol field:** Xác định transport protocol (6 = TCP, 17 = UDP, 1 = ICMP, 132 = SCTP).
+
+**GTP-U ở Internet layer:** GTP-U về mặt kỹ thuật là application-layer protocol, nhưng về mặt khái niệm nó hoạt động như cơ chế tunneling thêm IP header thứ hai. Interface N3 của 5G (gNB đến UPF) và N9 (UPF đến UPF) mang user traffic dưới dạng:
+
+```
+[Outer IP: gNB → UPF] [UDP :2152] [GTP-U header: TEID] [Inner IP: UE → Internet]
+```
+
+TEID (Tunnel Endpoint Identifier) là giá trị 32-bit xác định PDU session nào traffic này thuộc về. Mỗi UE session có cặp TEID riêng (uplink và downlink). Đây là tương đương 5G của VPC tunnel endpoint — nhưng phải hỗ trợ hàng triệu session đồng thời trên mỗi UPF instance.
+
+### Transport Layer
+
+Cung cấp giao tiếp end-to-end giữa các ứng dụng.
+
+**TCP (Transmission Control Protocol):**
+- **Đáng tin cậy:** Đảm bảo delivery qua acknowledgment và retransmission
+- **Có thứ tự:** Dữ liệu đến đúng sequence
+- **Hướng kết nối:** 3-way handshake trước khi truyền dữ liệu
+- **Flow control:** Sliding window ngăn làm quá tải receiver
+- **Congestion control:** Slow start, congestion avoidance, fast retransmit
+
+**TCP 3-way handshake:**
+```
+Client                    Server
+  │                         │
+  │──── SYN (seq=x) ───────►│
+  │                         │
+  │◄─── SYN-ACK (seq=y, ack=x+1) ──│
+  │                         │
+  │──── ACK (ack=y+1) ─────►│
+  │                         │
+  │     Connection established     │
+```
+
+**UDP (User Datagram Protocol):**
+- **Không đáng tin cậy:** Không đảm bảo delivery
+- **Không thứ tự:** Packet có thể đến không đúng sequence
+- **Không kết nối:** Không handshake, chỉ gửi
+- **Overhead thấp:** Header 8 byte so với 20+ byte của TCP
+
+Khi nào dùng UDP:
+- Real-time: video streaming, VoIP, gaming
+- Discovery: DNS query, DHCP
+- Khi bạn tự implement reliability: QUIC (HTTP/3)
+- **GTP-U tunneling:** UDP port 2152 mang toàn bộ user-plane traffic 5G
+
+**SCTP (Stream Control Transmission Protocol) — transport protocol của telecom:**
+
+SCTP là transport protocol thứ ba mà hầu hết kỹ sư cloud không bao giờ gặp nhưng mọi kỹ sư telecom phải biết. RFC 4960 định nghĩa nó.
+
+Thuộc tính chính của SCTP:
+- **Message-oriented:** Không như byte stream của TCP, SCTP bảo toàn message boundary. Một `send` = một message tại receiver.
+- **Multi-homing:** Một SCTP association có thể dùng nhiều địa chỉ IP trên mỗi endpoint. Nếu một path bị lỗi, traffic chuyển sang path khác — không cần kết nối lại.
+- **Multi-streaming:** Nhiều stream độc lập trong một association. Loss trên stream 1 không block stream 2 (giải quyết head-of-line blocking của TCP).
+- **4-way handshake với cookie:** Bảo vệ chống SYN flood attack mà không cần stateful tracking.
+
+SCTP trong 5G:
+- **Interface N2** (gNB đến AMF): NGAP protocol chạy trên SCTP. Đây là control plane cho đăng ký UE, yêu cầu PDU session, và thủ tục handover.
+- **Interface Xn** (gNB đến gNB): XnAP protocol chạy trên SCTP. Dùng cho điều phối handover inter-gNB.
+- **Interface E1** (CU-CP đến CU-UP trong gNB phân tán): E1AP chạy trên SCTP.
+
+Tại sao SCTP cho signaling? Vì một SCTP association bị drop đồng nghĩa với rớt cuộc gọi — có thể cho hàng nghìn UE cùng lúc. Multi-homing nghĩa là link failure gây failover path tự động trong millisecond, không phải reset kết nối.
+
+### Application Layer
+
+Mọi thứ phía trên transport. Không có cấu trúc cứng — ứng dụng định nghĩa protocol riêng.
+
+**Pattern phổ biến:**
+- **Request-response:** HTTP, DNS
+- **Streaming:** WebSocket, gRPC streaming
+- **Pub-sub:** MQTT, AMQP
+
+**TLS ở đây:** TLS mã hóa application data trước khi đưa cho TCP. Nó không phải tầng riêng — nó là application-layer protocol cung cấp dịch vụ bảo mật. 5G SBI bắt buộc TLS 1.2 trở lên trên tất cả interface NF-to-NF (3GPP TS 33.501).
+
+**Protocol application-layer của telecom:**
+
+| Protocol | Interface | Mục đích |
+|----------|-----------|---------|
+| HTTP/2 + JSON | SBI (N5, N7, N8, N10, N11...) | Tất cả REST call NF-to-NF trong 5G |
+| PFCP | N4 (SMF đến UPF) | SMF hướng dẫn UPF về quy tắc forwarding packet |
+| Diameter | S6a (4G MME đến HSS) | Authentication, lấy subscription |
+| PFCP | Sxa/Sxb (4G CUPS) | Phân tách control/user plane 4G |
+
+**PFCP (Packet Forwarding Control Protocol):** Đây là protocol làm cho phân tách user-plane 5G hoạt động. SMF (control plane) gửi PFCP Session Establishment request đến UPF nói rằng: "Với TEID X, áp dụng QoS profile Y và forward đến đích Z." UPF trở thành pure forwarding element, được cấu hình hoàn toàn qua PFCP. Điều này tương tự OpenFlow trong SDN — SMF là controller, UPF là dataplane switch.
+
+### Ví dụ packet flow
+
+Browser của bạn request `https://api.example.com/users`:
+
+1. **Application:** Browser tạo HTTP request, TLS mã hóa nó
+2. **Transport:** TCP segment dữ liệu, thêm port number (source: random, dest: 443)
+3. **Internet:** IP thêm địa chỉ (source: IP của bạn, dest: IP của api.example.com)
+4. **Link:** Ethernet thêm địa chỉ MAC (source: NIC của bạn, dest: gateway)
+
+Tại mỗi router:
+- Link layer bị bóc, thêm link header mới cho hop tiếp
+- Internet layer được tham vấn để quyết định routing
+- Transport và Application layer không bị động
+
+Tại server:
+- Mỗi tầng bóc header của nó, chuyển dữ liệu lên
+- Application thấy HTTP request ban đầu
+
+**5G user-plane packet flow (UE đến Internet):**
+
+```
+Dữ liệu app UE → TCP/UDP → inner IP header (địa chỉ UE)
+    ↓ Tại gNB:
+Thêm GTP-U header (TEID) → Thêm UDP header (port 2152) → Thêm outer IP header (gNB→UPF)
+    ↓ Tại UPF (N3 decapsulation):
+Bóc outer IP, UDP, GTP-U → Route inner IP packet ra Internet
+```
+
+UPF thực hiện GTP-U decapsulation, áp dụng QoS, thực thi policy từ PCF, và định tuyến inner IP packet. Đây là lý do tại sao UPF là NF tốn nhiều tính toán nhất — nó xử lý mọi byte user-plane.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Đọc output tcpdump:**
+
+```bash
+tcpdump -i eth0 -nn host 10.0.0.5 and port 443
+```
+
+Output:
+```
+15:30:01.123456 IP 10.0.0.5.52341 > 93.184.216.34.443: Flags [S], seq 1234567890
+15:30:01.156789 IP 93.184.216.34.443 > 10.0.0.5.52341: Flags [S.], seq 987654321, ack 1234567891
+15:30:01.156890 IP 10.0.0.5.52341 > 93.184.216.34.443: Flags [.], ack 987654322
+```
+
+- `IP 10.0.0.5.52341 > 93.184.216.34.443` — Internet layer (IP) + Transport layer (port)
+- `Flags [S]` — TCP SYN (khởi tạo kết nối)
+- `Flags [S.]` — TCP SYN-ACK (server phản hồi)
+- `Flags [.]` — TCP ACK (handshake hoàn tất)
+
+**Bắt traffic GTP-U trên N3:**
+
+```bash
+# Bắt toàn bộ GTP-U traffic (UDP port 2152)
+tcpdump -i eth0 -nn udp port 2152
+
+# Decode GTP inner packet với tshark
+tshark -i eth0 -d udp.port==2152,gtp -Y "gtp"
+
+# Filter theo TEID cụ thể
+tshark -i eth0 -Y "gtp.teid == 0x00000001"
+
+# Xem địa chỉ IP UE bên trong
+tshark -i eth0 -Y "gtp" -T fields -e ip.src -e ip.dst -e gtp.teid
+```
+
+**Chẩn đoán vấn đề kết nối:**
+
+```bash
+# Layer 3: Có reach được IP không?
+ping -c 3 93.184.216.34
+
+# Layer 4: Port có mở không?
+nc -zv 93.184.216.34 443
+
+# Application: HTTP có work không?
+curl -v https://example.com
+```
+
+**Kiểm tra socket state local:**
+
+```bash
+# Đang listen gì?
+ss -tlnp
+
+# Kết nối active?
+ss -tnp
+
+# SCTP association (cho NF telecom)
+ss -Snp
+
+# Connection state (TIME_WAIT tích lũy?)
+ss -s
+```
+
+**Kiểm tra tình trạng SCTP association trên N2:**
+
+```bash
+# Liệt kê SCTP association
+cat /proc/net/sctp/assocs
+
+# Thống kê SCTP
+cat /proc/net/sctp/snmp
+
+# Wireshark filter cho NGAP qua SCTP
+sctp and ngap
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Giả định TCP đảm bảo message boundary.** TCP là byte stream, không phải message protocol. Nếu bạn gửi 1000 byte, receiver có thể nhận 100+400+500 byte qua ba lần `recv()`. Ứng dụng phải tự xử lý framing. SCTP tránh vấn đề này theo thiết kế — một `sendmsg` giao một message hoàn chỉnh.
+
+2. **Bỏ qua MTU trong tunneled traffic.** GTP-U thêm 36 byte overhead (8 GTP + 8 UDP + 20 IP outer header). Nếu MTU mạng nền là 1500 byte, inner MTU hiệu quả cho UE traffic là 1464 byte. Cấu hình sai điều này gây ra fragmentation bí ẩn và suy giảm hiệu suất.
+
+3. **Quên về NAT.** Hầu hết traffic production đi qua NAT boundary. "Source IP" của bạn thường là NAT gateway, không phải server của bạn. Tracing cần X-Forwarded-For header và logging đúng. Trong 5G, địa chỉ UE là địa chỉ private RFC 1918 bên trong GTP tunnel — NAT xảy ra tại UPF hoặc N6 gateway.
+
+4. **Giả định "reliability" của UDP.** Chỉ vì packet *thường* đến không có nghĩa là luôn đến. DNS fail, DHCP timeout, video buffer. Xây dựng retry logic. GTP-U không có retransmission tích hợp — độ tin cậy được ủy quyền cho ứng dụng (TCP bên trong tunnel) hoặc được xử lý bởi HARQ ở tầng radio.
+
+5. **Không biết SCTP tồn tại.** Triển khai 5G core nơi SCTP bị cấu hình sai sẽ fail im lặng: AMF và gNB sẽ từ chối associate, đăng ký sẽ fail, và thông báo lỗi ở tầng SCTP transport, không phải application log. Hãy biết port SCTP của bạn: 38412 (N2/NGAP), 38422 (Xn), 38462 (E1).
+
+6. **Nhầm lẫn port với process.** Port là số 16-bit, không phải process. Một process có thể bind nhiều port; một port có thể có nhiều connection (qua SO_REUSEPORT). `netstat` và `ss` hiển thị mapping. Trong 5G, một AMF có thể duy trì hàng nghìn SCTP association trên port 38412.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- RFC 791, "Internet Protocol" (IPv4)
+- RFC 793, "Transmission Control Protocol"
+- RFC 768, "User Datagram Protocol"
+- RFC 1122, "Requirements for Internet Hosts"
+- RFC 4960, "Stream Control Transmission Protocol" (SCTP)
+- 3GPP TS 29.281, "GPRS Tunnelling Protocol User Plane (GTPv1-U)"
+- 3GPP TS 29.244, "Interface between the Control Plane and the User Plane nodes" (PFCP)
+- Stevens, *TCP/IP Illustrated, Vol. 1*, Addison-Wesley, 2011
+- Fall & Stevens, *TCP/IP Illustrated, Vol. 2*, Addison-Wesley, 2012
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [Socket và API](/vi/core-network/osi-tcpip-backend-perspective/sockets-and-apis/) — cách ứng dụng sử dụng stack
+- [Packet flow end-to-end](/vi/core-network/osi-tcpip-backend-perspective/packet-flow-end-to-end/) — theo dõi request qua mọi tầng
+- [Phân tách user plane và control plane](/vi/core-network/4g-5g-not-like-aws-vpc/user-plane-control-plane-separation/) — cách 5G tách forwarding khỏi control
+- [Nguyên tắc thiết kế SBA](/vi/core-network/why-sba-architectural-shift/sba-design-principles/) — tầng HTTP/2 trên stack này
+
+</section>

@@ -8,12 +8,12 @@ track: r0
 unit: fourier-methods
 order: 1
 level: L1
-estimatedReadingMinutes: 10
+estimatedReadingMinutes: 13
 prerequisites: []
 spiralRevisits: []
 title: "Fourier series"
 description: "Decomposing periodic signals into sines and cosines."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,11 @@ status: published
 
 ## Why Fourier series?
 
-A square wave doesn't look like a sine wave, yet your oscilloscope's FFT shows distinct frequency spikes. That's because any periodic signal — no matter how jagged — can be built from a sum of sine waves at integer multiples of the fundamental frequency.
+A square wave doesn't look like a sine wave, yet your oscilloscope's FFT shows distinct frequency spikes at odd multiples of the fundamental. A clock signal on a PCB is not a pure 100 MHz tone — it radiates at 100 MHz, 300 MHz, 500 MHz, and beyond. An amplifier fed a single sine wave might output harmonics at 2f, 3f, 4f because it is nonlinear.
 
-Fourier series is the mathematical tool that breaks a periodic signal into its harmonic components. It's why we can talk about the "3rd harmonic distortion" of an amplifier or the "bandwidth" of a pulse train.
+Fourier series is the mathematical foundation for all of this. It says: any periodic signal — no matter how jagged, no matter how complex — can be exactly represented as a sum of sinusoids at integer multiples of the fundamental frequency. This decomposition maps the time-domain waveform to a discrete line spectrum: the signal's fingerprint in the frequency domain.
+
+For RF and digital engineering, Fourier series is the entry point to spectrum analysis, harmonic distortion, EMI compliance, and signal integrity. You cannot reason about why a 10 MHz clock causes interference at 70 MHz without understanding harmonics. You cannot specify the bandwidth required for a pulse signal without knowing its spectral envelope. Fourier series gives you that understanding.
 
 </section>
 
@@ -37,11 +39,29 @@ Fourier series is the mathematical tool that breaks a periodic signal into its h
 
 ## Intuition
 
-Think of a chord on a piano. You hear one sound, but it's actually multiple notes vibrating together. Similarly, a periodic electrical signal is a superposition of pure tones (sinusoids) at the fundamental frequency and its harmonics.
+### The piano chord analogy
 
-The **fundamental** $f_0 = 1/T$ sets the pitch. The **harmonics** at $2f_0, 3f_0, \ldots$ add color and shape. A square wave needs many odd harmonics to form sharp edges. A triangle wave has fewer harmonics and softer edges.
+Think of a chord on a piano. You hear one complex sound, but it is built from multiple strings vibrating at specific frequencies — the fundamental note plus its overtones (harmonics). The resonant body of the piano shapes which harmonics are loud and which are quiet, giving each instrument its characteristic timbre.
 
-The Fourier series gives you the recipe: which frequencies, and how much of each.
+A periodic electrical signal works the same way. The **fundamental** at $f_0 = 1/T$ is the "base note." The **harmonics** at $2f_0, 3f_0, 4f_0, \ldots$ are the overtones. The Fourier series gives you the amplitude and phase of each harmonic — the complete recipe for the signal's spectrum.
+
+### Why edge sharpness requires high harmonics
+
+A perfect square wave has infinitely sharp edges — vertical transitions between two voltage levels. Sharp transitions in the time domain mean energy spread across many frequencies. Specifically:
+
+- The $n$-th harmonic of a square wave has amplitude $\propto 1/n$
+- Only odd harmonics are present (1st, 3rd, 5th, ...)
+- The series never terminates — you need infinitely many terms for a perfectly sharp edge
+
+This is not a bug. It is the fundamental trade-off of digital signals: faster edges require more bandwidth. A 1 ns rise time needs bandwidth up to roughly $0.35/t_r \approx 350$ MHz. All that bandwidth is carrying the higher harmonics of the waveform.
+
+### Orthogonality: why the decomposition works
+
+The reason you can extract each harmonic independently is orthogonality. The sinusoids $\cos(m\omega_0 t)$ and $\cos(n\omega_0 t)$ are orthogonal over one period: their integral product is zero when $m \neq n$.
+
+$$\int_0^T \cos(m\omega_0 t)\cos(n\omega_0 t)\,dt = \begin{cases} 0 & m \neq n \\ T/2 & m = n \end{cases}$$
+
+This means each harmonic "lives" in its own dimension. To find the amplitude of the $n$-th harmonic, you multiply the signal by $\cos(n\omega_0 t)$ and integrate — everything else cancels. This is exactly what a spectrum analyzer does electronically with bandpass filters centered at each harmonic.
 
 </section>
 
@@ -55,36 +75,48 @@ A periodic signal $x(t)$ with period $T$ can be written:
 
 $$x(t) = a_0 + \sum_{n=1}^{\infty} \left[ a_n \cos(n\omega_0 t) + b_n \sin(n\omega_0 t) \right]$$
 
-where $\omega_0 = 2\pi/T$ is the fundamental angular frequency.
+where $\omega_0 = 2\pi/T = 2\pi f_0$ is the fundamental angular frequency.
 
 ### Fourier coefficients
 
-$$a_0 = \frac{1}{T} \int_0^T x(t)\, dt$$
+$$a_0 = \frac{1}{T} \int_0^T x(t)\, dt \quad \text{(DC component — average value)}$$
 
-$$a_n = \frac{2}{T} \int_0^T x(t) \cos(n\omega_0 t)\, dt$$
+$$a_n = \frac{2}{T} \int_0^T x(t) \cos(n\omega_0 t)\, dt \quad \text{(cosine amplitude of } n\text{-th harmonic)}$$
 
-$$b_n = \frac{2}{T} \int_0^T x(t) \sin(n\omega_0 t)\, dt$$
+$$b_n = \frac{2}{T} \int_0^T x(t) \sin(n\omega_0 t)\, dt \quad \text{(sine amplitude of } n\text{-th harmonic)}$$
+
+The amplitude of the $n$-th harmonic is $\sqrt{a_n^2 + b_n^2}$ and the phase is $\arctan(-b_n/a_n)$.
 
 ### Complex exponential form
 
-More compact using Euler's formula:
+More compact and standard in RF and communications using Euler's formula $e^{j\theta} = \cos\theta + j\sin\theta$:
 
 $$x(t) = \sum_{n=-\infty}^{\infty} c_n e^{jn\omega_0 t}$$
 
-where:
+$$c_n = \frac{1}{T} \int_0^T x(t)\, e^{-jn\omega_0 t}\, dt$$
 
-$$c_n = \frac{1}{T} \int_0^T x(t) e^{-jn\omega_0 t}\, dt$$
+The complex coefficients $c_n$ encode both amplitude ($|c_n|$) and phase ($\angle c_n$). The relationship to real coefficients: $c_n = (a_n - jb_n)/2$ for $n > 0$, $c_0 = a_0$, and $c_{-n} = c_n^*$ (conjugate symmetry for real signals).
 
-This form is standard in RF because it handles phase naturally.
+The complex form generalizes directly to the Fourier transform (for non-periodic signals) and the DFT (for discrete-time periodic signals).
 
-### Common signals
+### Harmonic spectrum of common waveforms
 
-| Signal | Non-zero harmonics | Coefficient pattern |
-|--------|-------------------|---------------------|
-| Square wave | Odd only (1,3,5,...) | $\propto 1/n$ |
-| Triangle wave | Odd only | $\propto 1/n^2$ |
-| Sawtooth | All harmonics | $\propto 1/n$ |
-| Pulse train | All harmonics | $\propto \text{sinc}(n\cdot\text{duty})$ |
+| Signal | Non-zero harmonics | Coefficient $c_n$ | Notes |
+|--------|-------------------|--------------------|-------|
+| Square wave (50% duty) | Odd only: 1, 3, 5, ... | $2A/(jn\pi)$ for odd $n$ | $\propto 1/n$ falloff |
+| Triangle wave | Odd only | $\pm 2A/(n\pi)^2$ for odd $n$ | $\propto 1/n^2$ falloff — smoother |
+| Sawtooth | All: 1, 2, 3, ... | $jA/(n\pi)$ | $\propto 1/n$ falloff |
+| Pulse train (duty $D$) | All | $AD\,\text{sinc}(nD)$ | Nulls at $n = 1/D, 2/D, ...$ |
+
+The $1/n$ rolloff of square and sawtooth means their spectrum falls at $-20$ dB/decade. Triangle waves fall at $-40$ dB/decade — much more bandwidth-efficient. This is why some digital standards specify rise-time limits to reduce harmonic energy and EMI.
+
+### Parseval's theorem
+
+Total power in the time domain equals total power in the frequency domain:
+
+$$P = \frac{1}{T}\int_0^T |x(t)|^2\,dt = \sum_{n=-\infty}^{\infty} |c_n|^2$$
+
+Each harmonic $c_n$ contributes $|c_n|^2$ watts to the total power. This is the basis for harmonic power measurements — each spectral line on a power analyzer represents real power in that harmonic.
 
 </section>
 
@@ -92,23 +124,66 @@ This form is standard in RF because it handles phase naturally.
 
 ## Apply
 
-**Example: Square wave spectrum**
+### Example 1: Square wave spectrum and bandwidth requirement
 
-A square wave of amplitude $A$ and period $T$:
+A digital clock signal: square wave, amplitude $A = 1$ V (0 to 1 V swing, so effectively $\pm 0.5$ V around 0.5 V DC), frequency $f_0 = 100$ MHz, 50% duty cycle.
 
-$$x(t) = \frac{4A}{\pi} \left[ \sin(\omega_0 t) + \frac{1}{3}\sin(3\omega_0 t) + \frac{1}{5}\sin(5\omega_0 t) + \cdots \right]$$
+Fourier series (centered at 0 V for simplicity, $A = 1$ V peak):
 
-The fundamental has amplitude $4A/\pi \approx 1.27A$. The 3rd harmonic is 1/3 of that. The 5th is 1/5.
+$$x(t) = \frac{4A}{\pi}\left[\sin(\omega_0 t) + \frac{1}{3}\sin(3\omega_0 t) + \frac{1}{5}\sin(5\omega_0 t) + \cdots\right]$$
 
-To pass a square wave cleanly, your channel must handle bandwidth up to at least the 5th or 7th harmonic. A 1 MHz square wave needs ~7 MHz bandwidth for reasonable fidelity.
+Harmonic amplitudes:
 
-**Example: Harmonic distortion**
+| Harmonic | Frequency | Amplitude | Level (dBc) |
+|----------|-----------|-----------|-------------|
+| 1st (fundamental) | 100 MHz | $4/\pi \approx 1.273$ V | 0 dBc |
+| 3rd | 300 MHz | $4/(3\pi) \approx 0.424$ V | -9.5 dBc |
+| 5th | 500 MHz | $4/(5\pi) \approx 0.255$ V | -14.0 dBc |
+| 7th | 700 MHz | $4/(7\pi) \approx 0.182$ V | -16.9 dBc |
 
-An amplifier outputs $v(t) = A_1\sin(\omega t) + A_3\sin(3\omega t)$. The third harmonic distortion (THD3) is:
+**Bandwidth rule of thumb:** To transmit a square wave with acceptable fidelity (edge overshoot < 10%), you need at least the 5th harmonic. For a 100 MHz clock: 500 MHz minimum bandwidth. This is why a PCB trace that looks fine at DC can become an EMI radiator at 500 MHz — it is carrying the 5th harmonic of the clock.
 
-$$\text{THD3} = \frac{A_3}{A_1} \times 100\%$$
+### Example 2: Harmonic distortion in an amplifier
 
-Fourier analysis of the output reveals how much distortion the amplifier adds.
+A power amplifier is specified for 3rd-order harmonic distortion (HD3). Input: $v_{in}(t) = 0.5\sin(2\pi \times 1\,\text{MHz} \times t)$ V. Output measured on spectrum analyzer:
+
+- Fundamental at 1 MHz: 5.00 V
+- 2nd harmonic at 2 MHz: 0.15 V
+- 3rd harmonic at 3 MHz: 0.08 V
+
+HD2 = $0.15/5.00 = 3\%$ = $-34.4$ dBc
+
+HD3 = $0.08/5.00 = 1.6\%$ = $-36.0$ dBc
+
+Total harmonic distortion: $\text{THD} = \sqrt{0.15^2 + 0.08^2}/5.00 \approx 3.4\%$
+
+Fourier analysis of the output waveform directly gives you these numbers. Fourier series is the theoretical foundation for the spectrum analyzer display and for harmonic distortion specifications in amplifier datasheets.
+
+### Example 3: Pulse train spectral envelope and duty cycle
+
+A digital signal bus runs at 10 Mbps with pulse width $\tau = 50$ ns (duty cycle $D = \tau T = 0.5$, $T = 100$ ns, $f_0 = 10$ MHz).
+
+The complex Fourier coefficients:
+
+$$c_n = A D\,\text{sinc}(nD) = A \cdot 0.5 \cdot \text{sinc}(0.5n)$$
+
+Nulls occur at $n = 1/D = 2$: the 2nd harmonic (20 MHz) has zero power for 50% duty cycle — this is why a 50% duty clock has no even harmonics, only odd.
+
+Now consider a narrower pulse: $\tau = 10$ ns, $D = 0.1$. The first spectral null moves to $n = 10$ (100 MHz). Below that null, all harmonics from 10 MHz to 90 MHz are present. This concentrated high-frequency energy near the null causes the pulsed bus to radiate strongly up to 100 MHz — a common EMI compliance issue for high-speed PCBs.
+
+### Example 4: Gibbs phenomenon at edges
+
+Truncate the square wave series at $N$ terms. At the transition edge, the partial sum always overshoots by approximately 8.9% of the step height, regardless of how large $N$ is. Mathematically:
+
+$$\lim_{N\to\infty} x_N\left(0^+\right) \approx A + 0.089 \cdot 2A = 1.178A$$
+
+This 9% overshoot at a rising edge corresponds to the resonance of the truncated Fourier series — the stopband ripple of a brick-wall (ideal sinc) filter applied to a step. In RF systems, this manifests as:
+
+- Ringing on a pulse passed through a bandlimited channel
+- Sidelobes in a spectrum analyzer with rectangular time-domain windowing
+- Antenna impedance variations near filter band edges
+
+Windowing functions (Hann, Hamming, Blackman) in FFT analysis reduce Gibbs phenomenon at the cost of frequency resolution — an engineering trade-off directly rooted in Fourier theory.
 
 </section>
 
@@ -116,15 +191,15 @@ Fourier analysis of the output reveals how much distortion the amplifier adds.
 
 ## Pitfalls
 
-1. **Periodic signals only.** Fourier series assumes the signal repeats forever. For non-periodic signals, use the Fourier transform instead.
+1. **Fourier series is for periodic signals only.** If the signal does not repeat with a fixed period, Fourier series does not apply. Use the Fourier transform for arbitrary finite-energy signals, or the DFT/FFT for sampled data. Applying a Fourier series formula to a non-periodic signal gives nonsense.
 
-2. **Gibbs phenomenon.** Near discontinuities (like square wave edges), the Fourier series overshoots by about 9% no matter how many terms you include. This is fundamental, not a truncation error.
+2. **Gibbs phenomenon is not a numerical error.** The 9% overshoot near a discontinuity is a mathematical property of Fourier series truncation — it does not disappear with more terms, only the transition region narrows. This is why ideal bandlimited systems (brick-wall filters) produce ringing on pulse inputs.
 
-3. **Convergence.** The series converges to the signal at continuous points. At discontinuities, it converges to the midpoint of the jump.
+3. **The DC component $a_0$ is the average value.** Forgetting it shifts the reconstructed signal. A pulse train with positive pulses only has nonzero DC offset — $a_0 = D \cdot A$ where $D$ is duty cycle. A spectrum analyzer measurement must include the DC component for correct total power.
 
-4. **DC component.** $a_0$ is the average value (DC offset). Forgetting it shifts your reconstruction.
+4. **Even vs. odd symmetry halves the work.** Even signals ($x(t) = x(-t)$) have only cosine terms: $b_n = 0$. Odd signals ($x(t) = -x(-t)$) have only sine terms: $a_n = 0$. Half-wave symmetry ($x(t + T/2) = -x(t)$) eliminates all even harmonics. Recognizing these symmetries before computing coefficients saves significant effort.
 
-5. **Even vs. odd symmetry.** Even functions have only cosine terms ($b_n = 0$). Odd functions have only sine terms ($a_n = 0$). Recognizing symmetry halves your work.
+5. **dBc is amplitude-relative, not power-relative.** Harmonic levels expressed in dBc are $20\log_{10}(V_n/V_1)$, not $10\log_{10}(P_n/P_1)$. Since power $\propto V^2$, both expressions equal the same in dB for equal impedances — but the factor of 20 (not 10) is the voltage ratio convention. Mixing these up produces 2× errors in dB.
 
 </section>
 
@@ -132,7 +207,8 @@ Fourier analysis of the output reveals how much distortion the amplifier adds.
 
 ## References
 
-- Oppenheim & Willsky, *Signals and Systems*, Chapter 3 — rigorous Fourier series treatment.
-- Haykin, *Communication Systems*, Chapter 2 — Fourier methods in communications.
+- Oppenheim & Willsky, *Signals and Systems*, Chapter 3 — rigorous Fourier series treatment with convergence conditions.
+- Haykin, *Communication Systems*, Chapter 2 — Fourier methods in communications with engineering examples.
+- Ott, *Electromagnetic Compatibility Engineering*, Chapter 1 — harmonic content of digital waveforms and EMI implications.
 
 </section>

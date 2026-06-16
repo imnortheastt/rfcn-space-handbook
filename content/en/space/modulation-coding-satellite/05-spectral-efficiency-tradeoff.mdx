@@ -9,16 +9,497 @@ unit: modulation-coding-satellite
 order: 5
 level: L4
 estimatedReadingMinutes: 5
-title: "Spectral efficiency trade-offs"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "Spectral Efficiency Trade-offs"
+description: "Understanding the fundamental trade-off between throughput and link robustness."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["spectral-efficiency", "shannon-limit", "link-budget", "capacity"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Spectral efficiency trade-offs
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Every satellite link faces the same fundamental constraint: you can have high throughput OR robust operation in bad conditions — not both simultaneously. This trade-off governs every design decision from terminal antenna size to rain margin allocation. Understanding spectral efficiency trade-offs lets you optimize capacity without sacrificing availability, and explains why different services (broadcast TV vs. maritime broadband) make radically different design choices.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The fundamental trade-off
+
+```
+Spectral Efficiency vs Link Margin Trade-off:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  THE CORE DILEMMA                                                   │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────┐        │
+│  │                                                          │        │
+│  │  Fixed link budget (EIRP, G/T, distance, frequency)    │        │
+│  │  → Fixed C/N (carrier-to-noise ratio)                  │        │
+│  │                                                          │        │
+│  │  You must SPEND that C/N on ONE of:                    │        │
+│  │                                                          │        │
+│  │  ┌──────────────────────┐  ┌──────────────────────┐    │        │
+│  │  │                      │  │                      │    │        │
+│  │  │  Higher throughput   │  │  Larger margin      │    │        │
+│  │  │  (aggressive MODCOD) │  │  (conservative MODCOD)│   │        │
+│  │  │                      │  │                      │    │        │
+│  │  │  + More bits/Hz      │  │  + Survives fading   │    │        │
+│  │  │  - Fails in rain     │  │  - Lower capacity    │    │        │
+│  │  │                      │  │                      │    │        │
+│  │  └──────────────────────┘  └──────────────────────┘    │        │
+│  │                                                          │        │
+│  │  YOU CANNOT HAVE BOTH                                   │        │
+│  │                                                          │        │
+│  └─────────────────────────────────────────────────────────┘        │
+│                                                                      │
+│  This is Shannon's law in action:                                   │
+│  C = B × log₂(1 + SNR)                                             │
+│                                                                      │
+│  For fixed bandwidth B, capacity C depends ONLY on SNR.            │
+│  More margin (lower operating SNR) = less capacity.                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Visualizing the trade-off curve
+
+```
+Spectral Efficiency vs Required Es/N0:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Spectral                          Shannon Limit                    │
+│  Efficiency                         (theoretical max)              │
+│  (bps/Hz)                                ╱                          │
+│     6 ┤                               ╱                             │
+│       │                             ╱   256APSK 3/4 (S2X)          │
+│     5 ┤                           ╱  ●                              │
+│       │                         ╱       128APSK                    │
+│     4 ┤                       ╱      ● 32APSK 9/10                  │
+│       │                     ╱      ●                                │
+│     3 ┤                   ╱     ● 16APSK 3/4                       │
+│       │                 ╱    ●                                      │
+│     2 ┤               ╱  ● 8PSK 2/3                                │
+│       │             ╱ ●                                             │
+│     1 ┤          ╱● QPSK 3/4                                        │
+│       │        ╱●                                                   │
+│     0 ┤    ╱● QPSK 1/4                                              │
+│       └──●──────────────────────────────────────────────────────    │
+│         -2    0    2    4    6    8   10   12   14   16   18  dB   │
+│                    Required Es/N0 (dB)                              │
+│                                                                      │
+│  ● = DVB-S2/S2X MODCOD operating points                            │
+│                                                                      │
+│  KEY INSIGHT:                                                       │
+│  Each step UP the curve costs MORE dB than the last               │
+│  Going from 1→2 bps/Hz costs ~4 dB                                 │
+│  Going from 4→5 bps/Hz costs ~3 dB (diminishing returns)           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Design philosophy by application
+
+```
+Different Services, Different Choices:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  APPLICATION      │ PRIORITY          │ TYPICAL CHOICE              │
+│  ─────────────────┼───────────────────┼───────────────────────────  │
+│                   │                   │                             │
+│  DTH Broadcast    │ 99.9% availability│ CCM QPSK/8PSK + big margin │
+│  (TV to homes)    │ No outages!       │ Same MODCOD for everyone   │
+│                   │                   │                             │
+│  ─────────────────┼───────────────────┼───────────────────────────  │
+│                   │                   │                             │
+│  VSAT Broadband   │ Maximize capacity │ ACM 8PSK→32APSK            │
+│  (enterprise)     │ Accept brief drops│ Per-terminal optimization  │
+│                   │                   │                             │
+│  ─────────────────┼───────────────────┼───────────────────────────  │
+│                   │                   │                             │
+│  Maritime/Aero    │ Challenging links │ ACM QPSK→16APSK            │
+│  (mobile)         │ Highly variable   │ Wide MODCOD range needed   │
+│                   │                   │                             │
+│  ─────────────────┼───────────────────┼───────────────────────────  │
+│                   │                   │                             │
+│  Feeder Links     │ Max throughput    │ 32APSK/64APSK              │
+│  (hub-to-sat)     │ Large antennas    │ High SNR, minimal margin   │
+│                   │                   │                             │
+│  ─────────────────┼───────────────────┼───────────────────────────  │
+│                   │                   │                             │
+│  LEO Constellations│ Volume economics │ Aggressive MODCODs         │
+│  (Starlink etc)   │ Redundant coverage│ Short links, high SNR     │
+│                   │                   │                             │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Shannon limit and practical systems
+
+```
+Gap to Shannon Limit:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SHANNON CAPACITY FORMULA:                                          │
+│                                                                      │
+│  C = B × log₂(1 + SNR)                                             │
+│                                                                      │
+│  Where:                                                             │
+│  C = channel capacity (bits/second)                                │
+│  B = bandwidth (Hz)                                                │
+│  SNR = signal-to-noise ratio (linear, not dB)                      │
+│                                                                      │
+│  SPECTRAL EFFICIENCY AT SHANNON LIMIT:                              │
+│                                                                      │
+│  η = C/B = log₂(1 + SNR) bps/Hz                                    │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  SNR (dB) │ SNR (linear) │ Shannon η │ DVB-S2 η │ Gap│         │
+│  │  ─────────┼──────────────┼───────────┼──────────┼────│         │
+│  │   0       │   1.0        │ 1.00      │ 0.99     │ 0.0│         │
+│  │   5       │   3.2        │ 2.06      │ 1.87     │ 0.9│         │
+│  │  10       │  10.0        │ 3.46      │ 3.17     │ 1.0│         │
+│  │  15       │  31.6        │ 5.02      │ 4.45     │ 1.0│         │
+│  │                                                        │         │
+│  │  DVB-S2 operates ~1 dB from Shannon limit             │         │
+│  │  DVB-S2X gets even closer (~0.5-0.7 dB)              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Margin allocation strategies
+
+```
+How to Spend Your Link Budget:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Total Available C/N: 14.0 dB (example Ka-band link)               │
+│                                                                      │
+│  STRATEGY 1: MAXIMIZE CLEAR-SKY THROUGHPUT                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  MODCOD threshold:    13.1 dB (32APSK 4/5)           │         │
+│  │  Implementation loss:  0.5 dB                        │         │
+│  │  ACM hysteresis:       0.4 dB                        │         │
+│  │  ─────────────────────────────                       │         │
+│  │  REMAINING MARGIN:     0.0 dB ← NO RAIN MARGIN       │         │
+│  │                                                        │         │
+│  │  Result: 3.95 bps/Hz clear sky                       │         │
+│  │          Outage in ANY rain                          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STRATEGY 2: BALANCED (TYPICAL VSAT)                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  MODCOD threshold:    10.2 dB (16APSK 3/4)           │         │
+│  │  Implementation loss:  0.5 dB                        │         │
+│  │  ACM hysteresis:       0.3 dB                        │         │
+│  │  Rain margin:          3.0 dB (99.5% availability)   │         │
+│  │  ─────────────────────────────                       │         │
+│  │  TOTAL REQUIRED:      14.0 dB ✓                      │         │
+│  │                                                        │         │
+│  │  Result: 2.97 bps/Hz clear sky                       │         │
+│  │          99.5% availability                          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STRATEGY 3: HIGH AVAILABILITY (BROADCAST)                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  MODCOD threshold:     4.0 dB (QPSK 3/4)             │         │
+│  │  Implementation loss:  0.5 dB                        │         │
+│  │  Fixed margin (no ACM): 0.5 dB                       │         │
+│  │  Rain margin:          9.0 dB (99.99% availability)  │         │
+│  │  ─────────────────────────────                       │         │
+│  │  TOTAL REQUIRED:      14.0 dB ✓                      │         │
+│  │                                                        │         │
+│  │  Result: 1.49 bps/Hz always                          │         │
+│  │          99.99% availability                         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SAME LINK, 2.6x CAPACITY DIFFERENCE based on margin choice        │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ACM capacity gain analysis
+
+```
+ACM vs CCM Capacity Comparison:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Scenario: 36 MHz transponder, European coverage                   │
+│  Rain statistics: ITU-R P.618 Region E                             │
+│                                                                      │
+│  CCM DESIGN (single MODCOD for 99.5% availability):                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  MODCOD: QPSK 3/4 (4.0 dB threshold)                 │         │
+│  │  + Rain margin for 99.5%: ~3 dB                      │         │
+│  │  Efficiency: 1.49 bps/Hz                             │         │
+│  │                                                        │         │
+│  │  Data rate: 30 Msps × 1.49 = 44.7 Mbps (always)     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ACM DESIGN (variable MODCOD):                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  % Time │ Conditions   │ MODCOD      │ Efficiency   │         │
+│  │  ───────┼──────────────┼─────────────┼──────────────│         │
+│  │  70%    │ Clear sky    │ 16APSK 3/4  │ 2.97 bps/Hz  │         │
+│  │  20%    │ Light fade   │ 8PSK 2/3    │ 1.98 bps/Hz  │         │
+│  │   8%    │ Moderate     │ QPSK 3/4    │ 1.49 bps/Hz  │         │
+│  │   1.5%  │ Heavy fade   │ QPSK 1/2    │ 0.99 bps/Hz  │         │
+│  │   0.5%  │ Severe       │ QPSK 1/4    │ 0.49 bps/Hz  │         │
+│  │                                                        │         │
+│  │  Weighted average: 2.58 bps/Hz                       │         │
+│  │  Data rate: 30 Msps × 2.58 = 77.4 Mbps (average)    │         │
+│  │                                                        │         │
+│  │  ACM GAIN: 77.4 / 44.7 = 1.73× capacity              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ACM delivers 73% MORE capacity with SAME availability             │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Spectral efficiency analysis and optimization:**
+
+```python
+import numpy as np
+
+def shannon_limit(snr_db):
+    """Shannon limit in bps/Hz for given SNR."""
+    snr_linear = 10 ** (snr_db / 10)
+    return np.log2(1 + snr_linear)
+
+def snr_for_efficiency(eta):
+    """Required SNR (dB) for given spectral efficiency at Shannon limit."""
+    snr_linear = 2 ** eta - 1
+    return 10 * np.log10(snr_linear)
+
+# DVB-S2 reference points
+MODCODS = [
+    {"name": "QPSK 1/4",   "eff": 0.49, "threshold": -2.35},
+    {"name": "QPSK 1/2",   "eff": 0.99, "threshold":  1.00},
+    {"name": "QPSK 3/4",   "eff": 1.49, "threshold":  4.03},
+    {"name": "8PSK 2/3",   "eff": 1.98, "threshold":  6.62},
+    {"name": "16APSK 3/4", "eff": 2.97, "threshold": 10.21},
+    {"name": "32APSK 4/5", "eff": 3.95, "threshold": 13.05},
+    {"name": "32APSK 9/10","eff": 4.45, "threshold": 15.07},
+]
+
+print("Spectral Efficiency Trade-off Analysis")
+print("=" * 70)
+
+print("\n1. Gap to Shannon Limit by MODCOD")
+print("-" * 70)
+print(f"  {'MODCOD':<14} {'Efficiency':<12} {'Threshold':<12} {'Shannon':<12} {'Gap (dB)':<10}")
+print("-" * 70)
+
+for mc in MODCODS:
+    shannon_snr = snr_for_efficiency(mc["eff"])
+    gap = mc["threshold"] - shannon_snr
+    print(f"  {mc['name']:<14} {mc['eff']:<12.2f} {mc['threshold']:<12.2f} {shannon_snr:<12.2f} {gap:<10.2f}")
+
+# Margin allocation analysis
+print("\n2. Margin Allocation Strategies (14 dB available C/N)")
+print("-" * 70)
+
+available_cn = 14.0
+impl_loss = 0.5
+
+strategies = [
+    {"name": "Max throughput", "rain_margin": 0.0, "target_avail": "~95%"},
+    {"name": "Balanced", "rain_margin": 3.0, "target_avail": "99.5%"},
+    {"name": "High availability", "rain_margin": 6.0, "target_avail": "99.9%"},
+    {"name": "Broadcast grade", "rain_margin": 9.0, "target_avail": "99.99%"},
+]
+
+for strat in strategies:
+    usable_snr = available_cn - impl_loss - strat["rain_margin"]
+    
+    best_mc = None
+    for mc in MODCODS:
+        if mc["threshold"] <= usable_snr - 0.5:
+            best_mc = mc
+    
+    if best_mc:
+        print(f"  {strat['name']}:")
+        print(f"    Rain margin: {strat['rain_margin']:.1f} dB → {strat['target_avail']} availability")
+        print(f"    Usable SNR: {usable_snr:.1f} dB")
+        print(f"    Best MODCOD: {best_mc['name']} → {best_mc['eff']:.2f} bps/Hz")
+        print()
+
+# ACM capacity gain calculation
+print("3. ACM vs CCM Capacity Analysis")
+print("-" * 70)
+
+fade_distribution = [
+    {"percent": 70, "fade_db": 0.0, "condition": "Clear sky"},
+    {"percent": 20, "fade_db": 2.0, "condition": "Light fade"},
+    {"percent":  8, "fade_db": 5.0, "condition": "Moderate"},
+    {"percent":  1.5, "fade_db": 8.0, "condition": "Heavy"},
+    {"percent":  0.5, "fade_db": 12.0, "condition": "Severe"},
+]
+
+clear_sky_cn = 14.0
+symbol_rate = 30.0
+
+def select_modcod(snr_db, margin=0.5):
+    best = None
+    for mc in MODCODS:
+        if mc["threshold"] <= snr_db - margin:
+            best = mc
+    return best
+
+print(f"  Clear-sky C/N: {clear_sky_cn:.1f} dB")
+print(f"  Symbol rate: {symbol_rate:.0f} Msps")
+print()
+
+print("  ACM Operation:")
+print(f"    {'Time %':<8} {'Fade':<8} {'Eff C/N':<10} {'MODCOD':<14} {'Efficiency':<12}")
+print("-" * 70)
+
+weighted_eff = 0.0
+for fade in fade_distribution:
+    effective_cn = clear_sky_cn - fade["fade_db"]
+    mc = select_modcod(effective_cn)
+    if mc:
+        eff = mc["eff"]
+        name = mc["name"]
+    else:
+        eff = 0.0
+        name = "OUTAGE"
+    
+    weighted_eff += (fade["percent"] / 100) * eff
+    print(f"    {fade['percent']:<8.1f} {fade['fade_db']:<8.1f} {effective_cn:<10.1f} {name:<14} {eff:<12.2f}")
+
+acm_data_rate = symbol_rate * weighted_eff
+print(f"\n  ACM weighted efficiency: {weighted_eff:.2f} bps/Hz")
+print(f"  ACM average data rate: {acm_data_rate:.1f} Mbps")
+
+# CCM baseline
+ccm_modcod = select_modcod(clear_sky_cn - 3.0)
+ccm_data_rate = symbol_rate * ccm_modcod["eff"]
+print(f"\n  CCM fixed ({ccm_modcod['name']}): {ccm_modcod['eff']:.2f} bps/Hz")
+print(f"  CCM fixed data rate: {ccm_data_rate:.1f} Mbps")
+print(f"\n  ACM capacity gain: {acm_data_rate / ccm_data_rate:.2f}x ({(acm_data_rate / ccm_data_rate - 1) * 100:.0f}% more)")
+
+# Trade-off visualization data
+print("\n4. Efficiency vs Availability Trade-off")
+print("-" * 70)
+
+margins = [0, 2, 4, 6, 8, 10]
+print(f"  {'Rain Margin':<14} {'Usable SNR':<12} {'Best MODCOD':<14} {'Efficiency':<12}")
+print("-" * 70)
+
+for margin in margins:
+    usable = clear_sky_cn - impl_loss - margin
+    mc = select_modcod(usable)
+    if mc:
+        print(f"  {margin:<14} {usable:<12.1f} {mc['name']:<14} {mc['eff']:<12.2f}")
+    else:
+        print(f"  {margin:<14} {usable:<12.1f} {'(no valid)':<14} {'0.00':<12}")
+
+# Efficiency per dB analysis
+print("\n5. Marginal Cost of Efficiency")
+print("-" * 70)
+print("  Each additional bps/Hz costs MORE SNR:")
+print()
+
+prev_eff = 0
+prev_snr = -3
+for mc in MODCODS:
+    delta_eff = mc["eff"] - prev_eff
+    delta_snr = mc["threshold"] - prev_snr
+    cost_per_bps = delta_snr / delta_eff if delta_eff > 0 else 0
+    print(f"  {prev_eff:.2f} → {mc['eff']:.2f} bps/Hz: costs {delta_snr:.1f} dB ({cost_per_bps:.1f} dB per bps/Hz)")
+    prev_eff = mc["eff"]
+    prev_snr = mc["threshold"]
+```
+
+**Key trade-off rules:**
+
+| Rule | Implication |
+|------|-------------|
+| Shannon limit is hard | No MODCOD beats log₂(1+SNR) |
+| Diminishing returns | High MODCODs cost more dB per bps/Hz |
+| ACM recovers margin | 30-70% capacity gain over CCM typical |
+| Rain margin is expensive | 3 dB margin = 50% capacity opportunity cost |
+| Terminal size trades for margin | 6 dB larger dish → same capacity, 4× availability |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Designing for peak capacity.** A 5 bps/Hz link that fails 10% of the time is worse than 2.5 bps/Hz at 99.9%.
+
+2. **Ignoring fading dynamics.** ACM capacity gains assume fade statistics. Correlated outages (storms) reduce effective gain.
+
+3. **Forgetting implementation margin.** Real systems lose 0.5-1.5 dB to imperfect receivers, phase noise, timing recovery.
+
+4. **Symmetric margin assumption.** Rain affects downlink more than uplink at Ku/Ka. Budget asymmetrically.
+
+5. **Treating Shannon as achievable.** Practical systems are 0.5-1.5 dB away. Don't plan for the impossible.
+
+6. **Over-optimizing for one metric.** Availability × capacity is often the right objective, not either alone.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Shannon, C.E. "A Mathematical Theory of Communication" (1948)
+- ETSI EN 302 307-1/2 DVB-S2/S2X specifications
+- ITU-R P.618 Rain attenuation prediction
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [MODCODs](/en/space/modulation-coding-satellite/modcods/) — the discrete operating points on the efficiency curve
+- [ACM](/en/space/modulation-coding-satellite/acm/) — dynamically tracking the optimal point
+- [Link Budgets](/en/space/link-budgets/basic-link-budget/) — calculating available C/N
+
+</section>

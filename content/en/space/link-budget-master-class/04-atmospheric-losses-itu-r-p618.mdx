@@ -8,17 +8,506 @@ track: s7
 unit: link-budget-master-class
 order: 4
 level: L3
-estimatedReadingMinutes: 5
-title: "Atmospheric losses — ITU-R P.618"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Atmospheric Losses — ITU-R P.618"
+description: "Gaseous absorption, rain fade, and ITU-R propagation models."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["atmospheric-loss", "rain-fade", "ITU-R", "P.618", "P.676"]
+widgets: ["LinkBudget"]
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Atmospheric losses — ITU-R P.618
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Free space path loss assumes an empty vacuum between transmitter and receiver. But satellite signals must traverse Earth's atmosphere—a mix of gases and water that absorbs and scatters energy. For Ka-band and above, rain fade alone can exceed 20 dB. Understanding atmospheric losses is essential for designing reliable satellite links, choosing appropriate margins, and implementing fade mitigation techniques.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Atmosphere as a lossy medium
+
+```
+What Happens to Satellite Signals in the Atmosphere:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SATELLITE                                                          │
+│      │                                                              │
+│      ▼                                                              │
+│  ════════════════  Ionosphere (>80 km)                             │
+│      │             • Faraday rotation (polarization)                │
+│      │             • Scintillation at low frequencies               │
+│      │             • Negligible absorption at Ku/Ka                │
+│      ▼                                                              │
+│  ════════════════  Clear Atmosphere (10-80 km)                     │
+│      │             • O₂ absorption peak at 60 GHz                  │
+│      │             • H₂O absorption peaks at 22, 183 GHz           │
+│      │             • ~0.2-0.5 dB at Ku, ~0.5-1 dB at Ka           │
+│      ▼                                                              │
+│  ≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈≈  Rain/Clouds (0-10 km)                          │
+│      │             • DOMINANT loss at Ku/Ka-band                   │
+│      │             • 0-20+ dB depending on rain rate               │
+│      │             • Highly variable (spatial, temporal)           │
+│      ▼                                                              │
+│  ────────────────  Ground Station                                  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Why frequency matters
+
+```
+Atmospheric Absorption vs Frequency:
+
+  Attenuation
+  (dB/km)
+    │
+  1 ┤              ┌───┐
+    │              │   │  ← O₂ (60 GHz resonance)
+0.1 ┤          ┌──┐│   │
+    │     ┌───┐│  ││   │  ← H₂O (22 GHz)
+0.01┤─────┘   └┘  └┘   └───────────────────
+    │
+    ┼──────┬──────┬──────┬──────┬──────┬───► Freq (GHz)
+    0     10     20     30     40     60
+
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                                                                  │
+  │  Band        │ Frequency │ Clear Sky │ 25 mm/hr Rain            │
+  │  ────────────┼───────────┼───────────┼──────────────────        │
+  │  C-band      │ 4-8 GHz   │ ~0.1 dB   │ ~0.5 dB                  │
+  │  Ku-band     │ 12-18 GHz │ ~0.3 dB   │ ~3-5 dB                  │
+  │  Ka-band     │ 26-40 GHz │ ~0.8 dB   │ ~8-15 dB                 │
+  │  V-band      │ 40-75 GHz │ ~1-5 dB   │ ~15-30 dB                │
+  │                                                                  │
+  │  C-band is "rain-proof"; Ka-band requires fade mitigation.     │
+  │                                                                  │
+  └─────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### ITU-R recommendation structure
+
+```
+Key ITU-R Propagation Recommendations:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ITU-R P.676   Gaseous attenuation (O₂, H₂O)                       │
+│      │         • Line-by-line calculation                          │
+│      │         • Simplified approximation formulas                 │
+│      │         • Input: f, p, T, ρ, elevation                     │
+│      │                                                              │
+│  ITU-R P.618   Earth-space propagation                             │
+│      │         • Complete link effects for >10 GHz                 │
+│      │         • Rain attenuation statistics                       │
+│      │         • Scintillation, depolarization                    │
+│      │         • Input: lat, lon, f, el, polarization             │
+│      │                                                              │
+│  ITU-R P.837   Rain rate statistics by location                    │
+│      │         • Maps of R₀.₀₁ (mm/hr exceeded 0.01% time)        │
+│      │                                                              │
+│  ITU-R P.838   Rain-specific attenuation coefficients             │
+│      │         • γ_R = k × R^α (dB/km)                            │
+│      │                                                              │
+│  ITU-R P.839   Rain height                                         │
+│               • h_R varies by latitude (2-5 km)                    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Rain attenuation model
+
+```
+P.618 Rain Attenuation Calculation (Simplified):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  STEP 1: Get local rain rate R₀.₀₁ (mm/hr) from P.837 maps        │
+│                                                                      │
+│  STEP 2: Get rain height h_R from P.839                            │
+│                                                                      │
+│  STEP 3: Compute slant path through rain                           │
+│                                                                      │
+│          Effective path: L_s = (h_R - h_station) / sin(θ)         │
+│                                                                      │
+│                    Satellite                                        │
+│                        ╲                                            │
+│                         ╲  θ (elevation)                           │
+│          ══════════════╲═════  Rain height h_R                     │
+│                         ╲                                           │
+│                          ╲  L_s (slant path)                       │
+│          ─────────────────╲  Station at h_station                  │
+│                                                                      │
+│  STEP 4: Compute specific attenuation from P.838                   │
+│                                                                      │
+│          γ_R = k × R^α   (dB/km)                                   │
+│                                                                      │
+│          k, α depend on frequency and polarization                 │
+│          (tables in P.838)                                         │
+│                                                                      │
+│  STEP 5: Apply path reduction factor (rain doesn't fill path)     │
+│                                                                      │
+│          A₀.₀₁ = γ_R × L_eff                                       │
+│                                                                      │
+│          where L_eff < L_s (horizontal reduction factor)           │
+│                                                                      │
+│  STEP 6: Scale to other percentages (0.1%, 1%, etc.)              │
+│                                                                      │
+│          A_p = A₀.₀₁ × (p/0.01)^(-β)                               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Gaseous attenuation
+
+```
+P.676 Gaseous Absorption (Clear Sky):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Total gaseous: A_gas = A_oxygen + A_water_vapor                   │
+│                                                                      │
+│  Simplified for slant paths:                                        │
+│                                                                      │
+│  A_gas ≈ (γ_o × h_o + γ_w × h_w) / sin(θ)                         │
+│                                                                      │
+│  Where:                                                             │
+│  γ_o = oxygen specific atten. (dB/km)                              │
+│  γ_w = water vapor specific atten. (dB/km)                         │
+│  h_o = effective oxygen height (~6 km)                             │
+│  h_w = effective water vapor height (~2 km)                        │
+│  θ = elevation angle                                                │
+│                                                                      │
+│  TYPICAL VALUES AT 30 GHz, θ=30°:                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Oxygen:      ~0.2 dB                                 │         │
+│  │  Water vapor: ~0.5-1.0 dB (varies with humidity)     │         │
+│  │  Total:       ~0.7-1.2 dB                            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  Scales as 1/sin(θ): lower elevation = more attenuation           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Link margin strategy
+
+```
+Designing for Atmospheric Loss:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  AVAILABILITY TARGET → RAIN MARGIN NEEDED                          │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Availability │ Outage/year │ Typical Margin (Ka)    │         │
+│  │  ─────────────┼─────────────┼─────────────────────    │         │
+│  │  99%          │ 87.6 hr     │ 2-4 dB                  │         │
+│  │  99.5%        │ 44 hr       │ 4-6 dB                  │         │
+│  │  99.9%        │ 8.8 hr      │ 8-12 dB                 │         │
+│  │  99.99%       │ 53 min      │ 15-20+ dB               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  FADE MITIGATION TECHNIQUES:                                        │
+│                                                                      │
+│  1. POWER CONTROL                                                   │
+│     • Increase EIRP during fade (uplink)                           │
+│     • 5-10 dB dynamic range typical                                │
+│                                                                      │
+│  2. ADAPTIVE CODING/MODULATION (ACM)                               │
+│     • Switch to lower-rate, more robust modulation                 │
+│     • DVB-S2X: 5-10 dB range via ACM                              │
+│                                                                      │
+│  3. SITE DIVERSITY                                                  │
+│     • Two ground stations, select best signal                      │
+│     • Effective for deep fades (>10 dB gain possible)             │
+│                                                                      │
+│  4. FREQUENCY DIVERSITY                                             │
+│     • Fall back to lower frequency (Ka→Ku→C)                       │
+│     • Rare; requires multi-band terminal                           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Atmospheric loss estimation:**
+
+```python
+import numpy as np
+
+def gaseous_attenuation_simplified(freq_ghz, elevation_deg, humidity_pct=50):
+    """
+    Simplified gaseous attenuation based on P.676 approximation.
+    
+    This is a rough estimate for clear sky conditions.
+    Full ITU model requires temperature, pressure, water vapor density.
+    """
+    el_rad = np.radians(elevation_deg)
+    
+    # Approximate specific attenuation (dB/km) at sea level
+    # These vary with frequency - rough interpolation for 10-50 GHz
+    if freq_ghz < 10:
+        gamma_o = 0.005
+        gamma_w = 0.001 * humidity_pct / 50
+    elif freq_ghz < 20:
+        gamma_o = 0.007 + 0.001 * (freq_ghz - 10)
+        gamma_w = 0.01 + 0.005 * (freq_ghz - 10) * humidity_pct / 50
+    elif freq_ghz < 40:
+        gamma_o = 0.02 + 0.002 * (freq_ghz - 20)
+        gamma_w = 0.05 + 0.01 * (freq_ghz - 20) * humidity_pct / 50
+    else:  # V-band approaches O2 resonance
+        gamma_o = 0.1 + 0.05 * (freq_ghz - 40)
+        gamma_w = 0.15 * humidity_pct / 50
+    
+    # Effective heights
+    h_o = 6.0  # km
+    h_w = 2.0  # km
+    
+    # Zenith attenuation
+    a_zenith = gamma_o * h_o + gamma_w * h_w
+    
+    # Slant path factor
+    a_total = a_zenith / np.sin(el_rad)
+    
+    return a_total
+
+def rain_specific_attenuation(freq_ghz, rain_rate_mmhr, polarization='H'):
+    """
+    Compute specific attenuation from rain rate using P.838 model.
+    
+    Simplified coefficients for common bands.
+    """
+    # P.838 coefficients (approximate, for horizontal polarization)
+    # Real implementation uses full tables
+    coefficients = {
+        # freq: (k_H, alpha_H, k_V, alpha_V)
+        4: (0.00015, 1.13, 0.00014, 1.08),
+        12: (0.023, 1.13, 0.019, 1.09),
+        18: (0.051, 1.06, 0.045, 1.02),
+        20: (0.073, 1.02, 0.064, 0.98),
+        30: (0.19, 0.94, 0.17, 0.90),
+        40: (0.35, 0.88, 0.31, 0.85),
+    }
+    
+    # Find closest frequency
+    freqs = list(coefficients.keys())
+    closest_freq = min(freqs, key=lambda x: abs(x - freq_ghz))
+    k_h, a_h, k_v, a_v = coefficients[closest_freq]
+    
+    if polarization.upper() == 'H':
+        gamma_r = k_h * (rain_rate_mmhr ** a_h)
+    else:
+        gamma_r = k_v * (rain_rate_mmhr ** a_v)
+    
+    return gamma_r
+
+def rain_attenuation_p618(freq_ghz, elevation_deg, rain_rate_mmhr, 
+                          rain_height_km=4, station_height_km=0):
+    """
+    Simplified P.618 rain attenuation calculation.
+    """
+    el_rad = np.radians(elevation_deg)
+    
+    # Slant path length through rain
+    if elevation_deg >= 5:
+        L_s = (rain_height_km - station_height_km) / np.sin(el_rad)
+    else:
+        # Low elevation - more complex geometry
+        L_s = 2 * (rain_height_km - station_height_km) / (np.sin(el_rad) + 0.1)
+    
+    # Horizontal projection
+    L_g = L_s * np.cos(el_rad)
+    
+    # Specific attenuation
+    gamma_r = rain_specific_attenuation(freq_ghz, rain_rate_mmhr)
+    
+    # Horizontal path reduction factor (rain cells are limited in extent)
+    r = 1 / (1 + 0.78 * np.sqrt(L_g * gamma_r / freq_ghz) - 
+             0.38 * (1 - np.exp(-2 * L_g)))
+    
+    # Effective path length
+    L_eff = L_s * r
+    
+    # Total attenuation
+    A_rain = gamma_r * L_eff
+    
+    return A_rain, L_s, gamma_r
+
+def scale_rain_attenuation(a_001, target_pct):
+    """
+    Scale attenuation from 0.01% to other percentages.
+    P.618 scaling formula (simplified).
+    """
+    if target_pct >= 1:
+        beta = 0.33
+    elif target_pct >= 0.1:
+        beta = 0.41
+    else:
+        beta = 0.55
+    
+    a_p = a_001 * (target_pct / 0.01) ** (-beta)
+    return a_p
+
+# Example calculations
+print("Atmospheric Losses for Satellite Links")
+print("=" * 60)
+
+# Clear sky gaseous loss
+print("\n1. Gaseous Attenuation (Clear Sky)")
+print("-" * 60)
+
+bands = [
+    ("C-band", 6),
+    ("Ku-band", 14),
+    ("Ka-band", 30),
+    ("V-band", 50),
+]
+
+elevations = [10, 30, 60, 90]
+
+print(f"  {'Band':<12}", end="")
+for el in elevations:
+    print(f"{el}°".center(10), end="")
+print()
+print("-" * 60)
+
+for name, freq in bands:
+    print(f"  {name:<12}", end="")
+    for el in elevations:
+        atten = gaseous_attenuation_simplified(freq, el)
+        print(f"{atten:.2f} dB".center(10), end="")
+    print()
+
+# Rain attenuation
+print("\n2. Rain Attenuation at 30 GHz, 30° elevation")
+print("-" * 60)
+
+rain_rates = [1, 5, 10, 25, 50, 100]
+
+print(f"  Rain Rate    Specific Atten    Path Atten")
+print(f"  (mm/hr)      (dB/km)           (dB)")
+print("-" * 60)
+
+for rr in rain_rates:
+    a_rain, l_s, gamma = rain_attenuation_p618(30, 30, rr)
+    print(f"  {rr:<12} {gamma:<16.2f} {a_rain:.1f}")
+
+# Attenuation vs availability
+print("\n3. Rain Margin Requirements (Ka-band, Tropical Climate)")
+print("-" * 60)
+
+# Assume R_0.01 = 60 mm/hr (tropical location)
+a_001, _, _ = rain_attenuation_p618(30, 30, 60)
+
+percentages = [1.0, 0.5, 0.1, 0.05, 0.01]
+
+print(f"  {'Availability':<14} {'Outage/year':<14} {'Rain Margin':<12}")
+print("-" * 60)
+
+for p in percentages:
+    availability = 100 - p
+    outage_hrs = p * 365.25 * 24 / 100
+    margin = scale_rain_attenuation(a_001, p)
+    print(f"  {availability:.2f}%{' ':8} {outage_hrs:>6.1f} hr{' ':6} {margin:.1f} dB")
+
+# Total atmospheric budget
+print("\n4. Complete Atmospheric Budget Example")
+print("-" * 60)
+
+freq = 30  # GHz
+elevation = 30  # degrees
+rain_rate = 25  # mm/hr for 99.9% availability
+
+gaseous = gaseous_attenuation_simplified(freq, elevation)
+rain, _, _ = rain_attenuation_p618(freq, elevation, rain_rate)
+scintillation = 0.5  # Typical for Ka-band (simplified)
+
+print(f"  Scenario: Ka-band ({freq} GHz) at {elevation}° elevation")
+print(f"  Design rain rate: {rain_rate} mm/hr (99.9% availability)")
+print()
+print(f"  Gaseous absorption:  {gaseous:.2f} dB")
+print(f"  Rain attenuation:    {rain:.1f} dB")
+print(f"  Scintillation fade:  {scintillation:.1f} dB")
+print("-" * 60)
+total = gaseous + rain + scintillation
+print(f"  Total atmospheric:   {total:.1f} dB")
+print()
+print(f"  Note: Clear sky operation uses only {gaseous:.1f} dB margin")
+```
+
+**Regional rain rate reference (R₀.₀₁):**
+
+| Climate Zone | R₀.₀₁ (mm/hr) | Example Locations |
+|--------------|---------------|-------------------|
+| Polar | 5-10 | Scandinavia, Alaska |
+| Temperate | 20-30 | Europe, N. America |
+| Subtropical | 40-60 | S. USA, Mediterranean |
+| Tropical | 80-150 | SE Asia, Amazon |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using zenith values for low elevation.** Atmospheric path scales as 1/sin(θ). At 10° elevation, path is ~6× zenith.
+
+2. **Ignoring rain height variation.** Rain height varies from 2 km (polar) to 5 km (tropical). Wrong h_R → wrong path length.
+
+3. **Single rain rate for global coverage.** R₀.₀₁ varies 10× between polar and tropical. Use local ITU maps.
+
+4. **Forgetting path reduction.** Rain doesn't fill the entire path uniformly. Apply reduction factor or results are pessimistic.
+
+5. **Static margin design.** Ka-band links need ACM; fixed margin either wastes capacity or fails in rain.
+
+6. **Uplink vs downlink frequency.** Uplink is typically higher frequency—often 2-3 dB more rain loss than downlink.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU-R P.618 (Propagation data for earth-space systems)
+- ITU-R P.676 (Attenuation by atmospheric gases)
+- ITU-R P.837 (Rain rate statistics)
+- ITU-R P.838 (Specific rain attenuation)
+- ITU-R P.839 (Rain height model)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Pointing Loss](/en/space/link-budget-master-class/pointing-loss/) — mechanical imperfections
+- [Friis Revisited](/en/space/link-budget-master-class/friis-revisited/) — free space path loss
+- [Link Budget Example](/en/space/link-budget-master-class/link-budget-example/) — complete worked example
+
+</section>

@@ -8,17 +8,183 @@ track: r2
 unit: arrays
 order: 3
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r2-arrays-01-linear-array"]
+spiralRevisits: []
 title: "Array factor"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The mathematical core of array antenna patterns."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["array-factor", "pattern-multiplication", "steering-vector", "weighting", "taper"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Array factor
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why array factor?
+
+The array factor is the central concept in array antenna theory. It separates the pattern into two independent parts: what the element does (element pattern) and what the arrangement does (array factor).
+
+This separation is powerful — it means you can analyze array behavior without knowing the specific element, then multiply by the element pattern later. Understanding array factor deeply unlocks all array design.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Imagine replacing each antenna element with an isotropic point source. The radiation pattern you get is the array factor — it captures only the effect of element positions and excitations, not element characteristics.
+
+The array factor is a spatial filter. It determines which directions receive constructive interference (peaks) and which get destructive interference (nulls). The element pattern shapes each individual contribution.
+
+Final pattern = array factor × element pattern. This is **pattern multiplication**.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### General definition
+
+For $N$ elements at positions $\mathbf{r}_n$ with complex weights $w_n$:
+
+$$AF(\mathbf{\hat{r}}) = \sum_{n=1}^{N} w_n \, e^{jk\mathbf{\hat{r}} \cdot \mathbf{r}_n}$$
+
+where $\mathbf{\hat{r}}$ is the unit vector in observation direction and $k = 2\pi/\lambda$.
+
+### Steering vector
+
+The array response to a plane wave from direction $\mathbf{\hat{r}}$:
+
+$$\mathbf{a}(\mathbf{\hat{r}}) = \begin{bmatrix} e^{jk\mathbf{\hat{r}} \cdot \mathbf{r}_1} \\ e^{jk\mathbf{\hat{r}} \cdot \mathbf{r}_2} \\ \vdots \\ e^{jk\mathbf{\hat{r}} \cdot \mathbf{r}_N} \end{bmatrix}$$
+
+Then:
+$$AF(\mathbf{\hat{r}}) = \mathbf{w}^H \mathbf{a}(\mathbf{\hat{r}})$$
+
+where $\mathbf{w} = [w_1, w_2, \ldots, w_N]^T$.
+
+### ULA array factor
+
+For uniform linear array along z-axis with spacing $d$:
+
+$$AF(\theta) = \sum_{n=0}^{N-1} w_n \, e^{jnkd\cos\theta}$$
+
+With uniform weights ($w_n = 1$) and phase progression $\beta$:
+
+$$AF(\theta) = \frac{\sin\left(\frac{N\psi}{2}\right)}{\sin\left(\frac{\psi}{2}\right)}, \quad \psi = kd\cos\theta + \beta$$
+
+### Key properties
+
+**Peak location:** $\psi = 0$, i.e., $\cos\theta_{peak} = -\beta/(kd)$
+
+**Null locations:** $\psi = \pm 2\pi m/N$ for $m = 1, 2, \ldots, N-1$
+
+**3 dB beamwidth:** $\Delta\psi_{3dB} \approx 2.78/N$
+
+**First sidelobe:** at $\psi \approx 4.49/N$, level = $-13.3$ dB
+
+### Pattern multiplication
+
+Total pattern:
+$$E_{total}(\theta,\phi) = E_{element}(\theta,\phi) \times AF(\theta,\phi)$$
+
+Valid when:
+- All elements are identical
+- Elements don't interact (no mutual coupling)
+- Far-field observation
+
+### Amplitude tapering
+
+Non-uniform weights $w_n$ control sidelobe levels:
+
+| Taper | First sidelobe | Beamwidth factor |
+|-------|----------------|------------------|
+| Uniform | −13.3 dB | 1.0 |
+| Cosine | −23 dB | 1.36 |
+| Hamming | −43 dB | 1.36 |
+| Taylor (n̄=4) | −25 dB | 1.13 |
+| Chebyshev | Equal ripple | Varies |
+
+Lower sidelobes = wider main beam. This is a fundamental tradeoff.
+
+### Phase tapering
+
+Progressive phase $\beta$ steers the beam:
+- $\beta = 0$: broadside
+- $\beta = -kd$: endfire
+- $\beta = -kd\sin\theta_0$: beam steered to $\theta_0$
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Calculating null positions**
+
+8-element ULA, $d = \lambda/2$, broadside ($\beta = 0$).
+
+Nulls at: $\psi = 2\pi m / 8 = m\pi/4$
+
+For first null: $kd\cos\theta = \pi/4$, so $\cos\theta = \lambda/(4d) = 0.5$, $\theta = 60°$.
+
+**Example: Beam steering**
+
+Steer beam to $\theta_0 = 30°$ from broadside.
+
+Required phase: $\beta = -kd\cos(90° - 30°) = -kd\sin(30°) = -kd/2$
+
+With $d = \lambda/2$: $\beta = -\pi/2 = -90°$.
+
+Each element advances 90° relative to its neighbor.
+
+**Example: Taylor taper**
+
+For −25 dB sidelobes with n̄ = 4:
+
+Weights (symmetric, 8 elements): [0.58, 0.79, 0.94, 1.0, 1.0, 0.94, 0.79, 0.58]
+
+Beamwidth increases by factor 1.13 compared to uniform.
+
+**Example: Array factor in dB**
+
+$AF_{dB}(\theta) = 20\log_{10}|AF(\theta)| - 20\log_{10}|AF_{max}|$
+
+For 10-element uniform array, peak is $|AF_{max}| = 10$.
+
+At first sidelobe: $|AF| \approx 2.17$, so sidelobe level = $20\log_{10}(2.17/10) = -13.3$ dB.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Pattern multiplication limits.** Assumes identical elements with no coupling. Real arrays violate both — edge elements differ from center elements.
+
+2. **Visible region.** Array factor is defined for all $\psi$, but only $|\cos\theta| \leq 1$ is physical. Grating lobes appear when other peaks enter visible space.
+
+3. **Normalization.** Array factor is often normalized to peak = 1 or N. Be careful when combining with element pattern.
+
+4. **Phase reference.** Array factor depends on chosen phase reference point. Usually center of array, but sometimes first element.
+
+5. **Amplitude vs. power pattern.** Array factor is voltage/field pattern. Power pattern is $|AF|^2$. Sidelobes in dB: use $20\log|AF|$ not $10\log|AF|$.
+
+6. **Taper efficiency.** Amplitude taper reduces array gain. Taper efficiency = (tapered gain)/(uniform gain). Typically 0.8–0.95.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Balanis, *Antenna Theory*, Chapter 6 — array factor derivation.
+- Van Trees, *Optimum Array Processing*, Chapter 2 — signal processing view.
+- Harris, "On the use of windows for harmonic analysis" — taper functions.
+
+</section>

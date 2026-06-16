@@ -8,17 +8,444 @@ track: n0
 unit: osi-tcpip-backend-perspective
 order: 3
 level: L1
-estimatedReadingMinutes: 5
-title: "Socket va API"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 14
+prerequisites: ["core-network-n0-osi-tcpip-backend-perspective-02-tcp-ip-stack"]
+spiralRevisits: ["core-network-n3-http-grpc-websocket-01-http-versions"]
+title: "Socket và API"
+description: "Giao diện lập trình với mạng — POSIX socket, SCTP cho N2/Xn/E1 của 5G, DPDK bypass cho UPF, và cách Network Function bind interface."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["POSIX.1-2017", "RFC 4960", "3GPP TS 38.412", "3GPP TS 38.422"]
+tags: ["sockets", "networking", "api", "syscalls", "sctp", "dpdk", "5g", "nf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Socket va API
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+Mọi HTTP request, database query, và RPC call đều đi qua socket. Khi `requests.get()` hoạt động nhưng service production của bạn treo, hiểu socket sẽ cho bạn biết tại sao.
+
+Socket là API giữa ứng dụng và ngăn xếp TCP/IP. Trong 5G, cùng một POSIX socket API hỗ trợ mọi interface control-plane — nhưng với một mở rộng quan trọng: SCTP. Interface N2 (gNB đến AMF) không dùng TCP. Nó dùng SCTP socket với multi-homing được bật. Nếu bạn chưa bao giờ mở SCTP socket, bạn không thể debug lỗi N2 association.
+
+Thành thạo socket và bạn có thể debug connection pooling, hiểu tại sao connection bị leak, suy luận về graceful shutdown, và trace tại sao AMF association bị drop.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+**Socket** là endpoint cho giao tiếp mạng — như điện thoại có thể gọi đi hoặc nhận cuộc gọi.
+
+Ba loại socket quan trọng trong telecom:
+
+| Loại | Protocol | Hành vi | Use case 5G |
+|------|----------|---------|-------------|
+| SOCK_STREAM | TCP | Byte stream đáng tin cậy | SBI HTTP/2, O1 management |
+| SOCK_DGRAM | UDP | Datagram không đáng tin cậy | GTP-U (N3/N9), DNS |
+| SOCK_SEQPACKET | SCTP | Message stream đáng tin cậy | N2 (NGAP), Xn, E1, F1-C |
+
+**Vòng đời socket:**
+
+```
+Server:                          Client:
+socket() → tạo endpoint          socket() → tạo endpoint
+bind()   → gán address:port   
+listen() → đánh dấu passive      
+accept() → chờ client         ←→ connect() → khởi tạo kết nối
+recv()   ↔ send()                send() ↔ recv()
+close()  → kết thúc              close() → kết thúc
+```
+
+**Mental model:** Socket là file descriptor. Trên Unix, mọi thứ là file — kể cả network connection. Bạn `read()` và `write()` với socket giống như file. Đây là lý do `select()`, `poll()`, và `epoll` hoạt động với socket.
+
+**Cloud analogy:** Socket giống như gRPC channel — một connection endpoint với vòng đời (mở, kết nối, truyền dữ liệu, đóng). Sự khác biệt là gRPC được xây dựng trên TCP socket, vốn được xây dựng trên kernel socket API.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### Tạo TCP socket
+
+```c
+int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+//                  ↑         ↑           ↑
+//                  IPv4      TCP         protocol mặc định
+```
+
+**Address family:**
+- `AF_INET` — IPv4
+- `AF_INET6` — IPv6
+- `AF_UNIX` — Local (cùng máy, không overhead mạng — dùng cho inter-process trong cùng pod)
+
+**Socket type:**
+- `SOCK_STREAM` — TCP (đáng tin cậy, có thứ tự, dựa trên kết nối)
+- `SOCK_DGRAM` — UDP (không đáng tin cậy, không thứ tự, không kết nối)
+- `SOCK_SEQPACKET` — SCTP (đáng tin cậy, giữ nguyên message boundary)
+- `SOCK_RAW` — Raw IP packet (cần root; dùng bởi DPDK và packet generator)
+
+### Server: bind, listen, accept
+
+**bind()** — Gắn socket với địa chỉ:
+
+```c
+struct sockaddr_in addr;
+addr.sin_family = AF_INET;
+addr.sin_port = htons(8080);           // Network byte order (big-endian)
+addr.sin_addr.s_addr = INADDR_ANY;     // 0.0.0.0 — tất cả interface
+
+bind(sockfd, (struct sockaddr*)&addr, sizeof(addr));
+```
+
+**listen()** — Đánh dấu socket là passive (nhận kết nối):
+
+```c
+listen(sockfd, 128);  // backlog = 128 kết nối pending
+```
+
+**Backlog** là số kết nối có thể xếp hàng khi bạn đang xử lý kết nối khác. Nếu đầy, kết nối mới nhận `ECONNREFUSED`. Trong NF throughput cao xử lý hàng nghìn session đồng thời, giá trị này phải được tune (`net.core.somaxconn`).
+
+**accept()** — Chờ và chấp nhận kết nối:
+
+```c
+struct sockaddr_in client_addr;
+socklen_t len = sizeof(client_addr);
+int client_fd = accept(sockfd, (struct sockaddr*)&client_addr, &len);
+// client_fd là socket MỚI cho kết nối cụ thể này
+// sockfd tiếp tục listen cho kết nối khác
+```
+
+### Client: connect
+
+```c
+struct sockaddr_in server_addr;
+server_addr.sin_family = AF_INET;
+server_addr.sin_port = htons(8080);
+inet_pton(AF_INET, "10.0.0.5", &server_addr.sin_addr);
+
+connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+// TCP 3-way handshake xảy ra ở đây
+```
+
+`connect()` block cho đến khi handshake hoàn tất (hoặc fail với `ETIMEDOUT`, `ECONNREFUSED`, v.v.).
+
+### Truyền dữ liệu: send, recv
+
+**send()** — Ghi dữ liệu vào socket:
+
+```c
+char *msg = "GET / HTTP/1.1\r\n\r\n";
+ssize_t sent = send(sockfd, msg, strlen(msg), 0);
+// sent có thể ít hơn strlen(msg) — partial write là bình thường với TCP
+```
+
+**recv()** — Đọc dữ liệu từ socket:
+
+```c
+char buf[4096];
+ssize_t received = recv(sockfd, buf, sizeof(buf), 0);
+// received = 0 nghĩa là peer đóng kết nối (EOF)
+// received = -1 nghĩa là lỗi (kiểm tra errno)
+```
+
+**Insight quan trọng:** TCP là byte stream. `send(1000 bytes)` có thể đến qua nhiều lần `recv()`. Ứng dụng phải tự xử lý message framing — đây là lý do HTTP dùng `\r\n\r\n` để phân cách header và `Content-Length` cho body. SCTP giữ nguyên message boundary — một `sendmsg()` đến như một `recvmsg()`.
+
+### Đóng: shutdown, close
+
+**close()** — Giải phóng socket:
+
+```c
+close(sockfd);  // Cả hai hướng đóng, resource được giải phóng
+```
+
+**shutdown()** — Đóng một phần:
+
+```c
+shutdown(sockfd, SHUT_WR);   // Dừng gửi (FIN được gửi)
+shutdown(sockfd, SHUT_RD);   // Dừng nhận
+shutdown(sockfd, SHUT_RDWR); // Cả hai (như close, nhưng fd vẫn valid)
+```
+
+Dùng `shutdown(SHUT_WR)` để báo "tôi gửi xong" trong khi vẫn nhận response. Đây là cách đúng để implement graceful shutdown trong NF — drain in-flight request trước khi đóng.
+
+### Socket option
+
+**SO_REUSEADDR** — Tái sử dụng địa chỉ ngay sau khi đóng:
+
+```c
+int opt = 1;
+setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+```
+
+Không có option này, bind vào port vừa dùng fail với `EADDRINUSE` (TIME_WAIT state). Luôn đặt option này trên server socket.
+
+**SO_KEEPALIVE** — Phát hiện kết nối chết:
+
+```c
+setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
+// TCP gửi probe sau ~2 giờ im lặng theo mặc định
+// Override: TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
+```
+
+Trong 5G, AMF và SMF dùng SO_KEEPALIVE trên SBI HTTP/2 connection để phát hiện khi peer NF đã chết.
+
+**TCP_NODELAY** — Tắt thuật toán Nagle:
+
+```c
+setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+// Gửi packet nhỏ ngay lập tức (quan trọng cho URLLC latency)
+```
+
+Thuật toán Nagle gom các packet nhỏ thành packet lớn hơn để cải thiện throughput. Với traffic tương tác hoặc low-latency — kể cả SBI messaging của 5G — hãy tắt nó.
+
+### SCTP socket cho 5G control plane
+
+SCTP (Stream Control Transmission Protocol) được dùng cho tất cả interface control-plane 5G cần message framing, multi-homing, và multi-streaming:
+
+| Interface | Port | Giữa |
+|-----------|------|------|
+| N2 (NGAP) | 38412 | AMF — gNB |
+| Xn-C | 38422 | gNB — gNB (inter-node) |
+| E1 | 38462 | CU-CP — CU-UP |
+| F1-C | 38472 | CU-CP — DU |
+
+**Tạo SCTP socket:**
+
+```c
+int sctp_fd = socket(AF_INET, SOCK_SEQPACKET, IPPROTO_SCTP);
+//                              ↑               ↑
+//                         message-based      explicit SCTP
+```
+
+**Các SCTP socket option quan trọng:**
+
+```c
+struct sctp_initmsg initmsg;
+initmsg.sinit_num_ostreams = 10;    // outgoing stream
+initmsg.sinit_max_instreams = 10;   // incoming stream
+initmsg.sinit_max_attempts = 3;     // INIT retry
+setsockopt(sctp_fd, IPPROTO_SCTP, SCTP_INITMSG, &initmsg, sizeof(initmsg));
+```
+
+**Multi-homing: bind nhiều địa chỉ cho redundancy:**
+
+```c
+// Đường chính: control-plane VLAN 100
+struct sockaddr_in addr1;
+addr1.sin_addr.s_addr = inet_addr("10.100.0.1");  // eth0.100
+
+// Đường dự phòng: interface redundant
+struct sockaddr_in addr2;
+addr2.sin_addr.s_addr = inet_addr("10.101.0.1");  // eth0.101
+
+// sctp_bindx bind cả hai địa chỉ vào cùng association
+struct sockaddr addrs[2];
+// ... điền addrs ...
+sctp_bindx(sctp_fd, addrs, 2, SCTP_BINDX_ADD_ADDR);
+```
+
+Với multi-homing, nếu đường chính fail, SCTP tự động failover sang đường dự phòng mà không drop association. Đây là lý do N2 có thể sống sót qua lỗi một NIC hoặc một link đơn.
+
+**SCTP sendmsg với stream selection:**
+
+```c
+struct sctp_sndrcvinfo sinfo;
+memset(&sinfo, 0, sizeof(sinfo));
+sinfo.sinfo_stream = 2;   // Dùng stream 2 cho message này
+sinfo.sinfo_ppid = htonl(NGAP_PPID);  // NGAP payload protocol ID = 60
+
+sendmsg(sctp_fd, &msg, 0);
+```
+
+Các loại NGAP message khác nhau thường được gửi trên các SCTP stream khác nhau để tránh head-of-line blocking giữa các message exchange độc lập.
+
+### epoll cho NF high-concurrency
+
+NF 5G hiện đại xử lý hàng nghìn session đồng thời. `select()` và `poll()` không scale được. Linux `epoll` cung cấp event notification O(1):
+
+```c
+// Tạo epoll instance
+int epfd = epoll_create1(0);
+
+// Đăng ký socket cho read event
+struct epoll_event ev;
+ev.events = EPOLLIN | EPOLLET;  // Edge-triggered (non-blocking)
+ev.data.fd = sockfd;
+epoll_ctl(epfd, EPOLL_CTL_ADD, sockfd, &ev);
+
+// Event loop
+struct epoll_event events[MAX_EVENTS];
+while (1) {
+    int n = epoll_wait(epfd, events, MAX_EVENTS, timeout_ms);
+    for (int i = 0; i < n; i++) {
+        if (events[i].data.fd == listen_fd) {
+            // Kết nối mới
+            int client = accept(listen_fd, NULL, NULL);
+            ev.data.fd = client;
+            epoll_ctl(epfd, EPOLL_CTL_ADD, client, &ev);
+        } else {
+            // Dữ liệu sẵn sàng trên kết nối hiện có
+            handle_data(events[i].data.fd);
+        }
+    }
+}
+```
+
+Đây là cách nginx, Node.js, và Go runtime xử lý hàng chục nghìn concurrent connection trên một thread. AMF process dùng cùng pattern để quản lý association với hàng trăm gNB đồng thời.
+
+### DPDK và kernel bypass cho UPF
+
+UPF (User Plane Function) xử lý tất cả user-plane packet — có thể hàng triệu mỗi giây ở line rate. Linux kernel socket API thêm quá nhiều overhead cho workload này.
+
+DPDK (Data Plane Development Kit) bypass kernel hoàn toàn:
+
+```
+Đường bình thường (kernel socket):
+  NIC → kernel driver → socket buffer → kernel TCP/IP → recv() → userspace
+  Overhead: ~10-15 microsecond mỗi packet
+
+Đường DPDK (kernel bypass):
+  NIC → DPDK PMD (Poll Mode Driver) → ring buffer → userspace trực tiếp
+  Overhead: ~1-2 microsecond mỗi packet (nhanh hơn 7-10 lần)
+```
+
+DPDK thay thế socket API bằng packet processing API riêng. Thay vì `recv()`, bạn gọi `rte_eth_rx_burst()`. Đánh đổi: DPDK dành riêng CPU core để busy-poll NIC (không interrupt), tiêu tốn CPU ngay cả khi traffic thấp.
+
+Trong Kubernetes, UPF pod thường request resource `hugepages-1Gi` và dùng SRIOV hoặc DPDK device plugin để truy cập NIC trực tiếp.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+### TCP server tối thiểu bằng Python
+
+```python
+import socket
+
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server.bind(('0.0.0.0', 8080))
+server.listen(128)
+
+while True:
+    client, addr = server.accept()
+    data = client.recv(4096)
+    client.send(b"HTTP/1.1 200 OK\r\n\r\nHello!")
+    client.close()
+```
+
+### Kiểm tra SCTP association trong 5G core
+
+```bash
+# Xem SCTP association
+ss -tnp | grep 38412    # N2 port (AMF)
+ss -tnp | grep 38422    # Xn port (gNB-gNB)
+
+# Trạng thái SCTP chi tiết
+cat /proc/net/sctp/assocs
+
+# SCTP statistics
+cat /proc/net/sctp/snmp
+
+# Capture N2 NGAP qua SCTP
+tcpdump -i any sctp port 38412 -w n2-capture.pcap
+
+# Decode trong Wireshark (NGAP dissector tự động áp dụng cho port 38412)
+```
+
+### Debug socket state
+
+```bash
+# Socket nào đang dùng
+ss -tlnp          # TCP listening
+ss -tnp           # TCP established
+ss -unp           # UDP (GTP-U sẽ xuất hiện ở đây)
+ss -Stnp          # SCTP connection
+
+# Socket option của process đang chạy
+ss -ti dst 10.0.0.5   # TCP info chi tiết bao gồm keepalive
+strace -e setsockopt ./amf_process
+
+# Theo dõi connection
+tcpdump -i any port 38412   # N2
+tcpdump -i any port 2152    # GTP-U (N3/N9)
+```
+
+### Vấn đề thường gặp và cách sửa
+
+| Triệu chứng | Kiểm tra | Nguyên nhân |
+|-------------|----------|-------------|
+| `EADDRINUSE` khi AMF start | `ss -tlnp` | Instance cũ vẫn trong TIME_WAIT, thêm SO_REUSEADDR |
+| SCTP association fail | `tcpdump sctp port 38412` | Firewall block SCTP (IP protocol 132, không phải TCP/UDP) |
+| N2 drop ngẫu nhiên | `cat /proc/net/sctp/snmp` | INIT_TIMEOUT quá ngắn, vấn đề path MTU |
+| GTP-U packet loss | `ss -unp` + `ethtool -S` | UDP socket buffer overflow, tăng `net.core.rmem_max` |
+| UPF CPU cao | `top` + DPDK stats | Busy-poll core đang hoạt động hết công suất, hành vi bình thường |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Bỏ qua partial send/receive với TCP.** `send(1000)` có thể chỉ gửi 500 byte. Luôn loop:
+   ```c
+   size_t total = 0;
+   while (total < len) {
+       ssize_t n = send(sockfd, buf + total, len - total, 0);
+       if (n <= 0) break;
+       total += n;
+   }
+   ```
+   SCTP không có vấn đề này — `sendmsg()` gửi toàn bộ message theo kiểu atomic.
+
+2. **Dùng TCP cho N2/Xn/E1.** Các interface này yêu cầu SCTP theo spec 3GPP. TCP không cung cấp message framing hoặc multi-homing. Nếu bạn test với TCP và "hoạt động", hành vi sẽ diverge khỏi spec trong điều kiện failure.
+
+3. **Không xử lý EINTR.** Signal (kể cả liveness probe signal của Kubernetes) có thể interrupt system call. Luôn retry:
+   ```c
+   while ((n = recv(sockfd, buf, len, 0)) == -1 && errno == EINTR);
+   ```
+
+4. **Quên SO_REUSEADDR.** Không có nó, restart AMF hoặc SMF fail với `EADDRINUSE` tới 4 phút (2 × MSL) khi socket còn trong TIME_WAIT.
+
+5. **SCTP bị block bởi firewall.** SCTP là IP protocol 132 — không phải TCP (6) hay UDP (17). Nhiều firewall và cloud security group block SCTP theo mặc định. Lỗi N2 association không có log lỗi trong AMF thường có nghĩa SCTP bị block ở tầng infrastructure.
+
+6. **Không đặt TCP_NODELAY cho SBI.** HTTP/2 multiplex nhiều stream trên một TCP connection. Nếu thuật toán Nagle đang active, SBI message nhỏ (NRF heartbeat, response ngắn) bị delay chờ thêm dữ liệu để batch. Điều này thêm latency vào mỗi NF-to-NF call.
+
+7. **Giả định connect() là đồng bộ trong NF.** Trong cloud-native NF, `connect()` đến peer NF được retry với exponential backoff. Một blocking connect không có timeout sẽ stall event loop của NF. Luôn dùng non-blocking socket hoặc async connection management.
+
+8. **Socket descriptor leak trong NF.** NF containerized có giới hạn file descriptor (mặc định 1024 mỗi process trong nhiều cấu hình Linux). Connection leak — từ thiếu `close()` trong error path — sẽ cạn kiệt giới hạn và gây lỗi `EMFILE` trên kết nối mới, làm NF có vẻ unhealthy với liveness probe.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Stevens et al., *Unix Network Programming, Vol. 1*, Addison-Wesley, 2003
+- Kerrisk, *The Linux Programming Interface*, No Starch Press, 2010
+- POSIX.1-2017, "System Interfaces"
+- RFC 4960, "Stream Control Transmission Protocol"
+- 3GPP TS 38.412, "NG signalling transport" (SCTP trên N2)
+- 3GPP TS 38.422, "Xn signalling transport" (SCTP trên Xn)
+- DPDK Documentation, "Getting Started Guide for Linux", dpdk.org
+- `man 7 socket`, `man 7 tcp`, `man 7 sctp`
+
+</section>
+
+<section class="lesson-bridge">
+
+## Tiếp theo
+
+- [TCP/IP stack](/vi/core-network/osi-tcpip-backend-perspective/tcp-ip-stack/) — protocol bên dưới socket API
+- [HTTP versions](/vi/core-network/http-grpc-websocket/http-versions/) — protocol xây trên socket
+- [SBI overview](/vi/core-network/service-based-interface-http2/sbi-overview/) — cách 5G NF giao tiếp qua HTTP/2 socket
+
+</section>

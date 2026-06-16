@@ -8,17 +8,473 @@ track: s1
 unit: common-orbits-and-why
 order: 2
 level: L2
-estimatedReadingMinutes: 5
-title: "MEO — Quy dao trung"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["leo"]
+spiralRevisits: []
+title: "MEO — Quy dao Trai dat Trung binh"
+description: "Hieu dac diem MEO, chom sao GPS va O3b, va danh doi do tre-vung phu."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["meo", "quy-dao", "gps", "o3b", "gnss"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# MEO — Quy dao trung
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Quy dao Trai dat Trung binh (MEO) la "vung vang" cho dan duong va mot so vien thong: cao hon LEO de vung phu tot hon, thap hon GEO de do tre chap nhan duoc. GPS, Galileo, GLONASS, va O3b mPOWER deu hoat dong trong MEO. Hieu vat ly MEO giai thich tai sao chom sao dan duong chi can ~30 ve tinh trong khi bang rong LEO can hang ngan.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Dinh nghia MEO
+
+```
+Vi tri MEO trong cac Che do Quy dao:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Khoang cach tu be mat Trai dat:                                    │
+│                                                                      │
+│  0 ────────────────────────────────────────────────────── 42,164 km │
+│  │                                                              │   │
+│  │◀─ LEO ─▶│◀────────── MEO ──────────▶│◀────── GEO ─────────▶│   │
+│  │160-2000 │      2,000 - 35,786 km    │     35,786 km         │   │
+│  │   km    │                           │                       │   │
+│                                                                      │
+│  CAC DO CAO MEO DANG CHU Y:                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Do cao       │ He thong        │ Muc dich            │         │
+│  │  ─────────────┼─────────────────┼─────────────────────│         │
+│  │  8,062 km     │ O3b mPOWER      │ Vien thong bang rong│         │
+│  │  19,130 km    │ GLONASS         │ Dan duong (Nga)     │         │
+│  │  20,180 km    │ GPS             │ Dan duong (My)      │         │
+│  │  23,222 km    │ Galileo         │ Dan duong (EU)      │         │
+│  │  21,528 km    │ BeiDou MEO      │ Dan duong (TQ)      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DAC DIEM MEO:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Do cao:       2,000 - 35,786 km                      │         │
+│  │  Chu ky:       2 - 24 gio                             │         │
+│  │  Do tre:       40-150 ms RTT (tuy do cao)             │         │
+│  │  Vung phu:     Moi ve tinh nhin thay ~25% Trai dat    │         │
+│  │  Chom sao:     24-36 ve tinh cho vung phu toan cau    │         │
+│  │  Buc xa:       Tiep xuc dai Van Allen (can che chan!) │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Danh doi MEO vs LEO vs GEO
+
+```
+So sanh Che do Quy dao:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Tham so         │ LEO           │ MEO           │ GEO            │
+│  ────────────────┼───────────────┼───────────────┼────────────────│
+│  Do cao          │ 500-2000 km   │ 8000-20000 km │ 35,786 km      │
+│  Do tre RTT      │ 4-25 ms       │ 60-150 ms     │ 550-650 ms     │
+│  Vung phu/ve tinh│ ~3 M km²      │ ~100 M km²    │ ~150 M km²     │
+│  Phu toan cau    │ 500-2000 vt   │ 24-36 vt      │ 3 vt           │
+│  Chu ky quy dao  │ 90-130 phut   │ 6-14 gio      │ 24 gio         │
+│  Mat mat duong   │ Thap nhat     │ Trung binh    │ Cao nhat       │
+│  Toc do handover │ 1-2 phut      │ 5-60 phut     │ Khong bao gio  │
+│  Rui ro rac      │ Cao           │ Thap          │ Rat thap       │
+│  Buc xa          │ Toi thieu     │ Van Allen!    │ Vua phai       │
+│                                                                      │
+│  ═══════════════════════════════════════════════════════════════    │
+│                                                                      │
+│  TAI SAO MEO CHO DAN DUONG:                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ✓ 4-8 ve tinh nhin thay tu bat ky diem nao (hinh hoc)│         │
+│  │  ✓ Chuyen dong ve tinh cham → do luong on dinh        │         │
+│  │  ✓ Vung phu lon → can it ve tinh hon                  │         │
+│  │  ✓ Chu ky 12 gio → vet mat dat lap lai hang ngay      │         │
+│  │                                                        │         │
+│  │  ✗ Buc xa Van Allen → dien tu tang cuong              │         │
+│  │  ✗ Do tre cao hon LEO                                 │         │
+│  │  ✗ Mat mat duong lon hon LEO                          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TAI SAO MEO CHO VIEN THONG O3b:                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ✓ Do tre thap hon GEO (75 ms vs 600 ms)              │         │
+│  │  ✓ It ve tinh hon LEO (hang chuc vs hang ngan)        │         │
+│  │  ✓ Bup song lon hon → it handover hon                 │         │
+│  │  ✓ Tot cho hang hai, gia dau, backhaul di dong        │         │
+│  │                                                        │         │
+│  │  ✗ Van can anten theo doi (khong dia tinh)            │         │
+│  │  ✗ Lo hong vung phu gan cuc (quy dao nghieng)         │         │
+│  │  ✗ Te hon LEO cho ung dung do tre cuc thap            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Hinh hoc chom sao GPS
+
+```
+Chom sao MEO GPS:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  THAM SO QUY DAO GPS:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Do cao:          20,180 km                           │         │
+│  │  Ban truc lon:    26,560 km                           │         │
+│  │  Chu ky quy dao:  11 gio 58 phut (≈ 1/2 thien van)   │         │
+│  │  Do nghieng:      55°                                 │         │
+│  │  Mat phang quy dao: 6                                 │         │
+│  │  Ve tinh/mat phang: 4 (toi thieu), len den 6         │         │
+│  │  Tong:            24 (toi thieu), 31+ hoat dong       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  NHIN TU TREN (cuc Trai dat):                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │              Mat phang A (0°)                         │         │
+│  │                  🛰                                   │         │
+│  │                 ╱   ╲                                 │         │
+│  │   Mat phang F  ╱     ╲  Mat phang B                  │         │
+│  │         🛰   ╱       ╲   🛰                          │         │
+│  │            ╱ ●Trai dat╲                              │         │
+│  │           ╱           ╲                              │         │
+│  │      🛰  ╱             ╲  🛰                         │         │
+│  │   Mat phang E         Mat phang C                    │         │
+│  │              ╲       ╱                               │         │
+│  │               ╲     ╱                                │         │
+│  │                ╲   ╱                                 │         │
+│  │                  🛰                                   │         │
+│  │             Mat phang D (180°)                       │         │
+│  │                                                        │         │
+│  │  6 mat phang × cach nhau 60° = vung phu day du 360°  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TAI SAO CHU KY 12 GIO QUAN TRONG:                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Vet mat dat ve tinh lap lai moi 24 gio            │         │
+│  │  • Cung hinh hoc tren dau tai cung thoi diem moi ngay│         │
+│  │  • Du doan duoc cho lap ke hoach nhiem vu            │         │
+│  │  • 2 vong quy dao moi ngay, lech boi quay Trai dat   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Vien thong MEO O3b
+
+```
+Chom sao O3b mPOWER:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  THAM SO HE THONG O3b:                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Do cao:          8,062 km                            │         │
+│  │  Chu ky quy dao:  ~288 phut (4.8 gio)                │         │
+│  │  Do nghieng:      0° (xich dao)                       │         │
+│  │  Ve tinh:         11 (mPOWER), ban dau 20 (cu)       │         │
+│  │  Vung phu:        dai vi do ±45°                      │         │
+│  │                                                        │         │
+│  │  Do tre RTT:      ~150 ms (so voi 600 ms GEO)        │         │
+│  │  Dung luong/vt:   Nhieu Gbps                         │         │
+│  │  Loai bup song:   Bup song diem lai duoc             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  VONG XICH DAO:                                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Nhin tu ben:                                         │         │
+│  │                                                        │         │
+│  │       🛰        🛰        🛰        🛰       🛰       │         │
+│  │        ╲        │        │        │        ╱          │         │
+│  │         ╲       │        │        │       ╱           │         │
+│  │  ────────╲──────┼────────┼────────┼──────╱──────────  │         │
+│  │           ╲     │   ●    │        │     ╱   Xich dao  │         │
+│  │            ╲    │Trai dat│        │    ╱              │         │
+│  │             ╲   │        │        │   ╱               │         │
+│  │                                                        │         │
+│  │  Dai vung phu: 45°B den 45°N                          │         │
+│  │  Khong phu vung cuc (quy dao xich dao)                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TRUONG HOP SU DUNG:                                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Backhaul di dong (dao, vung xa)                   │         │
+│  │  • Ket noi hang hai (tau du lich, hang hoa)          │         │
+│  │  • Gia dau khi & gas                                 │         │
+│  │  • Chinh phu/quan su o vung xich dao                 │         │
+│  │  • WAN doanh nghiep (do tre thap hon GEO)            │         │
+│  │                                                        │         │
+│  │  "O3b" = "Other 3 Billion" (phuc vu chua ket noi)    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Dai buc xa Van Allen
+
+```
+Moi truong Buc xa MEO:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MAT CAT DAI VAN ALLEN:                                             │
+│                                                                      │
+│      Do cao                                                          │
+│         │                                                            │
+│  40,000 km ├──────────────── GEO (35,786 km) ───────────────────    │
+│         │                                                            │
+│         │  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                        │
+│  20,000 km ├──░ DAI NGOAI (electron) ░───────  ← do cao GPS         │
+│         │  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                        │
+│         │                                                            │
+│         │      ████████████████████████████                         │
+│   8,000 km ├────█ VUNG KHE (thong thap) █──── ← do cao O3b          │
+│         │      ████████████████████████████                         │
+│         │                                                            │
+│         │  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                         │
+│   3,000 km ├──▓ DAI TRONG (proton) ▓─────────                       │
+│         │  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                         │
+│         │                                                            │
+│   1,000 km ├──────────────── LEO ────────────────────────────────   │
+│         │                                                            │
+│       0 km ├──── Be mat Trai dat ────────────────────────────────   │
+│                                                                      │
+│  TAC DONG:                                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Dai trong (1,000-6,000 km): Proton, rat khac nghiet  │         │
+│  │  • Khong co nhiem vu dai han o day                   │         │
+│  │  • GPS di qua nhanh khi nang quy dao                 │         │
+│  │                                                        │         │
+│  │  Vung khe (6,000-13,000 km): Buc xa thap hon         │         │
+│  │  • O3b chon 8,062 km vi ly do nay                    │         │
+│  │  • Van can tang cuong buc xa, nhung quan ly duoc     │         │
+│  │                                                        │         │
+│  │  Dai ngoai (13,000-40,000 km): Electron              │         │
+│  │  • GPS hoat dong o day (tang cuong buc xa)           │         │
+│  │  • Anh huong tuoi tho va do tin cay ve tinh          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tinh toan quy dao MEO:**
+
+```python
+import numpy as np
+
+# Hang so
+MU_EARTH = 398600.4418  # km³/s²
+R_EARTH = 6371  # km
+C = 299792.458  # km/s
+
+def meo_parameters(altitude_km):
+    """Tinh cac tham so quy dao MEO."""
+    a = R_EARTH + altitude_km
+    
+    # Chu ky quy dao
+    period_s = 2 * np.pi * np.sqrt(a**3 / MU_EARTH)
+    period_hr = period_s / 3600
+    
+    # Van toc
+    velocity = np.sqrt(MU_EARTH / a)
+    
+    # Vung phu (goc nadir cho goc nang toi thieu 5°)
+    min_elev = 5
+    rho = np.arcsin(R_EARTH * np.cos(np.radians(min_elev)) / a)
+    nadir_angle = 90 - min_elev - np.degrees(rho)
+    coverage_diameter = 2 * R_EARTH * np.radians(nadir_angle)
+    
+    return {
+        'altitude_km': altitude_km,
+        'period_hours': period_hr,
+        'velocity_km_s': velocity,
+        'coverage_diameter_km': coverage_diameter
+    }
+
+def gnss_visibility(altitude_km, min_elevation_deg=5):
+    """
+    Tinh so ve tinh GNSS nhin thay tu mot diem.
+    Mo hinh hinh hoc don gian.
+    """
+    a = R_EARTH + altitude_km
+    
+    # Goc trung tam Trai dat nhin thay tu ve tinh
+    rho = np.arcsin(R_EARTH * np.cos(np.radians(min_elevation_deg)) / a)
+    earth_angle = np.pi/2 - np.radians(min_elevation_deg) - rho
+    
+    # Phan be mat Trai dat nhin thay
+    coverage_fraction = (1 - np.cos(earth_angle)) / 2
+    
+    # Voi chom sao 24 ve tinh phan bo deu
+    # Ve tinh nhin thay du kien ≈ 24 × phan vung phu × he so hinh hoc
+    # He so hinh hoc tinh den phan bo khong deu
+    geometry_factor = 1.5  # thuc nghiem
+    expected_visible = 24 * coverage_fraction * geometry_factor
+    
+    return {
+        'coverage_fraction': coverage_fraction,
+        'earth_angle_deg': np.degrees(earth_angle),
+        'expected_visible_sats': expected_visible
+    }
+
+def meo_latency(altitude_km, elevation_deg=30):
+    """Tinh do tre lien ket MEO."""
+    h = altitude_km
+    eps = np.radians(elevation_deg)
+    
+    # Tam xien
+    rho = np.arcsin(R_EARTH * np.cos(eps) / (R_EARTH + h))
+    slant_range = (R_EARTH + h) * np.sin(np.pi/2 - eps - rho) / np.cos(eps)
+    
+    # Do tre
+    one_way_ms = slant_range / C * 1000
+    
+    return {
+        'slant_range_km': slant_range,
+        'one_way_ms': one_way_ms,
+        'round_trip_ms': 2 * one_way_ms
+    }
+
+# So sanh cac he thong MEO
+print("So sanh He thong MEO")
+print("=" * 65)
+
+systems = [
+    ("O3b mPOWER", 8062),
+    ("GLONASS", 19130),
+    ("GPS", 20180),
+    ("Galileo", 23222),
+]
+
+for name, alt in systems:
+    params = meo_parameters(alt)
+    latency = meo_latency(alt, 30)
+    
+    print(f"\n{name} ({alt} km):")
+    print(f"  Chu ky: {params['period_hours']:.2f} gio")
+    print(f"  Van toc: {params['velocity_km_s']:.2f} km/s")
+    print(f"  Duong kinh vung phu: {params['coverage_diameter_km']:.0f} km")
+    print(f"  RTT (goc nang 30°): {latency['round_trip_ms']:.1f} ms")
+
+# Phan tich tam nhin GPS
+print("\n" + "=" * 65)
+print("Phan tich Tam nhin GPS:")
+print("-" * 65)
+
+vis = gnss_visibility(20180, 5)
+print(f"  Phan vung phu moi ve tinh: {vis['coverage_fraction']*100:.1f}%")
+print(f"  Goc Trai dat nhin thay: {vis['earth_angle_deg']:.1f}°")
+print(f"  Ve tinh nhin thay du kien: {vis['expected_visible_sats']:.1f}")
+print(f"  (Can 4 de dinh vi, thuong thay 6-12)")
+
+# So sanh kich thuoc chom sao
+print("\n" + "=" * 65)
+print("So sanh Kich thuoc Chom sao:")
+print("-" * 65)
+print(f"  {'He thong':<20} {'Do cao':<12} {'Ve tinh':<12} {'Muc dich'}")
+print(f"  {'-'*20} {'-'*12} {'-'*12} {'-'*20}")
+data = [
+    ("GPS", "20,180 km", "31", "Dan duong"),
+    ("Galileo", "23,222 km", "30", "Dan duong"),
+    ("O3b mPOWER", "8,062 km", "11", "Vien thong"),
+    ("Starlink", "550 km", "4,000+", "Bang rong"),
+]
+for row in data:
+    print(f"  {row[0]:<20} {row[1]:<12} {row[2]:<12} {row[3]}")
+```
+
+**So sanh chom sao MEO:**
+
+| He thong | Do cao | Chu ky | RTT | Ve tinh | Vung phu |
+|----------|--------|--------|-----|---------|----------|
+| O3b | 8,062 km | 4.8 gio | 150 ms | 11-20 | ±45° lat |
+| GPS | 20,180 km | 12 gio | 133 ms | 31 | Toan cau |
+| Galileo | 23,222 km | 14 gio | 153 ms | 30 | Toan cau |
+| GLONASS | 19,130 km | 11.25 gio | 126 ms | 24 | Toan cau |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Tiep xuc Van Allen.** Ve tinh MEO can tang cuong buc xa; them khoi luong va chi phi.
+
+2. **Ngo nhan vung khe.** 8,000 km cua O3b la buc xa thap hon nhung van can bao ve.
+
+3. **Han che xich dao.** O3b khong the phuc vu vung cuc; khong phai vung phu toan cau thuc su.
+
+4. **Cong huong 12 gio.** Chu ky 11:58 cua GPS duoc chon dac biet de vet mat dat lap lai.
+
+5. **Do phuc tap theo doi.** Khac voi GEO, MEO can anten theo doi; lai duoc hoac mang pha.
+
+6. **Manh vo ton tai lau.** Manh vo MEO khong suy giam tu nhien; ton tai hang ngan nam.
+
+7. **Chi phi phong.** Do cao cao hon = can nhieu delta-v hon = dat hon de dat toi so voi LEO.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Tai lieu Dieu khien Giao dien GPS (ICD-GPS-200)
+- Thong so ky thuat O3b mPOWER
+- Tai lieu he thong Galileo ESA
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Quy dao GEO](/vi/space/common-orbits-and-why/geo-gso/) — dac diem dia tinh
+- [Molniya va SSO](/vi/space/common-orbits-and-why/molniya-sso/) — quy dao dac biet
+- [Co ban GNSS](/vi/rf/gnss-fundamentals/) — xu ly tin hieu dan duong
+
+</section>

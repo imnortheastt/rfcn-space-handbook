@@ -8,17 +8,440 @@ track: s7
 unit: geo-hts-architectures
 order: 3
 level: L4
-estimatedReadingMinutes: 5
-title: "Kien truc tai trong HTS"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: ["spot-beams", "frequency-reuse"]
+spiralRevisits: []
+title: "Kien truc Tai huu ich HTS"
+description: "Thiet ke tai huu ich dau-cuoi: bent-pipe vs tai tao, chuyen mach bup, phan bo cong."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["hts", "tai-huu-ich", "bent-pipe", "tai-tao", "cong", "nhay-bup"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Kien truc tai trong HTS
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Ve tinh HTS khong chi la bup song diem va tai su dung tan so—no la he thong hoan chinh dinh tuyen hang tram gigabit giua cac cong va bup nguoi dung. Kien truc tai huu ich quyet dinh tinh linh hoat, dung luong va kha nang phuc hoi. Hieu bent-pipe vs tai tao, nhay bup va da dang cong phan biet giua biet tiep thi HTS va thuc te ky thuat.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Tong quan he thong HTS
+
+```
+Kien truc He thong HTS:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                      🛰 VE TINH HTS                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │   Anten cong              Bup song diem nguoi dung│   │
+│  │   (lien ket cap)          (lien ket dich vu)    │    │
+│  │        │                          │             │    │
+│  │        ▼                          ▼             │    │
+│  │   ┌────────┐    ┌─────────┐   ┌────────┐       │    │
+│  │   │  RX    │───▶│  Loi    │──▶│  TX    │       │    │
+│  │   │ Dau   │    │  Tai    │   │ Dau    │       │    │
+│  │   │ cuoi   │◀───│(dinh   │◀──│ cuoi   │       │    │
+│  │   └────────┘    │ tuyen) │   └────────┘       │    │
+│  │                 └─────────┘                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│              │                        │                 │
+│              ▼                        ▼                 │
+│  ┌───────────────────┐    ┌───────────────────────┐    │
+│  │                    │    │                        │    │
+│  │   TRAM CONG        │    │    THIET BI NGUOI DUNG│    │
+│  │   (3-10 vi tri)    │    │    (hang trieu)       │    │
+│  │                    │    │                        │    │
+│  │   • Cap Ka-band    │    │  • Dich vu Ka-band    │    │
+│  │   • Anten 5-10m    │    │  • Dia 0.6-1.2m       │    │
+│  │   • Backhaul cap   │    │  • Nha, may bay,     │    │
+│  │     quang          │    │    tau, xe            │    │
+│  │                    │    │                        │    │
+│  └───────────────────┘    └───────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Lien ket di va ve
+
+```
+Luong Luu luong:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  LIEN KET DI (Cong → Ve tinh → Nguoi dung):             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │   Internet ──▶ Cong ──▶ 🛰 ──▶ Thiet bi nguoi dung│   │
+│  │                  │              │                │    │
+│  │           Uplink (Q/V)    Downlink (Ka)         │    │
+│  │           27-30 GHz       19.7-20.2 GHz         │    │
+│  │                                                  │    │
+│  │   Bang thong cao (streaming, tai xuong)         │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  LIEN KET VE (Nguoi dung → Ve tinh → Cong):             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │   Thiet bi nguoi dung ──▶ 🛰 ──▶ Cong ──▶ Internet│   │
+│  │                       │              │           │    │
+│  │                 Uplink (Ka)    Downlink (Q/V)   │    │
+│  │                 29.5-30 GHz    17.7-19.7 GHz    │    │
+│  │                                                  │    │
+│  │   Bang thong thap hon (yeu cau web, tai len)    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Bent-pipe vs tai tao
+
+```
+Kien truc Xu ly Tai huu ich:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  BENT-PIPE (Trong suot):                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │   Vao ──▶ LNA ──▶ Bo doi ──▶ HPA ──▶ Ra         │    │
+│  │          │       Tan so       │                 │    │
+│  │          ▼       (xuong/len)  ▼                 │    │
+│  │       Khuech dai          Khuech dai            │    │
+│  │                                                  │    │
+│  │   • Khong giai dieu che tin hieu               │    │
+│  │   • Chi dich tan so                            │    │
+│  │   • Don gian, da chung minh, tin cay           │    │
+│  │   • Nhieu tich luy dau-cuoi                    │    │
+│  │   • Linh hoat han che                          │    │
+│  │                                                  │    │
+│  │   Vi du: ViaSat-1, HTS dau tien                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  TAI TAO (OBP - Xu ly Tren Ve tinh):                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │   Vao ──▶ LNA ──▶ Demod ──▶ Switch ──▶ Mod ──▶ │    │
+│  │          │         │         │         │        │    │
+│  │          ▼         ▼         ▼         ▼        │    │
+│  │       Khuech    Giai ma   Dinh    Ma hoa        │    │
+│  │        dai       bits    tuyen     bits         │    │
+│  │                           bits                  │    │
+│  │                                                  │    │
+│  │   ──▶ HPA ──▶ Ra                                │    │
+│  │        │                                        │    │
+│  │        ▼                                        │    │
+│  │     Khuech dai                                  │    │
+│  │                                                  │    │
+│  │   • Tai tao tin hieu day du                    │    │
+│  │   • Chuyen mach muc bit                        │    │
+│  │   • Nhieu khong tich luy                       │    │
+│  │   • Phuc tap, dat, ton nhieu nang luong        │    │
+│  │   • Linh hoat toi da                           │    │
+│  │                                                  │    │
+│  │   Vi du: ViaSat-3, SES-17                      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Ket noi bup
+
+```
+Kien truc Dinh tuyen:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ANH XA CO DINH (Bent-pipe):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │   Cong 1 ────────────▶ Bup 1-20                 │    │
+│  │   Cong 2 ────────────▶ Bup 21-40                │    │
+│  │   Cong 3 ────────────▶ Bup 41-60                │    │
+│  │                                                  │    │
+│  │   Moi cong phuc vu tap bup co dinh             │    │
+│  │   Don gian nhung khong linh hoat                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  BO XU LY TRONG SUOT SO (DTP):                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │   Cong 1 ──┐   ┌──▶ Bup 1                       │    │
+│  │   Cong 2 ──┼──▶│DTP│──▶ Bup 2                   │    │
+│  │   Cong 3 ──┘   └──▶ Bup 3                       │    │
+│  │                   ...                           │    │
+│  │                   └──▶ Bup N                    │    │
+│  │                                                  │    │
+│  │   Bat ky cong nao co the phuc vu bat ky bup    │    │
+│  │   Phan bo bang thong dong                      │    │
+│  │   Kenh hoa trong mien so                       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  TAI TAO DAY DU:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │   Cong ──┐                  ┌──▶ Bup 1          │    │
+│  │          │   ┌─────────┐    │                   │    │
+│  │   ND 1 ──┼──▶│  OBP    │────┼──▶ Bup 2          │    │
+│  │          │   │ Router  │    │                   │    │
+│  │   ND 2 ──┤   │(packet) │    ├──▶ Cong           │    │
+│  │          │   └─────────┘    │                   │    │
+│  │   ND 3 ──┘                  └──▶ ND-ND          │    │
+│  │                                     (truc tiep) │    │
+│  │                                                  │    │
+│  │   Ve tinh hoat dong nhu router tren troi       │    │
+│  │   ND-den-ND khong can hop qua cong (giong ISL) │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Nhay bup
+
+```
+Kien truc Nhay Bup:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TRUYEN THONG (Chieu sang lien tuc):                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │   Thoi gian ──▶                                 │    │
+│  │   Bup 1: ████████████████████████               │    │
+│  │   Bup 2: ████████████████████████               │    │
+│  │   Bup 3: ████████████████████████               │    │
+│  │   Bup 4: ████████████████████████               │    │
+│  │                                                  │    │
+│  │   Tat ca bup hoat dong suot thoi gian           │    │
+│  │   Dung luong co dinh moi bup                    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  NHAY BUP (Chia se thoi gian):                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │   Thoi gian ──▶  (sieu khung ~26.5 ms DVB-S2X) │    │
+│  │   Bup 1: ████░░░░████░░░░████░░░░               │    │
+│  │   Bup 2: ░░░░████░░░░████░░░░████               │    │
+│  │   Bup 3: ████████░░░░░░░░████████               │    │
+│  │   Bup 4: ░░░░░░░░████████░░░░░░░░               │    │
+│  │                                                  │    │
+│  │   Cong suat phat chia se giua cac bup           │    │
+│  │   Thoi gian dung ti le voi nhu cau              │    │
+│  │   Bup 1&3: luu luong cao → nhieu slot hon       │    │
+│  │   Bup 2&4: luu luong thap → it slot hon         │    │
+│  │                                                  │    │
+│  │   LOI ICH:                                      │    │
+│  │   • Phan bo dung luong noi can                  │    │
+│  │   • It HPA hon can (chia se cong suat)          │    │
+│  │   • Su dung tot hon                             │    │
+│  │                                                  │    │
+│  │   THACH THUC:                                   │    │
+│  │   • Dong bo thoi gian                           │    │
+│  │   • Thiet bi bat moi hop                        │    │
+│  │   • Do phuc tap lap lich                        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Da dang cong
+
+```
+Du phong Cong:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TAI SAO DA DANG CONG:                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Lien ket cap Ka/Q/V-band chiu suy hao mua      │    │
+│  │  → Kha dung 99.9% yeu cau duong du phong        │    │
+│  │                                                  │    │
+│  │  Dien hinh: Du phong cong N+M                   │    │
+│  │  N hoat dong + M du phong (nong hoac lanh)      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  KHAI NIEM DA DANG VI TRI:                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │              🛰                                  │    │
+│  │             ╱ │ ╲                                │    │
+│  │            ╱  │  ╲                               │    │
+│  │           ╱   │   ╲                              │    │
+│  │   ┌─────┐  ┌─────┐  ┌─────┐                     │    │
+│  │   │ GW1 │  │ GW2 │  │ GW3 │                     │    │
+│  │   │ ☀️  │  │ 🌧️ │  │ ☀️  │                     │    │
+│  │   └─────┘  └─────┘  └─────┘                     │    │
+│  │   Hoat dong Du phong  Hoat dong                 │    │
+│  │            (mua)                                │    │
+│  │                                                  │    │
+│  │  Cac cong cach nhau 100-300 km                  │    │
+│  │  Thoi tiet khong tuong quan                     │    │
+│  │  Luu luong chuyen huong khi xay ra suy hao mua  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  TAI CONG:                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Moi cong: Dung luong 5-10 Gbps                 │    │
+│  │  Ve tinh 100 Gbps → ~10-20 cong                 │    │
+│  │  Ve tinh 1 Tbps → ~100+ cong                    │    │
+│  │                                                  │    │
+│  │  Cong = co so ha tang mat dat dang ke           │    │
+│  │  chi phi (anten, modem, cap quang)              │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Dinh co tai huu ich HTS:**
+
+```python
+import numpy as np
+
+def hts_capacity_estimate(num_user_beams, bw_per_beam_mhz, spectral_eff):
+    """
+    Uoc tinh tong dung luong HTS
+    
+    spectral_eff: dien hinh 2-4 bits/s/Hz
+    """
+    capacity_gbps = num_user_beams * bw_per_beam_mhz * spectral_eff / 1000
+    return capacity_gbps
+
+def gateway_count(total_capacity_gbps, capacity_per_gw_gbps, redundancy_ratio=1.3):
+    """
+    Uoc tinh so cong can thiet
+    
+    redundancy_ratio: N+M trong do ty le = (N+M)/N
+    """
+    active_gws = np.ceil(total_capacity_gbps / capacity_per_gw_gbps)
+    total_gws = np.ceil(active_gws * redundancy_ratio)
+    return int(active_gws), int(total_gws)
+
+def beam_hopping_gain(peak_to_avg_ratio):
+    """
+    Tang ich dung luong tu nhay bup
+    
+    peak_to_avg_ratio: bien dong nhu cau luu luong (thuong 2-5)
+    """
+    # Nhay bup cho phep chia se cong suat dua tren nhu cau
+    # Tang ich dung luong tuong duong vs phan bo co dinh
+    return np.sqrt(peak_to_avg_ratio)
+
+# Vi du: HTS loai ViaSat-3
+print("Vi du Thiet ke Tai huu ich HTS:")
+print("=" * 50)
+
+num_beams = 300
+bw_per_beam = 250  # MHz (sau tai su dung tan so)
+spectral_eff = 3.5  # bits/s/Hz
+
+capacity = hts_capacity_estimate(num_beams, bw_per_beam, spectral_eff)
+print(f"Bup nguoi dung: {num_beams}")
+print(f"Bang thong moi bup: {bw_per_beam} MHz")
+print(f"Hieu suat pho: {spectral_eff} bits/s/Hz")
+print(f"Tong dung luong: {capacity:.0f} Gbps")
+
+# Lap ke hoach cong
+gw_capacity = 10  # Gbps moi cong
+active, total = gateway_count(capacity, gw_capacity)
+print(f"\nHa tang cong:")
+print(f"  Dung luong moi cong: {gw_capacity} Gbps")
+print(f"  Cong hoat dong: {active}")
+print(f"  Tong voi du phong: {total}")
+
+# Loi ich nhay bup
+peak_avg = 3.0
+gain = beam_hopping_gain(peak_avg)
+print(f"\nNhay bup:")
+print(f"  Ti le dinh-tren-trung-binh luu luong: {peak_avg}")
+print(f"  Tang ich dung luong hieu qua: {gain:.1f}×")
+print(f"  Dung luong co dinh tuong duong: {capacity * gain:.0f} Gbps")
+```
+
+**So sanh ve tinh HTS:**
+
+| Ve tinh | Bup | Dung luong | Kien truc | Cong |
+|---------|-----|------------|-----------|------|
+| ViaSat-1 | 72 | 140 Gbps | Bent-pipe | 10 |
+| ViaSat-2 | 70+ | 350 Gbps | Bent-pipe | 12 |
+| ViaSat-3 | 300+ | 1 Tbps | Tai tao | 100+ |
+| SES-17 | 200+ | 200 Gbps | DTP | 8 |
+| Jupiter-3 | 500+ | 500 Gbps | Tai tao | 20+ |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Dung luong tiep thi.** Gbps quang cao gia dinh dieu kien tot nhat; thong luong thuc te thap hon.
+
+2. **Nut that cong.** Moi cong can backhaul cap quang—kha dung va chi phi thay doi theo vi tri.
+
+3. **Dong bo nhay bup.** Thiet bi phai dong bo voi lich nhay; them do phuc tap.
+
+4. **Tieu thu nang luong OBP.** Tai huu ich tai tao tieu thu nhieu dien DC hon dang ke.
+
+5. **Rui ro cong nghe.** Cong nghe OBP co dinh khi phong; bent-pipe thich ung voi nang cap mat dat.
+
+6. **He so lap day.** Su dung dung luong hiem khi vuot 30-50% trong thuc te.
+
+7. **Phoi hop nhieu.** Nhieu HTS trong cung slot tao ra chia se tan so phuc tap.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Tai lieu ky thuat Viasat, SES, Intelsat
+- Tieu chuan DVB-S2X (ETSI EN 302 307-2)
+- Maral, G., "Satellite Communications Systems"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Bup song Diem](/vi/space/geo-hts-architectures/spot-beams/) — co ban anten
+- [Tai su dung Tan so](/vi/space/geo-hts-architectures/frequency-reuse/) — nhan pho
+- [Huong dan Ngan sach Lien ket](/vi/space/practical-link-budget-walkthroughs/ka-band-leo-downlink/) — so lieu thuc
+
+</section>

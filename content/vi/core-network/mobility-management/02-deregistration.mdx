@@ -8,17 +8,368 @@ track: n3
 unit: mobility-management
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "Thu tuc huy dang ky"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-mobility-management-01-registration"]
+spiralRevisits: ["core-network-n3-session-management-deep-dive-03-pdu-session-release"]
+title: "Thu Tuc Huy Dang Ky"
+description: "Cach UE roi khoi mang — huy dang ky ro rang, ngam dinh, va do mang khoi tao."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.502", "3GPP TS 24.501"]
+tags: ["deregistration", "5g", "amf", "mobility"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Thu tuc huy dang ky
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Dang ky dua UE vao mang. **Huy dang ky** dua no ra. Dieu nay xay ra khi ban tat dien thoai, bat che do may bay, hoac mang quyet dinh ngat ket noi ban.
+
+Hieu huy dang ky giup ban debug cac tinh huong "thiet bi bien mat" va toi uu quan ly tai nguyen mang.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Khi nao huy dang ky xay ra
+
+```
+Trigger Huy dang ky:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE khoi tao:                                           │
+│  ├── Tat nguon / shutdown                               │
+│  ├── Che do may bay                                     │
+│  ├── Rut SIM                                            │
+│  └── Tat 5G (thay doi cai dat)                         │
+│                                                          │
+│  Mang khoi tao:                                         │
+│  ├── Thue bao bi cham dut                               │
+│  ├── Hanh dong quan tri OAM                             │
+│  ├── Xac thuc lai that bai                              │
+│  └── Phat hien UE bat hop phap                          │
+│                                                          │
+│  Ngam dinh (tu dong):                                   │
+│  ├── Timer dang ky dinh ky (T3512) het han             │
+│  ├── Timer di dong co the lien lac het han             │
+│  └── Timer huy dang ky ngam dinh het han               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac loai huy dang ky
+
+| Loai | Nguoi khoi tao | Vi du |
+|------|----------------|-------|
+| **Ro rang UE** | UE | Nguoi dung tat dien thoai |
+| **Ro rang Mang** | AMF | Admin ngat ket noi nguoi dung |
+| **Ngam dinh** | Timer | UE im lang qua lau |
+
+### Nhung gi duoc don dep
+
+```
+Don dep Huy dang ky:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Truoc Huy dang ky:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ UE Context trong AMF                            │    │
+│  │ - 5G-GUTI, security context, allowed NSSAI     │    │
+│  │                                                  │    │
+│  │ PDU Session (trong SMF)                         │    │
+│  │ - Dia chi IP, quy tac QoS, tai nguyen UPF      │    │
+│  │                                                  │    │
+│  │ Dang ky UDM                                     │    │
+│  │ - "UE da dang ky tai AMF-001"                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                          │                               │
+│                          ▼ Huy dang ky                   │
+│                                                          │
+│  Sau Huy dang ky:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ AMF: UE context duoc giai phong                 │    │
+│  │ SMF: PDU session giai phong (neu switch-off)   │    │
+│  │ UDM: Ban ghi dang ky bi xoa                    │    │
+│  │ UPF: Tai nguyen duoc giai phong                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Huy dang ky do UE khoi tao
+
+```
+Huy dang ky do UE khoi tao (tat nguon binh thuong):
+
+UE                gNB                AMF               UDM
+│                  │                  │                  │
+│ Nguoi dung tat   │                  │                  │
+│      │           │                  │                  │
+│      ▼           │                  │                  │
+│ Deregistration   │                  │                  │
+│ Request          │                  │                  │
+│ - Type: switch off                  │                  │
+│ - 5G-GUTI        │                  │                  │
+│─────────────────►│─────────────────►│                  │
+│                  │                  │                  │
+│                  │                  │ Nudm_UECM_Dereg  │
+│                  │                  │─────────────────►│
+│                  │                  │                  │
+│                  │                  │      OK          │
+│                  │                  │◄─────────────────│
+│                  │                  │                  │
+│                  │  UE Context      │                  │
+│                  │  Release Command │                  │
+│                  │◄─────────────────│                  │
+│                  │                  │                  │
+│                  │  UE Context      │                  │
+│                  │  Release Complete│                  │
+│                  │─────────────────►│                  │
+│                  │                  │                  │
+│ Deregistration   │                  │                  │
+│ Accept           │◄─────────────────│                  │
+│◄─────────────────│                  │                  │
+│                  │                  │                  │
+│ (UE tat)         │                  │                  │
+```
+
+### Cac loai yeu cau huy dang ky
+
+```
+IE Deregistration Request:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Loai huy dang ky:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Bit:                                             │    │
+│  │                                                  │    │
+│  │ Switch-off (bit 3):                             │    │
+│  │   0 = huy dang ky binh thuong                   │    │
+│  │   1 = switch-off (khong cho accept)             │    │
+│  │                                                  │    │
+│  │ Yeu cau dang ky lai (bit 2):                    │    │
+│  │   0 = khong can dang ky lai                     │    │
+│  │   1 = UE phai dang ky lai                       │    │
+│  │                                                  │    │
+│  │ Loai truy cap (bit 0-1):                        │    │
+│  │   01 = 3GPP access                              │    │
+│  │   10 = non-3GPP access                          │    │
+│  │   11 = 3GPP + non-3GPP                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Huy dang ky do mang khoi tao
+
+```
+Huy dang ky do Mang khoi tao:
+
+AMF                gNB                UE
+│                  │                  │
+│ Admin kich hoat  │                  │
+│ huy dang ky      │                  │
+│      │           │                  │
+│      ▼           │                  │
+│ Deregistration   │                  │
+│ Request          │                  │
+│ - Cause: can     │                  │
+│   thiep OAM      │                  │
+│─────────────────►│─────────────────►│
+│                  │                  │
+│                  │                  │ UE nhan
+│                  │                  │ va xu ly
+│                  │                  │
+│ Deregistration   │                  │
+│ Accept           │◄─────────────────│
+│◄─────────────────│                  │
+│                  │                  │
+│ UE Context       │                  │
+│ Release          │                  │
+│─────────────────►│                  │
+│                  │                  │
+│                  │ RRC Release      │
+│                  │─────────────────►│
+│                  │                  │
+```
+
+### Huy dang ky ngam dinh
+
+```
+Huy dang ky Ngam dinh (UE im lang):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dong thoi gian:                                        │
+│                                                          │
+│  0          T3512        Di dong      Ngam dinh         │
+│  │          (54 phut)    Lien lac     Dereg Timer       │
+│  │          │            │            │                  │
+│  ▼          ▼            ▼            ▼                  │
+│  Lien he  Ky vong     Bat dau     Kich hoat            │
+│  cuoi     cap nhat    paging      huy dang ky          │
+│  cung     dinh ky     timer       ngam dinh            │
+│           bi lo                                         │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ T3512 (dang ky dinh ky): ~54 phut               │    │
+│  │ Timer di dong lien lac: cau hinh mang           │    │
+│  │ Timer huy dang ky ngam dinh: cau hinh mang      │    │
+│  │                                                  │    │
+│  │ Sau khi timer huy dang ky ngam dinh het:        │    │
+│  │ - AMF giai phong UE context                     │    │
+│  │ - UDM duoc thong bao (UECM deregistration)      │    │
+│  │ - PDU session duoc giai phong                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Xu ly PDU session trong huy dang ky
+
+```
+So phan PDU Session trong Huy dang ky:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Huy dang ky switch-off:                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ AMF gui Nsmf_PDUSession_ReleaseSMContext        │    │
+│  │ den moi SMF cho tat ca PDU session              │    │
+│  │                                                  │    │
+│  │ → SMF giai phong N4 session voi UPF             │    │
+│  │ → UPF giai phong tai nguyen                     │    │
+│  │ → Dia chi IP tra ve pool                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Huy dang ky binh thuong (ky vong re-attach):          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Mang CO THE giu PDU session mot luc             │    │
+│  │ (dac biet cho SSC mode 2/3)                     │    │
+│  │                                                  │    │
+│  │ → Neu UE dang ky lai nhanh, session phuc hoi    │    │
+│  │ → Neu timer het, session giai phong             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Nguyen nhan huy dang ky
+
+```
+Nguyen nhan Huy dang ky do Mang khoi tao:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Gia tri 5GMM Cause:                                    │
+│                                                          │
+│  │ Cause │ Y nghia                                      │
+│  │───────│──────────────────────────────────────────────│
+│  │   3   │ UE bat hop phap                              │
+│  │   5   │ PEI khong duoc chap nhan                     │
+│  │   6   │ ME bat hop phap                              │
+│  │  11   │ PLMN khong cho phep                          │
+│  │  12   │ Tracking area khong cho phep                 │
+│  │  13   │ Roaming khong cho phep trong TA nay          │
+│  │  22   │ Tac nghen                                    │
+│  │  72   │ Non-3GPP access den 5GCN khong cho phep      │
+│  │  73   │ Mang phuc vu khong duoc uy quyen             │
+│  │  76   │ Tai nguyen user-plane khong du               │
+│  │  90   │ Yeu cau xac thuc lai                         │
+│  │  95   │ Message khong dung ngu nghia                 │
+│  │                                                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cau hinh timer:**
+
+| Timer | Muc dich | Gia tri thuong gap |
+|-------|----------|-------------------|
+| T3512 | Dang ky dinh ky | 54 phut |
+| Di dong lien lac | Bat dau paging sau khi lo T3512 | 4 phut |
+| Huy dang ky ngam dinh | Giai phong context neu khong lien lac duoc | 4 phut |
+| T3522 | Thu lai huy dang ky | 6 giay |
+
+**Debug huy dang ky:**
+
+```bash
+# Bo loc Wireshark cho deregistration
+nas-5gs.mm.message_type == 0x45 || nas-5gs.mm.message_type == 0x46
+
+# Kiem tra trang thai dang ky UDM
+curl -X GET "https://udm.5gc/nudm-uecm/v1/imsi-310260123456789/registrations"
+```
+
+**Tinh huong pho bien:**
+
+| Trieu chung | Kiem tra |
+|-------------|----------|
+| UE khong the ket noi lai sau khi bat lai | Context cu trong AMF, doi huy dang ky ngam dinh |
+| Huy dang ky lap di lap lai | Nguyen nhan do mang khoi tao, kiem tra log AMF |
+| Session khong duoc giai phong | SMF da duoc thong bao? Kiem tra giao dien N11 |
+| UDM van hien thi da dang ky | UECM deregistration that bai, kiem tra SBI |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Quen co switch-off.** Khi UE tat nguon, no dat switch-off=1 de mang khong cho accept. Thieu co nay lang phi thoi gian.
+
+2. **Khong giai phong PDU session.** AMF phai thong bao SMF giai phong session. Thieu dieu nay ro ri tai nguyen.
+
+3. **Bo qua huy dang ky ngam dinh.** Neu UE bien mat (het pin, mat song), huy dang ky ngam dinh la cach don dep duy nhat.
+
+4. **Timer qua gay gat.** Timer huy dang ky ngam dinh rat ngan gay dang ky lai lien tuc cho UE trong vung phu song yeu.
+
+5. **Khong cap nhat UDM.** AMF phai goi Nudm_UECM_Deregistration. Thieu dieu nay de lai ban ghi dang ky cu.
+
+6. **Vong lap dang ky lai.** Neu nguyen nhan huy dang ky yeu cau dang ky lai nhung van de goc khong duoc sua, UE lap vong.
+
+7. **Context khong khop sau loi.** Neu AMF crash giua huy dang ky, trang thai UE va mang lech nhau. Can quy trinh phuc hoi.
+
+8. **Nham lan multi-access.** UE co the dang ky qua 3GPP va non-3GPP cung luc. Huy dang ky phai chi ro access nao.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.502, "Procedures for 5GS"
+- 3GPP TS 24.501, "NAS protocol for 5GS"
+- 3GPP TS 23.501, "System architecture for 5GS"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Handover](/vi/core-network/mobility-management/handover/) — di chuyen giua cell ma khong huy dang ky
+- [Che do idle va connected](/vi/core-network/mobility-management/idle-connected-modes/) — hieu trang thai UE
+- [Giai phong PDU session](/vi/core-network/session-management-deep-dive/pdu-session-release/) — chi tiet don dep session
+
+</section>

@@ -8,17 +8,352 @@ track: n0
 unit: carrier-grade-vocabulary
 order: 4
 level: L2
-estimatedReadingMinutes: 5
-title: "Co ban ve lap ke hoach nang luc"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-carrier-grade-vocabulary-03-redundancy-patterns"]
+spiralRevisits: ["core-network-n2-carrier-grade-vocabulary-05-advanced-capacity-planning"]
+title: "Co Ban Ve Lap Ke Hoach Nang Luc"
+description: "Du bao nhu cau, dinh co ha tang, va tranh khung hoang capacity."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["ITU-T E.500"]
+tags: ["capacity-planning", "traffic-engineering", "dimensioning", "networking"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Co ban ve lap ke hoach nang luc
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Qua it capacity: nghen, mat cuoc goi, khach hang tuc gian. Qua nhieu capacity: lang phi tien, thiet bi nhan roi.
+
+Capacity planning tim diem can bang. Do la cach mang vien thong xu ly tang truong traffic, dinh mua, va kich ban failure ma khong over-provision hoac under-deliver.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Chu ky capacity planning
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                                                            │
+│   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐│
+│   │  Do    │───►│Du bao  │───►│  Lap    │───►│  Trien  ││
+│   │hien tai│    │tuong lai│    │ke hoach │    │khai&test││
+│   └─────────┘    └─────────┘    └─────────┘    └─────────┘│
+│        ▲                                            │      │
+│        └────────────────────────────────────────────┘      │
+│                     Lap lai                                 │
+└────────────────────────────────────────────────────────────┘
+```
+
+**Muc tieu:** Di truoc nhu cau ma khong lang phi tai nguyen.
+
+### Cau hoi quan trong
+
+| Cau hoi | Tai sao quan trong |
+|---------|-------------------|
+| Utilization hien tai la gi? | Baseline de lap ke hoach |
+| Traffic tang nhanh the nao? | Xac dinh thoi diem upgrade |
+| Peak la gi? | Size cho burst, khong phai average |
+| Neu gi do fail thi sao? | Yeu cau N-1 capacity |
+| Mat bao lau de deploy? | Lead time anh huong tam nhin ke hoach |
+
+### Capacity vs utilization
+
+```
+Capacity:    ████████████████████████████████  100 Gbps
+             │
+Utilization: ████████████████░░░░░░░░░░░░░░░░   50 Gbps (50%)
+             │
+Headroom:    ░░░░░░░░░░░░░░░░████████████████   50 Gbps con lai
+
+Target:      Giu utilization duoi nguong (v.d., 70%)
+             Tren nguong → lap ke hoach upgrade
+```
+
+**Tai sao khong 100%?** O utilization cao:
+- Latency tang dot bien (queuing)
+- Khong co cho cho traffic burst
+- Khong co cho cho failure scenario
+- Chat luong dich vu giam
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Do luong trang thai hien tai
+
+**Can do gi:**
+
+| Metric | Don vi | Lay o dau |
+|--------|--------|-----------|
+| Interface utilization | % hoac bps | SNMP, streaming telemetry |
+| CPU utilization | % | Device monitoring |
+| Memory utilization | % | Device monitoring |
+| Session count | Session | Device monitoring |
+| Queue depth | Packet | Device monitoring |
+
+**Do phan giai do:**
+
+```
+5-minute average:  ████████████████░░░░░░░░  65%
+1-minute average:  ████████████████████░░░░  80%
+Peak tuc thoi:     ████████████████████████  95%
+
+5-min average che giau burst.
+Plan cho burst, khong phai average.
+```
+
+**Insight quan trong:** Average utilization 50% co the co peak 95%. Luon nhin percentile (p95, p99).
+
+### Du bao nhu cau
+
+**Xu huong lich su:**
+
+```
+Traffic
+(Gbps)
+  │
+60├                                    ╱
+  │                                 ╱
+50├                              ╱
+  │                           ╱
+40├                        ╱
+  │                     ╱
+30├                  ╱
+  │               ╱
+20├            ╱
+  │         ╱
+10├──────╱
+  │
+  └────┬──────┬──────┬──────┬──────┬──────► Time
+      T1     T2     T3     T4     T5     T6
+```
+
+**Tinh toc do tang truong:**
+
+```
+Monthly growth rate = (Hien tai - Truoc do) / Truoc do × 100%
+
+Vi du:
+Thang 1: 30 Gbps
+Thang 6: 55 Gbps
+Tang truong 5 thang: (55 - 30) / 30 = 83%
+Tang truong trung binh hang thang: ~13%
+```
+
+**Du doan:**
+
+```
+Traffic tuong lai = Hien tai × (1 + growth_rate)^thang
+
+Vi du:
+Hien tai: 55 Gbps
+Tang truong hang thang: 10%
+Trong 12 thang: 55 × (1.10)^12 = 172 Gbps
+```
+
+**Chu y:** Ngoai suy tuyen tinh dung cho ngan han. Du bao dai han can input kinh doanh (dich vu moi, thay doi thi truong).
+
+### Sizing cho failure
+
+**Nguyen tac N-1:** Mang phai xu ly full load khi mot component fail.
+
+```
+Hoat dong binh thuong (3 link, moi link 100 Gbps):
+
+Link A: ████████░░  80 Gbps
+Link B: ████████░░  80 Gbps
+Link C: ████████░░  80 Gbps
+Tong:   240 Gbps capacity, 240 Gbps demand
+
+Link B fail:
+
+Link A: ████████████████████  120 Gbps (qua tai!)
+Link C: ████████████████████  120 Gbps (qua tai!)
+Tong:   200 Gbps capacity, 240 Gbps demand → NGHEN
+```
+
+**Sizing N-1 dung:**
+
+```
+Demand: 240 Gbps
+Link: 3 × 100 Gbps
+N-1 capacity: 200 Gbps < 240 Gbps → FAIL
+
+Fix: 4 × 100 Gbps
+N-1 capacity: 300 Gbps > 240 Gbps → OK
+```
+
+### Nguong utilization
+
+**Nguong dien hinh:**
+
+| Utilization | Hanh dong |
+|-------------|-----------|
+| < 50% | Headroom thoai mai |
+| 50-70% | Theo doi sat |
+| 70-80% | Lap ke hoach upgrade |
+| > 80% | Upgrade khan cap |
+
+**Tai sao 70%?**
+```
+Hien tai: 70 Gbps tren link 100 Gbps
+
+Kich ban 1: Traffic spike 30%
+  70 + 21 = 91 Gbps → Van duoi capacity ✓
+
+Kich ban 2: Failover tu link song song
+  70 + 35 = 105 Gbps → Qua capacity ✗
+
+O 70%, ban co cho cho mot kich ban nhung khong phai ca hai.
+```
+
+### Lap ke hoach lead time
+
+```
+Timeline:
+              ▼ Dat hang hom nay
+──────────────┼─────────────────────────────────────────►
+              │
+              ├──── Mua thiet bi: 4-8 tuan
+              │
+              ├──── Cung cap circuit: 2-4 tuan
+              │
+              ├──── Lap dat: 1-2 tuan
+              │
+              ├──── Test: 1 tuan
+              │
+              └──── Tong lead time: 8-16 tuan
+```
+
+**Tam nhin ke hoach = Lead time + buffer**
+
+Neu upgrade mat 3 thang, ban can lap ke hoach truoc 4-6 thang.
+
+### Bao cao capacity planning
+
+**Template review capacity hang thang:**
+
+| Link/System | Capacity | Hien tai (p95) | Utilization | Xu huong tang | Can upgrade |
+|-------------|----------|----------------|-------------|---------------|-------------|
+| Core-A den Core-B | 100G | 65G | 65% | +8%/thang | Q3 |
+| Edge-North uplink | 40G | 32G | 80% | +12%/thang | Khan cap |
+| DC interconnect | 200G | 90G | 45% | +5%/thang | Khong |
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Quy trinh capacity planning:**
+
+1. **Thu thap du lieu:** Lay metric utilization 6-12 thang qua
+2. **Tinh xu huong:** Toc do tang truong hang thang/quy
+3. **Du doan:** Khi nao dat nguong?
+4. **Tinh lead time:** Tinh nguoc ngay dat hang
+5. **Ngan sach va phe duyet:** Xin kinh phi som
+6. **Thuc hien upgrade:** Truoc khi dat nguong
+7. **Xac nhan:** Confirm capacity moi dat yeu cau
+
+**Vi du thuc te: Lap ke hoach upgrade link**
+
+```
+Cho truoc:
+- Link hien tai: 100 Gbps
+- Traffic hien tai (p95): 60 Gbps (60% utilization)
+- Tang truong hang thang: 8%
+- Nguong upgrade: 70%
+- Lead time: 3 thang
+
+Cau hoi: Khi nao bat dau upgrade?
+
+Nguong 70 Gbps khi 60 × (1.08)^n = 70
+n = log(70/60) / log(1.08) = 2.0 thang
+
+Bat dau upgrade ngay! (2 thang den nguong, 3 thang lead time)
+```
+
+**Dieu chinh theo mua:**
+
+```
+Pattern traffic:
+            Peak          Lull
+           cuoi nam       mua he
+  ▲             │              │
+  │      ╱╲    │       ╱╲    │
+  │    ╱    ╲  │     ╱    ╲  │
+  │  ╱        ╲│   ╱        ╲│
+  │╱           ╲  ╱          ╲
+  └────────────────────────────► Time
+
+Plan cho peak, khong phai average.
+Tinh den pattern theo mua trong du bao.
+```
+
+**Phan tich what-if:**
+
+| Kich ban | Tac dong | Giam thieu |
+|----------|----------|------------|
+| Traffic spike 50% | Nghen tren 3 link | Them capacity |
+| Mat khach hang lon | Over-provision | Hoan upgrade |
+| Ra mat dich vu moi | Gap doi traffic trong 3 thang | Tang toc upgrade |
+| Doi thu sap | Traffic vao tang 20% | Dam bao headroom N-1 |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Plan theo average.** Average utilization 40% co the co p99 la 90%. Luon plan cho peak.
+
+2. **Quen N-1.** Upgrade link ma van fail trong kich ban N-1 khong phai upgrade that.
+
+3. **Danh gia thap lead time.** "Chung toi co the deploy trong 2 tuan" la lac quan. Chuoi cung ung, phe duyet, va test mat thoi gian.
+
+4. **Bo qua tinh mua vu.** Traffic gap doi vao thang 12 cho e-commerce. Plan dua tren du lieu thang 6 se fail vao thang 12.
+
+5. **Ngoai suy tuyen tinh.** Traffic khong tang mai o 20%/thang. Model can kiem tra thuc te.
+
+6. **Capacity ≠ performance.** Link 100G o 50% utilization van co the co van de latency do microburst.
+
+7. **Quen control plane.** Data plane co capacity, nhung routing protocol kho khan voi table size.
+
+8. **Plan doc lap.** Mot link upgrade khong giup ich neu hop tiep theo van la bottleneck.
+
+9. **Khong co buffer cho bat dinh.** Du bao sai. Xay dung margin vao ke hoach.
+
+10. **Plan phan ung.** Upgrade sau khi khach hang phan nan nghia la ban da cham.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- ITU-T E.500, "Traffic intensity measurement principles"
+- ITU-T E.506, "Forecasting international traffic"
+- Cisco, "Capacity Planning for the Data Center"
+- Gunther, *Guerrilla Capacity Planning*, Springer
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Traffic engineering](/vi/core-network/traffic-engineering/traffic-engineering-intro/) — toi uu hoa luong traffic
+- [KPI va SLA](/vi/core-network/carrier-grade-vocabulary/kpis-and-slas/) — metric dieu khien planning
+- [Erlang model](/vi/core-network/carrier-grade-vocabulary/erlang-models/) — dimensioning traffic thoai
+
+</section>

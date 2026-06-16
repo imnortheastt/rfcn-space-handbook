@@ -8,17 +8,468 @@ track: s7
 unit: leo-constellation-architecture
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "Starlink-class constellation design"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: ["common-orbits-and-why"]
+spiralRevisits: []
+title: "Mega-Constellation Design — Starlink, OneWeb, and Kuiper"
+description: "Understanding the architecture principles behind modern LEO broadband constellations."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["starlink", "oneweb", "kuiper", "mega-constellation", "leo", "broadband"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Starlink-class constellation design
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Mega-constellations like Starlink (12,000+ satellites), OneWeb (648), and Kuiper (3,236) are reshaping global connectivity. Unlike GEO systems with 3 satellites covering Earth, LEO constellations require thousands of spacecraft working in concert. Understanding mega-constellation design—orbital shells, coverage geometry, and capacity scaling—is essential for anyone building or integrating with next-generation satellite networks.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Why thousands of satellites?
+
+```
+GEO vs LEO Coverage Geometry:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  GEO (3 satellites cover Earth):                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │         🛰️                                            │         │
+│  │         │                                              │         │
+│  │         │ 35,786 km                                   │         │
+│  │         │                                              │         │
+│  │    ┌────▼────┐                                        │         │
+│  │    │  Earth  │ ← One satellite sees 1/3 of Earth     │         │
+│  │    │  ●●●●●  │   but latency is 550-650 ms RTT       │         │
+│  │    └─────────┘                                        │         │
+│  │                                                        │         │
+│  │  Footprint: ~15,000 km diameter                       │         │
+│  │  3 GEO sats = global coverage (except poles)         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LEO (thousands of satellites):                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │   🛰️ 🛰️ 🛰️ 🛰️ 🛰️ 🛰️ 🛰️ 🛰️ 🛰️ 🛰️ 🛰️               │
+│  │     │   │   │   │   │   │   │   │   │   │             │         │
+│  │     │   │   │   │   │ 550 km (Starlink)               │         │
+│  │     │   │   │   │   │                                 │         │
+│  │    ┌▼───▼───▼───▼───▼───▼───▼───▼───▼───▼───▼┐       │         │
+│  │    │                Earth                     │       │         │
+│  │    │  ●   ●   ●   ●   ●   ●   ●   ●   ●   ● │       │         │
+│  │    └─────────────────────────────────────────┘       │         │
+│  │                                                        │         │
+│  │  Footprint: ~1,000 km diameter per satellite         │         │
+│  │  Need ~1,600+ sats for continuous global coverage    │         │
+│  │  But latency is only 20-40 ms RTT!                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Shell architecture
+
+```
+Starlink Orbital Shell Design:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MULTI-SHELL ARCHITECTURE:                                          │
+│                                                                      │
+│  Altitude  │ Inclination │ Planes │ Sats/Plane │ Total │ Purpose   │
+│  ──────────┼─────────────┼────────┼────────────┼───────┼──────────│
+│  550 km    │ 53.0°       │ 72     │ 22         │ 1,584 │ Mid-lat   │
+│  540 km    │ 53.2°       │ 72     │ 22         │ 1,584 │ Mid-lat   │
+│  570 km    │ 70.0°       │ 36     │ 20         │ 720   │ High-lat  │
+│  560 km    │ 97.6°       │ 6      │ 58         │ 348   │ Polar SSO │
+│  ──────────┼─────────────┼────────┼────────────┼───────┼──────────│
+│                                              Total: ~4,200+ (Gen 1) │
+│                                                                      │
+│  SIDE VIEW (orbital shells):                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │        ╭──────────────────────────────────╮           │         │
+│  │       ╱  570 km (70° incl) - polar shell  ╲          │         │
+│  │      ╱   ╭──────────────────────────────╮   ╲         │         │
+│  │     ╱   ╱  550 km (53° incl) - main      ╲   ╲        │         │
+│  │    ╱   ╱                                   ╲   ╲       │         │
+│  │   ╱   ╱          ┌──────────┐              ╲   ╲      │         │
+│  │  ╱   ╱           │  Earth   │               ╲   ╲     │         │
+│  │ ╱   ╱            │          │                ╲   ╲    │         │
+│  │╱   ╱             └──────────┘                 ╲   ╲   │         │
+│  │   ╱                                            ╲   ╲  │         │
+│  │  ╱                                              ╲     │         │
+│  │                                                        │         │
+│  │  Shells separated by 10-30 km to avoid collisions    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Walker constellation patterns
+
+```
+Walker Delta Pattern (Starlink-style):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  NOTATION: Walker i:t/p/f                                           │
+│  • i = inclination                                                  │
+│  • t = total satellites                                             │
+│  • p = number of orbital planes                                     │
+│  • f = phasing factor (relative spacing between planes)            │
+│                                                                      │
+│  STARLINK MAIN SHELL: 53°:1584/72/1                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  TOP VIEW (looking down on Earth):                    │         │
+│  │                                                        │         │
+│  │           Plane 1    Plane 2    Plane 3               │         │
+│  │              │          │          │                  │         │
+│  │              ▼          ▼          ▼                  │         │
+│  │         ↗ ○ ○ ○ ↘   ○ ○ ○     ○ ○ ○                  │         │
+│  │        ↗    ↑    ↘                                    │         │
+│  │       ○     ○     ○   ○     ○     ○                  │         │
+│  │       │   Earth   │   │           │                  │         │
+│  │       ○     ○     ○   ○     ○     ○                  │         │
+│  │        ↘    ↓    ↗                                    │         │
+│  │         ↘ ○ ○ ○ ↗   ○ ○ ○     ○ ○ ○                  │         │
+│  │                                                        │         │
+│  │  72 planes × 22 sats/plane = 1,584 satellites        │         │
+│  │  Planes separated by 5° in RAAN                       │         │
+│  │  Sats in each plane separated by ~16.4° true anomaly │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PHASE OFFSET (f=1):                                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Adjacent planes have 1 "slot" offset                 │         │
+│  │  This maximizes separation at plane crossings        │         │
+│  │                                                        │         │
+│  │  Plane N:   ○   ○   ○   ○   ○   ○                    │         │
+│  │  Plane N+1:   ○   ○   ○   ○   ○   ○  (offset)        │         │
+│  │                                                        │         │
+│  │  Prevents satellites from different planes from      │         │
+│  │  arriving at same location simultaneously            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Coverage and revisit analysis
+
+```
+Coverage Metrics:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MINIMUM ELEVATION ANGLE:                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │       🛰️ Satellite at 550 km                          │         │
+│  │        ╲                                              │         │
+│  │         ╲                                             │         │
+│  │          ╲ slant range                               │         │
+│  │           ╲                                           │         │
+│  │            ╲                                          │         │
+│  │      ───────●──────────────────────                  │         │
+│  │             │╲ elevation angle                       │         │
+│  │             │ ╲                                      │         │
+│  │             │  ╲ horizon                             │         │
+│  │            User                                       │         │
+│  │                                                        │         │
+│  │  Min elevation │ Coverage radius │ Sats visible      │         │
+│  │  ──────────────┼─────────────────┼─────────────────  │         │
+│  │  25°           │ ~950 km         │ 2-4 typical       │         │
+│  │  40°           │ ~600 km         │ 1-2 typical       │         │
+│  │  55°           │ ~350 km         │ 1 (maybe)         │         │
+│  │                                                        │         │
+│  │  Higher elevation = better link, smaller footprint   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LATITUDE-DEPENDENT COVERAGE:                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Density │ ████████████████████████████ │ Equator    │         │
+│  │          │ ██████████████████████████████│ 20° lat   │         │
+│  │          │ ████████████████████████████████│ 40° lat │         │
+│  │          │ ████████████████████████████████████│53° lat│        │
+│  │          │ ██████████████████████████████│ 60° lat   │         │
+│  │          │ ████████████│ 70° lat (needs polar shell) │         │
+│  │          │ ████│ 80° lat                              │         │
+│  │                                                        │         │
+│  │  53° inclination concentrates coverage at 53° latitude│        │
+│  │  (where ground tracks cross most frequently)          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### System comparison
+
+```
+Mega-Constellation Comparison:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  System    │ Satellites │ Altitude │ Inclinations │ Technology      │
+│  ──────────┼────────────┼──────────┼──────────────┼────────────────│
+│  Starlink  │ 12,000+    │ 540-570  │ 53°, 70°, 97°│ Laser ISL,     │
+│  (SpaceX)  │ (Gen 1)    │ km       │              │ Phased array   │
+│            │ 30,000+    │ 328-614  │ Multiple     │ (V2 with       │
+│            │ (Gen 2)    │ km       │              │ direct-to-cell)│
+│  ──────────┼────────────┼──────────┼──────────────┼────────────────│
+│  OneWeb    │ 648        │ 1,200 km │ 87.9° polar  │ Ku-band,       │
+│            │ (Gen 1)    │          │              │ Bent-pipe      │
+│  ──────────┼────────────┼──────────┼──────────────┼────────────────│
+│  Kuiper   │ 3,236      │ 590-630  │ 30°, 42°,    │ Ka-band,       │
+│  (Amazon)  │            │ km       │ 52°          │ Phased array   │
+│  ──────────┼────────────┼──────────┼──────────────┼────────────────│
+│  Telesat  │ 298        │ 1,015-   │ 99°, 46°     │ Laser ISL,     │
+│  Lightspeed│            │ 1,325 km │              │ Regenerative   │
+│  ──────────┴────────────┴──────────┴──────────────┴────────────────│
+│                                                                      │
+│  KEY TRADEOFFS:                                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Lower altitude (Starlink 550 km):                    │         │
+│  │  ✓ Lower latency (20-30 ms)                          │         │
+│  │  ✓ Higher throughput per satellite                   │         │
+│  │  ✗ Smaller footprint (need more satellites)          │         │
+│  │  ✗ More atmospheric drag (shorter lifetime)          │         │
+│  │                                                        │         │
+│  │  Higher altitude (OneWeb 1,200 km):                   │         │
+│  │  ✓ Larger footprint (fewer satellites needed)        │         │
+│  │  ✓ Longer orbital lifetime                           │         │
+│  │  ✗ Higher latency (40-50 ms)                         │         │
+│  │  ✗ Higher launch cost per satellite                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Constellation sizing calculator:**
+
+```python
+import numpy as np
+
+# Constants
+R_EARTH = 6371  # km
+MU_EARTH = 398600.4418  # km³/s²
+
+def coverage_radius_km(altitude_km, min_elevation_deg):
+    """Calculate coverage radius for given altitude and min elevation."""
+    r = R_EARTH + altitude_km
+    el_rad = np.radians(min_elevation_deg)
+    
+    # Central angle from satellite to edge of coverage
+    rho = np.arcsin(R_EARTH / r * np.cos(el_rad)) - el_rad
+    
+    return R_EARTH * rho
+
+def satellites_for_coverage(altitude_km, min_elevation_deg, overlap_factor=1.2):
+    """Minimum satellites needed for continuous coverage."""
+    coverage_radius = coverage_radius_km(altitude_km, min_elevation_deg)
+    
+    # Earth surface area
+    earth_area = 4 * np.pi * R_EARTH**2
+    
+    # Coverage area per satellite (circular approximation)
+    sat_area = np.pi * coverage_radius**2
+    
+    # Account for overlap and spherical geometry
+    n_sats = earth_area / sat_area * overlap_factor * 1.5  # Spherical correction
+    
+    return int(np.ceil(n_sats))
+
+def orbital_period_min(altitude_km):
+    """Orbital period in minutes."""
+    r = R_EARTH + altitude_km
+    T = 2 * np.pi * np.sqrt(r**3 / MU_EARTH)
+    return T / 60
+
+def latency_ms(altitude_km, elevation_deg):
+    """One-way propagation delay in milliseconds."""
+    r = R_EARTH + altitude_km
+    el_rad = np.radians(elevation_deg)
+    
+    # Slant range
+    slant = r * np.sqrt(1 - (R_EARTH/r * np.cos(el_rad))**2) - R_EARTH * np.sin(el_rad)
+    
+    # Round trip time
+    return slant / 299.792 * 2  # RTT in ms
+
+def walker_constellation(inclination_deg, total_sats, n_planes, phasing):
+    """Walker constellation parameters."""
+    sats_per_plane = total_sats // n_planes
+    plane_spacing_deg = 360 / n_planes
+    sat_spacing_deg = 360 / sats_per_plane
+    phase_offset_deg = phasing * sat_spacing_deg / n_planes
+    
+    return {
+        'inclination_deg': inclination_deg,
+        'total_sats': total_sats,
+        'n_planes': n_planes,
+        'sats_per_plane': sats_per_plane,
+        'plane_spacing_deg': plane_spacing_deg,
+        'sat_spacing_deg': sat_spacing_deg,
+        'phase_offset_deg': phase_offset_deg,
+        'notation': f"{inclination_deg}°:{total_sats}/{n_planes}/{phasing}"
+    }
+
+# Analysis
+print("Mega-Constellation Design Analysis")
+print("=" * 60)
+
+# Coverage analysis for different altitudes
+print("\n1. Coverage Analysis by Altitude")
+print("-" * 60)
+altitudes = [340, 550, 1200, 35786]
+min_el = 25
+
+print(f"  {'Altitude':>10} {'Coverage':>12} {'Min Sats':>10} {'Period':>10} {'RTT':>8}")
+print(f"  {'(km)':>10} {'radius (km)':>12} {'(approx)':>10} {'(min)':>10} {'(ms)':>8}")
+print("-" * 60)
+for alt in altitudes:
+    cov = coverage_radius_km(alt, min_el)
+    n_sats = satellites_for_coverage(alt, min_el)
+    period = orbital_period_min(alt)
+    rtt = latency_ms(alt, min_el)
+    orbit_type = "LEO" if alt < 2000 else "MEO" if alt < 20000 else "GEO"
+    print(f"  {alt:>10} {cov:>12.0f} {n_sats:>10} {period:>10.1f} {rtt:>8.1f}")
+
+# Starlink constellation analysis
+print("\n2. Starlink Shell Analysis")
+print("-" * 60)
+shells = [
+    (550, 53.0, 72, 22, "Main shell"),
+    (540, 53.2, 72, 22, "Backup"),
+    (570, 70.0, 36, 20, "High-lat"),
+    (560, 97.6, 6, 58, "Polar SSO"),
+]
+
+total_sats = 0
+print(f"  {'Alt':>6} {'Inc':>6} {'Planes':>7} {'S/P':>5} {'Total':>7} {'Purpose':>12}")
+print("-" * 60)
+for alt, inc, planes, spp, purpose in shells:
+    total = planes * spp
+    total_sats += total
+    print(f"  {alt:>6} {inc:>6.1f}° {planes:>7} {spp:>5} {total:>7} {purpose:>12}")
+print("-" * 60)
+print(f"  {'Total':>31} {total_sats:>7}")
+
+# Walker notation
+print("\n3. Walker Constellation Examples")
+print("-" * 60)
+constellations = [
+    ("Starlink main", 53, 1584, 72, 1),
+    ("OneWeb", 87.9, 648, 18, 1),
+    ("Kuiper Shell 1", 51.9, 1156, 28, 1),
+    ("GPS", 55, 24, 6, 2),
+    ("Galileo", 56, 24, 3, 1),
+]
+
+for name, inc, total, planes, phase in constellations:
+    walker = walker_constellation(inc, total, planes, phase)
+    print(f"\n  {name}:")
+    print(f"    Notation: Walker {walker['notation']}")
+    print(f"    Planes: {walker['n_planes']} (spaced {walker['plane_spacing_deg']:.1f}°)")
+    print(f"    Sats/plane: {walker['sats_per_plane']} (spaced {walker['sat_spacing_deg']:.1f}°)")
+
+# Capacity estimation
+print("\n4. Capacity Estimation (Starlink-class)")
+print("-" * 60)
+n_satellites = 4000
+beams_per_sat = 8
+capacity_per_beam_gbps = 2
+active_fraction = 0.5  # ~half over ocean/unpopulated
+
+total_capacity = n_satellites * beams_per_sat * capacity_per_beam_gbps * active_fraction
+print(f"  Satellites: {n_satellites}")
+print(f"  Beams per satellite: {beams_per_sat}")
+print(f"  Capacity per beam: {capacity_per_beam_gbps} Gbps")
+print(f"  Active fraction: {active_fraction*100:.0f}%")
+print(f"  Total system capacity: {total_capacity/1000:.0f} Tbps")
+print(f"  Per-user (2M subscribers): {total_capacity*1000/2e6:.0f} Mbps average")
+```
+
+**Constellation summary:**
+
+| System | Satellites | Coverage | Latency RTT | Capacity |
+|--------|------------|----------|-------------|----------|
+| Starlink Gen1 | 4,200+ | Global | 20-40 ms | ~30 Tbps |
+| OneWeb | 648 | Global | 40-50 ms | ~7 Tbps |
+| Kuiper | 3,236 | ±56° lat | 25-35 ms | ~15 Tbps |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Coverage ≠ capacity.** Having satellites overhead doesn't mean bandwidth is available.
+
+2. **Latitude gaps.** 53° inclination leaves polar regions uncovered without additional shells.
+
+3. **Congestion at crossings.** Ground tracks converge at inclination latitude—collision risk increases.
+
+4. **Regulatory constraints.** ITU filing, debris mitigation, and spectrum coordination limit deployment.
+
+5. **Launch bottleneck.** Even with reusable rockets, deployment takes years for thousands of satellites.
+
+6. **Atmospheric drag.** Lower orbits need frequent station-keeping or accept shorter lifetimes.
+
+7. **Light pollution.** Large constellations impact astronomy; mitigation adds cost.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- SpaceX Starlink FCC Filing (SAT-LOA-20161115)
+- ITU-R S.1503: Functional Description for LEO Systems
+- McDowell, J. "The Low Earth Orbit Satellite Population"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Inter-Satellite Links](/en/space/leo-constellation-architecture/inter-satellite-links-isl/) — mesh networking
+- [Gateway Placement](/en/space/leo-constellation-architecture/gateway-placement/) — ground infrastructure
+- [Handover](/en/space/leo-constellation-architecture/handover-between-satellites/) — beam switching
+
+</section>

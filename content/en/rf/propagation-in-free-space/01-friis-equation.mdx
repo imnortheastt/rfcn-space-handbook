@@ -8,12 +8,12 @@ track: r2
 unit: propagation-in-free-space
 order: 1
 level: L2
-estimatedReadingMinutes: 10
+estimatedReadingMinutes: 14
 prerequisites: ["rf-r0-decibels-and-units-01-decibels"]
 spiralRevisits: []
 title: "Friis transmission equation"
 description: "The fundamental link budget equation for line-of-sight radio."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -29,7 +29,9 @@ status: published
 
 You have a transmitter with known power and antenna gain. A receiver sits some distance away with its own antenna. How much power reaches the receiver?
 
-The Friis transmission equation answers this question for free-space propagation — the idealized case with no obstacles, no ground, no atmosphere. It's the starting point for every link budget, satellite communication calculation, and wireless system design.
+The Friis transmission equation answers this question for free-space propagation — the idealized case with no obstacles, no ground, no atmosphere. It is the starting point for every link budget, every satellite system design, and every wireless coverage estimate. Before you can layer on rain loss, building penetration, or fading margins, you need this baseline. Engineers who skip it produce link budgets that are either wildly optimistic or unnecessarily conservative.
+
+This matters for backend and cloud engineers too: when your system depends on a radio link — a drone relay, an IoT sensor, a satellite gateway — the Friis equation is the first sanity check. If the physics says the link cannot close, no amount of software optimization saves you.
 
 </section>
 
@@ -37,19 +39,53 @@ The Friis transmission equation answers this question for free-space propagation
 
 ## Intuition
 
-A transmitting antenna radiates power outward. At distance $d$, that power spreads over a sphere of area $4\pi d^2$. The farther you are, the more diluted the signal.
+### Energy spreading in three dimensions
 
-The receiving antenna captures a portion of this spreading energy. A larger, higher-gain antenna captures more. The Friis equation combines these factors: transmit power, transmit antenna gain, spreading loss, and receive antenna effective area.
+A transmitting antenna radiates power outward in all directions (assuming an isotropic radiator for now). At distance $d$, that power is spread uniformly over the surface of a sphere with area $4\pi d^2$. Power density (W/m²) at distance $d$ is:
 
-The key insight: free-space loss grows with the **square** of distance. Double the distance, lose 6 dB (factor of 4 in power). This is purely geometric spreading, not absorption.
+$$S = \frac{P_t G_t}{4\pi d^2}$$
+
+where $G_t$ is the transmit antenna gain, which concentrates power in a preferred direction by the factor $G_t$ relative to an isotropic radiator.
+
+The receiving antenna intercepts a fraction of this power density, determined by its **effective aperture** $A_e$:
+
+$$P_r = S \cdot A_e = \frac{P_t G_t}{4\pi d^2} \cdot A_e$$
+
+Antenna gain and effective aperture are related by:
+
+$$A_e = \frac{G_r \lambda^2}{4\pi}$$
+
+Substituting gives the Friis equation. The $\lambda^2$ term is the key: higher frequency means shorter wavelength, which means a fixed-gain antenna has a smaller effective aperture and captures less power.
+
+### The distance-squared law
+
+Free-space loss grows with the **square** of distance. Double the distance: the sphere surface quadruples, power density drops by 4x, you lose 6 dB. Every time distance increases by 10x, you lose 20 dB. This is purely geometric spreading — no absorption, no scattering. It is the irreducible cost of wireless communication.
+
+```
+Power density vs. distance (isotropic transmitter, 1 W):
+
+Distance     Sphere area     Power density
+   1 m       12.6 m²         0.08 W/m²
+  10 m      1257 m²          0.0008 W/m²    (-20 dB from 1m)
+ 100 m     125664 m²         0.000008 W/m²  (-40 dB from 1m)
+   1 km   12.6×10⁶ m²        8×10⁻¹⁰ W/m²  (-60 dB from 1m)
+
+Each 10× increase in distance → -20 dB
+```
+
+### Why frequency matters
+
+Higher frequency means smaller $\lambda$. For the same receive antenna gain, the effective aperture $A_e = G_r \lambda^2 / 4\pi$ shrinks. This is not more absorption — the wave travels just as easily. It is that a fixed-gain antenna at 28 GHz is physically smaller than one at 1 GHz, so it intercepts less power.
+
+The practical implication: mmWave (28 GHz, 39 GHz) has ~28 dB more "free-space loss" than 900 MHz at the same distance. Engineers compensate with high-gain beamforming arrays — the same physics working in your favor.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How it works
 
-### The Friis equation
+### The Friis equation in linear form
 
 $$P_r = P_t \cdot G_t \cdot G_r \cdot \left(\frac{\lambda}{4\pi d}\right)^2$$
 
@@ -58,16 +94,18 @@ where:
 - $P_t$ = transmitted power (W)
 - $G_t$ = transmit antenna gain (linear, not dB)
 - $G_r$ = receive antenna gain (linear)
-- $\lambda$ = wavelength (m)
+- $\lambda$ = wavelength (m) = $c/f$
 - $d$ = distance (m)
 
-### In decibels
+The term $\left(\frac{\lambda}{4\pi d}\right)^2$ is the reciprocal of free-space path loss.
+
+### In decibels — the working engineer's form
 
 $$P_r[\text{dBm}] = P_t[\text{dBm}] + G_t[\text{dBi}] + G_r[\text{dBi}] - L_{fs}[\text{dB}]$$
 
 where free-space path loss (FSPL) is:
 
-$$L_{fs} = 20\log_{10}\left(\frac{4\pi d}{\lambda}\right) = 20\log_{10}(d) + 20\log_{10}(f) + 20\log_{10}\left(\frac{4\pi}{c}\right)$$
+$$L_{fs} = 20\log_{10}(4\pi d / \lambda) = 20\log_{10}(d) + 20\log_{10}(f) + 20\log_{10}(4\pi/c)$$
 
 ### Practical FSPL formulas
 
@@ -75,24 +113,37 @@ With $d$ in km and $f$ in MHz:
 $$L_{fs}[\text{dB}] = 32.45 + 20\log_{10}(d_\text{km}) + 20\log_{10}(f_\text{MHz})$$
 
 With $d$ in meters and $f$ in GHz:
-$$L_{fs}[\text{dB}] = 92.45 + 20\log_{10}(d_\text{m}) + 20\log_{10}(f_\text{GHz})$$
+$$L_{fs}[\text{dB}] = 20\log_{10}(d_\text{m}) + 20\log_{10}(f_\text{GHz}) + 92.45$$
+
+Memorizing one of these saves time on quick estimates. At 1 GHz and 1 km: $L_{fs} = 32.45 + 60 + 60 = 92.5$ dB. Double the frequency: add 6 dB. Double the distance: add 6 dB.
 
 ### Effective aperture relationship
 
-Antenna gain relates to effective aperture:
+Antenna gain and effective aperture are two views of the same property:
 
 $$G = \frac{4\pi A_e}{\lambda^2}$$
 
-This explains the $\lambda^2$ in Friis: higher frequency means smaller effective aperture for the same gain, hence more loss.
+This explains the $\lambda^2$ dependency in Friis: a parabolic dish with fixed physical size $A_e$ has higher gain at higher frequency (smaller $\lambda$), but if you specify a fixed gain, the effective aperture shrinks at higher frequency. Which trade-off you operate in depends on whether your antenna is aperture-limited (dish, phased array) or gain-limited (the system specification sets gain).
 
-### Reference values
+### Reference FSPL table
 
-| Frequency | 1 km FSPL | 10 km FSPL |
-|-----------|-----------|------------|
-| 100 MHz | 72 dB | 92 dB |
-| 1 GHz | 92 dB | 112 dB |
-| 10 GHz | 112 dB | 132 dB |
-| 28 GHz | 121 dB | 141 dB |
+| Frequency | 100 m | 1 km | 10 km | 600 km (LEO) |
+|-----------|-------|------|-------|--------------|
+| 100 MHz   | 52 dB | 72 dB | 92 dB | 134 dB |
+| 1 GHz     | 72 dB | 92 dB | 112 dB | 154 dB |
+| 2 GHz     | 78 dB | 98 dB | 118 dB | 160 dB |
+| 10 GHz    | 92 dB | 112 dB | 132 dB | 174 dB |
+| 28 GHz    | 101 dB | 121 dB | 141 dB | 183 dB |
+
+The 600 km column is relevant for LEO satellite links — you can immediately see why satellite links require high-gain antennas or high transmit power.
+
+### Link budget structure
+
+A complete link budget layers additional terms on top of Friis:
+
+$$P_r = P_t + G_t + G_r - L_{fs} - L_{rain} - L_{body} - L_{penetration} - L_{pointing} + \ldots$$
+
+Friis gives you the floor. Every other term is an additional deduction. The receiver sensitivity (minimum detectable signal, MDS) sets the floor you must stay above. The difference between received power and MDS is the **link margin** — your engineering safety buffer.
 
 </section>
 
@@ -100,33 +151,49 @@ This explains the $\lambda^2$ in Friis: higher frequency means smaller effective
 
 ## Apply
 
-**Example: Wi-Fi link**
+### Example 1: Wi-Fi link
 
-2.4 GHz, 100 mW transmitter (20 dBm), 3 dBi antennas, 100 m distance.
+2.4 GHz, 20 dBm transmitter, 3 dBi antennas both ends, 100 m distance.
 
-FSPL = 92.45 + 20log₁₀(100) + 20log₁₀(2.4) = 92.45 + 40 + 7.6 = 80 dB
+$$L_{fs} = 20\log_{10}(100) + 20\log_{10}(2.4) + 92.45 = 40 + 7.6 + 92.45 = 80 \text{ dB}$$
 
-$P_r$ = 20 + 3 + 3 − 80 = −54 dBm
+Wait — the formula with d in meters: $92.45 + 20\log_{10}(100) + 20\log_{10}(2.4) = 92.45 + 40 + 7.6 = 80$ dB. So:
 
-This is well above typical Wi-Fi receiver sensitivity (−70 to −90 dBm).
+$$P_r = 20 + 3 + 3 - 80 = -54 \text{ dBm}$$
 
-**Example: Satellite link at GEO**
+Typical Wi-Fi receiver sensitivity: -70 to -90 dBm. Link margin: 16–36 dB. Comfortable.
 
-12 GHz downlink, satellite at 36,000 km, 50 W EIRP (47 dBW), 1 m dish (41 dBi at 12 GHz).
+### Example 2: 5G NR at 28 GHz (mmWave)
 
-FSPL = 32.45 + 20log₁₀(36000) + 20log₁₀(12000) = 32.45 + 91.1 + 81.6 = 205.2 dB
+28 GHz, 30 dBm base station, massive MIMO with 24 dBi effective gain, UE with 10 dBi array gain (beamforming), 200 m distance.
 
-$P_r$ = 47 + 41 − 205.2 = −117.2 dBW = −87.2 dBm
+$$L_{fs} = 92.45 + 20\log_{10}(200) + 20\log_{10}(28) = 92.45 + 46.0 + 28.9 = 118.4 \text{ dB}$$
 
-**Example: 5G mmWave at 28 GHz**
+$$P_r = 30 + 24 + 10 - 118.4 = -54.4 \text{ dBm}$$
 
-28 GHz, 30 dBm transmitter, 18 dBi antennas both ends, 200 m distance.
+NR receiver sensitivity at 100 MHz bandwidth: approximately -86 dBm (with noise figure ~7 dB, SNR target ~10 dB). Link margin: 31.6 dB. High-gain antennas compensate for high frequency — but you lose this margin the moment LOS breaks.
 
-FSPL = 92.45 + 20log₁₀(200) + 20log₁₀(28) = 92.45 + 46 + 28.9 = 118.4 dB
+### Example 3: GEO satellite downlink
 
-$P_r$ = 30 + 18 + 18 − 118.4 = −52.4 dBm
+12 GHz Ku-band, satellite at 36,000 km, satellite EIRP = 47 dBW (50 W into 30 dBi antenna), 60 cm receive dish (approximately 34 dBi at 12 GHz).
 
-High-gain antennas compensate for the higher path loss at mmWave.
+$$L_{fs} = 32.45 + 20\log_{10}(36000) + 20\log_{10}(12000) = 32.45 + 91.1 + 81.6 = 205.2 \text{ dB}$$
+
+Note: EIRP = $P_t + G_t = 47$ dBW = 77 dBm.
+
+$$P_r = 77 + 34 - 205.2 = -94.2 \text{ dBm}$$
+
+LNB noise figure ~1 dB, typical SNR requirement ~10 dB. Minimum detectable: approximately -100 dBm. Margin: 5.8 dB — tight but workable for broadcast, not adequate for interactive services without margin refinement.
+
+### Example 4: LEO IoT uplink
+
+S-band 2 GHz, IoT device at 23 dBm, 0 dBi omni antenna, satellite at 600 km with 3 m² phased array receiving antenna (aperture-limited gain: $G = 4\pi \times 3 / 0.15^2 \approx 5026$ linear = 37 dBi).
+
+$$L_{fs} = 32.45 + 20\log_{10}(600) + 20\log_{10}(2000) = 32.45 + 55.6 + 66.0 = 154 \text{ dB}$$
+
+$$P_r = 23 + 0 + 37 - 154 = -94 \text{ dBm}$$
+
+Satellite receiver noise temperature 300 K, bandwidth 200 kHz: noise floor = $-174 + 10\log_{10}(200000) + 10\log_{10}(300/290) \approx -174 + 53 + 0.15 = -121$ dBm. SNR = 27 dB — more than enough for BPSK at this bandwidth. The IoT uplink closes comfortably at narrow bandwidth.
 
 </section>
 
@@ -134,17 +201,19 @@ High-gain antennas compensate for the higher path loss at mmWave.
 
 ## Pitfalls
 
-1. **Free space only.** Friis assumes no obstacles, reflections, or atmospheric effects. Real links have additional losses and multipath. Use Friis as the baseline, then add margins.
+1. **Free space only.** Friis assumes no obstacles, reflections, or atmospheric effects. Real links have 10–40 dB of additional loss from multipath, shadowing, rain, and penetration. Use Friis as the baseline, then add margins for the actual environment.
 
-2. **Antenna gain reference.** Gains must be relative to isotropic (dBi). If specs give dBd (relative to dipole), add 2.15 dB to convert.
+2. **Gains must be in dBi.** If a spec sheet quotes gain in dBd (relative to a half-wave dipole), add 2.15 dB to convert to dBi. Forgetting this introduces a systematic 2 dB error.
 
-3. **Near-field invalid.** Friis applies in the far field ($d > 2D^2/\lambda$ for aperture dimension $D$). In the near field, the spreading law differs.
+3. **Far-field only.** Friis applies in the far field where $d > 2D^2/\lambda$ (Fraunhofer distance, $D$ = largest antenna dimension). At short distances the spreading law changes and field structure is different. For a 1 m dish at 28 GHz, the far-field boundary is about 190 m — nearby installations may violate this.
 
-4. **Frequency "loss."** Higher frequency doesn't inherently lose more power — it just means smaller effective aperture for the same gain. A higher-gain antenna at higher frequency can have the same or lower path loss.
+4. **Frequency "loss" is an aperture effect.** Higher frequency does not inherently attenuate the signal more. A higher-gain antenna at higher frequency can have equal or lower effective path loss. The confusion arises from comparing systems at different frequencies with the same antenna gain specification — a fair comparison only if both antennas are constrained to identical gains and physical sizes.
 
-5. **Linear vs. dB.** The equation multiplies linear gains but sums dB gains. Mixing conventions causes errors. Convert consistently.
+5. **EIRP confusion.** EIRP = $P_t \times G_t$ (linear) or $P_t[\text{dBm}] + G_t[\text{dBi}]$. If a spec gives EIRP directly, do not add $G_t$ separately — it is already included. Double-counting the transmit gain is a common link budget error.
 
-6. **EIRP confusion.** EIRP = $P_t \cdot G_t$. If given EIRP directly, don't add $G_t$ again.
+6. **Linear vs. dB consistency.** The equation multiplies linear quantities but sums dB quantities. Never mix: if you compute $P_r$ in linear form as $P_t \cdot G_t \cdot G_r \cdot (\lambda/4\pi d)^2$, keep everything linear. Converting mid-calculation causes hard-to-find errors.
+
+7. **Polarization mismatch.** Friis implicitly assumes perfect polarization alignment. Orthogonal polarizations lose 100% of power (-∞ dB); a 45° mismatch loses 3 dB. Add a polarization mismatch factor when antennas are not co-polarized.
 
 </section>
 
@@ -152,8 +221,9 @@ High-gain antennas compensate for the higher path loss at mmWave.
 
 ## References
 
-- Friis, H.T., "A Note on a Simple Transmission Formula," Proc. IRE, 1946 — the original paper.
-- Balanis, *Antenna Theory*, Chapter 2 — derivation from antenna fundamentals.
-- ITU-R P.525 — free-space propagation calculation standard.
+- Friis, H.T., "A Note on a Simple Transmission Formula," Proc. IRE, May 1946 — the original one-page paper.
+- Balanis, C.A., *Antenna Theory: Analysis and Design*, 4th ed., Chapter 2 — derivation from first principles.
+- Rappaport, T.S., *Wireless Communications: Principles and Practice*, 2nd ed., Chapter 3 — practical link budget context.
+- ITU-R P.525-4 — "Calculation of free-space attenuation."
 
 </section>

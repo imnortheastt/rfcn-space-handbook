@@ -8,17 +8,389 @@ track: n0
 unit: osi-tcpip-backend-perspective
 order: 4
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 15
+prerequisites: ["core-network-n0-osi-tcpip-backend-perspective-03-sockets-and-apis"]
+spiralRevisits: ["core-network-n2-5g-core-sba-02-service-communication"]
 title: "Packet flow end-to-end"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Following a single HTTP request from browser to server — every hop, every header, every decision."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["RFC 791", "RFC 793", "RFC 7230"]
+tags: ["packet-flow", "networking", "debugging", "tracing"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Packet flow end-to-end
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+When your request times out, where did it fail? The client? The load balancer? The backend? The database?
+
+Tracing a packet end-to-end teaches you where to look. By understanding every hop, you can isolate problems faster. This is the skill that separates "I don't know why it's slow" from "the third hop has 50ms added latency due to asymmetric routing."
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Let's trace what happens when you type `curl https://api.example.com/users` and press Enter.
+
+**The journey in 10 steps:**
+
+1. **DNS resolution** — Hostname → IP address
+2. **TCP handshake** — SYN → SYN-ACK → ACK
+3. **TLS handshake** — Certificates, key exchange
+4. **HTTP request** — Application data sent
+5. **Routing to server** — Hops through the Internet
+6. **Server processing** — Application logic runs
+7. **HTTP response** — Data flows back
+8. **Routing back** — Possibly different path
+9. **TLS decryption** — Client reads response
+10. **TCP teardown** — FIN → ACK → FIN → ACK
+
+Each step can fail. Each step adds latency. Let's trace them in detail.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Step 1: DNS Resolution
+
+Before anything else, we need an IP address.
+
+```
+Your machine → Recursive resolver → Root → TLD → Authoritative
+     ←────────────── IP address ───────────────────────
+```
+
+**What happens:**
+1. Check local cache (`/etc/hosts`, nscd, systemd-resolved)
+2. Query configured resolver (usually ISP or 8.8.8.8)
+3. Resolver iterates: root → .com → example.com → api.example.com
+4. A/AAAA record returned with TTL
+
+**Timing:** 0-100ms (cached) to 200-500ms (cold)
+
+**Debug:**
+```bash
+dig +trace api.example.com
+time dig api.example.com
+cat /etc/resolv.conf
+```
+
+### Step 2: TCP Handshake
+
+Three packets to establish a connection.
+
+```
+Client                          Server
+  │                              │
+  │──── SYN (seq=1000) ─────────►│
+  │                              │
+  │◄─── SYN-ACK (seq=2000, ack=1001) ───│
+  │                              │
+  │──── ACK (ack=2001) ─────────►│
+  │                              │
+  │      Connection established  │
+```
+
+**What happens:**
+1. Client sends SYN with initial sequence number
+2. Server responds with SYN-ACK, its own sequence, acknowledging client's
+3. Client acknowledges server's sequence
+
+**Timing:** 1 RTT (round-trip time) — typically 10-100ms
+
+**Debug:**
+```bash
+tcpdump -i any 'tcp[tcpflags] & (tcp-syn|tcp-ack) != 0' and host api.example.com
+ss -ti dst api.example.com  # Shows RTT
+```
+
+### Step 3: TLS Handshake
+
+Secure the connection before sending data.
+
+```
+Client                          Server
+  │                              │
+  │──── ClientHello ────────────►│  (supported ciphers, SNI)
+  │                              │
+  │◄─── ServerHello + Cert ─────│  (chosen cipher, certificate)
+  │                              │
+  │──── Key Exchange ───────────►│  (ECDHE params)
+  │                              │
+  │◄─── Finished ───────────────│
+  │                              │
+  │──── Finished ───────────────►│
+  │                              │
+  │      Encrypted channel ready │
+```
+
+**TLS 1.2:** 2 RTT for full handshake
+**TLS 1.3:** 1 RTT (0-RTT with resumption)
+
+**What happens:**
+1. Client sends supported ciphers, TLS version, SNI (Server Name Indication)
+2. Server sends chosen cipher, certificate chain
+3. Client verifies cert against trust store, generates session key
+4. Both derive symmetric keys from shared secret
+
+**Debug:**
+```bash
+openssl s_client -connect api.example.com:443 -servername api.example.com
+curl -v --trace-time https://api.example.com
+```
+
+### Step 4: HTTP Request
+
+Now we can send application data.
+
+```
+POST /users HTTP/1.1
+Host: api.example.com
+Content-Type: application/json
+Content-Length: 42
+Authorization: Bearer eyJhbG...
+
+{"name": "Alice", "email": "a@example.com"}
+```
+
+**What happens:**
+1. Application calls `send()` with HTTP request
+2. TLS encrypts the data
+3. TCP segments it (if needed) and adds headers
+4. IP adds source/destination addresses
+5. Link layer adds MAC addresses
+6. NIC transmits frames
+
+**The packet now looks like:**
+```
+┌──────────────────────────────────────────────────┐
+│ Ethernet │ IP │ TCP │ TLS Record │ HTTP Request │
+│  14 B    │20 B│20 B │   ~50 B    │  Variable    │
+└──────────────────────────────────────────────────┘
+```
+
+### Step 5: Routing to Server
+
+The packet traverses multiple networks.
+
+```
+Your PC → Home router → ISP → IX → Cloud provider → Load balancer → Server
+```
+
+**At each hop:**
+1. Link layer header stripped
+2. IP TTL decremented (packet dropped if TTL=0)
+3. Routing table consulted for next hop
+4. New link layer header added
+5. Forwarded to next interface
+
+**Typical path:**
+- 1-2 hops: Local network
+- 3-5 hops: ISP backbone
+- 6-10 hops: Internet exchange, transit providers
+- 11-15 hops: Destination network, load balancers
+
+**Debug:**
+```bash
+traceroute -T -p 443 api.example.com  # TCP traceroute
+mtr api.example.com                   # Continuous traceroute
+```
+
+### Step 6: Server Processing
+
+The packet arrives at the server.
+
+```
+NIC → Kernel → Socket buffer → Application → Business logic → Database
+```
+
+**What happens:**
+1. NIC receives frame, DMA to ring buffer
+2. Kernel interrupt, packet moved to socket receive buffer
+3. `accept()` returns connected socket
+4. `recv()` copies data to application buffer
+5. TLS decrypts, HTTP parsed
+6. Application processes request (auth, validation, DB query)
+7. Response generated
+
+**Timing breakdown:**
+- Network receive: &lt;1ms
+- TLS decrypt: &lt;1ms
+- Application logic: Variable (often the bottleneck)
+- Database query: 1-100ms typical
+
+**Debug:**
+```bash
+# On server
+tcpdump -i any port 443 -w capture.pcap
+ss -tlnp  # What's listening
+strace -e recv,send -p <pid>  # Syscalls
+```
+
+### Step 7-8: Response Returns
+
+The response follows the same process in reverse.
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 89
+
+{"id": 12345, "name": "Alice", "email": "a@example.com", "created_at": "2024-01-15T10:30:00Z"}
+```
+
+**Key difference:** The return path may differ (asymmetric routing). BGP routes packets based on destination, not origin.
+
+### Step 9: Client Receives
+
+```
+NIC → Kernel → Socket buffer → recv() → TLS decrypt → HTTP parse → Application
+```
+
+**What happens:**
+1. Kernel reassembles TCP segments (if split)
+2. `recv()` returns data to application
+3. TLS decrypts
+4. HTTP response parsed
+5. Application processes result
+
+### Step 10: TCP Teardown
+
+Four packets to close gracefully.
+
+```
+Client                          Server
+  │                              │
+  │──── FIN ────────────────────►│  (Client done sending)
+  │                              │
+  │◄─── ACK ────────────────────│
+  │                              │
+  │◄─── FIN ────────────────────│  (Server done sending)
+  │                              │
+  │──── ACK ────────────────────►│
+  │                              │
+  │      Connection closed       │
+```
+
+**TIME_WAIT:** Client stays in TIME_WAIT for 2×MSL (~60 seconds) to handle delayed packets. This is why you see many TIME_WAIT sockets on busy clients.
+
+## Total Latency Budget
+
+For a typical HTTPS request:
+
+| Phase | Time |
+|-------|------|
+| DNS lookup | 0-50ms (cached) |
+| TCP handshake | 1 RTT (~30ms) |
+| TLS handshake | 1-2 RTT (~60ms) |
+| HTTP request flight | 0.5 RTT (~15ms) |
+| Server processing | 10-100ms |
+| HTTP response flight | 0.5 RTT (~15ms) |
+| **Total** | **~130-270ms** |
+
+Connection reuse (HTTP keep-alive) eliminates TCP and TLS handshake for subsequent requests.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Full packet capture workflow:**
+
+```bash
+# Capture entire exchange
+tcpdump -i any -w trace.pcap host api.example.com
+
+# In another terminal
+curl -v https://api.example.com/users
+
+# Analyze
+wireshark trace.pcap
+# Or CLI analysis:
+tcpdump -r trace.pcap -n -tttt
+```
+
+**Identify where latency is added:**
+
+```bash
+# DNS timing
+time dig api.example.com
+
+# TCP + TLS timing
+curl -o /dev/null -w "DNS: %{time_namelookup}s
+Connect: %{time_connect}s
+TLS: %{time_appconnect}s
+TTFB: %{time_starttransfer}s
+Total: %{time_total}s
+" https://api.example.com/users
+
+# Hop-by-hop latency
+mtr -r -c 10 api.example.com
+```
+
+**Example output:**
+```
+DNS: 0.012s
+Connect: 0.045s      # TCP handshake done
+TLS: 0.112s          # TLS handshake done
+TTFB: 0.178s         # First byte received
+Total: 0.195s
+```
+
+Interpretation:
+- DNS: 12ms (cached)
+- TCP: 45-12 = 33ms
+- TLS: 112-45 = 67ms (2 RTT, TLS 1.2)
+- Server processing: 178-112 = 66ms
+- Download: 195-178 = 17ms
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Forgetting DNS.** Many "connection timeouts" are actually DNS failures. Always check DNS first.
+
+2. **Ignoring asymmetric routing.** The return path may differ. `traceroute` shows outbound path only. Issues on the return path need server-side captures.
+
+3. **Confusing TTFB with server time.** TTFB includes network latency both ways. A 100ms TTFB with 40ms RTT means only 20ms of server processing.
+
+4. **Not accounting for connection reuse.** First request pays TCP+TLS cost. Subsequent requests on same connection are much faster. Benchmark warm connections, not cold.
+
+5. **Missing TCP retransmits.** A single retransmit adds 200ms+ (RTO). Check with `ss -ti` or `netstat -s | grep retrans`.
+
+6. **Blaming the network when it's the application.** If server processing is slow, the packet trace shows long gaps between request arrival and response start. That's not network latency.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Stevens, *TCP/IP Illustrated, Vol. 1*, Addison-Wesley, 2011
+- RFC 7230, "HTTP/1.1 Message Syntax and Routing"
+- RFC 8446, "The Transport Layer Security (TLS) Protocol Version 1.3"
+- Gregg, *Systems Performance*, Addison-Wesley, 2020
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [DNS resolution](/en/core-network/dns-tls-certificates/dns-resolution/) — deep dive into step 1
+- [TLS handshake](/en/core-network/dns-tls-certificates/tls-handshake/) — deep dive into step 3
+- [HTTP versions](/en/core-network/http-grpc-websocket/http-versions/) — how HTTP/2 and HTTP/3 change this flow
+
+</section>

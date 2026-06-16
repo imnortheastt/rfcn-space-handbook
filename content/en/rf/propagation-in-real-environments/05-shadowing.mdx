@@ -8,16 +8,16 @@ track: r2
 unit: propagation-in-real-environments
 order: 5
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 14
 prerequisites: ["rf-r2-propagation-in-real-environments-04-fading"]
 spiralRevisits: []
 title: "Shadowing"
 description: "Large-scale signal variation from obstacles blocking propagation paths."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
-tags: ["shadowing", "log-normal", "large-scale-fading", "propagation"]
+tags: ["shadowing", "log-normal", "large-scale-fading", "propagation", "fade-margin", "outage"]
 widgets: []
 license: CC-BY-SA-4.0
 status: published
@@ -25,9 +25,13 @@ status: published
 
 <section class="lesson-hook">
 
-## Why shadowing matters?
+## Why shadowing matters
 
-Move around a building corner and signal drops 10-20 dB. This isn't fast fading — it's shadowing from obstacles blocking propagation paths. Shadowing creates coverage holes that persist for meters, not centimeters. Link budgets must account for it or face unexpected outages.
+Walk around a building corner and signal drops 15 dB. Step inside a concrete structure and lose another 20 dB. These aren't fast fades that average out over a few wavelengths — they persist for tens of meters. This is **shadowing** (also called large-scale fading): attenuation caused by obstacles blocking or partially blocking the propagation path between transmitter and receiver.
+
+Shadowing is the dominant cause of coverage holes in cellular networks. A link budget that hits the median path loss target may still fail at 30–40% of locations if the shadow fade margin is wrong. Getting the shadow margin right is the difference between a network that meets its SLA and one that gets coverage complaints.
+
+For satellite systems, buildings and foliage create shadowing events as a terminal moves under cover. For indoor DAS (Distributed Antenna Systems) or small cell deployments, floor-to-floor and room-to-room shadowing often exceeds the path loss from distance — a 10 m floor separation adds more loss than 100 m of free-space propagation at 5 GHz.
 
 </section>
 
@@ -35,79 +39,138 @@ Move around a building corner and signal drops 10-20 dB. This isn't fast fading 
 
 ## Intuition
 
-Imagine the path between transmitter and receiver passing through various obstacles — buildings, trees, terrain. Each obstacle attenuates the signal by some random amount. The total attenuation is the product of many factors, which by the central limit theorem becomes log-normal in distribution.
+### Why log-normal?
+
+Shadowing is caused by the combined effect of many obstacles along the path — buildings, terrain, foliage, vehicles. Each obstacle attenuates the signal by some random multiplicative factor. The total attenuation is the product of all these factors:
+
+$$L_{shadow} = l_1 \times l_2 \times l_3 \times \ldots \times l_n$$
+
+Taking the logarithm:
+$$L_{shadow}[\text{dB}] = l_1[\text{dB}] + l_2[\text{dB}] + \ldots + l_n[\text{dB}]$$
+
+This is a sum of random variables. By the **central limit theorem**, the sum of many independent random variables approaches a Gaussian distribution regardless of the distribution of the individual variables. Therefore, in dB, shadowing is approximately Gaussian — and in linear power, it is **log-normal**.
+
+### Shadowing vs. small-scale fading — the two timescales
+
+```
+Signal variation as UE moves from point A to B:
+
+Power (dBm)
+  -60 |
+  -70 |  ....      .....      ....
+  -80 |      ...../     \.../      ....  ← Shadowing envelope
+  -90 |       /                         (changes over 10-100 m)
+ -100 |                               
+      |   Fast ripple = small-scale fading (changes over λ/2 ≈ 7cm at 2GHz)
+      +---A---------------------------------B----> Distance (100m)
+
+Key distinction:
+  Shadowing: correlated over 10-100 m, caused by building/terrain blockage
+  Fading: decorrelates over λ/2, caused by multipath phase shifts
+```
+
+A mobile user experiences both simultaneously. Shadowing sets the local mean; small-scale fading causes rapid fluctuations around that mean.
+
+### Why coverage maps need shadow margin
+
+Path loss models give the **median** received power at a given distance. At the median, 50% of locations have lower power — half fail. To ensure 90% of locations are covered, you need the link budget to exceed the median by $1.28\sigma$ dB (where $\sigma$ is the shadow standard deviation). This "fade margin" is separate from the small-scale fading margin.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How it works
 
 ### Log-normal shadowing model
 
-Path loss with shadowing:
+Total path loss including shadowing:
 
-$$PL(d) = \overline{PL}(d) + X_\sigma$$
+$$PL(d)[\text{dB}] = \overline{PL}(d) + X_\sigma$$
 
 where:
-- $\overline{PL}(d)$ = mean path loss at distance d
-- $X_\sigma$ = zero-mean Gaussian random variable (dB)
-- $\sigma$ = standard deviation of shadowing (dB)
+- $\overline{PL}(d)$ = mean (deterministic) path loss at distance $d$ from the path loss model
+- $X_\sigma \sim \mathcal{N}(0, \sigma^2)$ = shadow fading, a zero-mean Gaussian random variable (dB)
+- $\sigma$ = shadow fading standard deviation (dB)
 
-### Log-normal distribution
+The linear received power $P_r$ is log-normally distributed with mean $\overline{P}_r$ (the mean from path loss model).
 
-Linear power P has log-normal distribution:
+### Typical shadow fading standard deviations
 
-$$f_P(p) = \frac{10/\ln 10}{p\sqrt{2\pi}\sigma} \exp\left(-\frac{(10\log_{10}p - \mu)^2}{2\sigma^2}\right)$$
+| Environment | $\sigma$ (dB) | Notes |
+|-------------|---------------|-------|
+| Free space / LOS | 0–2 | Almost no shadow variance |
+| Outdoor suburban | 4–6 | Low building density |
+| Outdoor urban LOS | 4–6 | Street canyons with some LOS |
+| Outdoor urban NLOS | 6–10 | Dense building blockage |
+| Outdoor rural | 6–8 | Terrain and foliage |
+| Indoor LOS | 3–5 | Open-plan office |
+| Indoor NLOS | 6–12 | Through walls/floors |
+| Dense urban NLOS | 8–12 | High-rise canyons |
 
-In dB, it's simply Gaussian with mean μ and std σ.
+In 3GPP TR 38.901, $\sigma$ is scenario-dependent and frequency-dependent. For urban macro at 2 GHz: $\sigma = 7.8$ dB for NLOS, $\sigma = 4$ dB for LOS.
 
-### Typical shadowing values
+### Spatial correlation of shadowing
 
-| Environment | σ (dB) |
-|-------------|--------|
-| Free space | 0 |
-| Outdoor LOS | 4-6 |
-| Urban cellular | 6-10 |
-| Suburban | 6-8 |
-| Indoor | 4-12 |
-| Dense urban/NLOS | 8-12 |
+A key property often neglected: shadowing is spatially correlated. Two nearby locations are blocked by the same buildings, so their shadow values are not independent. The correlation decays with distance:
 
-### Correlation distance
-
-Shadowing is spatially correlated. Decorrelation distance:
-
-$$d_c \approx 5\lambda \text{ to } 100\lambda$$
-
-Typical: 10-50 m in urban environments.
-
-Correlation model:
 $$\rho(d) = e^{-d/d_c}$$
 
-### Outage probability
+where $d_c$ is the **decorrelation distance** (typically 10–50 m in urban environments, 50–100 m in suburban, potentially larger in hilly terrain).
 
-Probability that received power falls below threshold:
+**Implication for system design:**
+- Coverage holes are not isolated points — they are contiguous regions of correlated shadow
+- Handoff algorithms must account for spatial correlation to avoid ping-pong handoffs in correlated shadow regions
+- Cell edge outage probability depends on the joint distribution of shadowing at all locations in the cell, not just the marginal distribution
 
-$$P_{out} = P(P_r < P_{th}) = Q\left(\frac{\bar{P}_r - P_{th}}{\sigma}\right)$$
+### Outage probability and coverage reliability
 
-where $\bar{P}_r$ = mean received power, Q = Q-function.
+The probability that the received power at a random location at distance $d$ falls below a threshold $P_{th}$ is:
 
-### Fade margin
+$$P_{out}(d) = P(P_r < P_{th}) = Q\left(\frac{\overline{P}_r(d) - P_{th}}{\sigma}\right)$$
 
-Extra link budget to achieve target reliability:
+where $Q(x) = \frac{1}{\sqrt{2\pi}}\int_x^\infty e^{-t^2/2}dt$ is the Q-function, and $\overline{P}_r(d)$ is the mean received power at distance $d$ from the path loss model.
 
-For 90% coverage: margin = $1.28\sigma$
-For 95% coverage: margin = $1.65\sigma$
-For 99% coverage: margin = $2.33\sigma$
+### Fade margin for target reliability
 
-### Combined path loss model
+To achieve **location reliability** $p$ (probability that a random location within a cell is covered):
 
-$$PL(d) = PL_0 + 10n\log_{10}\left(\frac{d}{d_0}\right) + X_\sigma$$
+$$M_f = k_p \cdot \sigma$$
 
-where:
-- PL₀ = path loss at reference d₀
-- n = path loss exponent
-- X_σ = shadowing (N(0, σ²) in dB)
+where $k_p = Q^{-1}(1-p)$:
+
+| Location reliability | $k_p$ | Fade margin ($\sigma = 8$ dB) | Fade margin ($\sigma = 10$ dB) |
+|---------------------|-------|-------------------------------|--------------------------------|
+| 50% | 0 | 0 dB | 0 dB |
+| 75% | 0.67 | 5.4 dB | 6.7 dB |
+| 90% | 1.28 | 10.2 dB | 12.8 dB |
+| 95% | 1.65 | 13.2 dB | 16.5 dB |
+| 99% | 2.33 | 18.6 dB | 23.3 dB |
+
+The fade margin grows linearly with $\sigma$ — environments with higher shadow variance cost disproportionately more in link budget to achieve the same reliability.
+
+### Indoor-outdoor penetration as special shadowing
+
+Building penetration loss is a specialized form of shadowing — deterministic mean with stochastic variation. Typical values for a single building exterior wall:
+
+| Construction | Penetration loss @ 2 GHz | @ 28 GHz |
+|--------------|--------------------------|-----------|
+| Glass facade | 3–5 dB | 8–15 dB |
+| Concrete (30 cm) | 15–20 dB | 20–30 dB |
+| Reinforced concrete | 20–30 dB | 35–50 dB |
+| Brick wall | 6–10 dB | 10–20 dB |
+
+**Standard deviation of penetration loss**: 4–8 dB for concrete buildings. Even the penetration loss is not deterministic — variation comes from openings (windows, doors), wall thickness variation, and diffraction around building edges.
+
+### Combined link budget
+
+$$P_r = P_t + G_t + G_r - \overline{PL}(d) - M_{shadow} - M_{fade} - L_{penetration} - L_{misc}$$
+
+Where:
+- $M_{shadow} = k_p \cdot \sigma_{shadow}$ — margin for 90% or 95% location reliability
+- $M_{fade}$ — small-scale Rayleigh/Rician fade margin (typically 6–10 dB for 99% instantaneous reliability)
+- $L_{penetration}$ — building penetration loss if applicable
+
+In a well-designed urban macro link budget, $M_{shadow}$ (10–13 dB) typically dominates over all other margins combined.
 
 </section>
 
@@ -115,45 +178,57 @@ where:
 
 ## Apply
 
-**Example: Cellular coverage planning**
+### Example 1: Coverage planning — required fade margin
 
-Urban environment, σ = 8 dB.
+Urban macro, 2 GHz, $\sigma = 8$ dB. Required: 90% location reliability.
 
-Target: 95% location reliability.
+Fade margin = $1.28 \times 8 = 10.2$ dB.
 
-Fade margin: $1.65 \times 8 = 13.2$ dB.
+This means you need 10.2 dB more link budget than the median path loss calculation. If your link budget (transmit power + antenna gains − receiver sensitivity) gives a median cell radius of 2 km, the actual 90%-reliable cell radius is:
 
-If mean coverage boundary is at -100 dBm, design for -86.8 dBm to ensure 95% of locations work.
+$$d_{90\%} = d_{50\%} \times 10^{-M_f / (10n)} = 2000 \times 10^{-10.2 / (10 \times 3.5)} = 2000 \times 10^{-0.29} = 2000 \times 0.51 = 1020 \text{ m}$$
 
-**Example: Handoff hysteresis**
+Coverage planning at the median gives you a 2 km cell radius. True 90% reliable coverage radius is only 1 km — half as far. Ignore shadow margin and you claim twice the coverage you actually deliver.
 
-σ = 6 dB, correlation distance = 20 m.
+### Example 2: Handoff hysteresis setting
 
-Two base stations: signal varies by σ = 6 dB over ~20 m.
+Urban environment, $\sigma = 6$ dB, decorrelation distance = 20 m.
 
-Handoff hysteresis should be > 2σ = 12 dB to prevent ping-pong.
+Ping-pong handoff occurs when a UE crosses the cell boundary and the shadowing difference between two cells causes the best server to oscillate. The standard deviation of the difference between two independent shadow processes is $\sigma_{diff} = \sigma\sqrt{2} = 8.5$ dB.
 
-**Example: Indoor penetration**
+Recommended hysteresis: $2\sigma_{diff} = 17$ dB is too large (too slow handoff). In practice, a hysteresis of 3–6 dB is used, trading off ping-pong rate vs. handoff latency. The correct value depends on the actual spatial correlation — correlated shadowing from the same buildings reduces the effective $\sigma_{diff}$.
 
-Building penetration loss: ~20 dB mean, σ = 10 dB.
+### Example 3: Indoor DAS planning
 
-At 99% reliability: need 20 + 2.33×10 = 43.3 dB margin for worst-case rooms.
+Office building, 2.4 GHz, $\sigma_{indoor} = 8$ dB, floor separation loss = 15 dB/floor, penetration loss from outside = 20 dB.
 
-**Example: Combined outage**
+The DAS must overcome: path loss from antenna + shadow margin within floor + floor separation if multi-floor.
 
-Mean path loss: 120 dB at edge
-Shadowing: σ = 8 dB
-Required signal: -100 dBm
-TX power: 43 dBm
-Antenna gains: 15 dBi total
+For 90% of indoor locations covered: $M_{shadow} = 1.28 \times 8 = 10.2$ dB.
 
-Link budget: 43 + 15 - 120 = -62 dBm mean
+If the DAS antenna is 20 m from the farthest point on the floor and the path loss model gives $L(20\text{ m}) = 60$ dB (indoor LOS), then total required link: $60 + 10.2 = 70.2$ dB. With a 20 dBm AP and -70 dBm receiver sensitivity, the link budget is 90 dB — 19.8 dB margin. Comfortable.
 
-Margin: -62 - (-100) = 38 dB
+### Example 4: Satellite terminal in urban environment
 
-Outage: $Q(38/8) = Q(4.75) < 10^{-6}$
+LEO S-band terminal, suburban, $\sigma = 4$ dB (outdoor satellite model from TR 38.811). Required: 95% availability.
 
-Essentially 100% coverage at this location.
+Fade margin = $1.65 \times 4 = 6.6$ dB.
+
+For 99% availability: $2.33 \times 4 = 9.3$ dB.
+
+These margins are much smaller than terrestrial NLOS ($\sigma = 8$ dB) because the satellite looks down from elevation — less building blockage than a terrestrial base station at ground level. This is why satellite coverage in open areas is more reliable than terrestrial NLOS, even with lower received power.
+
+### Example 5: Effect of frequency on penetration loss
+
+A 5G deployment considering both 3.5 GHz (sub-6) and 28 GHz (mmWave) for outdoor-to-indoor coverage.
+
+At 3.5 GHz: concrete wall penetration ≈ 18 dB, $\sigma_{penetration} = 5$ dB.
+At 28 GHz: concrete wall penetration ≈ 35 dB, $\sigma_{penetration} = 7$ dB.
+
+For 95% indoor coverage with 3.5 GHz: additional margin = $18 + 1.65 \times 5 = 26.3$ dB.
+For 95% indoor coverage with 28 GHz: additional margin = $35 + 1.65 \times 7 = 46.6$ dB.
+
+The additional margin needed at mmWave (46.6 dB) is 20 dB more than sub-6 (26.3 dB). This 20 dB gap cannot realistically be closed by antenna gain or power — mmWave is not viable for outdoor-to-indoor coverage through concrete. This is why 5G mmWave requires indoor small cells for deep indoor coverage.
 
 </section>
 
@@ -161,15 +236,17 @@ Essentially 100% coverage at this location.
 
 ## Pitfalls
 
-1. **Confusing shadowing and fading.** Shadowing is large-scale (meters); fading is small-scale (wavelengths). Both matter.
+1. **Confusing shadowing and small-scale fading.** Shadowing is large-scale (spatial scale: tens of meters, caused by building/terrain blocking); small-scale fading is wavelength-scale (spatial scale: centimeters, caused by multipath phase shifts). Both must be accounted for in a complete link budget, but they are independent phenomena requiring separate margins.
 
-2. **Using wrong σ.** Shadowing standard deviation varies by environment. Don't use urban values for rural.
+2. **Using the wrong $\sigma$.** Shadow standard deviation varies widely by environment. Using $\sigma = 6$ dB (suburban) for a dense urban scenario with $\sigma = 10$ dB underestimates the required margin by 5 dB. Always calibrate or use environment-specific values from the relevant standard (3GPP TR 38.901, ITU-R).
 
-3. **Ignoring correlation.** Adjacent cells share correlated shadowing. Coverage maps must model this.
+3. **Treating shadow as independent at all locations.** Coverage maps that assume independence at adjacent pixels are incorrect — shadowing is spatially correlated. A 10 m resolution coverage map with decorrelation distance of 30 m is showing artifacts. Correlated simulations use spatially filtered random fields.
 
-4. **Linear averaging.** Average dB values, not linear powers, when analyzing shadowing statistics.
+4. **Applying location reliability to all users simultaneously.** 90% location reliability means 90% of random locations are covered — not that 90% of simultaneously active users are covered. The latter depends on spatial distribution of users and their correlation. These are different quantities with different impacts on network KPIs.
 
-5. **Single fade margin.** Different applications need different reliability. IoT might accept 80%; voice needs 99%.
+5. **Ignoring penetration loss standard deviation.** Building penetration loss is often budgeted at its mean value. But with $\sigma = 6$ dB, 5% of locations will see 10 dB more penetration loss than the mean. Deep indoor coverage requires margin for both the mean AND the variation.
+
+6. **Linear averaging of log-normal quantities.** Shadowing is log-normal: its mean in dB is not the same as its mean in linear power. When combining shadow fade margins from multiple hops or coordinating cells, arithmetic must be done consistently in dB (for Gaussian analysis) or properly accounting for the log-normal distribution (for linear combining).
 
 </section>
 
@@ -177,8 +254,10 @@ Essentially 100% coverage at this location.
 
 ## References
 
-- Rappaport, *Wireless Communications*, Chapter 4.
-- Goldsmith, *Wireless Communications*, Chapter 2.
-- 3GPP TR 38.901, "Channel model for frequencies from 0.5 to 100 GHz."
+- Rappaport, T.S., *Wireless Communications*, 2nd ed., Chapter 4 — log-normal shadowing model, outage probability.
+- Goldsmith, A., *Wireless Communications*, Chapter 2 — shadow fading margins and coverage reliability.
+- 3GPP TR 38.901 v17.0, Section 7.4 — shadow fading standard deviation parameters for all 5G NR scenarios.
+- ITU-R P.1238-11 — propagation data and prediction models for indoor radio communication.
+- Gudmundson, M., "Correlation model for shadow fading in mobile radio systems," *Electronics Letters*, 1991 — the original spatial correlation model.
 
 </section>

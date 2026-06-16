@@ -9,16 +9,587 @@ unit: ntn-in-3gpp
 order: 5
 level: L5
 estimatedReadingMinutes: 5
-title: "The satellite UE problem"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "The Satellite UE Problem — Why Direct-to-Device is Hard"
+description: "The engineering challenges of connecting unmodified smartphones to satellites: link budget, antenna physics, spectrum, and regulatory constraints."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 38.101-5", "ITU-R S.1428"]
+tags: ["satellite-ue", "direct-to-device", "link-budget", "antenna-physics", "d2d"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# The satellite UE problem
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+"Why can't my phone just connect to Starlink?" is a question every engineer hears. The answer involves physics that no amount of software can overcome: smartphones have tiny antennas, limited transmit power, and can't point at the sky. Connecting them to satellites 600 km away requires closing a link budget that's 20+ dB worse than terrestrial cellular. This lesson explains why direct-to-device satellite is fundamentally hard, and how services like T-Mobile/Starlink and AST SpaceMobile approach the problem differently.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The fundamental asymmetry
+
+```
+Direct-to-Device Link Budget Challenge:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DOWNLINK (Satellite → Phone): Relatively Easy                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Satellite EIRP: 50-60 dBW (with large antenna array)         │ │
+│  │  Phone sensitivity: -110 dBm (typical LTE/NR receiver)        │ │
+│  │  Free space path loss: ~160 dB @ 2 GHz, 600 km                │ │
+│  │                                                                 │ │
+│  │  Link margin: 50 dBW + 30 dBm - 160 dB - (-110 dBm)          │ │
+│  │             = 80 - 160 + 110 = +30 dB margin ✓                 │ │
+│  │                                                                 │ │
+│  │  Result: Downlink works with moderate satellite power          │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  UPLINK (Phone → Satellite): The Hard Part                         │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Phone EIRP: 23 dBm (0.2 W, regulatory limit)                 │ │
+│  │  Phone antenna gain: ~0 dBi (omni, held any direction)        │ │
+│  │  Satellite G/T: 10-15 dB/K (best case)                        │ │
+│  │  Free space path loss: ~160 dB                                 │ │
+│  │                                                                 │ │
+│  │  Link margin: 23 dBm + 10 dB - 160 dB - noise                 │ │
+│  │             = Very tight, ~0 dB margin ⚠️                      │ │
+│  │                                                                 │ │
+│  │  Result: UL is THE limiting factor                             │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  KEY INSIGHT: Every direct-to-device service is constrained by    │
+│  uplink. The satellite must have extremely high receive gain,      │
+│  or the UE must transmit longer/slower to compensate.              │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Phone antenna physics
+
+```
+Why Phone Antennas Can't Do Better:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ANTENNA GAIN vs SIZE:                                              │
+│                                                                      │
+│  Gain (dBi) ≈ 10 × log₁₀(4π × Ae / λ²)                            │
+│                                                                      │
+│  Where Ae = effective aperture area                                 │
+│        λ = wavelength                                               │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  Antenna Type       │ Size          │ Gain    │ Use Case      │ │
+│  │  ───────────────────┼───────────────┼─────────┼─────────────  │ │
+│  │  Phone (integrated) │ ~5 cm         │ ~0 dBi  │ Omni, any dir │ │
+│  │  VSAT terminal      │ 60 cm dish    │ ~35 dBi │ Fixed, tracked │ │
+│  │  Starlink dish      │ 50 cm phased  │ ~33 dBi │ Auto-tracking │ │
+│  │  Satellite array    │ 10+ m         │ ~50 dBi │ Space-side    │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  PHONE CONSTRAINTS:                                                 │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. Size: Antenna must fit inside phone body                   │ │
+│  │     → Can't increase aperture                                  │ │
+│  │                                                                 │ │
+│  │  2. Orientation: User holds phone any direction                │ │
+│  │     → Must be omni or low-gain pattern                         │ │
+│  │     → Can't point at satellite                                 │ │
+│  │                                                                 │ │
+│  │  3. Body absorption: Human body absorbs RF                     │ │
+│  │     → 3-6 dB loss when held against head                      │ │
+│  │                                                                 │ │
+│  │  4. Polarization: Satellite uses circular, phone is linear     │ │
+│  │     → 3 dB polarization mismatch                               │ │
+│  │                                                                 │ │
+│  │  Total degradation vs ideal: -10 to -15 dB                    │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Regulatory power limits
+
+```
+Transmit Power Constraints:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  UE POWER CLASSES (3GPP):                                          │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  Class │ Max Power │ EIRP (0 dBi ant) │ Typical Device        │ │
+│  │  ──────┼───────────┼──────────────────┼────────────────────── │ │
+│  │  3     │ 23 dBm    │ 23 dBm           │ Smartphone            │ │
+│  │  2     │ 26 dBm    │ 26 dBm           │ Vehicle-mounted       │ │
+│  │  1     │ 31 dBm    │ 31 dBm           │ Fixed terminal        │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  WHY CAN'T PHONES TRANSMIT HIGHER?                                 │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. SAR (Specific Absorption Rate) limits                      │ │
+│  │     → Max RF energy absorbed by human tissue                   │ │
+│  │     → 23 dBm already pushes SAR limits near head               │ │
+│  │                                                                 │ │
+│  │  2. Battery drain                                              │ │
+│  │     → 200 mW TX drains battery fast                           │ │
+│  │     → 1W TX would overheat phone                               │ │
+│  │                                                                 │ │
+│  │  3. Spectrum regulations                                        │ │
+│  │     → MSS (Mobile Satellite Service) bands have EIRP limits   │ │
+│  │     → PFD limits at Earth's surface (ITU-R S.1428)            │ │
+│  │                                                                 │ │
+│  │  4. Interference to terrestrial                                 │ │
+│  │     → Phone transmitting to sky also radiates to ground       │ │
+│  │     → Must not interfere with terrestrial cellular             │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Two approaches to direct-to-device
+
+```
+Industry Approaches:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  APPROACH 1: Small satellite, narrow service (T-Mobile/Starlink)   │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Strategy: Accept UL limitation, offer text-only service       │ │
+│  │                                                                 │ │
+│  │  Satellite: Standard Starlink v2 with ~5m antenna array        │ │
+│  │  Service: SMS/iMessage, emergency SOS                          │ │
+│  │  Data rate: ~100 kbps per user (shared)                        │ │
+│  │  Latency: ~30 ms (LEO)                                         │ │
+│  │                                                                 │ │
+│  │  How it works:                                                  │ │
+│  │    • UE transmits at 23 dBm                                    │ │
+│  │    • Satellite uses large phased array for receive gain        │ │
+│  │    • Very narrow bandwidth (~200 kHz per UE)                   │ │
+│  │    • Long transmit times (seconds per message)                 │ │
+│  │    • No voice, no video, text only                             │ │
+│  │                                                                 │ │
+│  │  Advantage: Works with existing phones (firmware update)       │ │
+│  │  Limitation: Text-only, shared capacity                        │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  APPROACH 2: Giant satellite, full service (AST SpaceMobile)       │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Strategy: Build massive satellite to close UL budget          │ │
+│  │                                                                 │ │
+│  │  Satellite: BlueWalker 3 = 64 m² antenna (unfolded in orbit)  │ │
+│  │  Service: Voice, text, 4G data                                 │ │
+│  │  Data rate: 5-10 Mbps per cell                                 │ │
+│  │  Latency: ~30 ms (LEO)                                         │ │
+│  │                                                                 │ │
+│  │  How it works:                                                  │ │
+│  │    • Satellite antenna gain: ~50 dBi                           │ │
+│  │    • Beam diameter: ~10 km on ground                           │ │
+│  │    • Each beam serves few hundred users                        │ │
+│  │    • Standard LTE/5G waveform, no phone changes               │ │
+│  │                                                                 │ │
+│  │  Advantage: Full cellular service, voice works                 │ │
+│  │  Limitation: Massive satellite cost, debris risk               │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Link budget closure techniques
+
+```
+Closing the UL Budget:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TECHNIQUE 1: Satellite antenna gain                               │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Standard satellite: 2-3m antenna → ~30 dBi                   │ │
+│  │  Direct-to-device: 10-64 m² array → 45-50 dBi                 │ │
+│  │                                                                 │ │
+│  │  +15-20 dB gain improvement                                    │ │
+│  │                                                                 │ │
+│  │  Trade-off: Satellite cost, launch mass, deployment risk       │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TECHNIQUE 2: Bandwidth reduction                                  │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Standard cellular: 10-20 MHz channels                         │ │
+│  │  D2D satellite: 180 kHz - 1.4 MHz (NB-IoT/LTE-M widths)       │ │
+│  │                                                                 │ │
+│  │  Narrower BW → lower noise floor → better SNR                 │ │
+│  │  10 MHz → 180 kHz = 17 dB noise reduction                     │ │
+│  │                                                                 │ │
+│  │  Trade-off: Lower throughput                                   │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TECHNIQUE 3: Time spreading (repetition)                          │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Transmit same data N times → N× energy received              │ │
+│  │  Processing gain: 10 × log₁₀(N) dB                            │ │
+│  │                                                                 │ │
+│  │  128× repetition = +21 dB gain                                 │ │
+│  │  2048× repetition = +33 dB gain                                │ │
+│  │                                                                 │ │
+│  │  Trade-off: Throughput drops proportionally                    │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TECHNIQUE 4: Lower orbit                                          │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Path loss ∝ distance²                                        │ │
+│  │  600 km vs 36,000 km (GEO) = 36 dB difference                 │ │
+│  │                                                                 │ │
+│  │  All D2D services use LEO (300-600 km)                        │ │
+│  │                                                                 │ │
+│  │  Trade-off: More satellites needed, faster handovers           │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Spectrum and regulatory issues
+
+```
+Regulatory Challenges:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SPECTRUM ACCESS:                                                   │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  MSS bands (traditional satellite):                            │ │
+│  │    L-band: 1525-1559 / 1626.5-1660.5 MHz                      │ │
+│  │    S-band: 1980-2010 / 2170-2200 MHz                          │ │
+│  │    Owned by Globalstar, Iridium, Inmarsat, etc.               │ │
+│  │                                                                 │ │
+│  │  Terrestrial cellular bands:                                    │ │
+│  │    Owned by MNOs (T-Mobile, Verizon, etc.)                    │ │
+│  │    NOT licensed for satellite use                              │ │
+│  │                                                                 │ │
+│  │  Solution: Partnerships                                         │ │
+│  │    T-Mobile + Starlink: Use T-Mobile's spectrum license       │ │
+│  │    AST + AT&T: Use AT&T's spectrum for satellite              │ │
+│  │    Requires FCC/ITU approval for "supplemental coverage"      │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  INTERFERENCE MANAGEMENT:                                          │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Problem: Same spectrum used by terrestrial and satellite     │ │
+│  │                                                                 │ │
+│  │  Solution: Geographic/time separation                          │ │
+│  │    • Satellite service only in rural/no-coverage areas        │ │
+│  │    • Dynamic spectrum sharing                                  │ │
+│  │    • Tight beam control (small spot beams)                    │ │
+│  │                                                                 │ │
+│  │  FCC approach: "Supplemental Coverage from Space" (SCS)       │ │
+│  │    Satellite can use terrestrial spectrum where no ground     │ │
+│  │    network exists                                              │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Direct-to-device link budget calculator:**
+
+```python
+import math
+
+def d2d_uplink_budget(freq_ghz, sat_alt_km, elevation_deg,
+                       ue_power_dbm, ue_antenna_dbi,
+                       sat_antenna_area_m2, sat_noise_temp_k,
+                       bandwidth_hz, repetitions):
+    """
+    Calculate direct-to-device uplink budget.
+    """
+    earth_radius = 6371
+    el_rad = math.radians(elevation_deg)
+    
+    slant_range = (-earth_radius * math.sin(el_rad) + 
+                   math.sqrt((earth_radius * math.sin(el_rad))**2 + 
+                            2 * earth_radius * sat_alt_km + sat_alt_km**2))
+    
+    c = 3e8
+    wavelength = c / (freq_ghz * 1e9)
+    
+    fspl = 20 * math.log10(4 * math.pi * slant_range * 1000 / wavelength)
+    
+    ae = sat_antenna_area_m2 * 0.6
+    sat_antenna_gain = 10 * math.log10(4 * math.pi * ae / wavelength**2)
+    
+    sat_gt = sat_antenna_gain - 10 * math.log10(sat_noise_temp_k)
+    
+    ue_eirp = ue_power_dbm + ue_antenna_dbi
+    
+    body_loss = 4
+    polarization_loss = 3
+    atmospheric_loss = 0.5
+    total_loss = fspl + body_loss + polarization_loss + atmospheric_loss
+    
+    k_boltz = -228.6
+    noise_density = k_boltz + 10 * math.log10(sat_noise_temp_k)
+    
+    cn0 = ue_eirp + sat_gt - total_loss - noise_density
+    
+    noise_bw = 10 * math.log10(bandwidth_hz)
+    snr_no_rep = cn0 - noise_bw
+    
+    rep_gain = 10 * math.log10(repetitions)
+    snr_with_rep = snr_no_rep + rep_gain
+    
+    required_snr = 0
+    margin = snr_with_rep - required_snr
+    
+    return {
+        "slant_range_km": slant_range,
+        "fspl_db": fspl,
+        "sat_antenna_gain_dbi": sat_antenna_gain,
+        "sat_gt_db_k": sat_gt,
+        "ue_eirp_dbm": ue_eirp,
+        "total_path_loss_db": total_loss,
+        "cn0_dbhz": cn0,
+        "snr_no_repetition_db": snr_no_rep,
+        "repetition_gain_db": rep_gain,
+        "snr_with_repetition_db": snr_with_rep,
+        "link_margin_db": margin,
+        "link_closes": margin > 0
+    }
+
+def compare_d2d_approaches():
+    """
+    Compare different D2D satellite approaches.
+    """
+    scenarios = [
+        {
+            "name": "T-Mobile/Starlink (text)",
+            "sat_area_m2": 25,
+            "bandwidth_hz": 180000,
+            "repetitions": 128,
+            "service": "SMS only"
+        },
+        {
+            "name": "AST SpaceMobile (voice/data)",
+            "sat_area_m2": 64,
+            "bandwidth_hz": 5000000,
+            "repetitions": 1,
+            "service": "Voice + data"
+        },
+        {
+            "name": "Apple Emergency SOS",
+            "sat_area_m2": 10,
+            "bandwidth_hz": 50000,
+            "repetitions": 512,
+            "service": "Emergency only"
+        }
+    ]
+    
+    results = []
+    for s in scenarios:
+        lb = d2d_uplink_budget(
+            freq_ghz=2.0,
+            sat_alt_km=500,
+            elevation_deg=30,
+            ue_power_dbm=23,
+            ue_antenna_dbi=0,
+            sat_antenna_area_m2=s["sat_area_m2"],
+            sat_noise_temp_k=300,
+            bandwidth_hz=s["bandwidth_hz"],
+            repetitions=s["repetitions"]
+        )
+        
+        effective_rate = s["bandwidth_hz"] / s["repetitions"]
+        
+        results.append({
+            "name": s["name"],
+            "service": s["service"],
+            "sat_gain_dbi": lb["sat_antenna_gain_dbi"],
+            "margin_db": lb["link_margin_db"],
+            "closes": lb["link_closes"],
+            "effective_rate_kbps": effective_rate / 1000
+        })
+    
+    return results
+
+def throughput_vs_coverage(bandwidth_hz, snr_db, repetitions):
+    """
+    Calculate achievable throughput given coverage constraints.
+    """
+    snr_linear = 10 ** (snr_db / 10)
+    
+    capacity_bps = bandwidth_hz * math.log2(1 + snr_linear)
+    
+    effective_capacity = capacity_bps / repetitions
+    
+    overhead = 0.7
+    throughput = effective_capacity * overhead
+    
+    return {
+        "shannon_capacity_bps": capacity_bps,
+        "effective_capacity_bps": effective_capacity,
+        "throughput_bps": throughput,
+        "throughput_kbps": throughput / 1000
+    }
+
+print("Direct-to-Device Satellite Analysis")
+print("=" * 70)
+
+print("\n1. Why Uplink is THE Problem")
+print("-" * 70)
+
+print("""
+  DOWNLINK (Satellite → Phone):
+    Satellite EIRP: +60 dBm (1000W into 30 dBi antenna)
+    Path loss: -160 dB
+    Phone sensitivity: -110 dBm
+    → Margin: +10 dB ✓
+    
+  UPLINK (Phone → Satellite):
+    Phone EIRP: +23 dBm (200mW, 0 dBi antenna)
+    Path loss: -160 dB
+    Satellite G/T: +10 dB/K
+    → Margin: -7 dB ✗ (need more!)
+""")
+
+print("\n2. Link Budget Comparison by Approach")
+print("-" * 70)
+
+results = compare_d2d_approaches()
+
+print(f"  {'Approach':<30} {'Sat Gain':<12} {'Margin':<10} {'Rate':<12} {'Closes?'}")
+print(f"  {'-'*30} {'-'*12} {'-'*10} {'-'*12} {'-'*8}")
+
+for r in results:
+    closes = "YES" if r["closes"] else "NO"
+    print(f"  {r['name']:<30} {r['sat_gain_dbi']:<12.1f} {r['margin_db']:<10.1f} {r['effective_rate_kbps']:<12.1f} {closes}")
+
+print("\n3. Techniques to Close the Budget")
+print("-" * 70)
+
+print("""
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Technique              │ Gain      │ Trade-off                    │
+  │  ───────────────────────┼───────────┼────────────────────────────  │
+  │  Larger sat antenna     │ +15-20 dB │ Cost, mass, deployment       │
+  │  Narrower bandwidth     │ +10-17 dB │ Lower throughput             │
+  │  128× repetition        │ +21 dB    │ 128× longer TX time          │
+  │  Lower orbit (500 km)   │ +2 dB     │ More satellites, fast HO     │
+  │  Beamforming (sat side) │ +5-10 dB  │ Complexity, capacity         │
+  └─────────────────────────────────────────────────────────────────────┘
+""")
+
+print("\n4. Service Capability by Budget")
+print("-" * 70)
+
+print("""
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Link Margin  │ Achievable Service              │ Example          │
+  │  ─────────────┼─────────────────────────────────┼────────────────  │
+  │  < 0 dB       │ Nothing works                   │ Standard satcom  │
+  │  0-5 dB       │ Emergency SOS (text)            │ iPhone 14+       │
+  │  5-10 dB      │ SMS/iMessage                    │ T-Mobile/Starlink │
+  │  10-15 dB     │ Voice calls (low quality)       │ AST prototype    │
+  │  15-20 dB     │ 1-5 Mbps data                   │ AST commercial   │
+  │  > 20 dB      │ Broadband (VSAT-like)           │ Dedicated term.  │
+  └─────────────────────────────────────────────────────────────────────┘
+""")
+
+print("\n5. Why Phones Can't Transmit More")
+print("-" * 70)
+
+print("""
+  Constraint                 Impact
+  ───────────────────────────────────────────────────────────────────
+  SAR limits (FCC/ICNIRP)    23 dBm max near body
+  Battery life               200 mW TX already drains fast
+  Heat dissipation           > 500 mW overheats phone
+  Spectrum rules             MSS EIRP limits per ITU-R
+  Interference               Can't blast terrestrial networks
+  
+  Result: Phone is stuck at 23 dBm. Satellite must compensate.
+""")
+```
+
+**Key insight:** The phone can't change. Every improvement must come from the satellite side or the waveform.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming DL = UL.** Downlink budget is 30+ dB better. Services limited by UL, not DL.
+
+2. **Ignoring body loss.** Phone held against body loses 3-6 dB. Real-world is worse than spec.
+
+3. **Forgetting about indoor.** D2D satellites require line-of-sight. No signal through buildings.
+
+4. **Over-promising throughput.** "5G from space" sounds great. Reality: text messages for most users.
+
+5. **Ignoring spectrum reality.** D2D needs MNO partnership for spectrum. Pure satellite operators can't do it alone.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 38.101-5 v17.6.0 — NR NTN UE radio specifications
+- ITU-R S.1428 — Coordination between MSS and terrestrial
+- FCC Report & Order 22-274 — Supplemental Coverage from Space rules
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [NR-NTN](/en/space/ntn-in-3gpp/nr-ntn/) — the 3GPP standard enabling D2D
+- [Link Budget Basics](/en/space/link-budgets/link-budget-basics/) — fundamentals of satellite link analysis
+- [LEO Constellations](/en/space/constellations/leo-constellations/) — why D2D uses LEO exclusively
+
+</section>

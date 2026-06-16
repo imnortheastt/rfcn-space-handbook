@@ -8,17 +8,377 @@ track: n3
 unit: service-based-interface-http2
 order: 1
 level: L2
-estimatedReadingMinutes: 5
-title: "SBI overview"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 11
+prerequisites: ["core-network-n3-5g-core-architecture-why-sba-02-sba-design-principles"]
+spiralRevisits: []
+title: "Service-Based Interface Overview"
+description: "How 5G NFs communicate via HTTP/2 APIs — producer/consumer model, service operations, SCP indirect communication, and where the service-mesh analogy holds and breaks."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-04"
+standards: ["3GPP TS 29.500", "3GPP TS 29.501", "3GPP TS 29.510"]
+tags: ["sbi", "5g", "http2", "rest", "sba", "scp", "nrf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# SBI overview
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+4G EPC used point-to-point interfaces — S1, S5, S6a — each with its own protocol and specification. Adding a new feature meant updating multiple interfaces simultaneously and coordinating across multiple vendor contracts.
+
+5G SBA replaced this with Service-Based Interfaces (SBI). Network Functions expose services via HTTP/2 APIs. Any NF can discover and consume any service via the NRF. This is why 5G core can evolve faster than 4G ever could: adding a capability means adding an API endpoint, not negotiating a new interface standard.
+
+For cloud engineers, SBI feels like a microservices architecture with a service registry. That analogy is useful and mostly correct — with important differences that this lesson makes explicit.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Point-to-point vs service-based
+
+```
+4G EPC: Point-to-Point Interfaces
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  MME ─────S1-MME────► eNB                               │
+│   │                                                      │
+│   ├─────S6a─────────► HSS                               │
+│   │                                                      │
+│   ├─────S11──────────► SGW ─────S5─────► PGW            │
+│   │                                                      │
+│   └─────S10──────────► Another MME                      │
+│                                                          │
+│  Each interface: different protocol, different spec     │
+│  Add feature → update multiple interfaces               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+5G SBA: Service-Based Interfaces
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│           ┌─────────────────────────────────┐            │
+│           │     Service Bus (HTTP/2)        │            │
+│           └───┬───┬───┬───┬───┬───┬───┬───┬┘            │
+│               │   │   │   │   │   │   │   │             │
+│  ┌────────────▼───▼───▼───▼───▼───▼───▼───▼──────────┐  │
+│  │  AMF   SMF  UDM  AUSF  NRF  PCF  NEF  CHF  ...    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  All NFs: same protocol (HTTP/2), same API style        │
+│  Add feature → add API endpoint                         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### The service-mesh analogy — and where it breaks
+
+Cloud engineers immediately recognize SBI as a microservices pattern:
+
+| Microservices concept | 5G SBI equivalent |
+|----------------------|-------------------|
+| Service registry (Consul, etcd) | NRF (Network Repository Function) |
+| Service discovery | Nnrf_NFDiscovery |
+| Service-to-service REST call | SBI HTTP/2 request |
+| Sidecar proxy (Envoy, Linkerd) | SCP (Service Communication Proxy) |
+| Health check endpoint | NF heartbeat to NRF |
+| Circuit breaker | Overload control (HTTP 503 + Retry-After) |
+| mTLS between services | SBI mutual TLS (3GPP TS 33.501) |
+| API versioning | SBI URI versioning (/v1, /v2) |
+
+**Where the analogy breaks:**
+
+1. **Telecom guarantees, not best-effort.** A microservice can return 503 and the user retries. An AMF returning 503 during a UE registration means the device cannot make calls. Overload control in 5G has explicit mechanisms (NF load broadcast via NRF, SCP-based routing) to prevent cascade failures rather than just propagating them.
+
+2. **State is carrier-grade.** In microservices, you might tolerate eventual consistency for profile data. In 5G, UE context must be recoverable within the failover window (less than 50ms for active calls). The external state store (UDSF) is not optional.
+
+3. **Subscriptions are long-lived.** A webhook subscription in a web API is casual. A PCF subscription to AMF events for a UE can last the lifetime of a PDU session (hours to days). The subscriber must handle notification delivery failures and re-subscribe if needed.
+
+4. **Authorization is per-NF-type, not per-user.** OAuth 2.0 tokens in SBI are scoped to NF types and services, not to individual user sessions. An SMF's token grants it permission to call `Nudm_SubscriberDataManagement` for any SUPI.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### SBI naming convention
+
+Service names follow a strict pattern defined in 3GPP TS 29.501:
+
+```
+Format: N{nf-name}_{ServiceName}
+
+Examples:
+├── Namf_Communication      (AMF: N1/N2 message handling)
+├── Namf_EventExposure      (AMF: event subscriptions)
+├── Namf_Location           (AMF: UE location)
+├── Nsmf_PDUSession         (SMF: PDU session lifecycle)
+├── Nsmf_EventExposure      (SMF: session event subscriptions)
+├── Nudm_SubscriberDataManagement  (UDM: subscription data)
+├── Nudm_UEContextManagement       (UDM: UE context)
+├── Nausf_UEAuthentication  (AUSF: authentication)
+├── Nnrf_NFManagement       (NRF: NF registration/deregistration)
+├── Nnrf_NFDiscovery        (NRF: NF discovery)
+├── Npcf_SMPolicyControl    (PCF: session policy)
+├── Npcf_AMPolicyControl    (PCF: access/mobility policy)
+├── Nnef_EventExposure      (NEF: external event exposure)
+└── Nchf_ConvergedCharging  (CHF: charging)
+```
+
+Each service has multiple **operations** (API endpoints). Operations follow REST conventions: GET for retrieval, POST for creation or action, PUT/PATCH for update, DELETE for removal.
+
+### Service operation types
+
+**Request/Response (synchronous):**
+
+```
+Consumer ──── POST /nsmf-pdusession/v1/sm-contexts ──────► SMF
+         ◄─── 201 Created + SmContextCreatedData ─────────
+
+Used for: create, retrieve, update, delete
+Response: immediate (synchronous within HTTP timeout)
+```
+
+**Subscribe/Notify (asynchronous):**
+
+```
+1. Consumer subscribes:
+   NEF ──── POST /namf-evts/v1/subscriptions ──────────► AMF
+        ◄─── 201 Created + subscription-id ─────────────
+
+2. Event occurs (UE location changes):
+   AMF ──── POST https://nef.example.com/callback ──────► NEF
+   (notification delivered to consumer's callback URI)
+
+3. Consumer unsubscribes:
+   NEF ──── DELETE /namf-evts/v1/subscriptions/{subId} ► AMF
+        ◄─── 204 No Content ─────────────────────────────
+```
+
+Subscribe/Notify is used for: location change, session state transitions, policy updates, charging triggers, UE reachability notifications.
+
+### API URI structure
+
+```
+https://{nf-host}/{api-name}/{api-version}/{resource-path}
+
+Example — create PDU session:
+  https://smf.5gc.mnc001.mcc310.3gppnetwork.org
+          /nsmf-pdusession
+          /v1
+          /sm-contexts
+
+  POST → Create SM context (new PDU session establishment)
+  GET  → Retrieve SM context list
+
+Example — get subscription data:
+  https://udm.5gc.mnc001.mcc310.3gppnetwork.org
+          /nudm-sdm
+          /v2
+          /310260123456789         (SUPI)
+          /am-data                 (Access and Mobility subscription data)
+```
+
+Versioning in the URI allows parallel API versions during upgrades. Rel-15 introduced `/v1` for most APIs; Rel-16 introduced `/v2` for UDM-SDM and others with breaking changes.
+
+### Service discovery via NRF
+
+```
+NRF-Based Discovery Flow:
+
+1. Producer registers (at startup):
+   SMF ── PUT /nnrf-nfm/v1/nf-instances/{smf-instance-id} ──► NRF
+   Body: NFProfile (NF type, services, IPs, slices, areas, capacity)
+   ◄── 201 Created
+
+2. Producer sends heartbeat (periodic):
+   SMF ── PATCH /nnrf-nfm/v1/nf-instances/{id} ─────────────► NRF
+   Body: {"heartBeatTimer": 60}
+   ◄── 200 OK
+
+3. Consumer discovers:
+   AMF ── GET /nnrf-disc/v1/nf-instances ────────────────────► NRF
+          ?target-nf-type=SMF
+          &requester-nf-type=AMF
+          &snssai={"sst":1,"sd":"000001"}
+   ◄── 200 OK + SearchResult (list of SMF NFProfiles)
+
+4. Consumer calls producer directly:
+   AMF ── POST /nsmf-pdusession/v1/sm-contexts ─────────────► SMF
+   (using IP/FQDN from discovered NFProfile)
+```
+
+**Caching discovered profiles:** Consumers should cache NRF discovery results with the validity timer from the response. Querying NRF for every request would overload it. The NRF notifies consumers of profile changes via subscription (Nnrf_NFManagement_NFStatusSubscribe).
+
+### Indirect communication via SCP (Rel-16+)
+
+In large deployments, 3GPP Rel-16 introduced the Service Communication Proxy (SCP) as an intermediary:
+
+```
+Direct communication (Rel-15):
+AMF ──────────────────────────────────────────────► UDM
+    (AMF resolves NRF, selects UDM, calls directly)
+
+Indirect communication via SCP (Rel-16):
+AMF ──────────► SCP ──────────────────────────────► UDM
+                 │
+                 ├── NRF discovery (on behalf of AMF)
+                 ├── Load balancing across UDM instances
+                 ├── Message routing and topology hiding
+                 ├── Overload throttling
+                 └── Centralized observability
+
+Delegated discovery (Rel-16 hybrid):
+AMF ── NRF discovery ──────────────────────────────► NRF
+       (gets SCP address, not UDM address)
+AMF ──────────► SCP ──────────────────────────────► UDM
+```
+
+SCP is analogous to an Envoy sidecar or API gateway — it decouples NF-to-NF routing from individual NF logic. The AMF does not need load-balancing code; the SCP handles it.
+
+**Rel-17 SCP enhancements:** 3GPP Rel-17 (TS 29.500 v17) clarified SCP routing modes and added support for roaming scenarios where SCP mediates between home and visited networks.
+
+### HTTP methods and status codes in SBI
+
+| Method | Operation | Example |
+|--------|-----------|---------|
+| POST | Create resource or trigger action | Create SM context, send N1 message |
+| GET | Retrieve resource | Get UE context, get subscription data |
+| PUT | Replace resource entirely | Register NF instance |
+| PATCH | Partial update (JSON Merge Patch) | Update QoS profile, heartbeat |
+| DELETE | Remove resource | Delete PDU session, deregister NF |
+
+**Key status codes:**
+
+| Code | Meaning in SBI |
+|------|---------------|
+| 200 OK | Successful retrieval or update |
+| 201 Created | Resource created (POST/PUT) |
+| 204 No Content | Successful delete or update with no response body |
+| 307 Temporary Redirect | NF has moved; follow Location header |
+| 400 Bad Request | Malformed request |
+| 403 Forbidden | Insufficient authorization |
+| 404 Not Found | Resource does not exist |
+| 503 Service Unavailable | NF overloaded; respect Retry-After header |
+
+**Error body format (ProblemDetails per RFC 7807):**
+
+```json
+{
+  "status": 404,
+  "cause": "SUBSCRIPTION_NOT_FOUND",
+  "detail": "No subscription for SUPI 310260123456789",
+  "instance": "/nudm-sdm/v2/310260123456789/am-data",
+  "invalidParams": []
+}
+```
+
+The `cause` field uses 3GPP-defined strings (e.g., `USER_NOT_FOUND`, `CONTEXT_NOT_FOUND`, `INSUFFICIENT_RESOURCES`) that enable automated error handling beyond generic HTTP status codes.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+### Key SBI services per NF
+
+| NF | Key Services | Primary Consumers |
+|----|-------------|-------------------|
+| AMF | Namf_Communication, Namf_EventExposure, Namf_Location | SMF, PCF, NEF |
+| SMF | Nsmf_PDUSession, Nsmf_EventExposure | AMF, CHF, PCF |
+| UDM | Nudm_SubscriberDataManagement, Nudm_UEContextManagement, Nudm_UEAuthentication | AMF, SMF, AUSF |
+| AUSF | Nausf_UEAuthentication | AMF |
+| NRF | Nnrf_NFManagement, Nnrf_NFDiscovery | All NFs |
+| PCF | Npcf_SMPolicyControl, Npcf_AMPolicyControl | SMF, AMF |
+| NEF | Nnef_EventExposure, Nnef_NIDD | External AF, IoT platforms |
+| CHF | Nchf_ConvergedCharging | SMF, AMF |
+
+### Debugging SBI calls
+
+```bash
+# Wireshark: filter HTTP/2 SBI traffic by NF
+http2.header.path contains "nsmf" or http2.header.path contains "namf"
+
+# tshark: decode HTTP/2 on non-standard port
+tshark -i eth0 -d tcp.port==29502,http2 -Y "http2"
+
+# Check SMF service reachability
+curl -k --http2 https://smf.local:29502/nsmf-pdusession/v1/sm-contexts
+
+# NRF discovery query for SMF instances
+curl -k --http2 "https://nrf.local:29510/nnrf-disc/v1/nf-instances?nf-type=SMF&requester-nf-type=AMF"
+
+# Check TLS certificate chain
+openssl s_client -connect smf.local:29502 -servername smf.local -showcerts
+
+# Verify HTTP/2 negotiation (ALPN)
+openssl s_client -connect smf.local:29502 -alpn h2 2>&1 | grep ALPN
+```
+
+### Common SBI port assignments
+
+| NF | Default SBI Port |
+|----|-----------------|
+| AMF | 29518 |
+| SMF | 29502 |
+| UDM | 29503 |
+| AUSF | 29509 |
+| NRF | 29510 |
+| PCF | 29507 |
+| NEF | 29505 |
+| CHF | 29520 |
+
+These are not mandated by 3GPP but are widely used by open-source implementations (free5GC, Open5GS, OAI).
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **TLS everywhere — certificates expire.** SBI mandates mutual TLS 1.2+. Certificate expiry is the most common cause of sudden NF communication failure in production. Implement automated certificate rotation and monitor expiry dates with at least 30-day alerts.
+
+2. **Service version mismatch.** `/v1` vs `/v2` are not interchangeable. A Rel-16 UDM with `/nudm-sdm/v2` will return 404 to a Rel-15 AMF calling `/nudm-sdm/v1`. Plan API version negotiation during cross-release deployments.
+
+3. **NRF as single point of failure.** If NRF is unavailable, discovery fails for all NFs. Mitigations: (a) cache discovered profiles locally with validity timers, (b) deploy NRF in active-active with load balancer, (c) use SCP which can maintain NRF state independently.
+
+4. **Callback URI reachability.** Subscribe/Notify requires the consumer's callback URI to be reachable from the producer. NAT, firewall rules, and Kubernetes service topology can all break callbacks silently. Test callback delivery in your network topology before deploying event-driven logic.
+
+5. **HTTP/2 downgrade by proxies.** SBI requires HTTP/2. Some API gateways, load balancers, or service meshes downgrade to HTTP/1.1 by default. This breaks multiplexing and may cause subtle performance issues. Verify ALPN negotiation with `openssl s_client -alpn h2`.
+
+6. **Ignoring Retry-After on 503.** When an NF returns HTTP 503 with `Retry-After: 5`, that is an overload signal. Retrying immediately amplifies the overload — the same cascade failure pattern that brings down data centers. Respect the header.
+
+7. **JSON unknown field strictness.** 3GPP TS 29.501 requires consumers to ignore unknown JSON fields (forward compatibility). Some implementations are strict and reject requests with extra fields. Test interoperability between implementations before production deployment.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 29.500 v17, "5G System; Technical Realization of Service Based Architecture"
+- 3GPP TS 29.501 v17, "5G System; Principles and Guidelines for Services Definition"
+- 3GPP TS 29.510 v17, "5G System; Network Function Repository Services"
+- 3GPP TS 33.501, "Security Architecture and Procedures for 5G System" (TLS requirements)
+- RFC 7807, "Problem Details for HTTP APIs" (ProblemDetails format)
+- RFC 7540, "Hypertext Transfer Protocol Version 2 (HTTP/2)"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [HTTP/2 in 5G](/en/core-network/service-based-interface-http2/http2-in-5g/) — multiplexing, HPACK, and why HTTP/2 was chosen
+- [NF service registration](/en/core-network/service-based-interface-http2/nf-service-registration/) — NRF registration and heartbeat mechanics
+- [JSON and OpenAPI in 5G](/en/core-network/service-based-interface-http2/json-and-openapi-in-5g/) — how 3GPP defines APIs with OpenAPI 3.0
+
+</section>

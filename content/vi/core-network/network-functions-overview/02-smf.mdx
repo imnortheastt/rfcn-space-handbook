@@ -8,17 +8,404 @@ track: n3
 unit: network-functions-overview
 order: 2
 level: L2
-estimatedReadingMinutes: 5
-title: "SMF — Chuc nang quan ly phien"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-network-functions-overview-01-amf"]
+spiralRevisits: ["core-network-n4-session-management-deep-dive-01-pdu-session"]
+title: "SMF — Chuc Nang Quan Ly Phien"
+description: "Bo nao dang sau PDU session — cap phat IP, QoS, va dieu khien UPF."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 23.502"]
+tags: ["smf", "5g", "pdu-session", "qos", "upf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# SMF — Chuc nang quan ly phien
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+AMF xu ly di dong. Nhung khi dien thoai cua ban can **gui du lieu** — luot web, xem video, hoac upload file — do la lanh tho cua **SMF**.
+
+SMF quan ly **PDU session**: cac duong ong du lieu giua thiet bi va internet. No quyet dinh du lieu di dau, xu ly nhu the nao (QoS), va dieu khien UPF thuc su di chuyen goi tin.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### SMF lam gi
+
+```
+Vai tro SMF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ┌─────────┐                          │
+│                    │   PCF   │ (policy)                 │
+│                    └────▲────┘                          │
+│                         │ Npcf                          │
+│                         │                                │
+│  ┌─────────┐      ┌─────┴─────┐      ┌─────────┐       │
+│  │   AMF   │◄────►│    SMF    │◄────►│   UDM   │       │
+│  └─────────┘ Nsmf └─────┬─────┘ Nudm └─────────┘       │
+│                         │                                │
+│                         │ N4 (PFCP)                      │
+│                         │                                │
+│                    ┌────▼────┐                          │
+│                    │   UPF   │──────► Internet          │
+│                    └─────────┘                          │
+│                                                          │
+│  SMF: Dieu khien session (signaling)                    │
+│  UPF: Chuyen tiep goi tin (data plane)                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Diem quan trong:** SMF chi la control plane. No bao UPF lam gi nhung khong bao gio cham vao du lieu nguoi dung.
+
+### Trach nhiem chinh
+
+| Trach nhiem | Y nghia |
+|-------------|---------|
+| **Thiet lap PDU session** | Tao duong du lieu cho UE |
+| **Chon va dieu khien UPF** | Chon UPF, cai dat quy tac chuyen tiep |
+| **Cap phat dia chi IP** | Gan IPv4/IPv6 cho UE |
+| **Quan ly QoS** | Cau hinh QoS flow va quy tac |
+| **Thuc thi policy** | Ap dung quyet dinh PCF |
+| **Tich hop tinh cuoc** | Giao tiep voi CHF de tinh cuoc |
+| **Xu ly che do SSC** | Hanh vi duy tri session |
+
+### Tu 4G sang 5G quan ly session
+
+```
+4G (Ket hop):
+┌─────────────────────────────────────────────────────────┐
+│  MME: Signaling session (GTP-C den SGW/PGW)             │
+│  SGW: Neo user plane                                     │
+│  PGW: Cap phat IP, policy, tinh cuoc                    │
+└─────────────────────────────────────────────────────────┘
+
+5G (Tach biet):
+┌─────────────────────────────────────────────────────────┐
+│  AMF: Chi di dong (khong quan ly session)               │
+│  SMF: Signaling session, QoS, cap phat IP              │
+│  UPF: Chuyen tiep goi tin (tach khoi control)          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Loi ich:** Scale SMF cho dung luong session doc lap voi dung luong di dong AMF.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Dich vu SMF (SBI)
+
+```
+Dich vu SMF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nsmf_PDUSession                                        │
+│  ├── CreateSMContext          (PDU session moi)         │
+│  ├── UpdateSMContext          (sua doi session)         │
+│  ├── ReleaseSMContext         (ket thuc session)        │
+│  └── SMContextStatusNotify    (cap nhat trang thai)     │
+│                                                          │
+│  Nsmf_EventExposure                                     │
+│  ├── Subscribe                (su kien session)         │
+│  ├── Unsubscribe                                        │
+│  └── Notify                                             │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Thiet lap PDU session
+
+```
+Thiet lap PDU Session:
+
+UE         gNB         AMF         SMF         UPF        UDM/PCF
+│           │           │           │           │           │
+│  PDU Session│          │           │           │           │
+│  Establish Req         │           │           │           │
+│─────────────────────►│           │           │           │
+│           │           │           │           │           │
+│           │           │ Nsmf_PDUSession      │           │
+│           │           │ CreateSMContext      │           │
+│           │           │──────────►│           │           │
+│           │           │           │           │           │
+│           │           │           │  Nudm (thue bao)     │
+│           │           │           │──────────────────────►│
+│           │           │           │           │           │
+│           │           │           │  Npcf (policy)       │
+│           │           │           │──────────────────────►│
+│           │           │           │           │           │
+│           │           │           │  N4 Session Est      │
+│           │           │           │──────────►│           │
+│           │           │           │           │           │
+│           │           │           │  IP da cap phat      │
+│           │           │           │◄──────────│           │
+│           │           │           │           │           │
+│           │           │◄──────────│           │           │
+│           │           │           │           │           │
+│           │  N2 PDU Session Setup │           │           │
+│           │◄──────────│           │           │           │
+│           │           │           │           │           │
+│ PDU Session│          │           │           │           │
+│ Establish Accept      │           │           │           │
+│◄───────────────────────           │           │           │
+│           │           │           │           │           │
+```
+
+**Ket qua:** UE co dia chi IP, quy tac QoS cai trong UPF, du lieu co the chay.
+
+### Giao dien N4 (PFCP)
+
+SMF dieu khien UPF qua **PFCP (Packet Forwarding Control Protocol)**:
+
+```
+Thao tac N4 (PFCP):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SMF ──────────────────────────────────────────► UPF    │
+│                     PFCP                                 │
+│                                                          │
+│  Quan ly Session:                                       │
+│  ├── Session Establishment Request/Response             │
+│  ├── Session Modification Request/Response              │
+│  └── Session Deletion Request/Response                  │
+│                                                          │
+│  Quan ly Node:                                          │
+│  ├── Association Setup/Release                          │
+│  └── Heartbeat                                          │
+│                                                          │
+│  PFCP Session chua:                                     │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ PDR (Packet Detection Rule): tieu chi khop      │   │
+│  │ FAR (Forwarding Action Rule): lam gi            │   │
+│  │ QER (QoS Enforcement Rule): gioi han toc do     │   │
+│  │ URR (Usage Reporting Rule): tinh cuoc           │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                          │
+│  Transport: UDP port 8805                               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Kien truc QoS
+
+```
+Mo hinh QoS 5G:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  PDU Session                                            │
+│  ├── QoS Flow 1 (5QI=5, thoai)                         │
+│  │   └── QFI = 1                                        │
+│  ├── QoS Flow 2 (5QI=9, video)                         │
+│  │   └── QFI = 2                                        │
+│  └── QoS Flow 3 (5QI=8, best effort)                   │
+│      └── QFI = 3                                        │
+│                                                          │
+│  Trach nhiem SMF:                                       │
+│  ├── Tao QoS flow dua tren quy tac PCF                 │
+│  ├── Gan QFI (QoS Flow Identifier)                     │
+│  ├── Cau hinh tham so 5QI                              │
+│  └── Cai quy tac QoS trong UPF                         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+Bang 5QI (vi du):
+┌──────┬────────────────┬─────────┬───────────┐
+│ 5QI  │ Loai Resource  │ Tre     │ Use Case  │
+├──────┼────────────────┼─────────┼───────────┤
+│  1   │ GBR            │ 100ms   │ Thoai     │
+│  2   │ GBR            │ 150ms   │ Video     │
+│  5   │ Non-GBR        │ 100ms   │ IMS sig   │
+│  8   │ Non-GBR        │ 300ms   │ Video     │
+│  9   │ Non-GBR        │ 300ms   │ Best eff  │
+└──────┴────────────────┴─────────┴───────────┘
+```
+
+### Quan ly dia chi IP
+
+```
+Phuong phap cap phat IP:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Tinh (cau hinh truoc)                               │
+│     - IP trong du lieu thue bao (UDM)                   │
+│     - SMF gan tu thue bao                               │
+│                                                          │
+│  2. Dong (pool SMF)                                     │
+│     - SMF quan ly pool IP                               │
+│     - Cap phat tu dai kha dung                          │
+│                                                          │
+│  3. DHCP ben ngoai                                      │
+│     - SMF truy van server DHCP ben ngoai                │
+│     - Tich hop doanh nghiep                             │
+│                                                          │
+│  4. Framed Route                                        │
+│     - /64 prefix cho IPv6                               │
+│     - Kich ban VPN doanh nghiep                         │
+│                                                          │
+│  IPv4 vs IPv6:                                          │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ PDU Session Type: IPv4 | IPv6 | IPv4v6         │   │
+│  │                                                  │   │
+│  │ IPv6: SLAAC hoac DHCPv6                         │   │
+│  │ IPv4: DHCP hoac tinh                            │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Che do SSC (Session and Service Continuity)
+
+```
+Che do SSC:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SSC Mode 1: Dia chi IP bao toan                        │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ UE di chuyen → Cung UPF hoac UPF neo duy tri    │   │
+│  │ Dia chi IP: khong doi                            │   │
+│  │ Use case: Session TCP, VPN doanh nghiep         │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                          │
+│  SSC Mode 2: Ngat-truoc-tao                             │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ UE di chuyen → Giai phong session cu, tao moi   │   │
+│  │ Dia chi IP: thay doi                             │   │
+│  │ Use case: Luu luong best effort                 │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                          │
+│  SSC Mode 3: Tao-truoc-ngat                             │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ UE di chuyen → Session moi thiet lap truoc      │   │
+│  │ Dia chi IP: ca hai kha dung tam thoi            │   │
+│  │ Use case: Handover muot cho app thoi gian thuc  │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Lua chon SMF
+
+```
+Tieu chi lua chon SMF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dau vao:                                               │
+│  ├── DNN (Data Network Name) - giong APN               │
+│  ├── S-NSSAI (slice yeu cau)                           │
+│  ├── Vi tri UE (TAI)                                   │
+│  └── Thong tin thue bao (UDM)                          │
+│                                                          │
+│  Yeu to lua chon:                                       │
+│  ├── Ho tro DNN                                        │
+│  ├── Ho tro S-NSSAI                                    │
+│  ├── Vung phuc vu                                      │
+│  ├── Can bang tai                                      │
+│  └── Han che thue bao                                  │
+│                                                          │
+│  Quy trinh:                                             │
+│  1. AMF truy van NRF tim SMF ho tro DNN/S-NSSAI        │
+│  2. NRF tra ve danh sach SMF ung vien                  │
+│  3. AMF chon dua tren tai, vi tri                      │
+│  4. AMF gui CreateSMContext den SMF da chon            │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tham so cau hinh SMF:**
+
+| Tham so | Muc dich | Vi du |
+|---------|----------|-------|
+| Danh sach DNN | Mang du lieu ho tro | "internet", "ims", "enterprise" |
+| Pool IP | Dai IPv4/IPv6 | 10.0.0.0/8, fd00::/48 |
+| S-NSSAI | Slice ho tro | SST=1, SST=2/SD=001 |
+| Danh sach UPF | UPF da biet | Instance UPF voi dia chi N4 |
+| 5QI mac dinh | QoS mac dinh | 9 (best effort) |
+| DNS server | Cho UE | DNS chinh, phu |
+
+**Chi so dung luong:**
+
+| Chi so | Mo ta |
+|--------|-------|
+| PDU session hoat dong | Session dong thoi |
+| Ty le thiet lap session | Thiet lap/giay |
+| Giao dich N4 | Message PFCP/giay |
+| Su dung pool IP | IP da dung vs kha dung |
+
+**Xu ly su co:**
+
+| Van de | Kiem tra |
+|--------|----------|
+| Session that bai | DNN cau hinh, UPF truy cap duoc |
+| Khong cap IP | Can pool, timeout DHCP |
+| QoS khong ap dung | Policy PCF, quy tac cai trong UPF |
+| UPF khong truy cap duoc | N4 heartbeat, PFCP association |
+| Thiet lap cham | Do tre N4, NRF discovery |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **SMF xu ly user traffic (sai).** SMF chi la control plane. Neu ban debug van de data path, nhin vao UPF.
+
+2. **Mot SMF moi DNN.** Nhieu SMF co the phuc vu cung DNN. Lap ke hoach phan phoi tai.
+
+3. **Kich co pool IP.** Danh gia thap kich co pool IP va session se that bai. Giam sat su dung.
+
+4. **Bo qua N4 heartbeat.** Mat PFCP association nghia la mat dieu khien UPF. Tinh chinh timer heartbeat.
+
+5. **QoS khong co PCF.** SMF co the gan QoS, nhung PCF cung cap policy. Cau hinh tinh chi hoat dong cho truong hop don gian.
+
+6. **Khong khop che do SSC.** Nhu cau ung dung va che do SSC phai phu hop. TCP qua SSC mode 2 ngat ket noi.
+
+7. **Phuc tap lua chon UPF.** Trien khai edge can logic lua chon UPF can than. Test kich ban di dong.
+
+8. **Thieu DNS trong session.** UE can DNS server. Cau hinh trong SMF hoac policy PCF.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.501, "System architecture for 5G System"
+- 3GPP TS 23.502, "Procedures for 5G System"
+- 3GPP TS 29.244, "Interface between CP and UP (PFCP)"
+- 3GPP TS 23.503, "Policy and Charging Control Framework"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [UPF](/vi/core-network/network-functions-overview/upf/) — data plane SMF dieu khien
+- [PDU session di sau](/vi/core-network/session-management-deep-dive/pdu-session/) — thu tuc chi tiet
+- [QoS flow](/vi/core-network/session-management-deep-dive/qos-flows/) — mo hinh QoS 5G
+
+</section>

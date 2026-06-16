@@ -1,24 +1,276 @@
 ---
-id: core-network-n0-4g-5g-not-like-aws-vpc-02-user-plane-control-plane-separation-vi
+id: core-network-n1-4g-5g-not-like-aws-vpc-02-user-plane-control-plane-separation-vi
 slug: user-plane-control-plane-separation
 lang: vi
-parityId: core-network-n0-4g-5g-not-like-aws-vpc-02-user-plane-control-plane-separation
+parityId: core-network-n1-4g-5g-not-like-aws-vpc-02-user-plane-control-plane-separation
 domain: core-network
-track: n0
+track: n1
 unit: 4g-5g-not-like-aws-vpc
 order: 2
 level: L2
-estimatedReadingMinutes: 5
-title: "Tach biet mat phang nguoi dung / mat phang dieu khien"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n1-4g-5g-not-like-aws-vpc-01-telecom-vs-cloud-networking"]
+spiralRevisits: ["core-network-n2-5g-core-sba-03-upf-architecture"]
+title: "Tách biệt user plane / control plane"
+description: "Tại sao telecom tách data khỏi quyết định — và cách điều này enable edge computing và scaling."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 23.501", "3GPP TS 29.244"]
+tags: ["cups", "user-plane", "control-plane", "5g-architecture"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tach biet mat phang nguoi dung / mat phang dieu khien
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+Trong router truyền thống, cùng một box quyết định packet đi đâu và thực sự forward chúng. Trong 5G, những công việc này được chia ra các network function khác nhau — thường ở vị trí khác nhau.
+
+Sự tách biệt này (gọi là CUPS: Control and User Plane Separation) là thứ enable edge computing, scaling độc lập, và deployment linh hoạt. Hiểu nó là thiết yếu cho bất kỳ ai làm việc với mạng di động hiện đại.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+### Hai plane
+
+**Control plane:** Đưa quyết định. "Traffic của session này nên đi đâu?" "User này có được phép kết nối không?" "QoS nào nên áp dụng?"
+
+**User plane:** Di chuyển data. Đưa packet từ A đến B dựa trên rule được thiết lập bởi control plane.
+
+```
+┌─────────────────────────────────────────┐
+│              Control Plane               │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐     │
+│  │ AMF │──│ SMF │──│ UDM │──│ PCF │     │
+│  └─────┘  └─────┘  └─────┘  └─────┘     │
+│                 │                        │
+│                 │ N4 (rules)             │
+│                 ▼                        │
+└─────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│               User Plane                 │
+│           ┌───────────┐                  │
+│  gNB ────►│    UPF    │────► Internet   │
+│           └───────────┘                  │
+│           (forward data)                 │
+└─────────────────────────────────────────┘
+```
+
+**Phép so sánh:** Control plane giống như kiểm soát không lưu. Nó quyết định đường bay, gán đường băng, quản lý xung đột. User plane là không phận thực tế nơi máy bay bay.
+
+### Tại sao tách biệt?
+
+| Lợi ích | Giải thích |
+|---------|------------|
+| Scaling độc lập | Control plane xử lý signaling (bursty, low bandwidth). User plane xử lý data (steady, high bandwidth). Scale mỗi cái độc lập. |
+| Placement linh hoạt | Đặt user plane ở edge (low latency). Giữ control plane tập trung (dễ quản lý hơn). |
+| Tối ưu chi phí | Dùng compute đắt cho quyết định control. Dùng hardware rẻ, nhanh cho packet forwarding. |
+| Resilience | Control plane fail không ngay lập tức phá vỡ session active. User plane có thể tiếp tục forwarding. |
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### Control plane function (5G)
+
+| Function | Vai trò |
+|----------|---------|
+| **AMF** (Access and Mobility Management) | Quản lý đăng ký thiết bị, theo dõi vị trí, authentication |
+| **SMF** (Session Management Function) | Tạo session, chọn UPF, cấu hình QoS |
+| **UDM** (Unified Data Management) | Lưu dữ liệu subscriber, credential authentication |
+| **PCF** (Policy Control Function) | Định nghĩa policy (QoS, charging rule) |
+| **NRF** (Network Repository Function) | Service discovery — tìm các function khác |
+| **AUSF** (Authentication Server Function) | Xử lý protocol authentication |
+
+Các function này giao tiếp qua HTTP/2 trên **Service Based Interface (SBI)**.
+
+### User plane function (5G)
+
+**UPF (User Plane Function)** làm một việc: forward packet.
+
+**Khả năng UPF:**
+- **Packet forwarding:** Áp dụng rule từ SMF để route packet
+- **QoS enforcement:** Đánh dấu packet, police traffic
+- **Usage reporting:** Đếm byte cho billing
+- **Buffering:** Giữ packet trong handover
+- **Lawful interception:** Copy packet khi cần
+
+### N4 interface
+
+**N4 interface** kết nối SMF (control) với UPF (user plane).
+
+**Protocol:** PFCP (Packet Forwarding Control Protocol)
+
+**Cái gì chảy qua N4:**
+- Session establishment (tạo forwarding rule)
+- Session modification (cập nhật rule trong handover)
+- Session deletion (tear down)
+- Usage report (byte đã transfer)
+
+**Ví dụ: Session setup**
+
+```
+┌─────┐                    ┌─────┐                    ┌─────┐
+│ UE  │                    │ SMF │                    │ UPF │
+└──┬──┘                    └──┬──┘                    └──┬──┘
+   │                          │                          │
+   │ ──── PDU Session Req ──► │                          │
+   │                          │                          │
+   │                          │ ──── PFCP Session Est ──►│
+   │                          │      (create rules)      │
+   │                          │                          │
+   │                          │ ◄─── PFCP Session Est ───│
+   │                          │         Response         │
+   │                          │                          │
+   │ ◄── PDU Session Accept ──│                          │
+   │                          │                          │
+   │ ════════════════════ Data chảy qua UPF ═════════════│
+```
+
+### Forwarding rule trong UPF
+
+SMF cài đặt **PDR (Packet Detection Rule)** và **FAR (Forwarding Action Rule)** trong UPF.
+
+**PDR:** "Match packet trông như thế này..."
+- Source/destination IP
+- Port number
+- QoS flow identifier
+
+**FAR:** "...và làm điều này với chúng"
+- Forward đến destination
+- Drop
+- Buffer
+- Duplicate (cho lawful interception)
+
+**Ví dụ rule:**
+
+```
+PDR 1: Match traffic từ UE IP 10.0.0.5
+FAR 1: Forward đến Internet interface
+
+PDR 2: Match traffic đến UE IP 10.0.0.5
+FAR 2: Forward đến gNB qua N3 tunnel
+
+PDR 3: Match traffic QFI=5 (voice)
+FAR 3: Forward với priority marking
+```
+
+### Edge deployment
+
+CUPS enable **edge computing** bằng cách cho phép UPF placement gần user:
+
+```
+┌─────────────────────────────────────────┐
+│           Central Data Center            │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐     │
+│  │ AMF │──│ SMF │──│ UDM │──│ PCF │     │
+│  └─────┘  └─────┘  └─────┘  └─────┘     │
+└─────────────────────────────────────────┘
+              │                    │
+              │ N4                 │ N4
+              ▼                    ▼
+┌─────────────────────┐  ┌─────────────────────┐
+│     Edge Site A      │  │     Edge Site B      │
+│  ┌─────┐   ┌─────┐  │  │  ┌─────┐   ┌─────┐  │
+│  │ UPF │───│ App │  │  │  │ UPF │───│ App │  │
+│  └─────┘   └─────┘  │  │  └─────┘   └─────┘  │
+│      ▲              │  │      ▲              │
+│      │              │  │      │              │
+│    gNBs             │  │    gNBs             │
+└─────────────────────┘  └─────────────────────┘
+```
+
+**Kết quả:**
+- User data ở edge (low latency)
+- Quyết định control được đưa ra tập trung (policy nhất quán)
+- Scale UPF độc lập dựa trên traffic local
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Quyết định đặt function ở đâu:**
+
+| Function | Placement | Lý do |
+|----------|-----------|-------|
+| UPF | Edge | Low latency đến user |
+| AMF | Regional | Cân bằng giữa latency và coverage |
+| SMF | Central | Ít instance hơn, quản lý dễ hơn |
+| UDM | Central | Single source of truth |
+| PCF | Central | Policy nhất quán |
+
+**Capacity planning:**
+
+- **Control plane:** Size theo signaling rate (session/giây, handover/giây)
+- **User plane:** Size theo throughput (Gbps) và packet rate (pps)
+
+Chúng scale khác nhau:
+- Sự kiện gaming tăng user plane load (data)
+- Tàu đến tăng control plane load (handover)
+
+**Ví dụ: Stadium deployment**
+
+```
+Sự kiện: 50,000 người trong sân vận động
+- User plane: Cần 50 Gbps capacity (1 Mbps × 50K)
+- Control plane: 50K session, nhưng tương đối ổn định
+- Giải pháp: Deploy UPF tại sân, share central control plane
+```
+
+**Debug vấn đề CUPS:**
+
+1. **Session không thiết lập được:** Kiểm tra N4 connectivity, PFCP message
+2. **Data không chảy:** Kiểm tra UPF rule (PDR/FAR đã cài chưa?)
+3. **High latency:** Kiểm tra UPF placement, routing
+4. **Billing sai:** Kiểm tra usage reporting từ UPF đến SMF
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Nghĩ CUPS là tùy chọn.** Trong 5G, đây là kiến trúc cơ bản. Bạn không thể deploy 5G core mà không hiểu nó.
+
+2. **Bỏ qua N4 latency.** Nếu SMF và UPF ở xa nhau, session setup chậm. N4 latency trực tiếp ảnh hưởng user experience trong handover.
+
+3. **Phân tán control plane quá mức.** Spread AMF/SMF khắp nơi có vẻ trực quan nhưng tạo operational complexity. Tập trung khi có thể.
+
+4. **Under-size UPF cho packet rate.** Throughput (Gbps) không phải metric duy nhất. Packet nhỏ (VoIP) có packet rate cao ở throughput thấp.
+
+5. **Quên state synchronization.** Nhiều SMF instance phải share session state. Điều này khó trong distributed deployment.
+
+6. **Giả định UPF "chỉ là router."** Nó có function cụ thể (buffering, usage reporting, QoS enforcement) mà router generic không cung cấp.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- 3GPP TS 23.501, "System architecture for the 5G System"
+- 3GPP TS 29.244, "Interface between the SMF and UPF (PFCP)"
+- 3GPP TR 23.799, "Control and User Plane Separation"
+- ETSI MEC, "Multi-access Edge Computing"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [Khái niệm mobility management](/vi/core-network/4g-5g-not-like-aws-vpc/mobility-management-concept/) — cách session survive khi di chuyển
+- [UPF deep dive](/vi/core-network/network-functions-overview/upf/) — kiến trúc UPF chi tiết
+- [SMF deep dive](/vi/core-network/network-functions-overview/smf/) — chi tiết session management
+
+</section>

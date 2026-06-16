@@ -8,17 +8,339 @@ track: n3
 unit: identifiers
 order: 2
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-identifiers-01-supi-and-suci"]
+spiralRevisits: ["core-network-n4-security-03-identifier-privacy"]
 title: "GUTI and 5G-TMSI"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Globally Unique Temporary Identifier — protecting subscriber identity after registration."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 23.003", "3GPP TS 24.501"]
+tags: ["guti", "5g-tmsi", "identity", "5g", "privacy"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# GUTI and 5G-TMSI
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Even with SUCI encrypting your identity during registration, using the same identifier repeatedly would let attackers track you.
+
+**5G-GUTI** is the temporary identity the network assigns you after authentication. It changes frequently, breaking the link between sessions and making tracking much harder.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What is 5G-GUTI?
+
+**5G-GUTI (5G Globally Unique Temporary Identifier)** is a temporary identity assigned by the AMF after successful authentication. It replaces the permanent SUPI for all subsequent signaling.
+
+```
+Identity lifecycle:
+
+Initial Registration:
+  UE ──── SUCI ────► Network
+  UE ◄─── 5G-GUTI ── Network
+
+Subsequent Procedures:
+  UE ──── 5G-GUTI ──► Network
+  (SUPI never sent again)
+```
+
+**Key benefit:** Even if an attacker intercepts your 5G-GUTI, they can't link it to your permanent identity or previous sessions (if GUTI is refreshed properly).
+
+### 5G-GUTI structure
+
+```
+5G-GUTI = GUAMI + 5G-TMSI
+
+┌─────────────────────────────────────────────────────────┐
+│                        5G-GUTI                           │
+│                                                          │
+│  ┌───────────────────────────┬──────────────────────┐   │
+│  │         GUAMI             │       5G-TMSI        │   │
+│  │    (48 bits)              │      (32 bits)       │   │
+│  └───────────────────────────┴──────────────────────┘   │
+│                                                          │
+│  GUAMI = MCC + MNC + AMF Region + AMF Set + AMF Pointer │
+│                                                          │
+│  ┌─────┬─────┬───────────┬─────────┬────────────┐       │
+│  │ MCC │ MNC │ AMF       │ AMF Set │ AMF        │       │
+│  │ 3   │ 2-3 │ Region ID │ ID      │ Pointer    │       │
+│  │digit│digit│ (8 bits)  │ (10 bit)│ (6 bits)   │       │
+│  └─────┴─────┴───────────┴─────────┴────────────┘       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### What is 5G-TMSI?
+
+**5G-TMSI (5G Temporary Mobile Subscriber Identity)** is the random part of the GUTI that uniquely identifies the UE within an AMF.
+
+```
+5G-TMSI properties:
+- 32 bits (4 bytes)
+- Assigned by AMF
+- Unique within that AMF
+- Changes periodically
+- No correlation to SUPI
+```
+
+**Together:** GUAMI identifies the AMF, 5G-TMSI identifies the UE within that AMF.
+
+### GUTI vs TMSI vs S-TMSI
+
+| Identifier | Scope | Use |
+|------------|-------|-----|
+| 5G-GUTI | Global | Full identity for inter-AMF |
+| 5G-TMSI | Within AMF | Short form for signaling |
+| 5G-S-TMSI | Within AMF Set | Paging, connection setup |
+
+```
+5G-S-TMSI = AMF Set ID + AMF Pointer + 5G-TMSI
+          = Last 16 bits of GUAMI + 5G-TMSI
+          = 48 bits total
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### GUTI allocation
+
+The AMF allocates a new GUTI during or after registration:
+
+```
+UE                            AMF                          UDM
+│                              │                            │
+│   Registration Request       │                            │
+│   (SUCI or old GUTI)         │                            │
+│─────────────────────────────►│                            │
+│                              │                            │
+│                              │   Authentication           │
+│                              │◄──────────────────────────►│
+│                              │                            │
+│                              │   Allocate new 5G-GUTI     │
+│                              │   ┌─────────────────────┐  │
+│                              │   │ Pick random 5G-TMSI │  │
+│                              │   │ Combine with GUAMI  │  │
+│                              │   └─────────────────────┘  │
+│                              │                            │
+│   Registration Accept        │                            │
+│   (new 5G-GUTI)              │                            │
+│◄─────────────────────────────│                            │
+│                              │                            │
+│   Stores new GUTI            │   Maps GUTI → SUPI        │
+│                              │                            │
+```
+
+### GUTI reallocation
+
+The network can reallocate GUTI at any time to improve privacy:
+
+**Mandatory reallocation triggers:**
+- Initial registration
+- Registration after prolonged idle
+- Inter-AMF mobility
+
+**Optional reallocation triggers:**
+- Periodic timer expiry
+- Security event
+- Network policy
+
+```
+GUTI Reallocation (during active session):
+
+UE                            AMF
+│                              │
+│   Some NAS procedure         │
+│◄────────────────────────────►│
+│                              │
+│   Configuration Update Cmd   │
+│   (new 5G-GUTI)              │
+│◄─────────────────────────────│
+│                              │
+│   Configuration Update Cmplt │
+│─────────────────────────────►│
+│                              │
+│   UE now uses new GUTI       │
+│                              │
+```
+
+### Using GUTI for subsequent registration
+
+```
+UE                            AMF
+│                              │
+│   Registration Request       │
+│   Mobile Identity: 5G-GUTI   │
+│─────────────────────────────►│
+│                              │
+│                              │   Lookup GUTI in context
+│                              │   ┌─────────────────────┐
+│                              │   │ Found: retrieve SUPI │
+│                              │   │ Not found: request  │
+│                              │   │   SUCI from UE      │
+│                              │   └─────────────────────┘
+│                              │
+```
+
+**If GUTI lookup fails:**
+1. AMF requests SUCI from UE
+2. Full authentication occurs
+3. New GUTI is assigned
+
+### Paging with 5G-S-TMSI
+
+When the network needs to page an idle UE, it uses 5G-S-TMSI (not full GUTI):
+
+```
+AMF                         gNB                         UE
+ │                           │                           │
+ │   Paging Request          │                           │
+ │   (5G-S-TMSI list)        │                           │
+ │──────────────────────────►│                           │
+ │                           │                           │
+ │                           │   Paging (over radio)     │
+ │                           │   (5G-S-TMSI)             │
+ │                           │──────────────────────────►│
+ │                           │                           │
+ │                           │   Service Request         │
+ │                           │   (5G-S-TMSI)             │
+ │                           │◄──────────────────────────│
+ │                           │                           │
+```
+
+**Why 5G-S-TMSI for paging?**
+- Shorter than full GUTI (48 vs 80 bits)
+- Sufficient within AMF set
+- Reduces radio overhead
+
+### Inter-AMF mobility
+
+When a UE moves to a new AMF, the old GUTI helps retrieve context:
+
+```
+UE                      New AMF                    Old AMF
+│                          │                          │
+│   Registration Req       │                          │
+│   (old 5G-GUTI)          │                          │
+│─────────────────────────►│                          │
+│                          │                          │
+│                          │   Context Request        │
+│                          │   (old 5G-GUTI)          │
+│                          │─────────────────────────►│
+│                          │                          │
+│                          │   Context Response       │
+│                          │   (UE context, SUPI)     │
+│                          │◄─────────────────────────│
+│                          │                          │
+│                          │   Allocate new GUTI      │
+│                          │                          │
+│   Registration Accept    │                          │
+│   (new 5G-GUTI)          │                          │
+│◄─────────────────────────│                          │
+│                          │                          │
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**GUTI in traces:**
+
+```
+Registration Request:
+  5GS mobile identity
+    Type of identity: 5G-GUTI
+    MCC: 310
+    MNC: 260
+    AMF Region ID: 0x01
+    AMF Set ID: 0x001
+    AMF Pointer: 0x02
+    5G-TMSI: 0x12345678
+
+Decode:
+  GUAMI = 310-260-01-001-02
+  Full GUTI = 310-260-01-001-02-12345678
+```
+
+**Troubleshooting GUTI issues:**
+
+| Symptom | Possible cause | Check |
+|---------|----------------|-------|
+| GUTI not recognized | AMF restart, context lost | Check AMF logs |
+| Frequent SUCI fallback | GUTI reallocation too aggressive | Review GUTI timer |
+| Tracking possible | GUTI not changing | Check reallocation policy |
+| Inter-AMF failure | Context transfer broken | Verify N14 interface |
+
+**GUTI reallocation policy considerations:**
+
+| Approach | Privacy | Overhead | Use case |
+|----------|---------|----------|----------|
+| Never change | Low | Low | Not recommended |
+| Per registration | Medium | Low | Default |
+| Periodic (e.g., hourly) | High | Medium | Privacy-conscious |
+| Per transaction | Very high | High | High-security |
+
+**Debugging checklist:**
+
+1. **UE sending old GUTI:** Normal after idle period, AMF should handle
+2. **AMF rejecting GUTI:** Check context timeout, AMF restart
+3. **Wrong AMF receiving GUTI:** Check GUAMI parsing, routing
+4. **Paging failures:** Verify 5G-S-TMSI calculation, AMF set config
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **GUTI reuse across sessions.** If the same GUTI is used for too long, it enables tracking. Ensure periodic reallocation.
+
+2. **GUTI predictability.** If 5G-TMSI allocation is predictable (sequential), attackers can guess identities. Use random allocation.
+
+3. **Context loss on AMF failure.** If AMF loses context, all GUTIs become invalid. UEs must fall back to SUCI, causing authentication storm.
+
+4. **Inter-AMF routing.** Old GUTI must reach old AMF for context transfer. Ensure N14/Namf routing is correct.
+
+5. **GUTI vs native 5G-GUTI.** UEs from 4G (via N26) may have 4G-GUTI format. Handle format differences.
+
+6. **5G-S-TMSI collision.** Within an AMF set, 5G-S-TMSI must be unique. Ensure proper coordination between AMFs.
+
+7. **Paging area vs GUTI.** GUTI ties to AMF, not location. UE can move within paging area without GUTI change.
+
+8. **GUTI in logs.** GUTI is less sensitive than SUPI but still identifies a session. Handle with appropriate privacy.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.003, "Numbering, addressing and identification"
+- 3GPP TS 24.501, "NAS protocol for 5G System"
+- 3GPP TS 23.502, "Procedures for 5G System"
+- 3GPP TS 33.501, "Security architecture for 5G"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [GPSI and IMEI](/en/core-network/identifiers/gpsi-and-imei/) — public and equipment identifiers
+- [Registration procedures](/en/core-network/registration/registration-procedures/) — where GUTI is assigned
+- [Paging procedures](/en/core-network/mobility/paging-procedures/) — how GUTI enables paging
+
+</section>

@@ -8,17 +8,409 @@ track: n3
 unit: policy-and-charging
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "Tong quan CHF"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-policy-and-charging-01-pcf-overview"]
+spiralRevisits: ["core-network-n3-session-management-deep-dive-03-pdu-session-release"]
+title: "Tong Quan CHF"
+description: "Tinh cuoc trong 5G — CHF theo doi su dung, tuong tac voi he thong billing, va cho phep tinh cuoc hoi tu."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 32.240", "3GPP TS 32.255", "3GPP TS 29.594"]
+tags: ["chf", "5g", "charging", "billing", "ocs"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tong quan CHF
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+CHF la cach nha mang duoc tra tien. No theo doi moi byte, moi phut, moi dich vu su dung — sau do cung cap du lieu do cho he thong billing.
+
+Khong co CHF, khong co cach tinh cuoc nguoi dung tra truoc theo thoi gian thuc hoac tao hoa don tra sau chinh xac.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### CHF lam gi
+
+```
+Cac Chuc nang CHF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Theo doi Su dung:                                      │
+│  ├── Luong du lieu (byte UL/DL)                        │
+│  ├── Thoi luong (thoi gian session)                    │
+│  ├── Su kien (SMS gui, cuoc goi thuc hien)             │
+│  └── Dac thu dich vu (phut video, MB roaming)          │
+│                                                          │
+│  Kiem soat Tinh cuoc:                                   │
+│  ├── Cap quota (tra truoc)                             │
+│  ├── Bao cao su dung (tra sau)                         │
+│  ├── Kich hoat thay doi policy (gioi han du lieu)      │
+│  └── Tu choi dich vu (het credit)                      │
+│                                                          │
+│  Tao CDR:                                               │
+│  ├── Tao Charging Data Records                         │
+│  ├── Chuyen tiep den billing/mediation                 │
+│  └── Ho tro xu ly offline                              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac giao dien CHF
+
+```
+CHF trong Kien truc 5G:
+
+              ┌─────────┐
+              │   PCF   │
+              │  N28    │ (gioi han chi tieu)
+              └────┬────┘
+                   │
+          ┌────────────────┐
+          │      CHF       │
+          │                │
+          │  Tinh cuoc     │
+          │  Hoi tu        │
+          └───────┬────────┘
+        ┌─────────┼─────────┐
+        │         │         │
+        ▼         ▼         ▼
+   ┌─────────┐ ┌─────────┐ ┌─────────┐
+   │   SMF   │ │   SMSF  │ │   NEF   │
+   │  Nchf   │ │  Nchf   │ │  Nchf   │
+   └─────────┘ └─────────┘ └─────────┘
+   
+   Su dung     Su kien     Su dung
+   du lieu     SMS         API
+   
+              ┌─────────┐
+              │ Billing │
+              │ /OFCS   │
+              └─────────┘
+              CDR, offline
+```
+
+### Tu OCS/OFCS sang CHF
+
+```
+So sanh Tinh cuoc 4G vs 5G:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  4G (EPC):                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  OCS (Online Charging System)                    │    │
+│  │  - Giao dien Gy tu PGW (Diameter)               │    │
+│  │  - Kiem soat credit thoi gian thuc              │    │
+│  │                                                  │    │
+│  │  OFCS (Offline Charging System)                 │    │
+│  │  - Giao dien Gz tu PGW (Diameter)               │    │
+│  │  - Thu thap CDR cho tra sau                     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  5G (5GC):                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  CHF (Converged Charging Function)              │    │
+│  │  - Giao dien Nchf (HTTP/2)                      │    │
+│  │  - Ket hop online + offline                     │    │
+│  │  - Giao dien thong nhat cho tat ca NF           │    │
+│  │  - Dua tren session va su kien                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Thay doi chinh: Mot chuc nang xu ly ca kiem soat       │
+│  credit thoi gian thuc (tra truoc) va tao CDR (tra sau) │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Vong doi session tinh cuoc
+
+```
+Luong Tinh cuoc Session Du lieu:
+
+SMF                    CHF                    Billing
+│                       │                       │
+│ Nchf_Converged       │                       │
+│ Charging_Create      │                       │
+│ (SUPI, DNN, S-NSSAI) │                       │
+│──────────────────────►│                       │
+│                       │                       │
+│                       │ Kiem tra tai khoan   │
+│                       │ thue bao, ap dung    │
+│                       │ rating               │
+│                       │                       │
+│ Charging_Create_Resp │                       │
+│ (quota duoc cap,     │                       │
+│  hoac khong gioi han)│                       │
+│◄──────────────────────│                       │
+│                       │                       │
+│                       │                       │
+│ ... luu luong chay...│                       │
+│                       │                       │
+│                       │                       │
+│ Nchf_Converged       │                       │
+│ Charging_Update      │                       │
+│ (luong da dung,      │                       │
+│  yeu cau them quota) │                       │
+│──────────────────────►│                       │
+│                       │                       │
+│                       │ Tru tu so du          │
+│                       │ hoac tich luy CDR    │
+│                       │                       │
+│ Charging_Update_Resp │                       │
+│ (quota moi hoac      │                       │
+│  hanh dong cuoi)     │                       │
+│◄──────────────────────│                       │
+│                       │                       │
+│ ... session ket thuc │                       │
+│                       │                       │
+│ Nchf_Converged       │                       │
+│ Charging_Release     │                       │
+│ (su dung cuoi)       │                       │
+│──────────────────────►│                       │
+│                       │                       │
+│                       │ Tao CDR              │
+│                       │──────────────────────►│
+│                       │                       │
+```
+
+### Tinh cuoc online vs offline
+
+```
+Cac Che do Tinh cuoc:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Tinh cuoc Online (Tra truoc):                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. SMF yeu cau quota truoc session             │    │
+│  │  2. CHF kiem tra so du, cap quota               │    │
+│  │  3. SMF theo doi su dung so voi quota           │    │
+│  │  4. Truoc khi het quota, yeu cau them           │    │
+│  │  5. Neu het so du, session bi throttle/release  │    │
+│  │                                                  │    │
+│  │  Kiem tra so du thoi gian thuc, tru ngay        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Tinh cuoc Offline (Tra sau):                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. SMF thong bao CHF bat dau session           │    │
+│  │  2. SMF bao cao su dung dinh ky                 │    │
+│  │  3. CHF tich luy du lieu su dung                │    │
+│  │  4. Session ket thuc, CHF tao CDR               │    │
+│  │  5. CDR gui den billing de lap hoa don          │    │
+│  │                                                  │    │
+│  │  Khong kiem tra thoi gian thuc, tinh sau        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Quan ly quota
+
+```
+Cap va Theo doi Quota:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  So du thue bao: 500 MB                                 │
+│                                                          │
+│  Buoc 1: Bat dau session                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ SMF → CHF: Tao session tinh cuoc                │    │
+│  │ CHF → SMF: Cap 100 MB quota                     │    │
+│  │ Con lai: 500 MB (dat truoc 100 MB)              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Buoc 2: Sau khi dung 80 MB (dat nguong)               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ SMF → CHF: Bao cao da dung 80 MB, yeu cau them  │    │
+│  │ CHF → SMF: Tru 80 MB, cap them 100 MB           │    │
+│  │ Con lai: 420 MB (dat truoc 100 MB)              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Buoc 3: Het so du                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ SMF → CHF: Yeu cau them quota                   │    │
+│  │ CHF → SMF: Khong co quota (so du = 0)           │    │
+│  │ SMF: Ap dung hanh dong cuoi (redirect/chan)     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Rating va bieu gia
+
+```
+Logic Rating:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dau vao cho Rating:                                    │
+│  ├── Loai dich vu (du lieu, thoai, SMS)                │
+│  ├── Goi thue bao (premium, co ban)                    │
+│  ├── Thoi gian trong ngay (gio cao diem, thap diem)    │
+│  ├── Vi tri (nha, roaming)                             │
+│  ├── Network slice                                      │
+│  └── Loai noi dung (video, mang xa hoi)                │
+│                                                          │
+│  Vi du Quy tac Rating:                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Quy tac 1: Du lieu tai nha                     │    │
+│  │  - Gia: $0.01/MB                                │    │
+│  │  - Ap dung: vi tri=nha, dich vu=du lieu         │    │
+│  │                                                  │    │
+│  │  Quy tac 2: Du lieu roaming                     │    │
+│  │  - Gia: $0.50/MB                                │    │
+│  │  - Ap dung: vi tri=roaming, dich vu=du lieu     │    │
+│  │                                                  │    │
+│  │  Quy tac 3: Xem video (zero-rated)              │    │
+│  │  - Gia: $0.00/MB                                │    │
+│  │  - Ap dung: sponsor=Netflix, dich vu=video      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cau truc CDR
+
+```
+Cac Truong Charging Data Record:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Thong tin Thue bao:                                    │
+│  ├── SUPI / GPSI                                       │
+│  ├── ID thue bao                                       │
+│  └── PLMN ID                                           │
+│                                                          │
+│  Thong tin Session:                                     │
+│  ├── PDU session ID                                    │
+│  ├── DNN                                               │
+│  ├── S-NSSAI                                           │
+│  ├── UPF ID                                            │
+│  └── Dia chi IP UE                                     │
+│                                                          │
+│  Du lieu Su dung:                                       │
+│  ├── Luong (byte UL, byte DL)                          │
+│  ├── Thoi luong (giay)                                 │
+│  ├── Thoi gian bat dau, ket thuc                       │
+│  └── Phan tich theo QoS flow                           │
+│                                                          │
+│  Thong tin Tinh cuoc:                                   │
+│  ├── ID tinh cuoc                                      │
+│  ├── Nhom rating                                       │
+│  ├── So tien tinh                                      │
+│  └── Phuong thuc tinh cuoc (online/offline)            │
+│                                                          │
+│  Vi tri:                                                │
+│  ├── Cell ID / TAI                                     │
+│  └── Thong tin vi tri nguoi dung                       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cac tinh huong tinh cuoc pho bien:**
+
+| Tinh huong | Hanh vi CHF | Ket qua |
+|------------|-------------|---------|
+| Goi video tra truoc | Cap quota thoai, theo doi phut | Tru tu so du |
+| Roaming tra sau | Tich luy CDR roaming | Tinh cuoi thang |
+| Kich hoat gioi han du lieu | Thong bao PCF tai nguong | Policy throttle toc do |
+| Zero-rating | Khong tinh noi dung sponsor | Theo doi su dung, khong tinh tien |
+| Slice doanh nghiep | Ap dung gia doanh nghiep | Gia khac nhau |
+
+**Debug tinh cuoc:**
+
+```bash
+# Wireshark: hoat dong dich vu CHF
+http2.header.path contains "nchf-convergedcharging"
+
+# Tao/cap nhat/giai phong tinh cuoc
+http2.header.method == "POST" && http2.header.path contains "chargingData"
+
+# Kiem tra quota duoc cap
+grep "grantedUnit" /var/log/smf/*.log
+
+# Dau ra CDR
+ls -la /var/spool/chf/cdr/
+```
+
+**Cac hoat dong API chinh:**
+
+| Hoat dong | Muc dich |
+|-----------|----------|
+| ChargingDataCreate | Bat dau session tinh cuoc |
+| ChargingDataUpdate | Bao cao su dung, lay them quota |
+| ChargingDataRelease | Ket thuc session, su dung cuoi |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **CHF khong kha dung.** Neu CHF bi loi, nguoi dung tra truoc khong the ket noi. Can policy du phong (quota gioi han, chi khan cap).
+
+2. **Race condition het quota.** Nguoi dung co the vuot quota giua cap nhat va thuc thi. Cho phep dung sai nho.
+
+3. **Loi rating.** Ap dung sai bieu gia = tranh chap billing. Xac nhan quy tac rating ky luong.
+
+4. **Mat CDR.** CDR phai duoc luu tru dang tin cay. Mat chung = mat doanh thu. Dung luu tru ben vung, sao chep.
+
+5. **Tinh cuoc roaming.** Tinh cuoc nha vs visited phu thuoc thoa thuan roaming. Can mediation phuc tap.
+
+6. **Tinh cuoc multi-slice.** Cac slice khac nhau co the co gia khac nhau. Dam bao context slice trong yeu cau tinh cuoc.
+
+7. **Phuc tap tinh cuoc hoi tu.** Ket hop online+offline trong mot chuc nang tang do phuc tap. Can phan tach logic ro rang.
+
+8. **Anh huong do tre.** Tinh cuoc online them do tre vao thiet lap session. Toi uu hieu suat CHF.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 32.240, "Charging Architecture and Principles"
+- 3GPP TS 32.255, "5G Data Connectivity Charging"
+- 3GPP TS 29.594, "Nchf Services"
+- 3GPP TS 32.291, "5G Charging Data Record Format"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Tinh cuoc online/offline](/vi/core-network/policy-and-charging/online-offline-charging/) — so sanh chi tiet
+- [Quy tac policy](/vi/core-network/policy-and-charging/policy-and-charging-rules/) — quy tac PCC hoat dong voi tinh cuoc
+- [Tong quan PCF](/vi/core-network/policy-and-charging/pcf-overview/) — phia policy cua PCC
+
+</section>

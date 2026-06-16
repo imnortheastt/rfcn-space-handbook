@@ -8,17 +8,331 @@ track: n3
 unit: identifiers
 order: 1
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n1-5g-core-functions-02-ausf-and-udm"]
+spiralRevisits: ["core-network-n4-security-02-5g-aka"]
 title: "SUPI and SUCI"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Subscription Permanent Identifier and Subscription Concealed Identifier — identity in 5G."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 23.003", "3GPP TS 33.501"]
+tags: ["supi", "suci", "identity", "5g", "privacy"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# SUPI and SUCI
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+In 4G, your IMSI flew over the air in cleartext. Anyone with a fake base station could grab it and track you.
+
+5G fixes this with **SUCI** — an encrypted version of your identity. Understanding SUPI and SUCI is essential for 5G security and troubleshooting authentication.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What is SUPI?
+
+**SUPI (Subscription Permanent Identifier)** is the globally unique, permanent identity of a subscriber in 5G. It's like your IMSI, but never sent over the air in cleartext.
+
+```
+SUPI structure:
+
+┌─────────────────────────────────────────────────────────┐
+│                        SUPI                              │
+│                                                          │
+│  IMSI-based:  IMSI = MCC + MNC + MSIN                   │
+│               Example: 310260123456789                  │
+│                        │││││                            │
+│                        │││││                            │
+│                        │││└─ MSIN (subscriber ID)       │
+│                        │└── MNC (network code)          │
+│                        └─── MCC (country code)          │
+│                                                          │
+│  NAI-based:   user@realm                                │
+│               Example: user@example.com                 │
+│               (for non-3GPP access, IoT)                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**SUPI is:**
+- Stored in UDM (Unified Data Management)
+- Known to the home network
+- Never transmitted over the radio interface
+- Used internally for subscriber management
+
+### What is SUCI?
+
+**SUCI (Subscription Concealed Identifier)** is the encrypted form of SUPI, sent over the air during authentication.
+
+```
+SUCI construction:
+
+SUPI: 310260123456789
+        │
+        ▼
+┌───────────────────────────────────────┐
+│         ECIES Encryption               │
+│  (Home Network Public Key)            │
+└───────────────────────────────────────┘
+        │
+        ▼
+SUCI: suci-0-310-260-0-0-0-<encrypted_MSIN>
+      │     │    │   │ │ │
+      │     │    │   │ │ └─ Encrypted MSIN
+      │     │    │   │ └─── Protection scheme ID
+      │     │    │   └───── Home network public key ID
+      │     │    └───────── Routing indicator
+      │     └────────────── MCC-MNC (cleartext for routing)
+      └──────────────────── SUCI prefix
+```
+
+**Key insight:** MCC and MNC are sent in cleartext (needed for routing to home network), but the MSIN (which identifies you) is encrypted.
+
+### SUPI vs SUCI vs IMSI
+
+| Identifier | Network | Where used | Over the air? | Encrypted? |
+|------------|---------|------------|---------------|------------|
+| IMSI | 4G | All procedures | Yes | No |
+| SUPI | 5G | Internal only | Never | N/A |
+| SUCI | 5G | Registration | Yes | Yes (MSIN part) |
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### SUCI generation
+
+The UE generates SUCI from SUPI using the home network's public key:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                         UE                               │
+│                                                          │
+│  USIM stores:                                           │
+│  ├── SUPI (permanent identity)                          │
+│  ├── Home Network Public Key                            │
+│  ├── Protection Scheme ID                               │
+│  └── Routing Indicator                                  │
+│                                                          │
+│  SUCI = f(SUPI, HN_PubKey, Protection_Scheme)          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Protection schemes:**
+
+| Scheme ID | Name | Description |
+|-----------|------|-------------|
+| 0 | Null scheme | No encryption (testing only) |
+| 1 | Profile A | ECIES with Curve25519 |
+| 2 | Profile B | ECIES with secp256r1 |
+
+### Authentication flow
+
+```
+UE                      gNB                     AMF                     AUSF/UDM
+│                        │                       │                          │
+│   Registration Req     │                       │                          │
+│   (with SUCI)          │                       │                          │
+│───────────────────────►│──────────────────────►│                          │
+│                        │                       │                          │
+│                        │                       │   Auth Request           │
+│                        │                       │   (with SUCI)            │
+│                        │                       │─────────────────────────►│
+│                        │                       │                          │
+│                        │                       │        ┌─────────────────┤
+│                        │                       │        │ Decrypt SUCI    │
+│                        │                       │        │ to get SUPI     │
+│                        │                       │        └─────────────────┤
+│                        │                       │                          │
+│                        │                       │   Auth Response          │
+│                        │                       │   (SUPI + Auth vectors)  │
+│                        │                       │◄─────────────────────────│
+│                        │                       │                          │
+│   Authentication       │                       │                          │
+│   Challenge            │                       │                          │
+│◄──────────────────────────────────────────────│                          │
+```
+
+**Key points:**
+1. UE sends SUCI (encrypted)
+2. Network routes to home AUSF/UDM using cleartext MCC/MNC
+3. UDM decrypts SUCI to recover SUPI
+4. SUPI used internally; never sent back over radio
+
+### SUCI structure breakdown
+
+```
+SUCI format: suci-<type>-<MCC>-<MNC>-<routing_ind>-<protection_scheme_id>-<hn_pubkey_id>-<scheme_output>
+
+Example: suci-0-310-260-1234-1-2-<encrypted_blob>
+
+Parsing:
+┌──────────────────────────────────────────────────────────────────┐
+│ Field                │ Value    │ Meaning                        │
+├──────────────────────┼──────────┼────────────────────────────────┤
+│ SUPI type            │ 0        │ IMSI-based SUPI                │
+│ MCC                  │ 310      │ USA                            │
+│ MNC                  │ 260      │ T-Mobile                       │
+│ Routing indicator    │ 1234     │ Route to specific AUSF         │
+│ Protection scheme    │ 1        │ Profile A (Curve25519)         │
+│ HN public key ID     │ 2        │ Which public key was used      │
+│ Scheme output        │ <blob>   │ Encrypted MSIN                 │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Null scheme (testing)
+
+For testing, SUCI can use null scheme (no encryption):
+
+```
+Null scheme SUCI:
+suci-0-310-260-0-0-0-123456789
+                │     │
+                │     └── MSIN in cleartext (!)
+                └──────── Scheme ID 0 = null
+```
+
+**Warning:** Null scheme defeats the privacy protection. Only use for lab testing.
+
+### Key provisioning
+
+The home network public key must be provisioned in the USIM:
+
+```
+Key management:
+
+Home Network (UDM)              USIM Provisioning
+       │                               │
+       │  1. Generate key pair         │
+       │  ┌─────────────────┐          │
+       │  │ Private Key     │          │
+       │  │ (stays in UDM)  │          │
+       │  │                 │          │
+       │  │ Public Key      │──────────┼───► Embedded in USIM
+       │  │ + Key ID        │          │     at manufacturing
+       │  └─────────────────┘          │
+       │                               │
+       │  2. Key rotation              │
+       │  ┌─────────────────┐          │
+       │  │ New key pair    │          │
+       │  │ Key ID = N+1    │──────────┼───► OTA update to USIM
+       │  └─────────────────┘          │     (challenging)
+       │                               │
+```
+
+**Key rotation challenge:** Changing the public key requires updating all USIMs — a major operational hurdle.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Debugging SUCI issues:**
+
+| Symptom | Possible cause | Check |
+|---------|----------------|-------|
+| Auth fails at UDM | Wrong public key in USIM | Verify key ID matches UDM |
+| UE sends null-scheme | USIM not provisioned | Check USIM profile |
+| Routing fails | Wrong routing indicator | Verify AUSF routing config |
+| Decryption fails | Key mismatch | Compare key IDs |
+
+**Wireshark analysis:**
+
+```
+In NAS messages, look for:
+
+Registration Request:
+  5GS mobile identity
+    Type: SUCI
+    SUPI format: IMSI
+    Home network identifier: MCC=310, MNC=260
+    Routing indicator: 0
+    Protection scheme ID: 1
+    Home network public key ID: 1
+    Scheme output: <hex blob>
+```
+
+**Testing SUCI:**
+
+```bash
+# Generate test SUCI (with proper tooling)
+# Input: SUPI, HN public key, scheme
+# Output: SUCI string
+
+# Verify SUCI decryption (at UDM)
+# Input: SUCI, HN private key
+# Output: SUPI
+
+# Common test scenarios:
+# 1. Valid SUCI with Profile A
+# 2. Valid SUCI with Profile B
+# 3. Null scheme (should work in test mode)
+# 4. Wrong key ID (should fail)
+# 5. Corrupted scheme output (should fail)
+```
+
+**Operator considerations:**
+
+| Decision | Trade-off |
+|----------|-----------|
+| Profile A vs B | A is faster, B is more widely supported |
+| Key rotation | Security vs operational complexity |
+| Routing indicator | Multi-AUSF support vs simplicity |
+| Null scheme in test | Convenience vs security hygiene |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Thinking SUCI provides full anonymity.** MCC/MNC are cleartext. An attacker knows your home network, just not your specific identity.
+
+2. **Using null scheme in production.** Null scheme sends MSIN in cleartext — no better than 4G. Ensure production USIMs have proper keys.
+
+3. **Key rotation logistics.** Changing the home network public key means updating millions of USIMs. Plan carefully.
+
+4. **Multiple public keys.** Supporting key rotation means UDM must try multiple private keys. Ensure fallback logic is correct.
+
+5. **SUCI linkability.** Same SUPI generates different SUCI each time (ECIES randomness), but a flawed implementation might not randomize properly.
+
+6. **Roaming complexity.** Visited network sees SUCI, routes to home network. Ensure home network routing is configured correctly.
+
+7. **USIM vs ME.** SUCI generation happens in USIM, not the phone's baseband. USIM must support 5G authentication.
+
+8. **Testing vs production config.** Lab USIMs with null scheme accidentally deployed to production will have no privacy protection.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.003, "Numbering, addressing and identification"
+- 3GPP TS 33.501, "Security architecture and procedures for 5G System"
+- 3GPP TS 33.102, "3G Security; Security architecture"
+- GSMA, "5G Security Guidelines"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [GUTI and 5G-TMSI](/en/core-network/identifiers/guti-and-5g-tmsi/) — temporary identifiers
+- [5G-AKA authentication](/en/core-network/security/5g-aka/) — full authentication procedure
+- [AUSF and UDM](/en/core-network/5g-core-functions/ausf-and-udm/) — where SUCI is decrypted
+
+</section>

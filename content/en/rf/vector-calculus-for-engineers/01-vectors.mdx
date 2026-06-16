@@ -8,12 +8,12 @@ track: r0
 unit: vector-calculus-for-engineers
 order: 1
 level: L1
-estimatedReadingMinutes: 8
+estimatedReadingMinutes: 12
 prerequisites: []
 spiralRevisits: []
 title: "Vectors"
 description: "Vectors as the language of fields and forces in RF engineering."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,9 @@ status: published
 
 ## Why vectors?
 
-Electric and magnetic fields have both magnitude and direction at every point in space. A scalar like "5 V/m" tells you how strong the field is — but not where it points. Vectors encode both pieces of information, making them the natural language for describing fields, forces, and wave propagation in RF engineering.
+Electric and magnetic fields have both magnitude and direction at every point in space. A scalar like "5 V/m" tells you how strong the field is — but not where it points. A radio wave arriving at your antenna carries power in a specific direction, is polarized along a specific axis, and induces a voltage that depends critically on the angle between field and antenna element. Scalars cannot capture any of that.
 
-Every antenna pattern, every electromagnetic simulation, every link budget that accounts for polarization relies on vector operations. Master vectors and you speak the native tongue of RF.
+Vectors encode both magnitude and direction simultaneously, making them the native language of RF engineering. Every antenna radiation pattern, every EM simulation, every link budget that accounts for polarization mismatch, and every derivation of Maxwell's equations depends on fluent vector algebra. If you only do one thing before studying electromagnetics, make it this lesson.
 
 </section>
 
@@ -37,11 +37,33 @@ Every antenna pattern, every electromagnetic simulation, every link budget that 
 
 ## Intuition
 
-A vector is an arrow: length encodes magnitude, direction encodes where it points. Two vectors with the same length and direction are equal, regardless of where you draw them — vectors are free to slide around in space.
+### What a vector is
 
-The **unit vector** strips away magnitude, leaving only direction. Given a vector $\mathbf{v}$, its unit vector is $\hat{\mathbf{v}} = \mathbf{v}/|\mathbf{v}|$. Unit vectors let you separate "how much" from "which way."
+A vector is an arrow: its length encodes magnitude, its tip points in the direction. Two arrows with the same length and direction are equal — vectors are location-independent (free vectors). You can slide an arrow anywhere in space without changing it.
 
-In RF, you will constantly decompose vectors into components along coordinate axes. The three standard coordinate systems — Cartesian, cylindrical, and spherical — each have their own set of unit vectors. Choosing the right one simplifies calculations enormously.
+The **unit vector** strips away magnitude and keeps only direction. Given any non-zero vector $\mathbf{v}$, its unit vector is:
+
+$$\hat{\mathbf{v}} = \frac{\mathbf{v}}{|\mathbf{v}|}$$
+
+Unit vectors always have magnitude 1. They let you cleanly separate "how much" from "which direction." In RF, the polarization direction of an antenna is expressed as a unit vector.
+
+### Why direction matters in RF
+
+Consider a half-wave dipole aligned along $\hat{\mathbf{z}}$. When an incoming wave's electric field points along $\hat{\mathbf{z}}$, maximum voltage is induced. When the field points along $\hat{\mathbf{x}}$ (perpendicular to the antenna), zero voltage is induced — complete polarization mismatch. The dot product (covered below) quantifies this alignment, but you need vectors to express it at all.
+
+Similarly, the Poynting vector $\mathbf{S} = \mathbf{E} \times \mathbf{H}$ — which tells you the direction and magnitude of power flow — is fundamentally a vector operation. You cannot know where power is going without tracking direction.
+
+### Choosing a coordinate system
+
+Three standard coordinate systems cover virtually all RF problems:
+
+- **Cartesian** $(x, y, z)$: best for rectangular structures like PCB traces, patch antennas, and parallel-plate capacitors. Unit vectors $\hat{\mathbf{x}}, \hat{\mathbf{y}}, \hat{\mathbf{z}}$ are constant everywhere — they never change direction as you move.
+
+- **Cylindrical** $(\rho, \phi, z)$: best for coaxial cables, round waveguides, and any structure with an axis of symmetry. The $\hat{\boldsymbol{\rho}}$ and $\hat{\boldsymbol{\phi}}$ unit vectors rotate with position — they always point radially out and tangentially around the $z$-axis at the current point.
+
+- **Spherical** $(r, \theta, \phi)$: best for antenna radiation patterns and far-field analysis. The unit vectors $\hat{\mathbf{r}}, \hat{\boldsymbol{\theta}}, \hat{\boldsymbol{\phi}}$ depend on where you are on the sphere.
+
+Choosing the right system can turn a three-page integral into a three-line calculation.
 
 </section>
 
@@ -49,41 +71,66 @@ In RF, you will constantly decompose vectors into components along coordinate ax
 
 ## Mechanism
 
-### Vector notation
-
-A vector in 3D Cartesian coordinates:
+### Vector notation in Cartesian coordinates
 
 $$\mathbf{v} = v_x\,\hat{\mathbf{x}} + v_y\,\hat{\mathbf{y}} + v_z\,\hat{\mathbf{z}}$$
 
-Magnitude:
+The scalars $v_x, v_y, v_z$ are called **components** or **projections**. They can be positive, negative, or zero.
+
+**Magnitude** (always non-negative):
 
 $$|\mathbf{v}| = \sqrt{v_x^2 + v_y^2 + v_z^2}$$
 
-### Dot product
+**Unit vector:**
 
-The dot product (scalar product) measures alignment:
+$$\hat{\mathbf{v}} = \frac{v_x\,\hat{\mathbf{x}} + v_y\,\hat{\mathbf{y}} + v_z\,\hat{\mathbf{z}}}{\sqrt{v_x^2 + v_y^2 + v_z^2}}$$
+
+### Dot product (scalar product)
+
+The dot product measures how much two vectors align:
 
 $$\mathbf{a} \cdot \mathbf{b} = |\mathbf{a}||\mathbf{b}|\cos\theta = a_x b_x + a_y b_y + a_z b_z$$
 
-Result is a scalar. Perpendicular vectors have zero dot product.
+The result is a **scalar**. Key properties:
+- Perpendicular vectors: $\mathbf{a} \cdot \mathbf{b} = 0$ (since $\cos 90° = 0$)
+- Parallel vectors: $\mathbf{a} \cdot \mathbf{b} = |\mathbf{a}||\mathbf{b}|$ (maximum alignment)
+- The dot product of a vector with a unit vector gives the **component** along that direction: $v_x = \mathbf{v} \cdot \hat{\mathbf{x}}$
 
-### Cross product
+**RF use:** Polarization efficiency of a receiving antenna. If the incoming field is $\mathbf{E}$ and the antenna's polarization direction is $\hat{\mathbf{p}}$, the effective received field amplitude is $\mathbf{E} \cdot \hat{\mathbf{p}}$.
 
-The cross product produces a vector perpendicular to both inputs:
+### Cross product (vector product)
+
+The cross product produces a vector **perpendicular to both** inputs:
 
 $$\mathbf{a} \times \mathbf{b} = \begin{vmatrix} \hat{\mathbf{x}} & \hat{\mathbf{y}} & \hat{\mathbf{z}} \\ a_x & a_y & a_z \\ b_x & b_y & b_z \end{vmatrix}$$
 
-Magnitude: $|\mathbf{a} \times \mathbf{b}| = |\mathbf{a}||\mathbf{b}|\sin\theta$
+Expanding the determinant:
 
-Direction: right-hand rule. Parallel vectors have zero cross product.
+$$\mathbf{a} \times \mathbf{b} = (a_y b_z - a_z b_y)\,\hat{\mathbf{x}} - (a_x b_z - a_z b_x)\,\hat{\mathbf{y}} + (a_x b_y - a_y b_x)\,\hat{\mathbf{z}}$$
 
-### Coordinate systems
+**Magnitude:** $|\mathbf{a} \times \mathbf{b}| = |\mathbf{a}||\mathbf{b}|\sin\theta$
 
-| System | Unit vectors | Use case |
-|--------|--------------|----------|
-| Cartesian | $\hat{\mathbf{x}}, \hat{\mathbf{y}}, \hat{\mathbf{z}}$ | Planar structures, PCB layouts |
-| Cylindrical | $\hat{\boldsymbol{\rho}}, \hat{\boldsymbol{\phi}}, \hat{\mathbf{z}}$ | Coaxial cables, waveguides |
-| Spherical | $\hat{\mathbf{r}}, \hat{\boldsymbol{\theta}}, \hat{\boldsymbol{\phi}}$ | Antenna radiation patterns |
+**Direction:** right-hand rule — curl fingers from $\mathbf{a}$ toward $\mathbf{b}$, thumb points along $\mathbf{a} \times \mathbf{b}$.
+
+Critical: $\mathbf{a} \times \mathbf{b} = -(\mathbf{b} \times \mathbf{a})$. Order matters — swapping inputs flips the sign.
+
+**RF use:** The Poynting vector $\mathbf{S} = \mathbf{E} \times \mathbf{H}$ gives the direction and density of electromagnetic power flow. If $\mathbf{E} = E_0\,\hat{\mathbf{x}}$ and $\mathbf{H} = H_0\,\hat{\mathbf{y}}$, then $\mathbf{S} = E_0 H_0\,\hat{\mathbf{z}}$ — power propagates in $+z$.
+
+### Coordinate conversion
+
+Converting between coordinate systems is essential when combining results. The key relations are:
+
+**Cartesian to cylindrical:**
+$$\rho = \sqrt{x^2 + y^2}, \quad \phi = \arctan(y/x), \quad z = z$$
+
+**Cartesian to spherical:**
+$$r = \sqrt{x^2 + y^2 + z^2}, \quad \theta = \arccos(z/r), \quad \phi = \arctan(y/x)$$
+
+| System | Unit vectors | Direction constancy | Use case |
+|--------|-------------|---------------------|----------|
+| Cartesian | $\hat{\mathbf{x}}, \hat{\mathbf{y}}, \hat{\mathbf{z}}$ | Fixed everywhere | PCB layouts, rectangular waveguides |
+| Cylindrical | $\hat{\boldsymbol{\rho}}, \hat{\boldsymbol{\phi}}, \hat{\mathbf{z}}$ | Rotate with $\phi$ | Coaxial cables, round conductors |
+| Spherical | $\hat{\mathbf{r}}, \hat{\boldsymbol{\theta}}, \hat{\boldsymbol{\phi}}$ | Rotate with $\theta, \phi$ | Antenna far-field, radiation patterns |
 
 </section>
 
@@ -91,25 +138,43 @@ Direction: right-hand rule. Parallel vectors have zero cross product.
 
 ## Apply
 
-**Example: Electric field decomposition**
+### Example 1: Polarization mismatch loss
 
-An antenna produces an electric field at a point:
+An incoming wave has electric field $\mathbf{E} = 3\,\hat{\mathbf{x}} + 4\,\hat{\mathbf{y}}$ V/m.
 
-$$\mathbf{E} = 3\,\hat{\mathbf{x}} + 4\,\hat{\mathbf{y}} \text{ V/m}$$
-
-Magnitude:
-
+**Total field magnitude:**
 $$|\mathbf{E}| = \sqrt{3^2 + 4^2} = 5 \text{ V/m}$$
 
-Unit vector (direction of polarization):
-
+**Polarization direction of wave:**
 $$\hat{\mathbf{E}} = \frac{3}{5}\hat{\mathbf{x}} + \frac{4}{5}\hat{\mathbf{y}}$$
 
-If a receiving antenna is polarized along $\hat{\mathbf{y}}$ only, it captures:
+A receiving antenna is polarized along $\hat{\mathbf{y}}$ only. The received field amplitude:
+$$E_\text{received} = \mathbf{E} \cdot \hat{\mathbf{y}} = 4 \text{ V/m}$$
 
-$$\mathbf{E} \cdot \hat{\mathbf{y}} = 4 \text{ V/m}$$
+The 3 V/m in $\hat{\mathbf{x}}$ is wasted — polarization mismatch.
 
-The 3 V/m in the $\hat{\mathbf{x}}$ direction is lost — a polarization mismatch.
+**Mismatch loss in dB:**
+$$L_\text{pol} = 20\log_{10}\!\left(\frac{4}{5}\right) \approx -1.94 \text{ dB}$$
+
+This ~2 dB loss occurs every time transmit and receive polarizations are misaligned. In real link budgets, this is a genuine impairment.
+
+### Example 2: Poynting vector direction
+
+An RF wave in free space has:
+$$\mathbf{E} = 100\,\hat{\mathbf{x}} \text{ V/m}, \quad \mathbf{H} = \frac{100}{377}\,\hat{\mathbf{y}} \text{ A/m}$$
+
+Power flow direction and density:
+$$\mathbf{S} = \mathbf{E} \times \mathbf{H} = 100 \cdot \frac{100}{377}\,(\hat{\mathbf{x}} \times \hat{\mathbf{y}}) = \frac{10000}{377}\,\hat{\mathbf{z}} \approx 26.5\,\hat{\mathbf{z}} \text{ W/m}^2$$
+
+Power flows in $+\hat{\mathbf{z}}$, as expected for a wave propagating in that direction.
+
+### Example 3: Antenna element selection by coordinate system
+
+An antenna radiates from the origin. You need field strength at a point 10 m away at 30° elevation and 45° azimuth.
+
+In spherical coordinates: the observation point is simply $(r, \theta, \phi) = (10\,\text{m},\, 60°,\, 45°)$ (where $\theta$ is the polar angle from $+z$). Expressing antenna patterns in $(\theta, \phi)$ directly maps to this — no coordinate juggling needed.
+
+If you tried Cartesian, you would need $(x, y, z) = (10\sin 60°\cos 45°,\, 10\sin 60°\sin 45°,\, 10\cos 60°) \approx (6.12,\, 6.12,\, 5)$ m, making the antenna pattern expressions far more complex.
 
 </section>
 
@@ -117,13 +182,15 @@ The 3 V/m in the $\hat{\mathbf{x}}$ direction is lost — a polarization mismatc
 
 ## Pitfalls
 
-1. **Confusing magnitude with component.** $|\mathbf{v}|$ is always non-negative. A component like $v_x$ can be negative.
+1. **Confusing magnitude with component.** $|\mathbf{v}|$ is always non-negative. A component like $v_x$ can be negative — it just means the vector points in the $-x$ direction along that axis. Beginners sometimes write $|\mathbf{E}| = E_x$, which fails the moment $E_x < 0$.
 
-2. **Mixing coordinate systems.** Spherical unit vectors $\hat{\boldsymbol{\theta}}$ and $\hat{\boldsymbol{\phi}}$ change direction as you move around the sphere. You cannot simply add vectors expressed in spherical coordinates at different points without converting to Cartesian first.
+2. **Adding vectors from different coordinate systems.** Spherical unit vectors $\hat{\boldsymbol{\theta}}$ and $\hat{\boldsymbol{\phi}}$ change direction as you move around the sphere. You cannot add $\hat{\boldsymbol{\theta}}$ at one point to $\hat{\boldsymbol{\theta}}$ at another point — they point in different physical directions. Always convert to Cartesian before adding vectors from different spatial locations.
 
-3. **Right-hand rule errors.** The cross product $\mathbf{a} \times \mathbf{b}$ is not the same as $\mathbf{b} \times \mathbf{a}$. They differ by a sign.
+3. **Cross product anticommutativity.** $\mathbf{a} \times \mathbf{b} = -(\mathbf{b} \times \mathbf{a})$. Getting the Poynting vector direction wrong by swapping $\mathbf{E}$ and $\mathbf{H}$ flips your power-flow direction by 180°.
 
-4. **Forgetting normalization.** A unit vector must have magnitude 1. Forgetting to divide by $|\mathbf{v}|$ produces incorrect polarization vectors.
+4. **Forgetting normalization.** A unit vector must have magnitude exactly 1. When expressing polarization or surface normals, skipping the division by $|\mathbf{v}|$ silently produces incorrect results — especially in dot product calculations where the formula assumes unit vectors.
+
+5. **Scalar vs. vector field confusion.** Temperature is a scalar field — one number per point. Electric field is a vector field — three numbers per point. The distinction matters immediately when you apply differential operators like gradient (next lesson).
 
 </section>
 
@@ -131,7 +198,8 @@ The 3 V/m in the $\hat{\mathbf{x}}$ direction is lost — a polarization mismatc
 
 ## References
 
-- Griffiths, *Introduction to Electrodynamics*, Chapter 1 — thorough treatment of vector algebra and coordinate systems.
-- Sadiku, *Elements of Electromagnetics*, Chapter 1 — vector analysis with RF/antenna emphasis.
+- Griffiths, *Introduction to Electrodynamics*, Chapter 1 — thorough treatment of vector algebra and coordinate systems, with excellent worked examples.
+- Sadiku, *Elements of Electromagnetics*, Chapter 1 — vector analysis with RF/antenna emphasis, including coordinate transformation tables.
+- Hayt & Buck, *Engineering Electromagnetics*, Chapter 1 — engineering-focused vector review with field applications.
 
 </section>

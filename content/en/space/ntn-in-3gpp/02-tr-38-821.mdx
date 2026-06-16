@@ -9,16 +9,584 @@ unit: ntn-in-3gpp
 order: 2
 level: L4
 estimatedReadingMinutes: 5
-title: "TR 38.821 — Solutions for NR to support NTN"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "TR 38.821 — Solutions for NR to Support NTN"
+description: "The 3GPP technical report defining concrete solutions for timing, HARQ, mobility, and beam management in satellite-based 5G NR."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TR 38.821"]
+tags: ["ntn", "3gpp", "5g-nr", "timing-advance", "harq", "mobility"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# TR 38.821 — Solutions for NR to support NTN
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+TR 38.821 is where theory meets engineering. While TR 38.811 identified the challenges of satellite-based 5G, TR 38.821 defines the actual solutions: how to extend timing advance for 600+ km distances, how to modify HARQ for 500+ ms round-trips, and how to handle beam handovers when satellites zip across the sky. This document laid the groundwork for the normative NTN specifications in Release 17.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### From problems to solutions
+
+```
+TR 38.821: Solving the NTN Challenges from TR 38.811
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CHALLENGE (38.811)        │  SOLUTION (38.821)                     │
+│  ──────────────────────────┼──────────────────────────────────────  │
+│  TA limited to 2 ms        │  GNSS-based pre-compensation +         │
+│                            │  TA-Common broadcast + TA-Offset       │
+│                            │                                         │
+│  HARQ timing too short     │  Disabled HARQ or many parallel        │
+│                            │  processes (up to 32)                   │
+│                            │                                         │
+│  Doppler ±48 kHz           │  UE pre-compensation using ephemeris   │
+│                            │  + network assistance                   │
+│                            │                                         │
+│  Fast-moving beams         │  Conditional handover, Earth-fixed     │
+│                            │  beam tracking areas                   │
+│                            │                                         │
+│  Cell reference varies     │  Common TA for cell center +           │
+│                            │  UE-specific differential              │
+│                            │                                         │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key architectural decisions
+
+```
+TR 38.821 Made Three Fundamental Choices:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. GNSS IS MANDATORY FOR NTN UEs                                  │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Without GNSS, the UE cannot:                                  │ │
+│  │    • Pre-compensate propagation delay                          │ │
+│  │    • Pre-compensate Doppler shift                              │ │
+│  │    • Know which beam it's in for handover                      │ │
+│  │                                                                 │ │
+│  │  NTN UE = standard 5G UE + GNSS receiver + ephemeris decoder   │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  2. NETWORK PROVIDES SATELLITE EPHEMERIS                           │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  SIB19 broadcasts:                                             │ │
+│  │    • Satellite position (orbital elements or state vectors)    │ │
+│  │    • Velocity vectors                                          │ │
+│  │    • Common timing reference                                   │ │
+│  │                                                                 │ │
+│  │  UE combines GNSS + ephemeris → computes delay & Doppler      │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  3. TIMING/DOPPLER COMPENSATION SPLIT                              │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Two options studied:                                          │ │
+│  │    A) Full UE compensation (UE handles everything)             │ │
+│  │    B) Network compensation (gNB handles, UE just follows)      │ │
+│  │                                                                 │ │
+│  │  Final choice: Full UE compensation for transparent payload    │ │
+│  │  (simpler satellite, lower cost)                               │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Timing advance solution
+
+```
+TR 38.821 Timing Advance Architecture:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TOTAL TA = TA-Common + TA-Offset + TA-UE                          │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. TA-Common (broadcast in SIB):                              │ │
+│  │     • Reference delay from satellite nadir point              │ │
+│  │     • Shared by all UEs in the beam                            │ │
+│  │     • Updated as satellite moves                               │ │
+│  │     • Granularity: 4.072 μs (16 × Tc × 64)                    │ │
+│  │                                                                 │ │
+│  │  2. TA-Offset (UE-computed from GNSS + ephemeris):            │ │
+│  │     • Difference between UE position and reference point      │ │
+│  │     • UE knows its lat/lon from GNSS                          │ │
+│  │     • UE knows satellite position from ephemeris              │ │
+│  │     • UE computes slant range difference → TA-Offset          │ │
+│  │                                                                 │ │
+│  │  3. TA-UE (standard NR TA adjustment from MAC-CE):            │ │
+│  │     • Fine-tuning from network timing measurements            │ │
+│  │     • Same as terrestrial 5G NR                               │ │
+│  │     • Corrects residual errors                                │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  EXAMPLE (LEO-600, edge of beam):                                  │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  TA-Common (nadir):      4.0 ms                                │ │
+│  │  TA-Offset (edge):       +2.5 ms                               │ │
+│  │  TA-UE (fine adjust):    +0.1 ms                               │ │
+│  │  ─────────────────────────────                                 │ │
+│  │  Total TA:               6.6 ms                                │ │
+│  │                                                                 │ │
+│  │  Standard NR could only express 2 ms — SOLVED!                │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### HARQ modifications
+
+```
+TR 38.821 HARQ Solutions:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  OPTION 1: DISABLED HARQ                                           │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  For GEO (RTT ~540 ms):                                        │ │
+│  │    • HARQ retransmission adds another 540 ms                   │ │
+│  │    • Total latency with one NACK: 1080 ms                      │ │
+│  │    • Better to rely on RLC ARQ (application layer retx)        │ │
+│  │                                                                 │ │
+│  │  UE configured with:                                           │ │
+│  │    • harq-FeedbackDisabled = true                              │ │
+│  │    • Aggressive FEC coding (more redundancy)                   │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  OPTION 2: EXTENDED HARQ PROCESSES                                 │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  For LEO (RTT 4-26 ms):                                        │ │
+│  │    • HARQ still useful (latency manageable)                    │ │
+│  │    • But need more parallel processes                          │ │
+│  │                                                                 │ │
+│  │  Standard NR:   16 HARQ processes                              │ │
+│  │  NTN extended:  Up to 32 HARQ processes                        │ │
+│  │                                                                 │ │
+│  │  Calculation (LEO-600, 30° elevation):                        │ │
+│  │    RTT = 13 ms                                                 │ │
+│  │    Slot duration = 0.5 ms (30 kHz SCS)                        │ │
+│  │    Slots per RTT = 26                                          │ │
+│  │    Minimum processes = 26 (to keep transmitting)               │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  SOFT BUFFER IMPACT:                                               │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  More HARQ processes = more soft buffer memory needed          │ │
+│  │                                                                 │ │
+│  │  Standard: 16 processes × buffer_per_process                   │ │
+│  │  NTN:      32 processes × buffer_per_process = 2× memory       │ │
+│  │                                                                 │ │
+│  │  Solution: Reduce max TBS or accept lower peak throughput     │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Doppler compensation
+
+```
+TR 38.821 Doppler Pre-Compensation:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CHALLENGE: LEO Doppler can exceed subcarrier spacing              │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  LEO-600 at 2 GHz:  ±36 kHz Doppler                           │ │
+│  │  15 kHz SCS:        ICI destroys signal (>100% of SCS)        │ │
+│  │  30 kHz SCS:        Still >100% of SCS                        │ │
+│  │  60 kHz SCS:        ~60% of SCS (marginal)                    │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  SOLUTION: UE pre-compensates before transmission                  │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. UE receives satellite ephemeris in SIB19                   │ │
+│  │  2. UE knows its position from GNSS                            │ │
+│  │  3. UE computes Doppler: f_d = (v · r̂) / c × f_c             │ │
+│  │  4. UE shifts its transmit frequency by -f_d                   │ │
+│  │  5. Signal arrives at satellite with near-zero Doppler        │ │
+│  │                                                                 │ │
+│  │  ┌───────────────────────────────────────────────────────┐    │ │
+│  │  │   UE TX at (f_c - f_d)                                 │    │ │
+│  │  │         │                                              │    │ │
+│  │  │         ▼  (+f_d from motion)                         │    │ │
+│  │  │   Satellite RX at ≈ f_c                               │    │ │
+│  │  │                                                        │    │ │
+│  │  │   Residual Doppler: typically < 1 kHz                 │    │ │
+│  │  │   (within fine AFC range of receiver)                  │    │ │
+│  │  └───────────────────────────────────────────────────────┘    │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  DOWNLINK: Network compensates at gateway transmitter              │
+│  UPLINK:   UE compensates using ephemeris + GNSS                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Mobility management
+
+```
+TR 38.821 Mobility Solutions:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CHALLENGE: LEO satellites create fast-moving cells                │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  LEO-600 at 51° inclination:                                   │ │
+│  │    • Ground speed: ~7 km/s                                     │ │
+│  │    • Cell diameter: ~500 km                                    │ │
+│  │    • Cell dwell time: ~70 seconds                              │ │
+│  │    • Handover every ~1 minute                                  │ │
+│  │                                                                 │ │
+│  │  Compare to terrestrial: handover every 10+ minutes           │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  SOLUTION 1: EARTH-FIXED TRACKING AREAS                            │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Instead of: TA follows satellite (moving)                    │ │
+│  │  Use:        TA fixed to geographic grid                      │ │
+│  │                                                                 │ │
+│  │     ┌─────┬─────┬─────┬─────┐                                │ │
+│  │     │ TA1 │ TA2 │ TA3 │ TA4 │  ← Fixed grid on Earth        │ │
+│  │     ├─────┼─────┼─────┼─────┤                                │ │
+│  │     │ TA5 │ TA6 │ TA7 │ TA8 │                                │ │
+│  │     └─────┴─────┴─────┴─────┘                                │ │
+│  │                ▲                                              │ │
+│  │                │ Satellite beam sweeps across                │ │
+│  │                │ but TA boundaries stay fixed                │ │
+│  │                                                                 │ │
+│  │  Benefit: Fewer TAU procedures (UE stays in same TA)         │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  SOLUTION 2: CONDITIONAL HANDOVER (CHO)                            │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Pre-configure next cell before handover needed:              │ │
+│  │                                                                 │ │
+│  │  1. Network sends CHO config with conditions                   │ │
+│  │  2. UE monitors conditions (position, signal quality)          │ │
+│  │  3. When condition met, UE executes HO autonomously           │ │
+│  │  4. No round-trip delay for HO command                        │ │
+│  │                                                                 │ │
+│  │  Critical for LEO where HO decision + execution must be fast │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**TR 38.821 timing and Doppler compensation calculator:**
+
+```python
+import math
+from datetime import datetime, timedelta
+
+def compute_ta_components(ue_lat, ue_lon, sat_lat, sat_lon, sat_alt_km, 
+                          ref_lat, ref_lon):
+    """
+    Compute TA-Common and TA-Offset per TR 38.821.
+    """
+    def slant_range(lat1, lon1, lat2, lon2, alt):
+        R = 6371
+        lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+        
+        dlat = lat2 - lat1
+        dlon = lon2 - lon1
+        a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+        c = 2 * math.asin(math.sqrt(a))
+        ground_dist = R * c
+        
+        el = math.atan2(alt - ground_dist * math.tan(0), ground_dist)
+        slant = math.sqrt(ground_dist**2 + alt**2 + 2 * R * alt)
+        
+        return slant
+    
+    c = 299792.458
+    
+    ref_slant = slant_range(ref_lat, ref_lon, sat_lat, sat_lon, sat_alt_km)
+    ta_common_ms = (2 * ref_slant / c) * 1000
+    
+    ue_slant = slant_range(ue_lat, ue_lon, sat_lat, sat_lon, sat_alt_km)
+    ta_offset_ms = (2 * (ue_slant - ref_slant) / c) * 1000
+    
+    total_ta_ms = ta_common_ms + ta_offset_ms
+    
+    return {
+        "ref_slant_km": ref_slant,
+        "ue_slant_km": ue_slant,
+        "ta_common_ms": ta_common_ms,
+        "ta_offset_ms": ta_offset_ms,
+        "total_ta_ms": total_ta_ms
+    }
+
+def compute_doppler_compensation(ue_lat, ue_lon, sat_velocity_km_s, 
+                                  sat_heading_deg, freq_ghz):
+    """
+    Compute Doppler shift and required compensation.
+    """
+    c = 299792.458
+    
+    heading_rad = math.radians(sat_heading_deg)
+    vel_north = sat_velocity_km_s * math.cos(heading_rad)
+    vel_east = sat_velocity_km_s * math.sin(heading_rad)
+    
+    doppler_hz = (sat_velocity_km_s / c) * freq_ghz * 1e9 * math.cos(math.radians(30))
+    
+    compensation_hz = -doppler_hz
+    
+    return {
+        "doppler_hz": doppler_hz,
+        "compensation_hz": compensation_hz,
+        "doppler_khz": doppler_hz / 1000,
+        "relative_to_15khz_scs": abs(doppler_hz) / 15000 * 100,
+        "relative_to_30khz_scs": abs(doppler_hz) / 30000 * 100
+    }
+
+def harq_process_calculation(rtt_ms, slot_duration_ms, target_throughput_mbps):
+    """
+    Calculate HARQ process requirements for NTN.
+    """
+    slots_in_flight = math.ceil(rtt_ms / slot_duration_ms)
+    
+    min_processes = slots_in_flight + 1
+    
+    standard_processes = 16
+    extended_processes = 32
+    
+    if min_processes <= standard_processes:
+        recommended = standard_processes
+        mode = "Standard NR"
+    elif min_processes <= extended_processes:
+        recommended = extended_processes
+        mode = "NTN Extended"
+    else:
+        recommended = None
+        mode = "HARQ Disabled"
+    
+    return {
+        "rtt_ms": rtt_ms,
+        "slots_in_flight": slots_in_flight,
+        "min_processes_needed": min_processes,
+        "recommended_processes": recommended,
+        "mode": mode
+    }
+
+def mobility_analysis(sat_velocity_km_s, cell_diameter_km, ho_execution_ms):
+    """
+    Analyze mobility requirements for NTN.
+    """
+    cell_dwell_time_s = cell_diameter_km / sat_velocity_km_s
+    
+    ho_per_hour = 3600 / cell_dwell_time_s
+    
+    distance_during_ho = sat_velocity_km_s * (ho_execution_ms / 1000)
+    
+    return {
+        "cell_dwell_time_s": cell_dwell_time_s,
+        "handovers_per_hour": ho_per_hour,
+        "distance_during_ho_km": distance_during_ho,
+        "cho_recommended": ho_execution_ms > 100
+    }
+
+print("TR 38.821 NTN Solutions Analysis")
+print("=" * 70)
+
+print("\n1. Timing Advance Decomposition (LEO-600)")
+print("-" * 70)
+
+ta = compute_ta_components(
+    ue_lat=40.0, ue_lon=-74.0,
+    sat_lat=45.0, sat_lon=-70.0, sat_alt_km=600,
+    ref_lat=42.0, ref_lon=-72.0
+)
+
+print(f"""
+  Reference point (beam center):
+    Position: 42.0°N, 72.0°W
+    Slant range: {ta['ref_slant_km']:.1f} km
+    
+  UE position:
+    Position: 40.0°N, 74.0°W  
+    Slant range: {ta['ue_slant_km']:.1f} km
+    
+  Timing Advance Components:
+    TA-Common (broadcast): {ta['ta_common_ms']:.2f} ms
+    TA-Offset (UE computed): {ta['ta_offset_ms']:.2f} ms
+    ─────────────────────────────────────
+    Total TA: {ta['total_ta_ms']:.2f} ms
+    
+  Note: Standard NR TA max = 2 ms (would fail without extensions)
+""")
+
+print("\n2. Doppler Compensation (LEO-600, S-band)")
+print("-" * 70)
+
+doppler = compute_doppler_compensation(
+    ue_lat=40.0, ue_lon=-74.0,
+    sat_velocity_km_s=7.5,
+    sat_heading_deg=45,
+    freq_ghz=2.0
+)
+
+print(f"""
+  Satellite velocity: 7.5 km/s
+  Carrier frequency: 2 GHz (S-band)
+  
+  Doppler Analysis:
+    Raw Doppler shift: {doppler['doppler_khz']:.1f} kHz
+    Required compensation: {doppler['compensation_hz']:.0f} Hz
+    
+  Impact on subcarrier spacing:
+    vs 15 kHz SCS: {doppler['relative_to_15khz_scs']:.0f}% (FAIL)
+    vs 30 kHz SCS: {doppler['relative_to_30khz_scs']:.0f}% (marginal)
+    
+  Solution: UE pre-compensates TX frequency by {doppler['compensation_hz']:.0f} Hz
+""")
+
+print("\n3. HARQ Process Requirements")
+print("-" * 70)
+
+scenarios = [
+    ("LEO-600 (30° el)", 13),
+    ("LEO-1200 (30° el)", 26),
+    ("MEO-8000 (20° el)", 134),
+    ("GEO (10° el)", 541),
+]
+
+print(f"  {'Scenario':<20} {'RTT':>8} {'Slots':>8} {'Min Proc':>10} {'Mode':<18}")
+print(f"  {'-'*66}")
+
+for name, rtt in scenarios:
+    harq = harq_process_calculation(rtt, 0.5, 100)
+    proc_str = str(harq['recommended_processes']) if harq['recommended_processes'] else "N/A"
+    print(f"  {name:<20} {rtt:>6}ms {harq['slots_in_flight']:>8} {harq['min_processes_needed']:>10} {harq['mode']:<18}")
+
+print("\n4. Mobility Analysis (LEO-600)")
+print("-" * 70)
+
+mobility = mobility_analysis(
+    sat_velocity_km_s=7.0,
+    cell_diameter_km=500,
+    ho_execution_ms=200
+)
+
+print(f"""
+  Cell parameters:
+    Satellite ground speed: 7.0 km/s
+    Cell diameter: 500 km
+    
+  Mobility metrics:
+    Cell dwell time: {mobility['cell_dwell_time_s']:.0f} seconds
+    Handovers per hour: {mobility['handovers_per_hour']:.1f}
+    
+  With 200 ms HO execution time:
+    Distance traveled during HO: {mobility['distance_during_ho_km']:.1f} km
+    Conditional handover recommended: {mobility['cho_recommended']}
+""")
+
+print("\n5. Solution Summary Table")
+print("-" * 70)
+print("""
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Challenge          │ TR 38.821 Solution                           │
+  │  ───────────────────┼─────────────────────────────────────────────│
+  │  Timing > 2 ms      │ TA-Common + TA-Offset + TA-UE               │
+  │  Doppler > SCS      │ UE pre-compensation using GNSS + ephemeris  │
+  │  HARQ timeout       │ Extended processes (32) or disabled HARQ    │
+  │  Frequent handover  │ CHO + Earth-fixed tracking areas            │
+  │  Cell discovery     │ SIB19 with ephemeris + reference location   │
+  └─────────────────────────────────────────────────────────────────────┘
+""")
+```
+
+**Key formulas from TR 38.821:**
+
+| Parameter | Formula |
+|-----------|---------|
+| Total TA | TA-Common + TA-Offset + TA-UE |
+| TA-Offset | 2 × (UE_slant - Ref_slant) / c |
+| Doppler compensation | -f_d = -(v · r̂) / c × f_c |
+| Min HARQ processes | ceil(RTT / slot_duration) + 1 |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming UE has perfect GNSS.** Indoor or urban canyon UEs may have poor GNSS. Fallback mechanisms exist but degrade performance.
+
+2. **Ignoring ephemeris staleness.** Satellite position changes — stale ephemeris causes timing/Doppler errors. SIB19 must be refreshed regularly.
+
+3. **Forgetting feeder link timing.** For transparent payloads, gateway-to-satellite delay adds to total TA. Include both hops.
+
+4. **Using wrong Doppler sign.** Doppler is positive when satellite approaches, negative when receding. Pre-compensation must use the opposite sign.
+
+5. **Underestimating HO frequency.** LEO constellations may require 50+ handovers per hour. Signaling overhead is significant.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TR 38.821 v16.1.0 — Solutions for NR to support non-terrestrial networks
+- 3GPP TS 38.213 — Physical layer procedures for control (HARQ)
+- 3GPP TS 38.331 — RRC protocol specification (mobility)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [TR 38.811](/en/space/ntn-in-3gpp/tr-38-811/) — the study that identified these challenges
+- [NR-NTN](/en/space/ntn-in-3gpp/nr-ntn/) — normative specification built on these solutions
+- [IoT-NTN](/en/space/ntn-in-3gpp/iot-ntn/) — simplified solutions for IoT devices
+
+</section>

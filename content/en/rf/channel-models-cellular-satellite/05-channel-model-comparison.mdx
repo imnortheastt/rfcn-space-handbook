@@ -8,12 +8,12 @@ track: r2
 unit: channel-models-cellular-satellite
 order: 5
 level: L4
-estimatedReadingMinutes: 8
+estimatedReadingMinutes: 15
 prerequisites: ["rf-r2-channel-models-cellular-satellite-01-cost-231-model", "rf-r2-channel-models-cellular-satellite-04-ntn-specific-models"]
 spiralRevisits: []
 title: "Channel model comparison"
 description: "When to use which channel model."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,13 @@ status: published
 
 ## Why compare models?
 
-With dozens of channel models available — empirical, statistical, deterministic — choosing the right one matters. Use too simple a model and your simulation misses critical effects. Use too complex a model and computation explodes without improving accuracy.
+You're designing a 5G network for a city. Your colleague uses COST-231 for coverage planning, your simulation team uses 3GPP TR 38.901, and your interference team uses ITU-R P.452. Three different models, all for the "same" city. Are they contradicting each other?
 
-This lesson provides a decision framework: which model for which scenario, and what each model captures (or ignores).
+No — they're answering different questions. COST-231 predicts the **median path loss** at a given distance. TR 38.901 generates a **stochastic channel realization** including fast fading, delay spread, and spatial correlation. P.452 predicts the **interference level exceeded for a given percentage of time**, considering long-range anomalous propagation.
+
+Selecting the wrong model for a question doesn't just give inaccurate results — it gives categorically wrong answers. A coverage planner using TR 38.901 for every candidate site has to run thousands of Monte Carlo simulations where COST-231 would take microseconds. A BER simulation engineer using COST-231 misses fading entirely. A satellite link budget engineer using terrestrial TR 38.901 applies the wrong K-factor and delay spread.
+
+This lesson provides the decision framework: which model for which question, what each model captures, and what it silently ignores.
 
 </section>
 
@@ -37,97 +41,143 @@ This lesson provides a decision framework: which model for which scenario, and w
 
 ## Intuition
 
-Models trade off complexity vs. accuracy. Empirical models (COST-231) are fast but location-blind. Statistical models (3GPP TR 38.901) capture fading dynamics but need parameter calibration. Deterministic models (ray tracing) are accurate but computationally expensive.
+### The three fundamental questions in RF engineering
 
-Choose based on your question: link budget → empirical; BER simulation → statistical; interference analysis in specific building → deterministic.
+Every RF design question reduces to one of three types:
+
+1. **Coverage / path loss**: "What is the signal strength at distance $d$?" → Use empirical models (COST-231, Okumura-Hata)
+2. **Link performance / fading**: "What BER or capacity can I achieve given this channel?" → Use statistical models (3GPP TR 38.901, Loo, Lutz)
+3. **Interference / coordination**: "Will this transmitter cause harmful interference to that receiver?" → Use deterministic or ITU-R models (P.452, ray tracing)
+
+Choosing the model class first (empirical vs. statistical vs. deterministic) is more important than choosing the specific model within a class.
+
+### The accuracy-complexity tradeoff
+
+```
+Model accuracy vs. computational cost:
+
+          High │ Ray tracing (per building)
+               │   ↑ most accurate, most expensive
+               │
+ Prediction    │ GBSM (3GPP TR 38.901)
+ accuracy      │   ↑ stochastic, captures fading
+               │
+               │ Empirical (COST-231, ITU-R)
+               │   ↑ fast, captures median only
+          Low  │
+               +─────────────────────────────────
+               Fast                           Slow
+                       Computational cost
+```
+
+More accuracy always costs more compute. The question is: does the extra accuracy matter for your specific decision? Planning 100 cell sites? Use empirical. Designing a Turbo code for a fading channel? Use statistical. Resolving an interference complaint to a national regulator? Use ITU-R P.452 — no other model will be accepted.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How to choose
 
 ### Model taxonomy
 
-| Type | Examples | Captures | Ignores |
-|------|----------|----------|---------|
-| Empirical | COST-231, SUI | Median path loss | Fading, delay spread |
-| Statistical | 3GPP, WINNER | Fading statistics, spatial correlation | Site-specific geometry |
-| Deterministic | Ray tracing, FDTD | Exact multipath | Requires 3D environment |
-| Hybrid | 3GPP QuaDRiGa | Mixed approaches | Depends on configuration |
+| Model class | Examples | What it captures | What it ignores |
+|-------------|----------|-----------------|-----------------|
+| Empirical | COST-231 Hata, Okumura-Hata, SUI, Egli | Median path loss vs. distance/frequency | Fast fading, delay spread, spatial structure |
+| Stochastic geometry-based (GBSM) | 3GPP TR 38.901, WINNER II, QuaDRiGa | Fading statistics, delay spread, angular spread, spatial consistency | Site-specific geometry, exact multipath |
+| Two-state / statistical satellite | Loo, Lutz, Corazza-Vatalaro | LOS/shadow switching, burst statistics | Exact building positions, elevation variation |
+| ITU-R consensus | P.452, P.618, P.530 | Long-range statistics, global climate-dependent effects | Site-specific channel realization |
+| Deterministic | Ray tracing (Remcom, Wireless InSite), FDTD | Exact multipath structure at specific sites | Computational cost, material database errors |
+| Hybrid | 3GPP TR 38.901 + map-based extension | Site-specific + stochastic | Calibration cost |
 
-### Decision matrix
+### Decision matrix — cellular
 
-**For cellular planning:**
+| Frequency | Distance | Scenario | Recommended model |
+|-----------|----------|----------|------------------|
+| 150–1500 MHz | 1–20 km | Urban macro | Okumura-Hata |
+| 1500–2000 MHz | 1–20 km | Urban macro | COST-231 Hata |
+| 0.5–100 GHz | 10 m–5 km | Urban macro/micro | 3GPP TR 38.901 UMa/UMi |
+| 0.5–100 GHz | 10 m–100 m | Indoor | 3GPP TR 38.901 InH / ITU-R P.1238 |
+| Any | Any | Regulatory coordination | ITU-R P.452 |
+| Any | Site-specific | Interference in specific building | Ray tracing |
 
-| Frequency | Distance | Model |
-|-----------|----------|-------|
-| <2 GHz | >1 km | COST-231 Hata |
-| <2 GHz | <1 km | WINNER II |
-| 2–6 GHz | Any | 3GPP TR 38.901 UMa/UMi |
-| >6 GHz | Any | 3GPP TR 38.901 mmWave |
+### Decision matrix — satellite
 
-**For satellite systems:**
+| Orbit | Frequency | Scenario | Recommended model |
+|-------|-----------|----------|------------------|
+| GEO | Ku/Ka | Fixed-satellite service, link budget | ITU-R P.618 + P.838 |
+| GEO | L/S | Mobile satellite service (car, ship) | Loo, Lutz, Corazza-Vatalaro |
+| LEO/MEO | Any | 5G NTN system simulation | 3GPP TR 38.811 |
+| HAPS | Any | Platform-specific | 3GPP TR 38.811 adapted |
+| Any | Any | Regulatory filing | ITU-R P.618 / P.452 |
 
-| Orbit | Scenario | Model |
-|-------|----------|-------|
-| GEO | Mobile | Loo, Corazza-Vatalaro |
-| GEO | Fixed | ITU-R P.618 + P.530 |
-| LEO | Any | 3GPP TR 38.811 |
-| HAPS | Any | 3GPP TR 38.811 (adapted) |
+### What each model captures and ignores — detailed comparison
 
-### What each model captures
-
-**COST-231:**
-- ✓ Median path loss
-- ✓ Frequency/distance/height dependence
-- ✗ Shadow fading (add separately)
-- ✗ Fast fading
-- ✗ Delay spread
+**COST-231 Hata:**
+- Captures: median urban path loss, frequency dependence (1.5–2 GHz), BS height gain, distance exponent
+- Ignores: shadow fading (add separately as $\mathcal{N}(0, \sigma^2)$), fast Rayleigh/Rician fading, delay spread, spatial correlation between locations
+- Output type: single number (dB) — the **median** path loss at a point
 
 **3GPP TR 38.901:**
-- ✓ Path loss + shadow fading
-- ✓ Fast fading (Rician/Rayleigh)
-- ✓ Delay spread, angle spread
-- ✓ Spatial consistency
-- ✗ Site-specific propagation
+- Captures: path loss + shadow fading (combined), fast fading (Rician/Rayleigh), delay spread, angular spread (azimuth + elevation), spatial consistency (adjacent samples correlated), large-scale parameter correlation maps
+- Ignores: site-specific building layout, exact reflection paths from specific structures
+- Output type: channel impulse response matrix $H(t,\tau)$ — a full stochastic channel realization
+
+**ITU-R P.618 / P.838:**
+- Captures: atmospheric rain attenuation statistics, gaseous absorption, scintillation, global climate variability
+- Ignores: local terrain effects, multipath, Doppler (except scintillation)
+- Output type: attenuation exceeded for $p$% of time — a statistical threshold
+
+**Loo / Lutz (satellite):**
+- Captures: LOS shadowing dynamics, good/bad state transitions, burst-error structure, elevation-dependent statistics
+- Ignores: exact building geometry, Ka-band atmospheric effects, LEO Doppler
+- Output type: received amplitude statistics / time-series for L/S-band mobile satellite
+
+**3GPP TR 38.811 (NTN):**
+- Captures: elevation-dependent K-factor, NTN delay spread, LEO Doppler offset, clutter loss, atmospheric effects, shadow fading by elevation
+- Ignores: exact satellite pass trajectory (uses fixed elevation snapshots), local terrain topology
+- Output type: same cluster-ray format as TR 38.901 — full channel realization for NTN
 
 **Ray tracing:**
-- ✓ Exact multipath structure
-- ✓ Site-specific
-- ✓ Diffraction, reflection, scattering
-- ✗ Fast (requires significant compute)
-- ✗ Material database accuracy
+- Captures: exact multipath structure at the simulated site, material-dependent reflection and diffraction, building blockage
+- Ignores: uncertainty in material properties (can be ±5 dB per wall type), computational errors in complex geometries
+- Output type: deterministic channel impulse response at a specific location — not a statistical distribution
 
-### Frequency validity
+### Frequency validity ranges
 
-| Model | Frequency range |
-|-------|-----------------|
-| Okumura-Hata | 150–1500 MHz |
-| COST-231 | 1500–2000 MHz |
-| WINNER II | 2–6 GHz |
-| 3GPP TR 38.901 | 0.5–100 GHz |
-| ITU-R P.618 | 1–400 GHz |
+| Model | Frequency range | Note |
+|-------|-----------------|------|
+| Okumura-Hata | 150–1500 MHz | Original measurement range |
+| COST-231 Hata | 1500–2000 MHz | Extension of Hata |
+| WINNER II | 2–6 GHz | LTE-era macro/micro/indoor |
+| 3GPP TR 38.901 | 0.5–100 GHz | 5G NR full range |
+| ITU-R P.618 | 1–400 GHz | Earth-space satellite paths |
+| ITU-R P.676 | 1–1000 GHz | Gaseous absorption |
+| ITU-R P.838 | 1–1000 GHz | Rain attenuation coefficients |
+| TR 38.811 (NTN) | 0.5–100 GHz | Same base as TR 38.901 |
 
-### Computational complexity
+Outside the stated range, models produce extrapolated results with no measurement validation — treat as undefined behavior.
 
-| Model | Per link | Per simulation |
-|-------|----------|----------------|
-| Empirical | μs | Fast |
-| Statistical (stochastic) | ms | Medium |
-| Statistical (geometry-based) | 10 ms | Slow |
-| Ray tracing | seconds | Very slow |
+### Computational cost
 
-### Accuracy vs. measurements
+| Model | Per link evaluation | Typical use case scale |
+|-------|---------------------|----------------------|
+| Empirical (COST-231) | ~1 μs | Millions of locations — network planning tools |
+| Statistical (3GPP TR 38.901, single drop) | ~1 ms | Thousands of drops — link/PHY simulation |
+| GBSM with spatial consistency | ~10 ms | Hundreds of UE trajectories |
+| Full ray tracing (urban scene) | seconds–minutes | Tens of locations — specific interference analysis |
+| FDTD | hours–days | Single room or structure |
 
-Typical model accuracy (standard deviation of prediction error):
+### Prediction accuracy vs. measurements
 
-| Model type | σ (dB) |
-|------------|--------|
-| Empirical (general) | 8–12 |
-| Empirical (calibrated) | 6–8 |
-| Statistical | 4–8 |
-| Ray tracing | 2–5 |
+| Model type | Typical error $\sigma$ (dB) | Notes |
+|------------|---------------------------|-------|
+| Empirical (general application) | 8–12 | Large variance — many environments |
+| Empirical (calibrated to local data) | 4–7 | Drive-test calibration reduces error |
+| Statistical (3GPP TR 38.901) | 4–8 | Provides correct statistics, not exact path |
+| Ray tracing | 2–5 | Depends strongly on model accuracy |
+| Ray tracing + measured materials | 1–3 | Best achievable with current tools |
+
+A calibrated empirical model can match uncalibrated ray tracing. The "accuracy" of ray tracing is highly dependent on the quality of the 3D building database and material property database — errors in building height of 1 m or material permittivity of 10% produce prediction errors of several dB.
 
 </section>
 
@@ -135,45 +185,60 @@ Typical model accuracy (standard deviation of prediction error):
 
 ## Apply
 
-**Example: LTE coverage planning**
+### Example 1: LTE Band 3 coverage planning — right tool, fast result
 
-Band 3 (1800 MHz), urban macro.
+Task: Initial coverage planning for 1800 MHz LTE rollout in medium city. 50 candidate sites. Decision: which sites provide adequate coverage to 90% of the area with current hardware.
 
-Use: COST-231 for initial planning (fast, gets 90% right).
+Use: COST-231 Hata for each site. Add $\sigma = 8$ dB shadow margin for 90% location reliability ($k_p = 1.28$).
 
-Add: 8 dB shadow fade margin for 90% coverage probability.
+Why not TR 38.901? Running 10,000 Monte Carlo drops per site × 50 sites × multiple UE positions would take hours. COST-231 gives the median path loss in microseconds. Shadow margin added deterministically. Decision quality is the same for site selection — the fast fading statistics (TR 38.901's main contribution) don't affect coverage radius, only link margin.
 
-Verify: Drive test measurements, then calibrate model.
+When to switch to TR 38.901: when designing the receiver MIMO processing, FEC code rate selection, or HARQ parameters — those require fading statistics, not median path loss.
 
-**Example: 5G mmWave simulation**
+### Example 2: 28 GHz mmWave BER simulation
 
-28 GHz, urban micro.
+Task: Evaluate PDSCH block error rate (BLER) for 28 GHz 5G NR in urban micro-cell at 50 m distance. Channel code: LDPC with MCS 22.
 
-Use: 3GPP TR 38.901 UMi-street canyon.
+Use: 3GPP TR 38.901 UMi-Street Canyon at 28 GHz.
 
-Simulate: 10,000 drops, each with stochastic channel realization.
+Why not COST-231? COST-231 is valid only to 2 GHz and gives no fading statistics. BER/BLER depends critically on the exact instantaneous channel — coherence bandwidth, K-factor, delay spread, Doppler spread all affect the LDPC decoder performance. Only a stochastic model provides the distribution of SINR realizations needed for BLER CDF computation.
 
-Output: CDF of SINR, outage probability.
+Simulation flow: generate 10,000 channel drops (TR 38.901 statistical realization) → compute SINR for each → apply AWGN BLER curve → aggregate. Output: BLER at 10th percentile, 50th percentile, 90th percentile locations.
 
-**Example: Specific building interference**
+### Example 3: LEO IoT satellite — hybrid model approach
 
-New base station, worried about interference to specific indoor locations.
+Task: S-band LEO IoT terminal, rural Vietnam, elevation 20°–70° during a pass. Design: LDPC code rate, link margin, outage target.
 
-Use: Ray tracing with 3D building model.
+Use: 3GPP TR 38.811 for channel statistics (elevation-dependent K, shadow, delay spread) + ITU-R P.618 for rain and atmospheric margin.
 
-Calculate: SINR at each floor, with measured material properties.
+Why not Loo model? Loo was developed for L-band GEO with fixed elevation. TR 38.811 provides elevation-parameterized statistics matching the LEO pass geometry.
 
-Decision: Accept or relocate antenna.
+Why add P.618 separately? TR 38.811 includes clutter and shadow but references P.618 for atmospheric effects. Rain at S-band in Vietnam is non-negligible (~1 dB at 99.9% availability) — must be included in the link budget.
 
-**Example: LEO IoT link budget**
+Hybrid link budget: $L_{total} = L_{FS} + L_{clutter}(\theta) + M_{shadow}(\theta) + A_{rain}(\text{P.618}) + M_{Rician}(K(\theta))$.
 
-S-band, handheld device, mobile in suburban.
+### Example 4: Microwave interference coordination — regulatory model required
 
-Use: 3GPP TR 38.811 with elevation-dependent parameters.
+Task: New 23 GHz point-to-point backhaul link in Germany. Regulator requires frequency coordination because the link crosses an international border.
 
-Include: Doppler shift model, timing advance model.
+Use: ITU-R P.452 for interference prediction. No alternative — the regulator specifies it.
 
-Output: Required EIRP, receiver sensitivity, outage statistics.
+Why not ray tracing? Across-border coordination involves propagation distances of 100–500 km where tropospheric ducting is the dominant mechanism at 0.01% of time. Ray tracing models local terrain, not long-range atmospheric propagation. P.452 specifically handles tropospheric scatter and ducting at these ranges.
+
+Output: interference power level exceeded at 0.01% of year at the border station. Compare to ITU threshold. File coordination if the limit is exceeded.
+
+### Example 5: Model calibration — when to invest in measurements
+
+You are deploying a neutral-host DAS inside a large airport. Frequency: 2.1 GHz. Decision: should you calibrate an empirical model with drive-test data, or use uncalibrated 3GPP TR 38.901 InH parameters?
+
+Cost of calibration: 1 engineer × 3 days × measurement equipment = ~$5,000.
+Cost of over-engineering due to prediction error: extra repeater units at $2,000 each.
+
+Uncalibrated prediction error: $\sigma = 6$–8 dB. At 90% reliability, this adds $1.28 \times 8 = 10$ dB extra margin to the budget, requiring ~2× more repeater units than actually needed.
+
+Calibrated prediction error: $\sigma = 3$–4 dB. Extra margin = $1.28 \times 4 = 5$ dB. Saves ~30% of repeater units.
+
+In a 100-repeater deployment at $2,000 each = $200,000, saving 30% = $60,000 in hardware. The $5,000 calibration ROI is 12:1. For large deployments, model calibration pays for itself.
 
 </section>
 
@@ -181,17 +246,17 @@ Output: Required EIRP, receiver sensitivity, outage statistics.
 
 ## Pitfalls
 
-1. **Using wrong frequency range.** COST-231 above 2 GHz gives wrong answers. Always check model validity range.
+1. **Applying a model outside its stated frequency range.** COST-231 at 3.5 GHz, Hata at 2.5 GHz, Loo model at Ka-band — all produce extrapolated results with no empirical basis. The frequency dependence of path loss, reflection, diffraction, and scattering all change qualitatively at different frequencies. Check the model's validity range before use.
 
-2. **Forgetting fading.** Empirical models give median. Real systems need margin for shadow and fast fading.
+2. **Treating empirical model output as instantaneous signal level.** COST-231 and similar empirical models output the **median** path loss. The actual signal at a specific location follows a log-normal distribution around this median with $\sigma = 6$–10 dB. Using the median as a point estimate without adding shadow margin will give 50% coverage — half the claimed area will be out of service.
 
-3. **Over-trusting ray tracing.** Material databases and building models have errors. Ray tracing isn't ground truth.
+3. **Under-sampling Monte Carlo simulations.** Statistical models like TR 38.901 require many independent drops to produce stable statistics. 100 drops gives a BLER estimate with 30% confidence interval error. 10,000 drops gives 3% error. For rare-event statistics (1% or 0.1% outage), you need even more drops (100,000+) or analytical methods. "I ran 100 drops and it looks fine" is not engineering.
 
-4. **Under-sampling.** Statistical models need many drops to converge. 100 drops is usually not enough.
+4. **Over-trusting ray tracing accuracy.** Ray tracing is deterministic but depends on input quality: 3D building database accuracy (±1–2 m height errors matter at mmWave), material permittivity and conductivity (often uncertain to ±20%), surface roughness (affects diffuse scattering). Typical ray tracing prediction error in practice is 3–5 dB in well-modeled environments. This is better than uncalibrated empirical but not orders of magnitude better.
 
-5. **Ignoring correlation.** Adjacent antenna elements see correlated channels. Use spatial consistency features in modern models.
+5. **Using a single model for all design phases.** Coverage planning (empirical) → link design (statistical) → interference coordination (ITU-R or ray tracing) → site acceptance (drive test calibration). Each phase uses different models. A project that insists on using one model throughout will either be too slow (ray tracing for coverage planning) or miss critical effects (empirical for BER design).
 
-6. **Single model for everything.** Different questions need different models. Coverage uses empirical; BER uses statistical; interference uses deterministic.
+6. **Ignoring spatial consistency in multi-UE simulations.** Old statistical channel models generated independent realizations for each UE location. Modern models (3GPP TR 38.901 v16+) include spatial consistency: nearby UEs see correlated channels. Ignoring this in MIMO beamforming simulations overestimates spatial multiplexing gain when UEs are clustered — the channels are correlated, not independent.
 
 </section>
 
@@ -199,8 +264,11 @@ Output: Required EIRP, receiver sensitivity, outage statistics.
 
 ## References
 
-- 3GPP TR 38.901 — "Study on channel model for frequencies from 0.5 to 100 GHz."
-- Rappaport, *Wireless Communications: Principles and Practice*.
-- ITU-R P-series recommendations — propagation standards.
+- 3GPP TR 38.901 v17.0, "Study on channel model for frequencies from 0.5 to 100 GHz."
+- 3GPP TR 38.811 v15.4, "Study on New Radio (NR) to support non-terrestrial networks."
+- ITU-R P.452-17, "Prediction procedure for the evaluation of interference between stations."
+- Rappaport, T.S., *Wireless Communications: Principles and Practice*, 2nd ed., Chapter 3–4.
+- WINNER II D1.1.2 v1.2, "WINNER II channel models," 2008.
+- Jaeckel, S. et al., "QuaDRiGa: A 3-D multi-cell channel model with time evolution," *IEEE Trans. Antennas Propagation*, 2014.
 
 </section>

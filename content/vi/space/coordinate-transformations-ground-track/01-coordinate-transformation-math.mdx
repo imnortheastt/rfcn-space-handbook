@@ -8,17 +8,385 @@ track: s1
 unit: coordinate-transformations-ground-track
 order: 1
 level: L2
-estimatedReadingMinutes: 5
-title: "Toan hoc bien doi toa do"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Toan hoc Bien doi Toa do"
+description: "Cac he ECI, ECEF, va dia ly voi ma tran xoay."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["toa-do", "ECI", "ECEF", "ma-tran-xoay"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Toan hoc bien doi toa do
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Ve tinh bay quy dao trong khong gian quan tinh trong khi tram mat dat quay cung Trai dat. Bien doi giua cac he quy chieu nay la co ban cho theo doi, truyen thong, va dinh vi. Lam sai phep tinh, va anten cua ban chi vao bau troi trong. Nam vung cac bien doi nay, va ban co the du doan ve tinh nao xuat hien tu bat ky vi tri nao tren Trai dat.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Ba he quy chieu chinh
+
+```
+Cac He Quy chieu Toa do:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. ECI (Tam Trai dat Quan tinh)                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │            Z (Cuc Bac)                                │         │
+│  │             ↑                                         │         │
+│  │             │                                         │         │
+│  │             │       ★ Ve tinh                         │         │
+│  │             │      /                                  │         │
+│  │             │     /                                   │         │
+│  │             ●────────→ X (Diem xuan phan)            │         │
+│  │            /                                          │         │
+│  │           /                                           │         │
+│  │          ↓ Y                                          │         │
+│  │                                                        │         │
+│  │  • Goc toa do tai tam Trai dat                       │         │
+│  │  • X chi den diem xuan phan (co dinh trong KG)       │         │
+│  │  • Z doc theo truc quay Trai dat                     │         │
+│  │  • He KHONG quay cung Trai dat                       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  2. ECEF (Tam Trai dat Co dinh Trai dat)                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │            Z (Cuc Bac)                                │         │
+│  │             ↑                                         │         │
+│  │             │                                         │         │
+│  │             │                                         │         │
+│  │             │                                         │         │
+│  │             ●────────→ X (kinh do 0°)                │         │
+│  │            /                                          │         │
+│  │           /                                           │         │
+│  │          ↓ Y (90° Dong)                               │         │
+│  │                                                        │         │
+│  │  • Goc toa do tai tam Trai dat                       │         │
+│  │  • X qua kinh tuyen goc (lon 0°, lat 0°)            │         │
+│  │  • He QUAY cung Trai dat                             │         │
+│  │  • GPS su dung he nay                                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  3. Trac dia (Vi do, Kinh do, Do cao)                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • λ (lambda) = kinh do (-180° den +180°)            │         │
+│  │  • φ (phi) = vi do (-90° den +90°)                   │         │
+│  │  • h = do cao tren ellipsoid tham chieu              │         │
+│  │                                                        │         │
+│  │  Tham chieu: ellipsoid WGS84                         │         │
+│  │  • Ban truc lon a = 6,378,137 m                      │         │
+│  │  • Do det f = 1/298.257223563                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Tai sao can nhieu he?
+
+```
+Chon He theo Ung dung:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  UNG DUNG              │ HE UU TIEN     │ LY DO                     │
+│  ══════════════════════╪════════════════╪════════════════════════════│
+│                                                                      │
+│  Lan truyen quy dao    │ ECI            │ Dinh luat Newton hoat     │
+│  (Kepler, SGP4)        │                │ dong trong he quan tinh   │
+│                                                                      │
+│  Dinh vi GPS           │ ECEF           │ May thu tren Trai dat     │
+│                        │                │ dang quay                  │
+│                                                                      │
+│  Chi huong anten       │ Dia phuong     │ Az/El tuong doi voi       │
+│  (Az/El)               │ (local)        │ tram mat dat              │
+│                                                                      │
+│  Ban do & truc quan    │ Trac dia       │ Toa do con nguoi          │
+│                        │ (lat/lon)      │ doc duoc                   │
+│                                                                      │
+│  Vet mat dat           │ ECEF → Trac dia│ Hien thi duong di ve tinh │
+│                        │                │ tren be mat Trai dat      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Bien doi ECI sang ECEF
+
+```
+Phep Quay Cot loi — Gio Sao Greenwich:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  He ECEF quay tuong doi voi ECI theo θ_GMST (Gio Sao Trung binh    │
+│  Greenwich), goc giua diem xuan phan va kinh tuyen goc:            │
+│                                                                      │
+│                    ┌ cos(θ)   sin(θ)   0 ┐                         │
+│  R_z(θ_GMST) =     │ -sin(θ)  cos(θ)   0 │                         │
+│                    └ 0        0        1 ┘                          │
+│                                                                      │
+│  r_ECEF = R_z(θ_GMST) × r_ECI                                       │
+│                                                                      │
+│  θ_GMST tang ~360.9856° moi ngay (Trai dat quay mot vong cong      │
+│  ~1° chuyen dong quy dao quanh Mat troi)                           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ECEF sang Trac dia
+
+```
+Chuyen doi Lap (phuong phap Bowring):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Cho ECEF (x, y, z):                                                │
+│                                                                      │
+│  BUOC 1: Kinh do (chinh xac)                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  λ = atan2(y, x)                                      │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  BUOC 2: Vi do (lap do ellipsoid)                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  p = √(x² + y²)     (khoang cach tu truc Z)          │         │
+│  │                                                        │         │
+│  │  Doan dau: φ₀ = atan2(z, p)                          │         │
+│  │                                                        │         │
+│  │  Lap den hoi tu:                                      │         │
+│  │  N = a / √(1 - e² sin²φ)    (ban kinh cong)          │         │
+│  │  φ = atan2(z + e² N sinφ, p)                         │         │
+│  │                                                        │         │
+│  │  (hoi tu sau 2-3 lan lap)                            │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  BUOC 3: Do cao                                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  h = p / cosφ - N                                     │         │
+│  │  (hoac h = z / sinφ - N(1 - e²) gan cuc)             │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  Hang so WGS84:                                                     │
+│  a = 6,378,137 m                                                    │
+│  e² = 0.00669437999014 (binh phuong tam sai)                       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Trac dia sang ECEF
+
+```
+Chuyen doi Truc tiep:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Cho (λ, φ, h):                                                     │
+│                                                                      │
+│  N = a / √(1 - e² sin²φ)                                           │
+│                                                                      │
+│  x = (N + h) cosφ cosλ                                              │
+│  y = (N + h) cosφ sinλ                                              │
+│  z = (N(1 - e²) + h) sinφ                                          │
+│                                                                      │
+│  Vi du: Thanh pho New York (40.7°B, 74.0°T, 10m)                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  λ = -74.0° = -1.2915 rad                            │         │
+│  │  φ = 40.7° = 0.7103 rad                              │         │
+│  │  h = 10 m                                             │         │
+│  │                                                        │         │
+│  │  N = 6,387,334 m                                      │         │
+│  │                                                        │         │
+│  │  x = 1,334,003 m                                      │         │
+│  │  y = -4,653,954 m                                     │         │
+│  │  z = 4,138,298 m                                      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Thu vien bien doi toa do:**
+
+```python
+import numpy as np
+from datetime import datetime
+
+# Hang so WGS84
+WGS84_A = 6378137.0  # ban truc lon (m)
+WGS84_F = 1 / 298.257223563  # do det
+WGS84_E2 = 2 * WGS84_F - WGS84_F**2  # binh phuong tam sai
+
+def gmst_do(dt):
+    """Tinh Gio Sao Trung binh Greenwich tinh bang do."""
+    # Ngay Julian
+    jd = (dt - datetime(2000, 1, 1, 12, 0, 0)).total_seconds() / 86400.0 + 2451545.0
+    
+    # The ky tu J2000
+    T = (jd - 2451545.0) / 36525.0
+    
+    # GMST tinh bang do (cong thuc IAU don gian)
+    gmst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + 0.000387933 * T**2
+    
+    return gmst % 360.0
+
+def eci_sang_ecef(r_eci, dt):
+    """Bien doi toa do ECI sang ECEF."""
+    theta = np.radians(gmst_do(dt))
+    
+    c, s = np.cos(theta), np.sin(theta)
+    R = np.array([
+        [c, s, 0],
+        [-s, c, 0],
+        [0, 0, 1]
+    ])
+    
+    return R @ np.array(r_eci)
+
+def ecef_sang_eci(r_ecef, dt):
+    """Bien doi toa do ECEF sang ECI."""
+    theta = np.radians(gmst_do(dt))
+    
+    c, s = np.cos(theta), np.sin(theta)
+    R = np.array([
+        [c, -s, 0],
+        [s, c, 0],
+        [0, 0, 1]
+    ])
+    
+    return R @ np.array(r_ecef)
+
+def ecef_sang_tracdia(r_ecef):
+    """Chuyen ECEF sang toa do trac dia (phuong phap Bowring)."""
+    x, y, z = r_ecef
+    
+    # Kinh do (chinh xac)
+    lon = np.arctan2(y, x)
+    
+    # Vi do (lap)
+    p = np.sqrt(x**2 + y**2)
+    lat = np.arctan2(z, p)
+    
+    for _ in range(5):
+        N = WGS84_A / np.sqrt(1 - WGS84_E2 * np.sin(lat)**2)
+        lat = np.arctan2(z + WGS84_E2 * N * np.sin(lat), p)
+    
+    # Do cao
+    N = WGS84_A / np.sqrt(1 - WGS84_E2 * np.sin(lat)**2)
+    alt = p / np.cos(lat) - N if abs(lat) < np.radians(89) else z / np.sin(lat) - N * (1 - WGS84_E2)
+    
+    return np.degrees(lon), np.degrees(lat), alt
+
+def tracdia_sang_ecef(lon_do, lat_do, alt_m):
+    """Chuyen toa do trac dia sang ECEF."""
+    lon = np.radians(lon_do)
+    lat = np.radians(lat_do)
+    
+    N = WGS84_A / np.sqrt(1 - WGS84_E2 * np.sin(lat)**2)
+    
+    x = (N + alt_m) * np.cos(lat) * np.cos(lon)
+    y = (N + alt_m) * np.cos(lat) * np.sin(lon)
+    z = (N * (1 - WGS84_E2) + alt_m) * np.sin(lat)
+    
+    return np.array([x, y, z])
+
+# Vi du
+print("Vi du Bien doi Toa do")
+print("=" * 60)
+
+dt = datetime(2026, 6, 3, 12, 0, 0)
+r_eci = np.array([4000e3, 5000e3, 3000e3])
+
+print(f"\n1. ECI sang ECEF")
+print(f"   Thoi gian: {dt}")
+print(f"   GMST: {gmst_do(dt):.2f}°")
+
+r_ecef = eci_sang_ecef(r_eci, dt)
+print(f"   ECEF: x={r_ecef[0]/1e3:.1f} km, y={r_ecef[1]/1e3:.1f} km, z={r_ecef[2]/1e3:.1f} km")
+
+print(f"\n2. ECEF sang Trac dia")
+lon, lat, alt = ecef_sang_tracdia(r_ecef)
+print(f"   Kinh do: {lon:.2f}°")
+print(f"   Vi do:   {lat:.2f}°")
+print(f"   Do cao:  {alt/1e3:.1f} km")
+
+print(f"\n3. Tram mat dat: Tokyo (139.7°D, 35.7°B, 40m)")
+tokyo_ecef = tracdia_sang_ecef(139.7, 35.7, 40)
+print(f"   ECEF: x={tokyo_ecef[0]/1e3:.1f} km, y={tokyo_ecef[1]/1e3:.1f} km, z={tokyo_ecef[2]/1e3:.1f} km")
+```
+
+**Cong thuc chinh:**
+
+| Bien doi | Cong thuc | Ghi chu |
+|----------|-----------|---------|
+| ECI→ECEF | R_z(θ_GMST) | Phep quay don gian |
+| ECEF→Trac dia | Lap | Phuong phap Bowring |
+| Trac dia→ECEF | Truc tiep | Dang dong |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Nham lan ECI va ECEF.** Ve tinh bay trong ECI; Trai dat quay phia duoi. Phan biet quan trong.
+
+2. **Sai cong thuc GMST.** Nhieu phep xap xi ton tai; dung thu vien da kiem chung cho cong viec chinh xac.
+
+3. **Vi do trac dia vs tam dia.** WGS84 dung trac dia; chung chenh den 0.2° tai vi do 45°.
+
+4. **Quen ellipsoid.** Trai dat det; xap xi cau gay sai so 20+ km.
+
+5. **Quy uoc dau.** Kinh dong duong, tay am. Vi bac duong, nam am.
+
+6. **Moc do cao.** Do cao WGS84 tren ellipsoid, khong phai muc nuoc bien trung binh (geoid).
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Vallado, D.A. "Fundamentals of Astrodynamics and Applications"
+- Bao cao Ky thuat WGS84 NIMA
+- Quy uoc IERS (cong thuc GMST)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Tinh toan Vet mat dat](/vi/space/coordinate-transformations-ground-track/ground-track-computation/) — diem duoi ve tinh
+- [Truc quan hoa Vet mat dat](/vi/space/coordinate-transformations-ground-track/ground-track-visualization/) — phep chieu ban do
+- [Cac yeu to Quy dao](/vi/space/orbit-fundamentals/orbital-elements/) — tham so Kepler
+
+</section>

@@ -8,17 +8,404 @@ track: n3
 unit: network-functions-overview
 order: 2
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-network-functions-overview-01-amf"]
+spiralRevisits: ["core-network-n4-session-management-deep-dive-01-pdu-session"]
 title: "SMF — Session Management Function"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The brain behind PDU sessions — IP allocation, QoS, and UPF control."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 23.502"]
+tags: ["smf", "5g", "pdu-session", "qos", "upf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# SMF — Session Management Function
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+AMF handles mobility. But when your phone needs to **send data** — browse the web, stream video, or upload files — that's **SMF** territory.
+
+SMF manages **PDU sessions**: the data pipes between your device and the internet. It decides where your data goes, how it's treated (QoS), and controls the UPF that actually moves packets.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What SMF does
+
+```
+SMF's Role:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ┌─────────┐                          │
+│                    │   PCF   │ (policy)                 │
+│                    └────▲────┘                          │
+│                         │ Npcf                          │
+│                         │                                │
+│  ┌─────────┐      ┌─────┴─────┐      ┌─────────┐       │
+│  │   AMF   │◄────►│    SMF    │◄────►│   UDM   │       │
+│  └─────────┘ Nsmf └─────┬─────┘ Nudm └─────────┘       │
+│                         │                                │
+│                         │ N4 (PFCP)                      │
+│                         │                                │
+│                    ┌────▼────┐                          │
+│                    │   UPF   │──────► Internet          │
+│                    └─────────┘                          │
+│                                                          │
+│  SMF: Session control (signaling)                       │
+│  UPF: Packet forwarding (data plane)                    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key insight:** SMF is control plane only. It tells UPF what to do but never touches user data.
+
+### Key responsibilities
+
+| Responsibility | What it means |
+|----------------|---------------|
+| **PDU session establishment** | Create data paths for UE |
+| **UPF selection and control** | Choose UPF, install forwarding rules |
+| **IP address allocation** | Assign IPv4/IPv6 to UE |
+| **QoS management** | Configure QoS flows and rules |
+| **Policy enforcement** | Apply PCF decisions |
+| **Charging integration** | Interface with CHF for billing |
+| **SSC mode handling** | Session continuity behavior |
+
+### From 4G to 5G session management
+
+```
+4G (Combined):
+┌─────────────────────────────────────────────────────────┐
+│  MME: Session signaling (GTP-C to SGW/PGW)              │
+│  SGW: User plane anchor                                  │
+│  PGW: IP assignment, policy, charging                   │
+└─────────────────────────────────────────────────────────┘
+
+5G (Separated):
+┌─────────────────────────────────────────────────────────┐
+│  AMF: Mobility only (no session management)             │
+│  SMF: Session signaling, QoS, IP allocation            │
+│  UPF: Packet forwarding (decoupled from control)       │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Benefit:** Scale SMF for session capacity independently from AMF mobility capacity.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### SMF services (SBI)
+
+```
+SMF Services:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nsmf_PDUSession                                        │
+│  ├── CreateSMContext          (new PDU session)         │
+│  ├── UpdateSMContext          (modify session)          │
+│  ├── ReleaseSMContext         (terminate session)       │
+│  └── SMContextStatusNotify    (status updates)          │
+│                                                          │
+│  Nsmf_EventExposure                                     │
+│  ├── Subscribe                (session events)          │
+│  ├── Unsubscribe                                        │
+│  └── Notify                                             │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### PDU session establishment
+
+```
+PDU Session Setup:
+
+UE         gNB         AMF         SMF         UPF        UDM/PCF
+│           │           │           │           │           │
+│  PDU Session│          │           │           │           │
+│  Establish Req         │           │           │           │
+│─────────────────────►│           │           │           │
+│           │           │           │           │           │
+│           │           │ Nsmf_PDUSession      │           │
+│           │           │ CreateSMContext      │           │
+│           │           │──────────►│           │           │
+│           │           │           │           │           │
+│           │           │           │  Nudm (subscription) │
+│           │           │           │──────────────────────►│
+│           │           │           │           │           │
+│           │           │           │  Npcf (policy)       │
+│           │           │           │──────────────────────►│
+│           │           │           │           │           │
+│           │           │           │  N4 Session Est      │
+│           │           │           │──────────►│           │
+│           │           │           │           │           │
+│           │           │           │  IP allocated        │
+│           │           │           │◄──────────│           │
+│           │           │           │           │           │
+│           │           │◄──────────│           │           │
+│           │           │           │           │           │
+│           │  N2 PDU Session Setup │           │           │
+│           │◄──────────│           │           │           │
+│           │           │           │           │           │
+│ PDU Session│          │           │           │           │
+│ Establish Accept      │           │           │           │
+│◄───────────────────────           │           │           │
+│           │           │           │           │           │
+```
+
+**Result:** UE has IP address, QoS rules installed in UPF, data can flow.
+
+### N4 interface (PFCP)
+
+SMF controls UPF via **PFCP (Packet Forwarding Control Protocol)**:
+
+```
+N4 (PFCP) Operations:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SMF ──────────────────────────────────────────► UPF    │
+│                     PFCP                                 │
+│                                                          │
+│  Session Management:                                    │
+│  ├── Session Establishment Request/Response             │
+│  ├── Session Modification Request/Response              │
+│  └── Session Deletion Request/Response                  │
+│                                                          │
+│  Node Management:                                       │
+│  ├── Association Setup/Release                          │
+│  └── Heartbeat                                          │
+│                                                          │
+│  PFCP Session contains:                                 │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ PDR (Packet Detection Rule): match criteria     │   │
+│  │ FAR (Forwarding Action Rule): what to do        │   │
+│  │ QER (QoS Enforcement Rule): rate limits         │   │
+│  │ URR (Usage Reporting Rule): billing             │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                          │
+│  Transport: UDP port 8805                               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### QoS architecture
+
+```
+5G QoS Model:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  PDU Session                                            │
+│  ├── QoS Flow 1 (5QI=5, voice)                         │
+│  │   └── QFI = 1                                        │
+│  ├── QoS Flow 2 (5QI=9, video)                         │
+│  │   └── QFI = 2                                        │
+│  └── QoS Flow 3 (5QI=8, best effort)                   │
+│      └── QFI = 3                                        │
+│                                                          │
+│  SMF responsibilities:                                  │
+│  ├── Create QoS flows based on PCF rules               │
+│  ├── Assign QFI (QoS Flow Identifier)                  │
+│  ├── Configure 5QI parameters                          │
+│  └── Install QoS rules in UPF                          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+5QI Table (examples):
+┌──────┬────────────────┬─────────┬───────────┐
+│ 5QI  │ Resource Type  │ Delay   │ Use Case  │
+├──────┼────────────────┼─────────┼───────────┤
+│  1   │ GBR            │ 100ms   │ Voice     │
+│  2   │ GBR            │ 150ms   │ Video     │
+│  5   │ Non-GBR        │ 100ms   │ IMS sig   │
+│  8   │ Non-GBR        │ 300ms   │ Video     │
+│  9   │ Non-GBR        │ 300ms   │ Best eff  │
+└──────┴────────────────┴─────────┴───────────┘
+```
+
+### IP address management
+
+```
+IP Allocation Methods:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Static (preconfigured)                              │
+│     - IP in subscription data (UDM)                     │
+│     - SMF assigns from subscription                     │
+│                                                          │
+│  2. Dynamic (SMF pool)                                  │
+│     - SMF manages IP pool                               │
+│     - Allocates from available range                    │
+│                                                          │
+│  3. External DHCP                                       │
+│     - SMF queries external DHCP server                  │
+│     - Enterprise integration                            │
+│                                                          │
+│  4. Framed Route                                        │
+│     - /64 prefix for IPv6                               │
+│     - Enterprise VPN scenarios                          │
+│                                                          │
+│  IPv4 vs IPv6:                                          │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ PDU Session Type: IPv4 | IPv6 | IPv4v6         │   │
+│  │                                                  │   │
+│  │ IPv6: SLAAC or DHCPv6                           │   │
+│  │ IPv4: DHCP or static                            │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### SSC modes (Session and Service Continuity)
+
+```
+SSC Modes:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SSC Mode 1: IP address preserved                       │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ UE moves → Same UPF or anchor UPF maintained    │   │
+│  │ IP address: unchanged                            │   │
+│  │ Use case: TCP sessions, enterprise VPN          │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                          │
+│  SSC Mode 2: Break-before-make                          │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ UE moves → Release old session, create new      │   │
+│  │ IP address: changes                              │   │
+│  │ Use case: Best effort traffic                   │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                          │
+│  SSC Mode 3: Make-before-break                          │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │ UE moves → New session established first        │   │
+│  │ IP address: both available temporarily          │   │
+│  │ Use case: Smooth handover for real-time apps   │   │
+│  └─────────────────────────────────────────────────┘   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### SMF selection
+
+```
+SMF Selection Criteria:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Inputs:                                                │
+│  ├── DNN (Data Network Name) - like APN                │
+│  ├── S-NSSAI (requested slice)                         │
+│  ├── UE location (TAI)                                 │
+│  └── Subscription info (UDM)                           │
+│                                                          │
+│  Selection factors:                                     │
+│  ├── DNN support                                       │
+│  ├── S-NSSAI support                                   │
+│  ├── Serving area                                      │
+│  ├── Load balancing                                    │
+│  └── Subscription restrictions                          │
+│                                                          │
+│  Process:                                               │
+│  1. AMF queries NRF for SMF supporting DNN/S-NSSAI     │
+│  2. NRF returns candidate SMFs                         │
+│  3. AMF selects based on load, locality                │
+│  4. AMF sends CreateSMContext to selected SMF          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**SMF configuration parameters:**
+
+| Parameter | Purpose | Example |
+|-----------|---------|---------|
+| DNN list | Supported data networks | "internet", "ims", "enterprise" |
+| IP pools | IPv4/IPv6 ranges | 10.0.0.0/8, fd00::/48 |
+| S-NSSAI | Supported slices | SST=1, SST=2/SD=001 |
+| UPF list | Known UPFs | UPF instances with N4 addresses |
+| Default 5QI | Default QoS | 9 (best effort) |
+| DNS servers | For UE | Primary, secondary DNS |
+
+**Capacity metrics:**
+
+| Metric | Description |
+|--------|-------------|
+| Active PDU sessions | Concurrent sessions |
+| Session setup rate | Establishments/second |
+| N4 transactions | PFCP messages/second |
+| IP pool utilization | Used vs available IPs |
+
+**Troubleshooting:**
+
+| Issue | Check |
+|-------|-------|
+| Session fails | DNN configured, UPF reachable |
+| No IP assigned | Pool exhaustion, DHCP timeout |
+| QoS not applied | PCF policy, UPF rules installed |
+| UPF unreachable | N4 heartbeat, PFCP association |
+| Slow setup | N4 latency, NRF discovery |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **SMF handles user traffic (wrong).** SMF is control plane only. If you're debugging data path issues, look at UPF.
+
+2. **One SMF per DNN.** Multiple SMFs can serve the same DNN. Plan for load distribution.
+
+3. **IP pool sizing.** Underestimate IP pool size and sessions will fail. Monitor utilization.
+
+4. **Ignoring N4 heartbeat.** Lost PFCP association means lost UPF control. Tune heartbeat timers.
+
+5. **QoS without PCF.** SMF can assign QoS, but PCF provides policy. Static config works for simple cases only.
+
+6. **SSC mode mismatch.** Application needs and SSC mode must align. TCP over SSC mode 2 breaks connections.
+
+7. **UPF selection complexity.** Edge deployments need careful UPF selection logic. Test mobility scenarios.
+
+8. **Missing DNS in session.** UE needs DNS servers. Configure in SMF or PCF policy.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System architecture for 5G System"
+- 3GPP TS 23.502, "Procedures for 5G System"
+- 3GPP TS 29.244, "Interface between CP and UP (PFCP)"
+- 3GPP TS 23.503, "Policy and Charging Control Framework"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [UPF](/en/core-network/network-functions-overview/upf/) — the data plane SMF controls
+- [PDU session deep dive](/en/core-network/session-management-deep-dive/pdu-session/) — detailed procedures
+- [QoS flows](/en/core-network/session-management-deep-dive/qos-flows/) — 5G QoS model
+
+</section>

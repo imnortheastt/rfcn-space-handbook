@@ -8,17 +8,344 @@ track: n3
 unit: selection-logic
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 8
+prerequisites: ["core-network-n2-network-functions-overview-05-nrf-nssf-pcf-nef"]
+spiralRevisits: []
 title: "Tong quan NSSF"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Network Slice Selection Function: cach 5G dinh tuyen UE den network slice dung."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 29.531", "3GPP TS 23.501"]
+tags: ["5g", "nssf", "network-slicing", "lua-chon-slice"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tong quan NSSF
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Network slicing la tinh nang dot pha cua 5G cho nha mang. Cac slice khac nhau cho dich vu khac nhau — eMBB, URLLC, mMTC — moi slice co QoS rieng.
+
+NSSF quyet dinh slice nao UE su dung. Lua chon slice sai, va nguoi dung roi vao mang sai voi QoS sai.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### NSSF lam gi
+
+```
+Vai tro NSSF trong 5G Core:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Yeu cau Dang ky UE:                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ "Toi muon ket noi. Goi cuoc cua toi ho tro      │    │
+│  │  slice eMBB va slice URLLC."                    │    │
+│  │                                                  │    │
+│  │  Requested NSSAI: [SST=1, SD=abc], [SST=2]      │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │                                                 │
+│       ▼                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │              AMF                                │    │
+│  │  "Toi can biet slice nao de phuc vu."           │    │
+│  │  "De toi hoi NSSF."                             │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │ Nnssf_NSSelection                              │
+│       ▼                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │              NSSF                               │    │
+│  │                                                  │    │
+│  │  Dau vao:                                       │    │
+│  │  - Requested NSSAI (UE muon gi)                 │    │
+│  │  - Subscribed S-NSSAI (UE duoc phep gi)         │    │
+│  │  - Vi tri UE (TAI)                              │    │
+│  │  - Cau hinh cuc bo                              │    │
+│  │                                                  │    │
+│  │  Dau ra:                                        │    │
+│  │  - Allowed NSSAI (slice duoc cap)               │    │
+│  │  - Target AMF set (neu can dinh tuyen lai)      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │                                                 │
+│       ▼                                                 │
+│  AMF phuc vu UE tren cac slice duoc phep                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cau truc S-NSSAI
+
+```
+Single Network Slice Selection Assistance Information:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  S-NSSAI = SST + SD (tuy chon)                          │
+│                                                          │
+│  ┌───────────────────────────────────┐                  │
+│  │ SST (Slice/Service Type)          │                  │
+│  │ 8 bits (0-255)                    │                  │
+│  │                                    │                  │
+│  │ Gia tri chuan:                    │                  │
+│  │ 1 = eMBB (enhanced Mobile BB)     │                  │
+│  │ 2 = URLLC (Ultra-Reliable Low Lat)│                  │
+│  │ 3 = mMTC (massive Machine Type)   │                  │
+│  │ 4 = V2X (Vehicle-to-Everything)   │                  │
+│  │ 5-127 = Danh rieng                │                  │
+│  │ 128-255 = Rieng nha mang          │                  │
+│  └───────────────────────────────────┘                  │
+│                                                          │
+│  ┌───────────────────────────────────┐                  │
+│  │ SD (Slice Differentiator)         │                  │
+│  │ 24 bits (tuy chon)                │                  │
+│  │                                    │                  │
+│  │ Dung cho:                         │                  │
+│  │ - Slice rieng doanh nghiep        │                  │
+│  │ - Phan biet dich vu               │                  │
+│  │ - Bien the theo vung              │                  │
+│  └───────────────────────────────────┘                  │
+│                                                          │
+│  Vi du S-NSSAIs:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ SST=1, SD=khong    → eMBB mac dinh              │    │
+│  │ SST=1, SD=0xABC123 → eMBB doanh nghiep          │    │
+│  │ SST=2, SD=khong    → URLLC mac dinh             │    │
+│  │ SST=128, SD=0x001  → Slice gaming nha mang      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cac thao tac dich vu NSSF
+
+```
+Giao dien Dua tren Dich vu NSSF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dich vu Nnssf_NSSelection:                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ POST /nnssf-nsselection/v1/network-slice-info   │    │
+│  │                                                  │    │
+│  │ Than yeu cau:                                   │    │
+│  │ {                                               │    │
+│  │   "nfType": "AMF",                              │    │
+│  │   "nfId": "amf-uuid",                           │    │
+│  │   "sliceInfoRequestForRegistration": {          │    │
+│  │     "requestedNssai": [                         │    │
+│  │       {"sst": 1},                               │    │
+│  │       {"sst": 2, "sd": "000001"}                │    │
+│  │     ],                                          │    │
+│  │     "subscribedNssai": [...],                   │    │
+│  │     "tai": {"plmnId": {...}, "tac": "0001"}     │    │
+│  │   }                                             │    │
+│  │ }                                               │    │
+│  │                                                  │    │
+│  │ Phan hoi:                                       │    │
+│  │ {                                               │    │
+│  │   "allowedNssai": [                             │    │
+│  │     {"sst": 1}                                  │    │
+│  │   ],                                            │    │
+│  │   "targetAmfSet": "amf-set-1",                  │    │
+│  │   "nrfAccessTokenUri": "..."                    │    │
+│  │ }                                               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Dich vu Nnssf_NSSAIAvailability:                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ AMFs bao cao S-NSSAIs nao ho co the phuc vu     │    │
+│  │                                                  │    │
+│  │ PUT /nnssf-nssaiavailability/v1/nssai-avail/{id}│    │
+│  │                                                  │    │
+│  │ Cho phep NSSF dinh tuyen UE den AMF co kha nang │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Luong lua chon slice
+
+```
+Dang ky voi Lua chon Slice:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE        RAN       AMF-1     NSSF      AMF-2          │
+│  │          │          │         │         │            │
+│  │ Yeu cau  │          │         │         │            │
+│  │ DK(NSSAI)│          │         │         │            │
+│  │─────────►│          │         │         │            │
+│  │          │ N2 Setup │         │         │            │
+│  │          │─────────►│         │         │            │
+│  │          │          │         │         │            │
+│  │          │          │ NSSelect│         │            │
+│  │          │          │────────►│         │            │
+│  │          │          │         │         │            │
+│  │          │          │ Allowed │         │            │
+│  │          │          │ + AMF-2 │         │            │
+│  │          │          │◄────────│         │            │
+│  │          │          │         │         │            │
+│  │          │          │Dinh tuyen│        │            │
+│  │          │          │ lai N14  │        │            │
+│  │          │          │─────────────────►│            │
+│  │          │          │         │         │            │
+│  │          │          │         │         │ Hoan tat  │
+│  │          │          │         │         │ DK        │
+│  │◄────────────────────────────────────────│            │
+│  │          │          │         │         │            │
+│                                                          │
+│  Kich ban: AMF-1 khong phuc vu slice URLLC.             │
+│  NSSF tra ve targetAmfSet chi den AMF-2.                │
+│  AMF-1 dinh tuyen lai dang ky den AMF-2.                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac loai NSSAI
+
+```
+Cac Loai NSSAI trong 5G:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Configured NSSAI                                │    │
+│  │ - Luu trong UE (tu lan dang ky truoc)          │    │
+│  │ - Theo co so moi PLMN                          │    │
+│  │ - UE dung de yeu cau slice                     │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │                                                 │
+│       ▼                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Requested NSSAI                                 │    │
+│  │ - UE gui trong Yeu cau Dang ky                 │    │
+│  │ - Dua tren Configured NSSAI + nhu cau ung dung │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │                                                 │
+│       │  So sanh voi                                   │
+│       ▼                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Subscribed S-NSSAIs (tu UDM)                    │    │
+│  │ - Nhung gi goi cuoc nguoi dung cho phep         │    │
+│  │ - Theo co so moi PLMN hoac moi TAI             │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │                                                 │
+│       │  + Chinh sach cuc bo                           │
+│       ▼                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Allowed NSSAI                                   │    │
+│  │ - Tra ve boi NSSF                              │    │
+│  │ - Giao cua requested, subscribed, va           │    │
+│  │   kha dung tai vi tri hien tai                  │    │
+│  │ - Gui den UE trong Chap nhan Dang ky           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cac endpoint dich vu NSSF:**
+
+| Endpoint | Method | Muc dich |
+|----------|--------|----------|
+| `/network-slice-info` | POST | Lua chon slice |
+| `/nssai-availability/{nfId}` | PUT | Dang ky kha nang AMF |
+| `/nssai-availability/{nfId}` | DELETE | Huy dang ky AMF |
+| `/nssai-availability/{nfId}` | PATCH | Cap nhat kha nang AMF |
+
+**Go loi lua chon slice:**
+
+```bash
+# Kiem tra log NSSF cho quyet dinh lua chon
+kubectl logs -l app=nssf | grep NSSelection
+
+# Xac minh dang ky NSSAI availability cua AMF
+curl -X GET http://nssf:8080/nnssf-nssaiavailability/v1/nssai-availability
+
+# Kiem tra lua chon slice
+curl -X POST http://nssf:8080/nnssf-nsselection/v1/network-slice-info \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nfType": "AMF",
+    "nfId": "test-amf",
+    "sliceInfoRequestForRegistration": {
+      "requestedNssai": [{"sst": 1}],
+      "tai": {"plmnId": {"mcc": "001", "mnc": "01"}, "tac": "0001"}
+    }
+  }'
+```
+
+**Cau hinh S-NSSAI pho bien:**
+
+| Truong hop | SST | SD | Mo ta |
+|------------|-----|-----|-------|
+| Broadband tieu dung | 1 | - | eMBB mac dinh |
+| Rieng doanh nghiep | 1 | 0xABC123 | eMBB rieng |
+| IoT cong nghiep | 2 | 0x000001 | URLLC cho nha may |
+| Dong ho thong minh | 3 | - | mMTC cho dien luc |
+| Gaming | 128 | 0x00GAME | Gaming do tre thap |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **AMF khong dang ky NSSAI availability.** NSSF khong the dinh tuyen neu khong biet AMF nao phuc vu slice nao.
+
+2. **Thieu SD trong S-NSSAI.** SST=1 va SST=1+SD=abc la cac slice khac nhau. Quen SD gay lua chon slice sai.
+
+3. **Bo qua slice rieng TAI.** Slice co the chi kha dung tai mot so tracking area. NSSF phai kiem tra TAI.
+
+4. **Anh xa NSSAI roaming.** PLMN khach co the dung gia tri S-NSSAI khac. NSSF phai anh xa dung.
+
+5. **Subscribed NSSAI cu.** Cap nhat goi cuoc UDM khong truyen den NSSF. Kiem tra tich hop NSSF-UDM.
+
+6. **Khong co slice du phong.** Neu tat ca slice yeu cau khong kha dung, co nen co mac dinh? Cau hinh hanh vi du phong.
+
+7. **Dinh tuyen lai vong.** AMF-1 dinh tuyen den AMF-2, AMF-2 dinh tuyen nguoc lai AMF-1. Kiem tra cau hinh target AMF.
+
+8. **NSSF khong duoc truy van.** AMF co the bo qua NSSF neu nghi co the xu ly cuc bo. Xac minh cau hinh AMF.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 29.531, "NSSF Services"
+- 3GPP TS 23.501, "System Architecture for 5G" (clause 5.15)
+- 3GPP TS 23.502, "Procedures for 5G System" (clause 4.2)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Lua chon slice](/vi/core-network/selection-logic/slice-selection/) — thuat toan lua chon
+- [Tieu chi lua chon NF](/vi/core-network/selection-logic/nf-selection-criteria/) — lua chon NF chung
+- [NRF va NSSF](/vi/core-network/network-functions-overview/nrf-nssf-pcf-nef/) — cac NF lien quan
+
+</section>

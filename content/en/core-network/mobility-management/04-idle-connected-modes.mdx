@@ -8,17 +8,385 @@ track: n3
 unit: mobility-management
 order: 4
 level: L3
-estimatedReadingMinutes: 5
-title: "Idle and connected mode"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-mobility-management-01-registration"]
+spiralRevisits: ["core-network-n4-power-saving-01-drx"]
+title: "Idle and Connected Modes"
+description: "RRC and CM states — how UE saves power while staying reachable."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 38.331", "3GPP TS 24.501"]
+tags: ["rrc", "cm", "idle", "connected", "drx", "paging"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Idle and connected mode
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Your phone isn't actively transmitting all the time. When you're not using data, it enters **idle mode** to save battery — but it stays registered so calls and messages can reach you.
+
+Understanding idle vs connected modes explains why "always connected" doesn't mean "always transmitting."
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Two state machines
+
+```
+5G UE State Machines:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Connection Management (CM) - NAS layer, AMF            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  CM-IDLE ◄───────────────────► CM-CONNECTED    │    │
+│  │                                                  │    │
+│  │  No NAS signaling        Active NAS signaling   │    │
+│  │  connection              connection with AMF    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  RRC State (Radio) - AS layer, gNB                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  RRC_IDLE ◄──► RRC_INACTIVE ◄──► RRC_CONNECTED │    │
+│  │                                                  │    │
+│  │  No RRC      RRC suspended      Active RRC      │    │
+│  │  context     (UE context kept)  connection      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### State comparison
+
+| State | Radio | Core | Battery | Latency |
+|-------|-------|------|---------|---------|
+| **RRC_IDLE** | Off | Registered | Best | High (paging) |
+| **RRC_INACTIVE** | Off | Connected | Good | Medium |
+| **RRC_CONNECTED** | On | Connected | Worst | Best |
+
+### When you're in each state
+
+```
+State Transitions in Daily Use:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Morning: Phone in pocket                               │
+│  ┌──────────────────────────────────┐                   │
+│  │ RRC_IDLE / CM-IDLE               │                   │
+│  │ - Radio off, saving battery      │                   │
+│  │ - Network knows your TA (area)   │                   │
+│  │ - Incoming call → paging         │                   │
+│  └──────────────────────────────────┘                   │
+│                                                          │
+│  You open an app:                                       │
+│  ┌──────────────────────────────────┐                   │
+│  │ RRC_CONNECTED / CM-CONNECTED     │                   │
+│  │ - Radio on, data flowing         │                   │
+│  │ - gNB knows your exact cell      │                   │
+│  │ - Handover if you move           │                   │
+│  └──────────────────────────────────┘                   │
+│                                                          │
+│  App goes background (5G NR feature):                   │
+│  ┌──────────────────────────────────┐                   │
+│  │ RRC_INACTIVE / CM-CONNECTED      │                   │
+│  │ - Radio off, context preserved   │                   │
+│  │ - Fast resume when needed        │                   │
+│  │ - Good for bursty traffic        │                   │
+│  └──────────────────────────────────┘                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### RRC states in detail
+
+```
+RRC State Machine:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                   ┌──────────────┐                      │
+│                   │  RRC_IDLE    │                      │
+│                   │              │                      │
+│                   │ - No RRC ctx │                      │
+│                   │ - Cell resel │                      │
+│                   │ - Paging DRX │                      │
+│                   └──────┬───────┘                      │
+│                          │                               │
+│            RRC Setup  ▼  │  ▲  RRC Release              │
+│                          │  │                            │
+│                   ┌──────┴───────┐                      │
+│                   │RRC_CONNECTED │                      │
+│                   │              │                      │
+│                   │ - Active RRC │                      │
+│                   │ - Handover   │                      │
+│                   │ - C-DRX      │                      │
+│                   └──────┬───────┘                      │
+│                          │                               │
+│      RRC Suspend  ▼  │  ▲  RRC Resume                   │
+│                          │  │                            │
+│                   ┌──────┴───────┐                      │
+│                   │RRC_INACTIVE  │◄── NEW in 5G         │
+│                   │              │                      │
+│                   │ - Ctx at gNB │                      │
+│                   │ - RAN paging │                      │
+│                   │ - I-DRX      │                      │
+│                   └──────────────┘                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### CM states
+
+```
+CM State Machine:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  CM-DEREGISTERED ────► CM-IDLE ────► CM-CONNECTED      │
+│        │                  │               │              │
+│        │                  │               │              │
+│        │  Registration    │  Service      │              │
+│        │  Accept          │  Request      │              │
+│        │                  │               │              │
+│        ▼                  ▼               ▼              │
+│                                                          │
+│  CM-DEREGISTERED: UE not registered                     │
+│  - No AMF association                                   │
+│  - Must register before anything                        │
+│                                                          │
+│  CM-IDLE: Registered but no signaling connection        │
+│  - AMF knows UE exists                                  │
+│  - AMF knows UE's tracking area                        │
+│  - No active N1/N2 for this UE                         │
+│                                                          │
+│  CM-CONNECTED: Active signaling connection              │
+│  - N1 (UE-AMF) established                             │
+│  - N2 (gNB-AMF) context for this UE                    │
+│  - Can exchange NAS messages                            │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Paging in idle mode
+
+```
+Paging Flow (MT call to idle UE):
+
+Network              AMF              gNBs            UE
+(incoming)            │                 │              │
+    │                 │                 │              │
+    │  MT call for    │                 │              │
+    │  SUPI xyz       │                 │              │
+    │────────────────►│                 │              │
+    │                 │                 │              │
+    │          ┌──────┴──────┐          │              │
+    │          │ UE in CM-IDLE│         │              │
+    │          │ Last TAI list│         │              │
+    │          └──────┬──────┘          │              │
+    │                 │                 │              │
+    │                 │  Paging         │              │
+    │                 │  (5G-S-TMSI)    │              │
+    │                 │────────────────►│              │
+    │                 │  (to all gNBs   │              │
+    │                 │   in TAI list)  │              │
+    │                 │                 │              │
+    │                 │                 │  Paging msg  │
+    │                 │                 │  on PCH      │
+    │                 │                 │─────────────►│
+    │                 │                 │              │
+    │                 │                 │          ┌───┴───┐
+    │                 │                 │          │ UE    │
+    │                 │                 │          │ wakes │
+    │                 │                 │          │ up    │
+    │                 │                 │          └───┬───┘
+    │                 │                 │              │
+    │                 │                 │  Service Req │
+    │                 │                 │◄─────────────│
+    │                 │                 │              │
+```
+
+### RRC_INACTIVE state
+
+```
+RRC_INACTIVE (5G NR innovation):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Problem with RRC_IDLE:                                 │
+│  - Full RRC setup takes ~10-50ms                        │
+│  - Context must be rebuilt from scratch                 │
+│  - Bad for bursty IoT traffic                          │
+│                                                          │
+│  Solution: RRC_INACTIVE                                 │
+│  - UE context stored at "anchor" gNB                   │
+│  - Radio off (like idle), but context ready            │
+│  - Resume takes ~2-10ms                                 │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │      gNB-anchor                                 │    │
+│  │   ┌────────────┐                                │    │
+│  │   │ UE Context │ ◄── Stored, ready to resume   │    │
+│  │   │ - Security │                                │    │
+│  │   │ - Bearer   │                                │    │
+│  │   │ - I-RNTI   │                                │    │
+│  │   └────────────┘                                │    │
+│  │                                                  │    │
+│  │      UE (radio off)                             │    │
+│  │   ┌────────────┐                                │    │
+│  │   │ I-RNTI     │ ◄── Resume ID                 │    │
+│  │   │ Stored ctx │                                │    │
+│  │   └────────────┘                                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  When UE has data:                                      │
+│  UE sends RRC Resume Request with I-RNTI               │
+│  gNB retrieves context (local or from anchor)          │
+│  Connection restored in milliseconds                    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### DRX (Discontinuous Reception)
+
+```
+DRX Configurations:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Paging DRX (Idle mode):                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Time ──────────────────────────────────►        │    │
+│  │                                                  │    │
+│  │  │▓│    │    │    │▓│    │    │    │▓│          │    │
+│  │   │              │              │               │    │
+│  │   └── Wake for ──┘              │               │    │
+│  │       paging                    └── Sleep most  │    │
+│  │       occasion                      of time     │    │
+│  │                                                  │    │
+│  │  Cycle: 320ms - 2.56s (network configured)      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Connected DRX (C-DRX):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  │▓▓▓│   │▓▓▓│   │▓▓▓│   │▓▓▓│                  │    │
+│  │    │       │       │       │                    │    │
+│  │    └───────┴───────┴───────┘                    │    │
+│  │    On duration (monitor PDCCH)                  │    │
+│  │                                                  │    │
+│  │  Short cycle: 2-640 slots                       │    │
+│  │  Long cycle: 10-10240 slots                     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Inactive DRX (I-DRX):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Similar to paging DRX but RAN-level paging    │    │
+│  │  Configured by RRC Release with suspend        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**State indicators:**
+
+| State | CM | RRC | UE Activity |
+|-------|-----|-----|-------------|
+| Off | - | - | Powered off |
+| Searching | DEREG | IDLE | Looking for network |
+| Registered idle | IDLE | IDLE | Waiting for paging |
+| Suspended | CONN | INACTIVE | Quick resume ready |
+| Active | CONN | CONNECTED | Data transfer |
+
+**Timers:**
+
+| Timer | Purpose | Typical Value |
+|-------|---------|---------------|
+| T3512 | Periodic registration | 54 min |
+| Paging DRX | Idle mode cycle | 1.28s |
+| Inactivity | CONNECTED→INACTIVE | 2-10s |
+| T380 | INACTIVE→IDLE | 10-60s |
+
+**Debugging:**
+
+```bash
+# Wireshark filter for RRC state changes
+nr-rrc.rrcSetup || nr-rrc.rrcRelease || nr-rrc.rrcResume
+
+# Check paging
+ngap.procedureCode == 29  # Paging procedure
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing CM and RRC states.** CM is NAS layer (AMF). RRC is AS layer (gNB). They transition independently.
+
+2. **Ignoring RRC_INACTIVE.** This 5G-specific state provides huge latency savings for IoT. Not using it wastes the feature.
+
+3. **Paging DRX too long.** Long paging cycle saves battery but increases MT call setup time.
+
+4. **C-DRX too aggressive.** Very short DRX on-duration may miss scheduling opportunities.
+
+5. **INACTIVE timer mismatch.** If T380 expires before data arrives, UE goes to IDLE and loses fast resume benefit.
+
+6. **Forgetting RAN paging.** In INACTIVE, RAN pages UE (not CN paging). Different from idle mode paging.
+
+7. **TAI list too small.** In idle mode, UE does cell reselection freely within TAI list. Small list causes frequent TAU.
+
+8. **Not configuring I-RNTI properly.** I-RNTI uniqueness is critical for RRC_INACTIVE to work correctly.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 38.331, "NR RRC Protocol"
+- 3GPP TS 24.501, "NAS for 5GS"
+- 3GPP TS 38.304, "UE Procedures in Idle Mode"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Registration](/en/core-network/mobility-management/registration/) — entering RM-REGISTERED
+- [Handover](/en/core-network/mobility-management/handover/) — mobility in connected mode
+- [DRX deep dive](/en/core-network/power-saving/drx/) — power saving mechanisms
+
+</section>

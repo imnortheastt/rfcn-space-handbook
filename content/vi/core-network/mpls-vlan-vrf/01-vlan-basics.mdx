@@ -8,17 +8,386 @@ track: n0
 unit: mpls-vlan-vrf
 order: 1
 level: L1
-estimatedReadingMinutes: 5
-title: "Co ban ve VLAN"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 13
+prerequisites: ["core-network-n0-routing-and-switching-01-switching-fundamentals"]
+spiralRevisits: ["core-network-n1-mpls-vlan-vrf-02-mpls-label-switching"]
+title: "Cơ bản về VLAN"
+description: "Virtual LAN — phân đoạn broadcast domain, 802.1Q tagging, QinQ cho fronthaul transport, và thiết kế VLAN trong các interface N2/N3/N4/N6 của 5G."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["IEEE 802.1Q", "IEEE 802.1ad", "O-RAN.WG4.CUS"]
+tags: ["vlan", "layer-2", "networking", "segmentation", "802.1q", "qinq", "fronthaul", "5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Co ban ve VLAN
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+Không có VLAN, mọi thiết bị trên switch chia sẻ cùng broadcast domain. Broadcast storm, rò rỉ bảo mật, và ác mộng quản lý theo sau.
+
+VLAN cho phép bạn tạo các mạng logic riêng biệt trên cùng hạ tầng vật lý. Chúng là nền tảng của mọi mạng hiện đại — enterprise, data center, và telecom. Trong mạng transport 5G, VLAN mang traffic eCPRI fronthaul, tách biệt các interface N2/N3/N4/N6, và cô lập management traffic khỏi user-plane traffic. Hiểu 802.1Q là điều kiện tiên quyết để hiểu một packet di chuyển vật lý qua một site 5G như thế nào.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+### VLAN là gì?
+
+**VLAN (Virtual LAN)** là broadcast domain logic được tạo trên switch. Thiết bị trong cùng VLAN có thể giao tiếp ở Layer 2. Thiết bị ở VLAN khác không thể — chúng cần router.
+
+```
+View vật lý:                    View logic:
+
+┌────────────────────┐          ┌─────────┐  ┌─────────┐
+│      Switch        │          │ VLAN 10 │  │ VLAN 20 │
+│                    │          │         │  │         │
+│ P1  P2  P3  P4  P5 │    →     │ P1  P2  │  │ P3  P4  │
+└─┬───┬───┬───┬───┬──┘          │         │  │         │
+  │   │   │   │   │             └─────────┘  └─────────┘
+  A   B   C   D   E                A   B        C   D
+```
+
+Port 1–2 ở VLAN 10. Port 3–4 ở VLAN 20. Thiết bị A có thể nói chuyện với B trực tiếp. A không thể nói với C mà không qua router.
+
+### Tại sao cần VLAN?
+
+| Vấn đề | Giải pháp VLAN |
+|--------|----------------|
+| Broadcast storm | Giới hạn broadcast domain chỉ trong một VLAN |
+| Bảo mật | Cô lập traffic nhạy cảm |
+| Performance | Giảm broadcast traffic không cần thiết |
+| Linh hoạt | Nhóm thiết bị theo chức năng, không phải vị trí vật lý |
+| Multitenancy | Chia sẻ hạ tầng vật lý, cô lập tenant |
+| Tách biệt interface | Mang N2, N3, N4, N6 trên các kênh logic riêng biệt |
+
+### VLAN ID
+
+Mỗi VLAN có ID số (1–4094).
+
+- **VLAN 1:** VLAN mặc định trên hầu hết switch. Tránh dùng cho user traffic — đây là mục tiêu tấn công mặc định.
+- **VLAN 2–1001:** Range thông thường, dùng được mọi nơi.
+- **VLAN 1002–1005:** Reserved cho Token Ring/FDDI cũ.
+- **VLAN 1006–4094:** Extended range. Yêu cầu VTP transparent mode trên một số nền tảng Cisco.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### Access port vs trunk port
+
+**Access port:** Thuộc một VLAN duy nhất. Kết nối đến thiết bị cuối (server, UE, NF appliance).
+- Frame đến untagged, rời untagged
+- Switch thêm và gỡ VLAN tag nội bộ
+- Thiết bị kết nối không biết gì về VLAN
+
+**Trunk port:** Mang nhiều VLAN. Kết nối đến switch, router khác hoặc NF host.
+- Frame mang 802.1Q VLAN tag
+- Cho phép inter-switch VLAN traffic và cấu hình multi-interface của NF
+
+```
+┌─────────────────┐                    ┌─────────────────┐
+│    Switch A     │                    │    Switch B     │
+│                 │     Trunk link     │                 │
+│ VLAN 10  VLAN 20│◄──────────────────►│ VLAN 10  VLAN 20│
+│  │    │         │   (frame tagged)   │  │    │         │
+│  P1   P2        │                    │  P3   P4        │
+└──┼────┼─────────┘                    └──┼────┼─────────┘
+   │    │                                 │    │
+  PC-A PC-B                             PC-C PC-D
+(VLAN10)(VLAN20)                      (VLAN10)(VLAN20)
+```
+
+PC-A có thể reach PC-C (cả hai VLAN 10 qua trunk). PC-A không thể reach PC-D (VLAN khác — cần routing).
+
+### 802.1Q tagging
+
+IEEE 802.1Q chèn 4-byte tag vào Ethernet frame giữa địa chỉ MAC nguồn và trường EtherType.
+
+```
+Ethernet frame chuẩn:
+┌─────────┬─────────┬──────┬─────────┬─────┐
+│ Dst MAC │ Src MAC │ Type │ Payload │ FCS │
+└─────────┴─────────┴──────┴─────────┴─────┘
+
+802.1Q tagged frame:
+┌─────────┬─────────┬──────────────────┬──────┬─────────┬─────┐
+│ Dst MAC │ Src MAC │   802.1Q Tag     │ Type │ Payload │ FCS │
+└─────────┴─────────┴──────────────────┴──────┴─────────┴─────┘
+                    │                  │
+                    ▼                  │
+              ┌────────────────────┐  │
+              │ TPID  │ PCP │ DEI │ VID (12 bit) │
+              │ 0x8100│ 3b  │ 1b  │ 0-4095       │
+              └────────────────────┘
+```
+
+**Các trường tag:**
+- **TPID (0x8100):** Tag Protocol Identifier — đánh dấu đây là 802.1Q frame
+- **PCP (3 bit):** Priority Code Point (802.1p) — QoS priority 0–7
+- **DEI (1 bit):** Drop Eligible Indicator — frame này có thể bị drop khi congestion
+- **VID (12 bit):** VLAN Identifier — VLAN nào (0–4095; 0 và 4095 reserved)
+
+Tag thêm 4 byte. Kích thước frame Ethernet tối đa tăng từ 1518 lên 1522 byte với single tag.
+
+### Native VLAN
+
+Trên trunk port, một VLAN là **native VLAN**. Frame trong native VLAN được gửi không có tag.
+
+**Tại sao native VLAN tồn tại:**
+- Backward compatibility với thiết bị không hỗ trợ VLAN
+- STP, CDP, LLDP, VTP control traffic thường dùng native VLAN
+
+**Cảnh báo bảo mật:** Native VLAN mismatch giữa hai switch kết nối tạo ra đường VLAN hopping — traffic nhảy VLAN mà không qua routing. Luôn match native VLAN ở cả hai đầu trunk, hoặc cấu hình tag tất cả mọi thứ.
+
+### Inter-VLAN routing
+
+Thiết bị ở VLAN khác cần routing Layer 3 để giao tiếp.
+
+**Option 1: Router-on-a-stick**
+
+```
+          ┌─────────┐
+          │ Router  │
+          │         │
+          │  eth0   │  (trunk: VLAN 10, 20)
+          └────┬────┘
+       eth0.10 │ eth0.20   (subinterface)
+          ┌────┴────┐
+          │ Switch  │
+          │         │
+          │ P1   P2 │
+          └─┬─────┬─┘
+            │     │
+          PC-A   PC-B
+        (VLAN 10)(VLAN 20)
+```
+
+Router có subinterface: eth0.10 cho VLAN 10, eth0.20 cho VLAN 20. Traffic giữa VLAN đi qua router. Không scale tốt dưới high traffic.
+
+**Option 2: Layer 3 switch (chuẩn trong telecom)**
+
+Switch có khả năng routing tích hợp. Inter-VLAN routing xảy ra trong ASIC hardware — line-rate.
+
+```
+┌─────────────────────┐
+│   L3 Switch         │
+│                     │
+│  SVI VLAN 10: 10.0.10.1 │
+│  SVI VLAN 20: 10.0.20.1 │
+│                     │
+│    P1         P2    │
+└────┬──────────┬─────┘
+     │          │
+   PC-A       PC-B
+ (VLAN 10)  (VLAN 20)
+```
+
+Switch Virtual Interface (SVI) cung cấp gateway Layer 3 cho mỗi VLAN. Đây là chuẩn trong enterprise và access/aggregation layer của telecom.
+
+### QinQ (double tagging) — 802.1ad
+
+**QinQ** (IEEE 802.1ad) xếp chồng hai VLAN tag trên cùng frame. Được dùng rộng rãi trong mạng transport telecom.
+
+```
+QinQ frame (double-tagged):
+┌─────────┬─────────┬────────────┬────────────┬──────┬─────────┬─────┐
+│ Dst MAC │ Src MAC │ S-Tag      │ C-Tag      │ Type │ Payload │ FCS │
+└─────────┴─────────┴────────────┴────────────┴──────┴─────────┴─────┘
+                    │            │
+                    │            └── C-Tag (0x8100): Customer VLAN
+                    └──────────────── S-Tag (0x88A8): Service/Provider VLAN
+```
+
+- **S-VLAN (Service VLAN, TPID 0x88A8):** Outer tag của provider — xác định service hoặc tunnel
+- **C-VLAN (Customer VLAN, TPID 0x8100):** Inner tag của khách hàng — được giữ nguyên end-to-end
+
+**Use case telecom — eCPRI fronthaul:**
+
+Trong O-RAN fronthaul (giữa DU và RRU), mạng transport dùng QinQ để mang eCPRI traffic:
+
+```
+DU                   Fronthaul Switch          RRU
+ │                          │                   │
+ │  eCPRI frame             │                   │
+ │  + C-VLAN (RRU ID)       │                   │
+ │─────────────────────────►│                   │
+ │                          │ Thêm S-VLAN        │
+ │                          │ (fronthaul domain) │
+ │                          │───────────────────►│
+ │                          │                   │ Gỡ cả hai tag
+```
+
+C-VLAN xác định RRU nào eCPRI flow thuộc về (một VLAN mỗi RRU là phổ biến). S-VLAN xác định service fronthaul transport qua mạng provider.
+
+### VLAN trong thiết kế interface 5G
+
+Site 5G dùng VLAN để tách biệt từng interface logic trên các link vật lý chung:
+
+```
+gNB (DU/CU) với nhiều interface 5G:
+
+Physical interface: bond0 (25GbE trunk)
+  │
+  ├── VLAN 100: N2 (gNB-AMF, SCTP, control plane)
+  ├── VLAN 200: N3 (gNB-UPF, GTP-U, user plane)
+  ├── VLAN 300: N8 Midhaul (F1-U, CU-DU split)
+  ├── VLAN 400: O1 (management, NETCONF/YANG)
+  └── VLAN 500: S-Plane (PTP/IEEE 1588 timing sync)
+```
+
+Mỗi VLAN ánh xạ đến một IP subnet khác nhau và route đến một NF khác nhau. Traffic được tách biệt ở Layer 2 trước khi được route ở Layer 3. Thiết kế này có nghĩa là một sợi cáp hỏng sẽ ảnh hưởng tất cả interface đồng thời — đó là lý do active-active bonding hoặc đường vật lý riêng biệt được dùng cho N2 và N3.
+
+**QoS qua PCP bit:**
+
+Trường PCP của 802.1Q (3 bit, giá trị 0–7) ánh xạ đến forwarding priority trong mạng transport:
+
+| PCP | Traffic class | Dùng trong 5G |
+|-----|-------------|---------------|
+| 7 | Network control | LLDP, STP |
+| 6 | Voice | URLLC user plane |
+| 5 | Video | eMBB user plane |
+| 4 | Controlled load | N2 signaling |
+| 3 | Excellent effort | N4 PFCP |
+| 0 | Best effort | Management |
+
+DU đặt PCP bit trên eCPRI frame dựa trên 5QI của QoS flow. Fronthaul switch tuân theo các bit này cho traffic shaping.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+### Nguyên tắc thiết kế VLAN
+
+| Guideline | Lý do |
+|-----------|-------|
+| Không bao giờ dùng VLAN 1 cho production | Mục tiêu tấn công bảo mật mặc định |
+| Giữ broadcast domain nhỏ | Performance, containment blast radius |
+| Một VLAN cho mỗi interface logic 5G | Tách biệt rõ ràng, dễ troubleshoot |
+| Dùng VLAN ID nhất quán toàn site | Consistency vận hành |
+| Prune VLAN trên trunk | Ngăn flooding đến switch không cần |
+| Match native VLAN ở cả hai đầu trunk | Ngăn VLAN hopping |
+| Tag PCP bit cho 5G QoS | Cho phép thực thi QoS transport |
+
+### VLAN assignment phổ biến trong site 5G
+
+| VLAN | Mục đích | Interface |
+|------|----------|-----------|
+| 100 | N2 (control) | gNB đến AMF |
+| 200 | N3 (user plane) | gNB đến UPF |
+| 300 | F1-U / midhaul | CU đến DU |
+| 400 | Fronthaul eCPRI | DU đến RRU |
+| 500 | S-Plane (timing) | PTP grandmaster sync |
+| 600 | OAM / O1 | Management |
+| 999 | Native (không dùng) | Trunk default |
+
+### Troubleshooting VLAN
+
+1. **Thiết bị không reach được thiết bị khác cùng VLAN:**
+   - Verify VLAN assignment của port: `show vlan brief`
+   - Kiểm tra port status: `show interface status`
+   - Verify VLAN tồn tại trên switch
+
+2. **Trunk không hoạt động:**
+   - Kiểm tra encapsulation match (802.1Q ở cả hai phía)
+   - Verify allowed VLAN: `show interface trunk`
+   - Kiểm tra native VLAN match ở cả hai đầu
+
+3. **Inter-VLAN routing fail:**
+   - Verify SVI hoặc subinterface tồn tại cho VLAN
+   - Kiểm tra IP routing được enable trên L3 switch
+   - Verify default gateway trên client trỏ đến SVI IP
+
+4. **eCPRI flow không reach được RRU:**
+   - Kiểm tra C-VLAN và S-VLAN assignment ở DU port
+   - Verify fronthaul switch trunk cho phép cả inner và outer VLAN
+   - Kiểm tra PCP bit được đặt đúng cho timing traffic (PTP thường PCP 7)
+
+### Command hữu ích
+
+```bash
+# Xem VLAN configuration
+show vlan brief
+
+# Xem trunk status và allowed VLAN
+show interface trunk
+
+# Xem VLAN assignment mỗi port
+show interface GigabitEthernet0/1 switchport
+
+# Tạo VLAN và đặt tên
+vlan 200
+  name N3-USER-PLANE
+
+# Gán port vào VLAN (access mode)
+interface GigabitEthernet0/2
+  switchport mode access
+  switchport access vlan 200
+
+# Cấu hình trunk với VLAN cụ thể
+interface GigabitEthernet0/24
+  switchport mode trunk
+  switchport trunk native vlan 999
+  switchport trunk allowed vlan 100,200,300,400,500,600,999
+
+# Cấu hình QinQ trên provider port (Cisco IOS)
+interface GigabitEthernet0/10
+  switchport mode dot1q-tunnel
+  switchport access vlan 1000
+  l2protocol-tunnel cdp lldp stp
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Dùng VLAN 1 cho production traffic.** VLAN 1 mang tất cả untagged traffic theo mặc định và là mục tiêu của nhiều VLAN hopping attack. Tạo VLAN explicit và coi VLAN 1 như discard VLAN.
+
+2. **Native VLAN mismatch trên trunk.** Nếu native VLAN của Switch A là 1 và Switch B là 10, một double-tagged frame có thể đi từ VLAN 1 vào VLAN 10 mà không qua routing. Luôn match native VLAN hoặc cấu hình `vlan dot1q tag native` để tag mọi thứ.
+
+3. **Quên tạo VLAN trên tất cả switch trong path.** VLAN phải tồn tại trên mỗi switch mà nó đi qua. Trên Cisco, frame trong VLAN không tồn tại trên switch sẽ bị drop silently. Đây là silent failure phổ biến trong deployment nhiều switch.
+
+4. **Không prune trunk.** Mặc định, trunk mang tất cả VLAN. VLAN không cần thiết lãng phí bandwidth và mở rộng broadcast domain qua các link không có thiết bị nào trong VLAN đó.
+
+5. **VTP revision number disaster.** VTP (VLAN Trunking Protocol) của Cisco sync VLAN giữa switch. Switch được thêm vào mạng với VTP revision number cao hơn sẽ ghi đè tất cả cấu hình VLAN trên mọi switch nhận VTP update. Dùng VTP transparent mode hoặc disable VTP hoàn toàn.
+
+6. **MTU mismatch với 802.1Q.** 4-byte 802.1Q tag làm tăng kích thước frame. Nếu MTU của interface upstream không được đặt thành 1522 (hoặc 1526 cho QinQ), tagged frame bị drop hoặc fragment. Đây là silent failure — kiểm tra `show interface` để tìm input error và giants.
+
+7. **QinQ TPID mismatch.** Một số thiết bị cũ dùng TPID 0x9100 hoặc 0x9200 cho outer S-VLAN tag thay vì chuẩn 0x88A8. Nếu đầu kia kỳ vọng 0x88A8 nhưng bạn gửi 0x9100, outer tag không được nhận dạng — đây là failure mode khó debug.
+
+8. **eCPRI PCP bit bị bỏ qua.** Nếu fronthaul switch được cấu hình với QoS mặc định (tất cả traffic best-effort), eCPRI flow URLLC phải cạnh tranh với management traffic. Latency budget 1ms bị phá vỡ trước khi packet rời DU. Luôn cấu hình DSCP và PCP marking policy trên egress port của DU.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- IEEE 802.1Q, "Bridges and Bridged Networks" (VLAN tagging)
+- IEEE 802.1ad, "Provider Bridges" (QinQ / double tagging)
+- IEEE 802.1p, "Traffic Class Expediting" (PCP QoS)
+- O-RAN.WG4.CUS.0-v09.00, "Control, User and Synchronization Plane Specification" (yêu cầu VLAN eCPRI)
+- 3GPP TS 38.401, "NG-RAN Architecture" (F1 interface)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Tiếp theo
+
+- [MPLS label switching](/vi/core-network/mpls-vlan-vrf/mpls-label-switching/) — vượt ra ngoài VLAN segmentation sang label-switched path
+- [VRF concept](/vi/core-network/mpls-vlan-vrf/vrf-concepts/) — virtual routing table cho multi-tenant isolation
+- [Fronthaul interface](/vi/core-network/fronthaul-interface/ecpri-overview/) — eCPRI qua transport VLAN
+
+</section>

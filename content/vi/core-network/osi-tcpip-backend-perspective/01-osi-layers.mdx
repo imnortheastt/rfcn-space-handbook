@@ -8,17 +8,275 @@ track: n0
 unit: osi-tcpip-backend-perspective
 order: 1
 level: L0
-estimatedReadingMinutes: 5
-title: "Cac tang OSI"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 11
+prerequisites: []
+spiralRevisits: ["core-network-n1-why-telcos-build-differently-01-carrier-grade-requirements"]
+title: "Các tầng OSI"
+description: "Mô hình 7 tầng giúp bạn debug mọi vấn đề mạng — từ cáp vật lý đến API ứng dụng — và cách ánh xạ vào kiến trúc 5G."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["ISO/IEC 7498-1"]
+tags: ["osi", "networking", "fundamentals", "protocol-stack"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Cac tang OSI
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+API call của bạn timeout. Lỗi ở server? Mạng? DNS? Firewall? Load balancer?
+
+Mô hình OSI cho bạn cách tiếp cận có hệ thống để cô lập vấn đề. Từng tầng một, bạn có thể trace xem packet đi đâu và dừng ở đâu. Mọi network engineer, backend developer, và SRE đều sử dụng mental model này hàng ngày — dù họ có gọi tên nó hay không.
+
+Quan trọng hơn đối với cuốn sách này: mô hình OSI là xương sống khái niệm mà kỹ sư 5G tham chiếu liên tục. Khi kỹ sư radio nói "Layer 2 scheduling," họ có ý nghĩa rất cụ thể. Khi kỹ sư core network nói "Layer 7 service exposure," họ đang mô tả Service-Based Interface của 5G. Hiểu các tầng cho phép bạn điều hướng cuộc trò chuyện giữa thế giới radio và thế giới cloud.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Mô hình OSI chia networking thành bảy tầng, mỗi tầng có một nhiệm vụ:
+
+| Tầng | Tên | Một dòng | Ví dụ |
+|------|-----|----------|-------|
+| 7 | Application | Protocol cho người dùng | HTTP, SMTP, DNS |
+| 6 | Presentation | Định dạng dữ liệu, mã hóa | TLS, JPEG, JSON |
+| 5 | Session | Quản lý kết nối | NetBIOS, RPC |
+| 4 | Transport | Truyền end-to-end | TCP, UDP, SCTP |
+| 3 | Network | Định tuyến giữa các mạng | IP, ICMP |
+| 2 | Data Link | Truyền hop-by-hop | Ethernet, WiFi, eCPRI |
+| 1 | Physical | Bit trên dây | Cáp, cáp quang, sóng radio |
+
+**Mẹo nhớ:** "Please Do Not Throw Sausage Pizza Away" (Physical → Application).
+
+**Insight quan trọng:** Mỗi tầng chỉ giao tiếp với tầng kề bên. Tầng 4 không quan tâm đến cáp; Tầng 2 không quan tâm đến HTTP. Sự cô lập này cho phép bạn thay đổi implementation mà không phá vỡ stack — và đây chính xác là lý do tại sao bạn có thể chạy 5G core trên phần cứng cloud thông thường trong khi mạng truy cập radio (RAN) sử dụng thiết bị RF chuyên dụng bên dưới.
+
+### Phép loại suy với cloud
+
+Hãy nghĩ về mô hình OSI như hệ thống bưu chính trong một công ty lớn:
+
+- **Tầng 1 (Physical):** Xe tải và đường xá — phương tiện vật lý mang thư.
+- **Tầng 2 (Data Link):** Người phát thư nội bộ giao giữa các tòa nhà trong một khuôn viên, dùng tên tòa nhà (địa chỉ MAC), không phải địa chỉ thành phố.
+- **Tầng 3 (Network):** Hệ thống bưu chính thành phố định tuyến gói hàng giữa các khuôn viên, dùng địa chỉ thành phố (địa chỉ IP).
+- **Tầng 4 (Transport):** Nhân viên phòng thư theo dõi xem gói hàng có đến không, gửi lại nếu mất (TCP), hoặc chỉ gửi không theo dõi (UDP).
+- **Tầng 7 (Application):** Phòng kinh doanh đọc và hành động theo nội dung thư.
+
+Mỗi bộ phận làm công việc của mình và chuyển gói hàng sang bộ phận tiếp theo. Sự cố ở bất kỳ cấp nào đều dừng chuỗi — và biết bộ phận nào bị lỗi cho bạn biết chính xác cần gọi ai.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### Tầng 1: Physical
+
+Chuyển đổi bit thành tín hiệu vật lý. Định nghĩa:
+- Loại connector (RJ45, SFP+, cáp quang LC, antenna)
+- Mức điện áp, bước sóng quang học, tần số
+- Timing và đồng bộ bit
+
+**Trong telecom:** Tầng 1 bao gồm quá trình truyền tần số vô tuyến thực sự giữa UE và gNB, cùng với cáp quang mang fronthaul (eCPRI) giữa Remote Radio Unit (RRU) và Baseband Unit (BBU). Ranh giới giữa Tầng 1 và Tầng 2 tại RAN chính xác là nơi các functional split O-RAN được định nghĩa.
+
+**Troubleshooting:** Cáp có cắm không? Đèn link có sáng không? NIC có được phát hiện không? Cường độ tín hiệu RF có đủ không?
+
+### Tầng 2: Data Link
+
+Truyền frame giữa các thiết bị kết nối trực tiếp. Xử lý:
+- Địa chỉ MAC (địa chỉ phần cứng 48-bit)
+- Phân định frame (đầu/cuối frame)
+- Phát hiện lỗi (CRC)
+- Truy cập media (CSMA/CD cho Ethernet; lập lịch TDMA cho 5G NR)
+
+**Protocol chính:** Ethernet (802.3), WiFi (802.11), PPP.
+
+**Trong 5G RAN:** Tầng 2 được chia thành ba sublayer — MAC (lập lịch và HARQ retransmission), RLC (phân đoạn, ARQ), và PDCP (mã hóa, nén header, sắp xếp lại). Những sublayer này được quy định trong 3GPP TS 38.321/38.322/38.323. Khi kỹ sư nói "throughput L2" trong bối cảnh RAN, họ có nghĩa là tốc độ dữ liệu tổng hợp tại tầng PDCP.
+
+**Troubleshooting:** Có ping được gateway không? Có xung đột địa chỉ MAC không? Port switch có up không?
+
+### Tầng 3: Network
+
+Định tuyến packet qua các mạng. Xử lý:
+- Địa chỉ logic (địa chỉ IP)
+- Quyết định định tuyến (hop tiếp theo là gì?)
+- Phân mảnh (chia packet lớn)
+
+**Protocol chính:** IPv4, IPv6, ICMP, OSPF, BGP.
+
+**Trong 5G core:** Tầng 3 là nơi GTP-U (GPRS Tunneling Protocol – User plane) hoạt động. GTP-U bọc các IP packet của người dùng trong một phong bì UDP/IP khác để mang chúng qua interface N3 giữa gNB và UPF, và qua N9 giữa các instance UPF. Từ góc nhìn của UE, lưu lượng IP của nó được đóng gói trong một GTP tunnel tại Tầng 3 — đây là cách user plane 5G khác biệt cơ bản so với mạng IP đơn giản.
+
+**Troubleshooting:** Có ping được IP remote không? Route có đúng không? Có firewall rule nào block không?
+
+### Tầng 4: Transport
+
+Cung cấp giao tiếp end-to-end giữa các process:
+- **TCP:** Đáng tin cậy, có thứ tự, hướng kết nối. Dùng cho web, database, và hầu hết lưu lượng ứng dụng.
+- **UDP:** Không đáng tin cậy, không thứ tự, không kết nối. Dùng cho DNS, video streaming, và — quan trọng — GTP-U tunneling.
+- **SCTP (Stream Control Transmission Protocol):** Multi-homing, multi-streaming, message-oriented. Đây là transport protocol cho signaling control plane 5G trên interface N2 (AMF-gNB) và cho Diameter/S1AP trong 4G. SCTP là lý do tại sao signaling telecom vẫn sống sót khi một link bị lỗi mà không làm rớt cuộc gọi.
+
+Xử lý:
+- Port number (ứng dụng nào?)
+- Flow control (không làm quá tải receiver)
+- Khôi phục lỗi (TCP retransmit segment bị mất; SCTP retransmit chunk bị mất)
+
+**Troubleshooting:** Port có mở không? Kết nối có timeout không? Có TCP retransmit không?
+
+### Tầng 5: Session
+
+Quản lý session — kết nối logic giữa các ứng dụng:
+- Thiết lập, duy trì, kết thúc session
+- Checkpoint (resume sau failure)
+
+Trong thực tế, hầu hết được hấp thụ vào Tầng 4 hoặc 7 trong các stack hiện đại.
+
+### Tầng 6: Presentation
+
+Xử lý biểu diễn dữ liệu:
+- Mã hóa ký tự (UTF-8, ASCII)
+- Nén dữ liệu
+- Mã hóa/giải mã (TLS handshake)
+
+Trong thực tế, thường được xử lý bởi thư viện ứng dụng. Trong bối cảnh 5G SBI, JSON encoding và TLS 1.2/1.3 nằm ở đây.
+
+### Tầng 7: Application
+
+Protocol cho người dùng:
+- **HTTP/HTTPS:** Web traffic — và Service-Based Interface của 5G
+- **DNS:** Phân giải tên
+- **SMTP/IMAP:** Email
+- **SSH:** Secure shell
+- **Diameter/RADIUS:** Protocol AAA (4G/IMS)
+- **PFCP (Packet Forwarding Control Protocol):** Interface N4 giữa SMF và UPF trong 5G
+
+**Trong 5G core:** Service-Based Interface (SBI) là REST trên HTTP/2 ở Tầng 7. Mọi lời gọi NF-to-NF — AMF gọi UDM, SMF gọi PCF — đều là HTTP/2 request ở Tầng 7. Đây là quyết định thiết kế có chủ ý trong 3GPP Rel-15 để căn chỉnh 5G core với thực hành cloud-native.
+
+**Troubleshooting:** API có trả về lỗi không? DNS có resolve đúng không?
+
+### Đóng gói (Encapsulation)
+
+Dữ liệu đi xuống stack, mỗi tầng thêm header của nó:
+
+```
+Application data
+    + HTTP/2 header         (Tầng 7)
+    + TLS record            (Tầng 6)
+    + TCP/SCTP header       (Tầng 4)
+    + IP header             (Tầng 3)
+    + Ethernet header+FCS   (Tầng 2)
+    → Physical bits         (Tầng 1)
+```
+
+Tại receiver, mỗi tầng bóc header của nó và chuyển dữ liệu lên. Trong GTP tunnel (user plane 5G), quá trình đóng gói sâu hơn:
+
+```
+Dữ liệu ứng dụng UE
+    + UE IP header          (Tầng 3 — inner, địa chỉ UE)
+    + GTP-U header          (Tầng 3/4 — tunnel ID)
+    + UDP header            (Tầng 4 — port 2152)
+    + outer IP header       (Tầng 3 — địa chỉ transport gNB/UPF)
+    + Ethernet              (Tầng 2)
+    → Physical bits         (Tầng 1)
+```
+
+Sự lồng ghép "IP-trong-GTP-trong-UDP-trong-IP" này là lý do tại sao kiểm tra packet user-plane 5G yêu cầu đi sâu bốn lớp header.
+
+### OSI trong 5G được dùng ở đâu
+
+| Bối cảnh 5G | Tầng OSI | Mô tả |
+|------------|---------|-------|
+| NR physical layer (RF, OFDM) | L1 | Waveform, antenna, kênh vật lý HARQ |
+| RAN L2 (MAC, RLC, PDCP) | L2 | Lập lịch, retransmission, mã hóa |
+| GTP-U tunneling | L3 + L4 | Đóng gói user-plane N3/N9 |
+| SCTP signaling (N2, Xn) | L4 | Transport control plane |
+| SBI (NF-to-NF REST APIs) | L7 | Giao tiếp microservice 5G core |
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+### Debug một API call thất bại
+
+Service của bạn không thể kết nối đến API bên ngoài. Cách tiếp cận có hệ thống:
+
+1. **Tầng 1:** Cáp mạng có cắm không? `ip link show` — interface có UP không?
+2. **Tầng 2:** Có reach được gateway không? `arping 192.168.1.1`
+3. **Tầng 3:** Có ping được IP đích không? `ping 93.184.216.34`
+4. **Tầng 4:** Có kết nối được port không? `nc -zv api.example.com 443`
+5. **Tầng 7:** HTTP request có work không? `curl -v https://api.example.com/health`
+
+Mỗi tầng thu hẹp vấn đề. Nếu Tầng 3 work nhưng Tầng 4 fail, vấn đề có thể là firewall block port.
+
+### Đọc packet capture
+
+Wireshark hiển thị: Ethernet → IP → UDP → GTP → IP → TCP → HTTP. Đó là Tầng 2-3-4 (outer) + GTP tunnel + 3-4-7 (inner). Filter theo tầng:
+
+```
+eth.addr == aa:bb:cc:dd:ee:ff        # Tầng 2
+ip.addr == 10.0.0.1                  # Tầng 3 (outer)
+udp.port == 2152                     # Tầng 4 (GTP-U port)
+gtp                                  # GTP tunnel
+ip.addr == 10.1.2.3                  # Tầng 3 (inner - địa chỉ UE)
+tcp.port == 443                      # Tầng 4 (inner)
+http2                                # Tầng 7
+```
+
+### Ánh xạ quá trình attach 5G vào các tầng OSI
+
+Khi UE kết nối vào mạng 5G, mọi tầng đều hoạt động đồng thời:
+
+- **L1:** Tín hiệu RF từ UE đến antenna gNB
+- **L2:** NR MAC scheduler cấp phát tài nguyên uplink; PDCP mã hóa NAS message
+- **L3/L4:** SCTP mang N2 (NGAP) signaling giữa gNB và AMF
+- **L7:** AMF gọi UDM qua HTTP/2 `GET /nudm-sdm/v2/{supi}/am-data` để lấy thông tin subscription
+
+Lỗi ở bất kỳ tầng nào tạo ra triệu chứng khác nhau — biết mô hình cho bạn biết team nào cần liên hệ.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Hiểu OSI quá literal.** Protocol thực tế không map sạch. TLS trải qua Tầng 5-6. HTTP/3 dùng QUIC tái triển khai tính năng TCP ở Tầng 4. GTP-U tunneling tạo ra header Tầng 3 lồng nhau. Dùng OSI như mental model, không phải specification cứng nhắc.
+
+2. **Quên Tầng 1.** Hầu hết "vấn đề mạng" thực ra là vật lý: cáp bị rút, transceiver hỏng, nhiễu RF, cáp quang bị gấp. Kiểm tra điều hiển nhiên trước. Trong triển khai RAN, các vấn đề ngày đầu phổ biến nhất là Tầng 1 (cáp kém, SFP sai loại, mismatch antenna).
+
+3. **Bỏ qua tầng khi debug.** Nhảy thẳng đến Tầng 7 lãng phí thời gian. Nếu Tầng 3 bị hỏng, debug ứng dụng bao nhiêu cũng không giúp ích. Luôn đi xuống một cách có hệ thống.
+
+4. **Nhầm OSI với mô hình TCP/IP.** TCP/IP có 4 tầng (Link, Internet, Transport, Application). Hầu hết thảo luận thực tế dùng thuật ngữ TCP/IP. OSI là mô hình tham chiếu để hiểu; TCP/IP là thứ thực sự chạy.
+
+5. **Bỏ qua SCTP trong telecom.** Nhiều kỹ sư cloud chỉ biết TCP và UDP. Trong telecom, SCTP mang signaling quan trọng (N2, Xn, E1 trong 5G; S1AP, X2AP trong 4G). Cấu hình SCTP sai làm rớt cuộc gọi, không phải web request — rủi ro khác nhau hoàn toàn.
+
+6. **Giả sử chỉ có một IP header.** GTP tunneling có nghĩa là lưu lượng user-plane có hai IP header. Load balancer, firewall, và hệ thống DPI chỉ kiểm tra outer header bỏ lỡ hoàn toàn lưu lượng UE thực sự. Đây là lỗi cấu hình phổ biến trong triển khai 5G cloud-native.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- ISO/IEC 7498-1:1994, "Information technology — OSI Basic Reference Model"
+- 3GPP TS 38.300, "NR; NR and NG-RAN Overall Description" (sublayer Tầng 2)
+- 3GPP TS 29.281, "GPRS Tunnelling Protocol User Plane (GTPv1-U)" (đóng gói GTP-U)
+- RFC 4960, "Stream Control Transmission Protocol" (SCTP)
+- Tanenbaum & Wetherall, *Computer Networks*, 5th ed., Pearson, 2011
+- Stevens, *TCP/IP Illustrated, Vol. 1*, Addison-Wesley, 2011
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [TCP/IP stack](/vi/core-network/osi-tcpip-backend-perspective/tcp-ip-stack/) — mô hình 4 tầng thực tế
+- [Socket và API](/vi/core-network/osi-tcpip-backend-perspective/sockets-and-apis/) — cách ứng dụng sử dụng stack
+- [Packet flow end-to-end](/vi/core-network/osi-tcpip-backend-perspective/packet-flow-end-to-end/) — trace request qua tất cả các tầng
+- [Yêu cầu carrier-grade](/vi/core-network/why-telcos-build-differently/carrier-grade-requirements/) — tại sao telecom dùng các tầng này khác biệt
+
+</section>

@@ -8,12 +8,12 @@ track: r2
 unit: channel-models-cellular-satellite
 order: 2
 level: L3
-estimatedReadingMinutes: 9
+estimatedReadingMinutes: 15
 prerequisites: ["rf-r2-channel-models-cellular-satellite-01-cost-231-model"]
 spiralRevisits: []
 title: "ITU-R P models"
 description: "International standard propagation models for global coordination."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,11 @@ status: published
 
 ## Why ITU-R P models?
 
-The International Telecommunication Union Radiocommunication Sector (ITU-R) publishes standardized propagation models used worldwide for spectrum coordination, interference analysis, and link planning. These models are legally referenced in international frequency coordination — not optional if you're designing cross-border systems.
+Your company is building a Ka-band satellite network. You need to file frequency coordination with the ITU. The regulator asks for your interference prediction — and specifies that calculations must use ITU-R P.452. Not COST-231. Not 3GPP TR 38.901. Specifically ITU-R P.452.
 
-ITU-R P-series recommendations cover everything from ionospheric propagation to rain attenuation, giving engineers consistent tools for global system design.
+The International Telecommunication Union Radiocommunication Sector (ITU-R) publishes the P-series recommendations: a family of standardized propagation models covering everything from free-space loss to rain attenuation, ionospheric effects, indoor propagation, and point-to-point microwave links. These models are legally referenced in international frequency coordination — if you design cross-border or satellite systems, they are not optional.
+
+The P-series also provides something COST-231 and 3GPP models don't: **global climatic data**. ITU-R P.837 contains worldwide rain rate statistics; P.836 has global water vapor maps. These let you compute accurate link budgets for any location on Earth without local measurements. For a global satellite operator serving 50 countries, this is irreplaceable.
 
 </section>
 
@@ -37,93 +39,166 @@ ITU-R P-series recommendations cover everything from ionospheric propagation to 
 
 ## Intuition
 
-ITU-R models are consensus standards. They represent agreed-upon methods for predicting propagation, allowing different operators and countries to use consistent assumptions when coordinating spectrum.
+### Models as consensus standards
 
-Think of them as the "official" models — perhaps not always the most accurate for a specific location, but the accepted reference for regulatory purposes. When you file frequency coordination, ITU-R models are what regulators expect.
+The P-series represents global consensus: the agreed method for predicting propagation when international coordination is needed. Think of it as the ISO standard for RF propagation — perhaps not always the most accurate for a specific city, but the universally accepted reference that regulators, operators, and manufacturers all use.
+
+When two satellite operators from different countries dispute interference predictions, ITU-R models are the arbitration language. If your predictions disagree with theirs but both use P.452 correctly, the dispute is about input parameters — not modeling assumptions. This is the value of standardization.
+
+### Model layering
+
+The P-series is modular, not monolithic:
+
+```
+System-level predictions (interference, availability)
+    ├── P.452: Terrestrial interference between stations
+    ├── P.530: Point-to-point microwave links
+    └── P.618: Earth-space satellite paths
+         ↑ each built from
+         ├── P.838: Rain-specific attenuation coefficients
+         ├── P.837: Global rain rate statistics
+         ├── P.676: Gaseous absorption computation
+         ├── P.836: Water vapor density maps
+         └── P.526: Diffraction calculation methods
+```
+
+A satellite link budget uses P.618 as the top-level wrapper, which internally calls P.838 for rain attenuation (which needs P.837 for rain rate statistics), P.676 for gaseous absorption, and P.840 for cloud attenuation. Each piece is a separate, versioned standard.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How it works
 
-### Key ITU-R P recommendations
+### Overview of key P-series recommendations
 
-| Recommendation | Coverage |
-|----------------|----------|
-| P.452 | Interference between terrestrial stations |
-| P.530 | Terrestrial line-of-sight paths |
-| P.525 | Free-space attenuation |
-| P.526 | Diffraction |
-| P.618 | Earth-space propagation (rain, clouds) |
-| P.676 | Gaseous attenuation |
-| P.838 | Rain-specific attenuation |
-| P.837 | Rainfall rate statistics |
-| P.840 | Cloud attenuation |
-| P.1238 | Indoor propagation |
+| Recommendation | Topic | Typical use case |
+|----------------|-------|-----------------|
+| P.452 | Interference between terrestrial stations | Frequency coordination, spectrum sharing |
+| P.525 | Free-space attenuation | Baseline for all path loss calculations |
+| P.526 | Propagation by diffraction | Terrain obstacles, knife-edge loss |
+| P.530 | Terrestrial LOS paths | Microwave backhaul, point-to-point links |
+| P.531 | Ionospheric propagation | Systems below 3 GHz, satellite below 1 GHz |
+| P.618 | Earth-space propagation | All satellite links, availability prediction |
+| P.676 | Gaseous attenuation | Any system above 10 GHz |
+| P.838 | Rain-specific attenuation coefficients | Rain attenuation computation |
+| P.837 | Rainfall rate statistics | Global rain rate exceedance maps |
+| P.840 | Cloud and fog attenuation | Satellite links above 20 GHz |
+| P.1238 | Indoor propagation | In-building planning |
 
-### P.452: Interference prediction
+### P.452 — Interference between terrestrial stations
 
-Combines multiple propagation mechanisms:
+P.452 predicts the signal level that one terrestrial station induces at another, for a given percentage of time. It combines multiple propagation mechanisms:
 
-$$L_{total} = \max(L_{los}, L_{diffraction}, L_{troposcatter}, L_{ducting})$$
+$$L_{total} = f(\theta, p, L_{los}, L_{diff}, L_{tropo}, L_{duct})$$
 
-Considers:
-- Line-of-sight with multipath
-- Diffraction over terrain
-- Tropospheric scatter
-- Ducting and layer reflection
+Mechanisms considered:
+- **LOS with multipath**: direct line-of-sight plus atmospheric multipath enhancement
+- **Diffraction over terrain**: uses Fresnel-Kirchhoff model (P.526)
+- **Tropospheric scatter**: long-range propagation via atmospheric turbulence
+- **Ducting**: anomalous propagation via atmospheric layers (can extend interference hundreds of km)
 
-Outputs: signal level exceeded for given percentage of time.
+The output is the propagation loss exceeded for $p$% of time — the lower the percentage, the stronger the interference event. Frequency coordination uses 0.001% to 1% of time statistics.
 
-### P.530: Point-to-point links
+### P.530 — Point-to-point LOS microwave links
 
-For line-of-sight microwave links:
+For terrestrial microwave backhaul (the links between cell sites and the core), P.530 predicts availability:
 
-$$L = L_{fs} + A_g + A_c + A_r$$
+Total path attenuation:
+$$L = L_{fs} + A_g + A_r + A_c$$
 
-- $L_{fs}$ = free-space loss
-- $A_g$ = gaseous attenuation
-- $A_c$ = cloud attenuation
-- $A_r$ = rain attenuation
+where:
+- $L_{fs}$ = free-space path loss (P.525)
+- $A_g$ = gaseous attenuation (P.676)
+- $A_r$ = rain attenuation (P.838 + P.837)
+- $A_c$ = cloud attenuation (P.840)
 
-Rain attenuation (P.838):
-$$\gamma_R = k R^\alpha \quad \text{(dB/km)}$$
+For a 23 GHz, 10 km backhaul link in a temperate climate, $A_r$ at 0.01% exceedance dominates: 40–70 dB. The link budget must include this rain margin or the link will be unavailable for several hours per year.
 
-where $R$ = rain rate (mm/h), $k$ and $\alpha$ from tables.
+P.530 also addresses **multipath fading** on LOS links: atmospheric layering can create destructive interference that fades the link by 20–40 dB for short periods. The P.530 method for estimating multipath fading probability is required for high-availability microwave backhaul design.
 
-### P.618: Earth-space paths
+### P.618 — Earth-space propagation
 
-For satellite links, total attenuation:
+The primary standard for satellite link budgets. Total excess attenuation for a satellite path:
 
 $$A = A_g + A_c + A_r + A_s$$
 
-- $A_s$ = scintillation (amplitude fluctuation)
+where:
+- $A_g$ = gaseous attenuation along the slant path (P.676, integrated over altitude profile)
+- $A_c$ = cloud liquid water attenuation (P.840)
+- $A_r$ = rain attenuation along the slant path (P.618 Section 2.2)
+- $A_s$ = tropospheric scintillation (amplitude fluctuations in the troposphere)
 
-Rain attenuation dominates above 10 GHz.
+**Rain attenuation calculation (P.618 method):**
 
-Availability calculation: attenuation exceeded for p% of time.
+1. Get rain rate $R_{0.01}$ at site location from P.837 map (rain rate exceeded 0.01% of year)
+2. Compute specific attenuation: $\gamma_R = k \cdot R_{0.01}^\alpha$ (coefficients from P.838)
+3. Compute effective rain height: $h_R$ from P.839 (function of latitude)
+4. Compute slant path: $L_S = (h_R - h_s)/\sin(\theta)$ where $\theta$ = elevation angle
+5. Apply path reduction factor $r_p$ for long paths
+6. $A_{0.01} = \gamma_R \cdot L_S \cdot r_p$
+7. Scale to other exceedance percentages using P.618 Table 4 (0.001% to 10%)
 
-### P.676: Gaseous absorption
+**Availability scaling example** (temperate Europe, 20 GHz, 35° elevation):
 
-Oxygen and water vapor absorption:
+| Exceedance | $A_r$ | Annual outage |
+|------------|--------|---------------|
+| 1% | 2.5 dB | 87.6 hr/yr |
+| 0.1% | 8.0 dB | 8.76 hr/yr |
+| 0.01% | 22 dB | 52.6 min/yr |
+| 0.001% | 50 dB | 5.26 min/yr |
 
-$$\gamma = \gamma_o + \gamma_w \quad \text{(dB/km)}$$
+For a 99.9% available link (0.1% exceedance), design for 8 dB rain margin. For 99.99% (0.01%), design for 22 dB.
 
-Peaks at:
-- O₂: 60 GHz (strong), 118 GHz
-- H₂O: 22 GHz, 183 GHz
+### P.676 — Gaseous attenuation
 
-At sea level, 60 GHz: $\gamma \approx 15$ dB/km (severely limits range).
+Specific attenuation from oxygen and water vapor (dB/km):
 
-### Climatic data
+$$\gamma = \gamma_o(f, T, P) + \gamma_w(f, T, \rho)$$
 
-ITU-R provides global climatic maps:
-- **P.837:** Rainfall rate maps (R₀.₀₁ for 0.01% of year)
-- **P.836:** Water vapor density
-- **P.1510:** Surface temperature
+P.676 provides a full line-by-line computation covering all molecular absorption lines from 1 GHz to 1000 GHz, plus a simplified approximation valid 1–350 GHz. Key absorption windows and peaks:
 
-Enables location-specific link budgets without local measurements.
+| Frequency | $\gamma$ (dB/km, sea level) | Significance |
+|-----------|---------------------------|--------------|
+| 10 GHz | 0.009 | Negligible |
+| 22.2 GHz | 0.19 | H₂O first window peak |
+| 30 GHz | 0.09 | Ka-band window |
+| 60 GHz | 15.0 | O₂ absorption peak — ~1 km range limit |
+| 94 GHz | 0.40 | W-band imaging window |
+| 119 GHz | 1.5 | O₂ second peak |
+| 183 GHz | ~30 | H₂O second peak |
+
+For satellite links, P.676 provides integrated zenith attenuation values (dB, total through atmosphere):
+- 10 GHz: 0.07 dB
+- 20 GHz: 0.42 dB
+- 30 GHz: 0.36 dB
+- 50 GHz: 4.5 dB
+- 60 GHz: 11 dB (significant even for zenith)
+
+For non-zenith paths, multiply by $1/\sin(\theta)$ for paths above 5° elevation.
+
+### P.838 — Rain-specific attenuation model
+
+Provides the $k$ and $\alpha$ coefficients used in $\gamma_R = k R^\alpha$ for all frequencies from 1–1000 GHz, for both horizontal and vertical polarization. The coefficients are tabulated and also approximated by log-linear fits.
+
+For circular polarization: $k_c = (k_H + k_V)/2$ and $\alpha_c = (k_H\alpha_H + k_V\alpha_V)/(2k_c)$.
+
+### P.837 — Global rain rate statistics
+
+Provides worldwide maps of $R_p$ (rain rate exceeded for $p$% of an average year) for $p$ values from 0.001% to 5%. The data is gridded at 1.125° resolution globally.
+
+**Example $R_{0.01}$ values (mm/hr):**
+
+| Location | $R_{0.01}$ (mm/hr) | Notes |
+|----------|--------------------|-------|
+| UK / Northern Europe | 22–32 | Moderate |
+| Central Europe | 35–50 | Moderate-high |
+| Florida, USA | 55–70 | High |
+| Singapore | 90–110 | Tropical, very high |
+| Vietnam (Hanoi) | 70–90 | Tropical monsoon |
+| Sahara, Central Australia | 5–15 | Arid, low |
+
+A satellite link designed for Singapore must carry 3–4× more rain margin than one designed for Norway serving the same frequency band and availability.
 
 </section>
 
@@ -131,40 +206,64 @@ Enables location-specific link budgets without local measurements.
 
 ## Apply
 
-**Example: Ku-band satellite link**
+### Example 1: Ka-band GEO uplink — availability calculation
 
-Frequency: 12 GHz, elevation: 30°, location: tropical (R₀.₀₁ = 100 mm/h).
+Location: Ho Chi Minh City, Vietnam. Frequency: 30 GHz. Elevation: 40°. Target: 99.9% availability.
 
-Gaseous attenuation (P.676): $A_g \approx 0.1$ dB.
+**Step 1**: From P.837, $R_{0.01} \approx 85$ mm/hr for HCMC.
 
-Rain attenuation (P.618):
-- Specific attenuation: $\gamma_R = 0.0101 \times 100^{1.276} = 3.5$ dB/km.
-- Effective path length: $L_e \approx 5.2$ km (slant path through rain cell).
-- $A_r = 3.5 \times 5.2 = 18.2$ dB exceeded for 0.01% of year.
+**Step 2**: P.838 coefficients at 30 GHz, circular polarization: $k \approx 0.187$, $\alpha \approx 1.021$.
+$$\gamma_R = 0.187 \times 85^{1.021} = 0.187 \times 90.0 = 16.8 \text{ dB/km}$$
 
-For 99.9% availability: $A_r \approx 5$ dB (interpolated).
+**Step 3**: Effective rain height from P.839: $h_R = 5.0$ km (tropical latitude).
+Slant path: $L_S = (5.0 - 0.1)/\sin(40°) = 4.9/0.643 = 7.6$ km.
 
-**Example: Microwave backhaul**
+**Step 4**: Path reduction factor (simplified): $r_{0.01} \approx 0.52$ for this rain rate and path length.
+$$A_{0.01} = 16.8 \times 7.6 \times 0.52 = 66.3 \text{ dB}$$
 
-23 GHz link, 10 km, Rain zone K (R₀.₀₁ = 42 mm/h).
+**Step 5**: Scale from 0.01% to 0.1% (99.9% availability) using P.618 scaling:
+$A_{0.1} \approx A_{0.01} \times 0.12^{0.546-0.043\log A_{0.01}} \approx 66.3 \times 0.23 = 15.2$ dB.
 
-P.838 coefficients: $k_H = 0.164$, $\alpha_H = 1.128$ (horizontal pol).
+**Step 6**: Add gaseous attenuation at 30 GHz zenith ≈ 0.36 dB; at 40° elevation: $0.36/\sin(40°) = 0.56$ dB.
 
-$\gamma_R = 0.164 \times 42^{1.128} = 12.3$ dB/km.
+**Total excess attenuation for 99.9% availability**: $15.2 + 0.56 \approx 15.8$ dB rain + gas margin needed.
 
-Effective path: $d_{eff} = d / (1 + d/d_0) \approx 5.5$ km.
+This 15.8 dB margin is the minimum added to the clear-sky link budget. Without it, the link is unavailable for 8.76 hours/year — likely unacceptable for a business service.
 
-$A_{0.01\%} = 12.3 \times 5.5 = 68$ dB — link outage for 53 min/year.
+### Example 2: Microwave backhaul — P.530 multipath fading
 
-**Example: 60 GHz short-haul**
+23 GHz LOS backhaul, 15 km over flat coastal terrain, UK.
 
-Oxygen absorption: 15 dB/km.
+Rain attenuation (P.838 + P.837, $R_{0.01} = 22$ mm/hr):
+$$\gamma_R = 0.164 \times 22^{1.128} = 0.164 \times 29.2 = 4.78 \text{ dB/km}$$
+$$A_{rain,0.01\%} = 4.78 \times 15 \times 0.55 = 39.4 \text{ dB}$$
 
-At 200 m: $A_g = 3$ dB — acceptable for short links.
+Gaseous: $A_g = 0.14 \times 15 = 2.1$ dB.
 
-At 1 km: $A_g = 15$ dB — significant margin needed.
+**Multipath fading** (P.530 method, flat terrain, coastal): probability of 30 dB fade ≈ 0.03% of worst month. This means 2.2 hours/year with 30+ dB deep fades — a separate failure mode from rain.
 
-Rain has less relative impact because gaseous loss already limits range.
+For 99.999% annual availability (5.26 min/yr total outage), both rain margin (~40 dB at 0.001%) and multipath protection (space or frequency diversity) are required. This is why high-availability microwave backbone links use dual-antenna space diversity.
+
+### Example 3: Interference coordination — P.452
+
+Two earth stations at 500 km separation, both operating at 6 GHz. What is the 0.01% interference level?
+
+P.452 considers ducting propagation at low exceedances. At 500 km in a temperate climate, atmospheric ducting can reduce path loss to 120 dB (from free-space value of 154 dB). The 34 dB enhancement occurs for 0.001–0.01% of time — brief but significant for interference coordination.
+
+Implication: frequency coordination must assume ducting enhancement even when the two stations are beyond the radio horizon under normal conditions. This is why ITU frequency filings require P.452 analysis.
+
+### Example 4: mmWave fixed link — gaseous budget
+
+60 GHz building-to-building link, 200 m.
+
+P.676 gaseous: $\gamma_O(60 \text{ GHz}) \approx 15$ dB/km at sea level.
+Gas attenuation: $15 \times 0.2 = 3.0$ dB.
+
+Rain (P.838 + P.837, UK, $R_{0.01} = 22$ mm/hr):
+$\gamma_R(60 \text{ GHz}) = 1.12 \times 22^{0.669} = 1.12 \times 7.5 = 8.4$ dB/km.
+$A_{rain} = 8.4 \times 0.2 = 1.7$ dB at 0.01% exceedance.
+
+Total 0.01% excess: $3.0 + 1.7 = 4.7$ dB for a 200 m link. Gaseous and rain are similar magnitude here. For longer 60 GHz links, gaseous utterly dominates — another reason 60 GHz is confined to short hops.
 
 </section>
 
@@ -172,17 +271,17 @@ Rain has less relative impact because gaseous loss already limits range.
 
 ## Pitfalls
 
-1. **Version updates.** ITU-R recommendations are updated regularly. Always use the latest version for regulatory filings.
+1. **Using outdated versions.** ITU-R recommendations are revised regularly (suffixed by version year). P.618-13 vs P.618-14 contain different rain model parameters. Always cite and use the current version; frequency coordination filings may be rejected if outdated versions are used.
 
-2. **Local climate.** ITU-R climate maps are global averages. Microclimate effects (urban heat islands, coastal fog) may differ.
+2. **Confusing exceedance percentage with availability.** "$A_{0.01}$" means attenuation exceeded for 0.01% of an average year = 52.6 minutes/year. Link availability = 100% − exceedance%. Saying "design for $A_{0.01}$" means designing for 99.99% availability, not 99.99% reliability in an individual rain event.
 
-3. **Frequency extrapolation.** Models have specific frequency ranges. Don't extrapolate P.838 rain coefficients beyond published frequencies.
+3. **Treating ITU-R P.837 rain maps as precise local data.** The maps are gridded at 1.125° and represent 30-year averages. Local topography (coastal, mountainous, urban heat islands) can make the actual rain rate 30–50% different from the map value. For critical links, supplement with local rain gauge data.
 
-4. **Percentage of time.** ITU-R models give statistical availability. A 99.9% link still has 8.8 hours/year outage.
+4. **Ignoring the elevation angle floor.** P.618 Earth-space models are valid for elevation angles $\theta \geq 5°$. Below 5°, atmospheric path length increases dramatically and the statistical models break down. Low-elevation satellite links need specialized analysis.
 
-5. **Combining mechanisms.** Don't simply add attenuations — some mechanisms are correlated (rain reduces cloud attenuation).
+5. **Simply adding all attenuation terms.** P.618 notes that rain, cloud, gas, and scintillation are not fully independent. Heavy rain suppresses cloud attenuation. The correct approach is to add attenuations in quadrature (RSS) for some combinations, not linearly. Summing all linearly overestimates margin by 2–5 dB.
 
-6. **Elevation angle.** Earth-space models assume elevation >5°. Low-elevation paths need specialized treatment.
+6. **Using P.676 gaseous absorption without altitude correction.** At altitude (aircraft, mountain sites), atmospheric density is lower and gaseous attenuation is less. A 60 GHz link at 3000 m altitude sees ~10 dB/km O₂ absorption, not 15 dB/km. P.676 provides altitude-integrated values for this purpose.
 
 </section>
 
@@ -190,8 +289,11 @@ Rain has less relative impact because gaseous loss already limits range.
 
 ## References
 
-- ITU-R P.452 — "Prediction procedure for the evaluation of interference."
-- ITU-R P.618 — "Propagation data and prediction methods for earth-space."
-- ITU-R P.838 — "Specific attenuation model for rain."
+- ITU-R P.452-17, "Prediction procedure for the evaluation of interference between stations on the surface of the Earth at frequencies above about 0.1 GHz."
+- ITU-R P.618-14, "Propagation data and prediction methods required for the design of Earth-space telecommunication systems."
+- ITU-R P.676-13, "Attenuation by atmospheric gases and related effects."
+- ITU-R P.838-3, "Specific attenuation model for rain for use in prediction methods."
+- ITU-R P.837-7, "Characteristics of precipitation for propagation modelling."
+- ITU-R P.530-18, "Propagation data and prediction methods required for the design of terrestrial line-of-sight systems."
 
 </section>

@@ -8,17 +8,370 @@ track: n6
 unit: the-closed-ran-problem
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "Khoa nha cung cap trong RAN"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 8
+prerequisites: []
+spiralRevisits: []
+title: "Khoa Nha cung cap trong RAN"
+description: "Cach kien truc RAN doc quyen tao phu thuoc, han che linh hoat, va tang tong chi phi so huu."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["ran", "khoa-nha-cung-cap", "doc-quyen", "tco", "open-ran"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Khoa nha cung cap trong RAN
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Trien khai RAN truyen thong ràng buoc nha mang voi mot nha cung cap trong 7-10 nam. Viec khoa nay lam tang chi phi, cham doi moi, va han che linh hoat trien khai.
+
+Hieu khoa nha cung cap la buoc dau tien de danh gia cac lua chon thay the Open RAN.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Kien truc RAN truyen thong
+
+```
+RAN Doc quyen (Dong):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nha cung cap A (Ngan xep Day du)                       │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  ┌──────────────────────────────────────────────┐ │  │
+│  │  │           RRU Nha cung cap A                  │ │  │
+│  │  │  - Phan cung radio doc quyen                 │ │  │
+│  │  │  - Giao dien CPRI/OBSAI tuy chinh            │ │  │
+│  │  │  - Firmware bi khoa                          │ │  │
+│  │  └──────────────────────────────────────────────┘ │  │
+│  │                     │                             │  │
+│  │         Giao thuc fronthaul doc quyen             │  │
+│  │                     │                             │  │
+│  │  ┌──────────────────────────────────────────────┐ │  │
+│  │  │           BBU Nha cung cap A                  │ │  │
+│  │  │  - Phan cung baseband doc quyen              │ │  │
+│  │  │  - L1/L2/L3 nguon dong                       │ │  │
+│  │  │  - Giao dien quan ly tuy chinh               │ │  │
+│  │  └──────────────────────────────────────────────┘ │  │
+│  │                     │                             │  │
+│  │  ┌──────────────────────────────────────────────┐ │  │
+│  │  │         EMS/NMS Nha cung cap A                │ │  │
+│  │  │  - APIs rieng cua nha cung cap               │ │  │
+│  │  │  - Mo hinh du lieu doc quyen                 │ │  │
+│  │  │  - Tuy chon tich hop han che                 │ │  │
+│  │  └──────────────────────────────────────────────┘ │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  Tat ca thanh phan PHAI tu Nha cung cap A               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Co che khoa
+
+```
+Cach Khoa Nha cung cap Xay ra:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Giao dien Doc quyen                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ RRU ←──── CPRI Tuy chinh ────→ BBU              │    │
+│  │                                                  │    │
+│  │ Mo rong CPRI cua A ≠ cua B                      │    │
+│  │ Khong the ket hop RRU tu A voi BBU tu B         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  2. Phan mem Nguon Dong                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ L1 PHY: Blob nhi phan, khong co nguon           │    │
+│  │ L2 MAC: Bo lap lich doc quyen                   │    │
+│  │ L3 RRC: Mo rong rieng nha cung cap              │    │
+│  │                                                  │    │
+│  │ Khong the chuyen sang phan cung khac            │    │
+│  │ Khong the sua doi hanh vi                       │    │
+│  │ Khong the tu sua loi                            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  3. Phu thuoc Phan cung                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ BBU Nha cung cap A = ASIC/FPGA Tuy chinh        │    │
+│  │ Phan mem bien dich cho HW cu the do             │    │
+│  │                                                  │    │
+│  │ Nang cap BBU = Mua phan cung moi                │    │
+│  │ Mo rong dung luong = Mua card mo rong cua hang  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  4. Khoa Mo hinh Du lieu                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Dinh dang cau hinh A ≠ dinh dang cau hinh B     │    │
+│  │                                                  │    │
+│  │ PM counters: ten doc quyen                      │    │
+│  │ Canh bao: ma rieng nha cung cap                 │    │
+│  │ KPIs: dinh nghia khong chuan                    │    │
+│  │                                                  │    │
+│  │ Tich hop OSS = adapter tuy chinh moi nha cung cap│    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Thuc te da nha cung cap
+
+```
+Mang Nha mang Dien hinh (Van de Da Nha cung cap):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Vung A              Vung B               Vung C        │
+│  ┌──────────┐       ┌──────────┐        ┌──────────┐   │
+│  │   NCC X  │       │   NCC Y  │        │   NCC Z  │   │
+│  │          │       │          │        │          │   │
+│  │ RRU-X    │       │ RRU-Y    │        │ RRU-Z    │   │
+│  │ BBU-X    │       │ BBU-Y    │        │ BBU-Z    │   │
+│  │ EMS-X    │       │ EMS-Y    │        │ EMS-Z    │   │
+│  └──────────┘       └──────────┘        └──────────┘   │
+│       │                  │                   │          │
+│       └──────────────────┼───────────────────┘          │
+│                          │                              │
+│                  ┌───────────────┐                      │
+│                  │  OSS Nha mang │                      │
+│                  │               │                      │
+│                  │ 3 adapters    │                      │
+│                  │ NBI khac nhau │                      │
+│                  │ 3 dinh dang PM│                      │
+│                  │ 3 ma canh bao │                      │
+│                  └───────────────┘                      │
+│                                                          │
+│  Moi nha cung cap = hop dong, ho tro, dao tao rieng    │
+│  Khong the di chuyen thiet bi giua cac vung            │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Tac dong TCO
+
+```
+Phan tich Tong Chi phi So huu:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Thanh phan TCO RAN Dong:                               │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ CAPEX (Nam 0)                                   │    │
+│  │ ├── Phan cung (RRU + BBU)        ~40%           │    │
+│  │ ├── Giay phep phan mem           ~25%           │    │
+│  │ ├── Cai dat/tich hop             ~15%           │    │
+│  │ └── Dich vu nha cung cap         ~20%           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ OPEX (Hang nam)                                 │    │
+│  │ ├── Bao tri phan mem             ~35%           │    │
+│  │ ├── Ho tro phan cung             ~25%           │    │
+│  │ ├── Nang cap tinh nang (tra phi) ~20%           │    │
+│  │ └── Dich vu chuyen nghiep        ~20%           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Chi phi An:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Giay phep dung luong bat buoc moi user/cell   │    │
+│  │ - Kich hoat tinh nang tra phi (CA, MIMO, v.v.)  │    │
+│  │ - Duong nang cap gan voi mua HW moi             │    │
+│  │ - Gia han hop dong theo dieu khoan nha cung cap │    │
+│  │ - Chi phi tich hop voi nha cung cap khac        │    │
+│  │ - Don bay dam phan han che                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  TCO 7 nam dien hinh: Chi phi HW × 3-4x dich vu        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Rang buoc nang cap
+
+```
+Duong Nang cap RAN Dong:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Muon: Them 5G vao mang 4G hien co                      │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Kich ban A: Cung Nha cung cap                   │    │
+│  │                                                  │    │
+│  │ Lua chon:                                       │    │
+│  │ 1. Mua bo nang cap 5G cua hang ($$$$)           │    │
+│  │ 2. Thay toan bo BBU the he moi ($$$$)           │    │
+│  │ 3. Doi lo trinh cua nha cung cap (12-24 thang)  │    │
+│  │                                                  │    │
+│  │ Ket qua: Tra gia cua hang, theo lich cua hang   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Kich ban B: Doi Nha cung cap                    │    │
+│  │                                                  │    │
+│  │ Thuc te:                                        │    │
+│  │ - Khong the tai su dung phan cung RRU hien co   │    │
+│  │ - Khong the di chuyen cau hinh                  │    │
+│  │ - Phai dao tao lai doi ngu van hanh             │    │
+│  │ - Phai xay lai tich hop OSS                     │    │
+│  │                                                  │    │
+│  │ Ket qua: Go va thay the ($$$$$), thuong         │    │
+│  │ chi lam khi lam moi mang (moi 7-10 nam)         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rang buoc Doi moi:                              │    │
+│  │                                                  │    │
+│  │ Tinh nang moi tu Nha cung cap B?                │    │
+│  │ → Khong the dung, bi khoa vao A                 │    │
+│  │                                                  │    │
+│  │ Startup co toi uu ML tot hon?                   │    │
+│  │ → Khong the tich hop, giao dien dong            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Tap trung thi truong
+
+```
+Thi truong Nha cung cap RAN (2020):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Thi phan RAN Toan cau:                                 │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Ericsson    ████████████████████  ~35%         │    │
+│  │  Huawei      ███████████████████   ~30%         │    │
+│  │  Nokia       ███████████           ~18%         │    │
+│  │  Samsung     ████                  ~7%          │    │
+│  │  ZTE         ███                   ~6%          │    │
+│  │  Khac        ██                    ~4%          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Ham y:                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  - Top 3 nha cung cap kiem soat 83% thi truong  │    │
+│  │  - Canh tranh han che = gia cao hon             │    │
+│  │  - Rui ro chuoi cung ung (nguon duy nhat)       │    │
+│  │  - Rang buoc dia chinh tri (cam Huawei)         │    │
+│  │  - Rao can gia nhap cho nguoi moi               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Neu nha cung cap chinh cua nha mang rut lui/bi cam:   │
+│  → Khong co duong tuong thich, phai go va thay the     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Danh sach kiem tra danh gia khoa:**
+
+| Cau hoi | Co den Do |
+|---------|-----------|
+| Co the ket hop RRU tu hang A voi BBU tu hang B? | Khong |
+| Dinh dang config/PM duoc cong bo cong khai? | Khong |
+| Co the chay phan mem tren phan cung thuong mai? | Khong |
+| Hop dong cho phep tich hop ben thu 3? | Han che |
+| Kich hoat tinh nang tach biet mua HW? | Gop chung |
+| Co the chuyen dau tu sang nen tang the he moi? | Khong |
+
+**Diem don bay dam phan:**
+
+```bash
+# Cau hoi can hoi nha cung cap khi RFP:
+
+1. Tai lieu giao dien
+   "Cung cap spec giao dien CPRI/fronthaul day du"
+   → Neu tu choi, cho thay y dinh khoa doc quyen
+
+2. Di dong du lieu
+   "Xuat tat ca du lieu PM/CM theo dinh dang chuan"
+   → Neu khong chuan, se ton chi phi di chuyen
+
+3. Linh hoat phan mem
+   "Chay stack cua ban tren phan cung COTS chung toi chon"
+   → Neu tu choi, khoa phan cung
+
+4. Dieu khoan da nha cung cap
+   "Tich hop voi EMS cua doi thu qua API mo"
+   → Khang cu cho thay he sinh thai dong
+
+5. Dieu khoan thoat ra
+   "Du lieu/configs nao chung toi giu lai neu chuyen?"
+   → Tra loi mo ho = bi mac ket
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Tuyen bo "mo".** Nha cung cap tuyen bo "mo" nhung chi trong he sinh thai cua ho. Yeu cau bang chung tuong thich ben thu 3.
+
+2. **Cap phep tinh nang leo thang.** HW co ban re, nhung moi tinh nang (CA, MIMO, beamforming) ban rieng.
+
+3. **Phu thuoc ho tro.** Khong the xu ly su co khong co nha cung cap do binary dong. Ky nang doi van hanh mai mot.
+
+4. **Tu dong gia han hop dong.** Hop dong nhieu nam tu dong gia han. Bo lo cua so, bi khoa them mot ky han.
+
+5. **Khoa dao tao.** Nhan vien chi duoc dao tao tren he thong mot nha cung cap. Kien thuc to chuc tro thanh rieng nha cung cap.
+
+6. **No tich hop.** Nhieu nam adapter OSS tuy chinh cho mot nha cung cap. Chuyen doi nghia la viet lai moi thu.
+
+7. **Nguy bien chi phi chim.** "Chung toi da dau tu qua nhieu de chuyen." Tiep tuc tra gia cao vo thoi han.
+
+8. **Can chinh lo trinh.** Thoi gian 5G cua nha cung cap khong khop ngay ra mat cua nha mang. Khong co lua chon.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- TeleGeography, "Global RAN Market Analysis"
+- GSMA, "Open RAN Policy Position"
+- Dell'Oro Group, "RAN Market Share Reports"
+- Case studies nha mang: Rakuten, Dish Network
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Ly do chuyen sang Open RAN](/vi/core-network/the-closed-ran-problem/the-case-for-open-ran/) — tai sao mo tot hon
+- [Tuy chon Chia tach O-RAN](/vi/core-network/o-ran-functional-split/split-options-overview/) — cach phan tach hoat dong
+- [Plugfests Kiem tra Nha cung cap](/vi/core-network/interoperability-promise-vs-reality/vendor-testing-plugfests/) — chung minh tuong thich
+
+</section>

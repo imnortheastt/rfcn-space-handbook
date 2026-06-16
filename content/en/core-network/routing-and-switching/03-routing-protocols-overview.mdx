@@ -8,17 +8,326 @@ track: n0
 unit: routing-and-switching
 order: 3
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 14
+prerequisites: ["core-network-n0-routing-and-switching-02-routing-fundamentals"]
+spiralRevisits: ["core-network-n2-standards-map-ts23-01-bgp-in-telecom"]
 title: "Routing protocols overview"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "OSPF, IS-IS, and BGP — when to use each and how they work at a high level."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["RFC 2328", "RFC 4271", "ISO 10589"]
+tags: ["routing", "ospf", "bgp", "is-is", "networking"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Routing protocols overview
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Static routes don't scale. When you have thousands of routers and hundreds of links, you need routing to be automatic. When a link fails, routes should reconverge in seconds, not after a human notices.
+
+This is what **dynamic routing protocols** do. Understanding the major protocols — OSPF, IS-IS, and BGP — is essential for anyone working with telecom networks.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Two types of routing protocols
+
+**Interior Gateway Protocols (IGP):** Route within an organization's network (autonomous system).
+- OSPF, IS-IS, EIGRP, RIP
+
+**Exterior Gateway Protocols (EGP):** Route between organizations.
+- BGP (the only one that matters)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     The Internet                         │
+│                                                          │
+│  ┌─────────────┐       BGP        ┌─────────────┐       │
+│  │   AS 100    │◄────────────────►│   AS 200    │       │
+│  │  (Telco A)  │                  │  (Telco B)  │       │
+│  │             │                  │             │       │
+│  │ OSPF/IS-IS  │                  │ OSPF/IS-IS  │       │
+│  │  (inside)   │                  │  (inside)   │       │
+│  └─────────────┘                  └─────────────┘       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Rule of thumb:**
+- Inside your network → IGP (OSPF or IS-IS)
+- Between networks → BGP
+
+### Link-state vs distance-vector
+
+**Distance-vector (RIP, EIGRP):**
+- Each router tells neighbors: "I can reach X with cost Y"
+- Routers only know next hop, not full topology
+- Slow convergence, counting to infinity problem
+- Mostly obsolete for large networks
+
+**Link-state (OSPF, IS-IS):**
+- Each router floods its links to all routers
+- Every router has the same topology database
+- Each router independently calculates shortest paths
+- Fast convergence
+
+```
+Distance-vector:               Link-state:
+"I heard X is 3 hops"          "Here's my complete link map"
+     │                              │
+     ▼                              ▼
+  Rumors                         Facts
+```
+
+### Path-vector (BGP)
+
+BGP is neither link-state nor distance-vector. It's **path-vector**.
+
+- Routes include the full AS path: "To reach 8.8.8.0/24, go through AS 100 → AS 200 → AS 15169"
+- Policy-based: you can accept, reject, or modify routes based on business rules
+- Designed for scale (millions of routes) and policy (business relationships)
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### OSPF (Open Shortest Path First)
+
+**RFC 2328** | Most common IGP in enterprise and smaller telecom networks.
+
+**How it works:**
+1. Routers discover neighbors via Hello packets
+2. Adjacent routers exchange Link State Advertisements (LSAs)
+3. All routers build identical Link State Database (LSDB)
+4. Each router runs Dijkstra's algorithm to compute shortest paths
+
+**Key concepts:**
+
+| Concept | Description |
+|---------|-------------|
+| Area | Subdivision of OSPF domain. Area 0 is the backbone. |
+| Router ID | Unique identifier (usually highest IP or configured) |
+| Cost | Metric based on interface bandwidth |
+| LSA | Link State Advertisement — describes router's links |
+| SPF | Shortest Path First algorithm (Dijkstra) |
+
+**Area hierarchy:**
+
+```
+                    ┌───────────────┐
+                    │   Area 0      │
+                    │  (backbone)   │
+                    └───────┬───────┘
+                            │
+           ┌────────────────┼────────────────┐
+           │                │                │
+    ┌──────┴──────┐  ┌──────┴──────┐  ┌──────┴──────┐
+    │   Area 1    │  │   Area 2    │  │   Area 3    │
+    │             │  │             │  │             │
+    └─────────────┘  └─────────────┘  └─────────────┘
+```
+
+**Why areas?**
+- Limit flooding scope (LSAs stay within area)
+- Reduce LSDB size and SPF computation
+- Scale to larger networks
+
+**Convergence:** Sub-second with tuning. Default timers are conservative (10s hello, 40s dead).
+
+### IS-IS (Intermediate System to Intermediate System)
+
+**ISO 10589** | Preferred IGP for large service provider networks.
+
+**Key differences from OSPF:**
+
+| Aspect | OSPF | IS-IS |
+|--------|------|-------|
+| Origin | IETF (IP-native) | ISO (CLNP, adapted for IP) |
+| Runs on | IP (protocol 89) | Directly on L2 (no IP needed) |
+| Hierarchy | Areas connect to backbone | Two-level (L1/L2) |
+| Extensibility | New LSA types | TLV-based (easy to extend) |
+| Adoption | Enterprise, some SP | Large SP, telecom |
+
+**Why telcos prefer IS-IS:**
+- Protocol-agnostic (works before IP is configured)
+- Easier to extend (MPLS, segment routing added via TLVs)
+- Proven at massive scale (tier-1 providers)
+
+**Two-level hierarchy:**
+
+```
+                    Level 2 (backbone)
+         ┌──────────────────────────────────┐
+         │    L1/L2      L1/L2      L1/L2   │
+         │      │          │          │     │
+         └──────┼──────────┼──────────┼─────┘
+                │          │          │
+         ┌──────┴───┐ ┌────┴────┐ ┌───┴─────┐
+         │  L1 area │ │ L1 area │ │ L1 area │
+         └──────────┘ └─────────┘ └─────────┘
+```
+
+**Level 1:** Intra-area routing (like OSPF non-backbone areas)
+**Level 2:** Inter-area routing (like OSPF backbone)
+**L1/L2 router:** Connects both levels
+
+### BGP (Border Gateway Protocol)
+
+**RFC 4271** | The protocol that runs the Internet.
+
+**Two flavors:**
+- **eBGP (external):** Between autonomous systems. This is "real" BGP.
+- **iBGP (internal):** Within an autonomous system. Carries external routes internally.
+
+**How it works:**
+1. BGP routers establish TCP connections (port 179)
+2. Exchange full routing tables (initial sync can take minutes)
+3. After sync, send only incremental updates
+4. Routes include AS path, next hop, and many attributes
+
+**Key attributes:**
+
+| Attribute | Description |
+|-----------|-------------|
+| AS_PATH | List of ASes the route has traversed |
+| NEXT_HOP | Where to send packets |
+| LOCAL_PREF | Prefer routes with higher value (inbound) |
+| MED | Prefer routes with lower value (outbound hint) |
+| COMMUNITY | Tags for policy (no_export, blackhole, etc.) |
+
+**Path selection (simplified):**
+1. Highest LOCAL_PREF
+2. Shortest AS_PATH
+3. Lowest origin type (IGP < EGP < incomplete)
+4. Lowest MED (if from same neighbor AS)
+5. Prefer eBGP over iBGP
+6. Closest IGP next hop
+7. Lowest router ID
+
+**iBGP full mesh problem:**
+
+iBGP routers don't re-advertise routes learned from other iBGP peers. This requires a full mesh.
+
+```
+N routers = N(N-1)/2 sessions
+
+10 routers = 45 sessions
+100 routers = 4,950 sessions  ← doesn't scale
+```
+
+**Solutions:**
+- **Route reflectors:** Designated routers that re-advertise iBGP routes
+- **Confederations:** Split AS into sub-ASes
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Protocol selection:**
+
+| Use case | Protocol |
+|----------|----------|
+| Enterprise network | OSPF |
+| Large service provider | IS-IS |
+| Internet peering | eBGP |
+| Internal route distribution | iBGP |
+| Segment routing underlay | IS-IS (preferred) or OSPF |
+| MPLS VPN backbone | iBGP + IGP |
+
+**Typical telecom architecture:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Telco Network                         │
+│                                                          │
+│  Customer ◄──── eBGP ────► PE ◄── iBGP ──► PE ◄── eBGP ──► Customer
+│                            │                │            │
+│                            └── IS-IS/OSPF ──┘            │
+│                               (underlay)                 │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Convergence comparison:**
+
+| Protocol | Typical convergence |
+|----------|---------------------|
+| OSPF/IS-IS (tuned) | 50ms - 1s |
+| OSPF/IS-IS (default) | 5-40s |
+| eBGP | 30s - 3min |
+| iBGP | Depends on IGP + BGP timers |
+
+**Troubleshooting:**
+
+1. **Neighbor not forming:**
+   - Check IP connectivity (can you ping?)
+   - Check authentication (passwords match?)
+   - Check timers (compatible?)
+   - For BGP: check TCP port 179 not blocked
+
+2. **Route not appearing:**
+   - Is it in the neighbor's table?
+   - Is it being filtered by policy?
+   - Is there a more specific route?
+
+3. **Suboptimal path:**
+   - Check metrics/costs
+   - Check policy (LOCAL_PREF, AS_PATH prepending)
+   - Check for asymmetric routing
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using RIP in production.** RIP has a 15-hop limit and slow convergence. It's obsolete for anything beyond lab exercises.
+
+2. **OSPF Area 0 fragmentation.** All OSPF areas must connect to Area 0. If backbone is fragmented, use virtual links (but fix the design).
+
+3. **iBGP without route reflectors at scale.** Full mesh doesn't scale. Plan for route reflectors early.
+
+4. **Ignoring BGP session limits.** BGP runs on TCP. Each session consumes memory. Thousands of sessions = significant resource usage.
+
+5. **Mixing IGPs.** Running OSPF and IS-IS simultaneously adds complexity. Pick one and stick with it.
+
+6. **Not tuning timers.** Default timers are conservative. For fast failover, tune hello/dead intervals (with understanding of tradeoffs).
+
+7. **Forgetting redistribution.** Routes learned via one protocol don't automatically appear in another. Redistribution requires explicit configuration and careful filtering.
+
+8. **BGP route leaks.** Accidentally announcing routes you don't own can black-hole traffic or cause outages. Always use strict filters.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- RFC 2328, "OSPF Version 2"
+- RFC 4271, "Border Gateway Protocol 4"
+- ISO 10589, "Intermediate System to Intermediate System"
+- RFC 5765, "BGP/MPLS IP VPNs"
+- Doyle & Carroll, *Routing TCP/IP, Volume 1 & 2*, Cisco Press
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [MPLS basics](/en/core-network/mpls-vlan-vrf/mpls-basics/) — label-based forwarding
+- [Segment routing](/en/core-network/mpls-vlan-vrf/segment-routing/) — modern MPLS alternative
+- [BGP in telecom](/en/core-network/standards-map-ts23/bgp-in-telecom/) — telecom-specific BGP usage
+
+</section>

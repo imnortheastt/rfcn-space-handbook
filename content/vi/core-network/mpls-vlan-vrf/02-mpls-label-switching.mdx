@@ -8,17 +8,321 @@ track: n0
 unit: mpls-vlan-vrf
 order: 2
 level: L2
-estimatedReadingMinutes: 5
-title: "Chuyen nhan MPLS"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 14
+prerequisites: ["core-network-n0-routing-and-switching-03-routing-protocols-overview"]
+spiralRevisits: ["core-network-n1-mpls-vlan-vrf-03-vrf-concepts"]
+title: "Chuyển nhãn MPLS"
+description: "Cách MPLS dùng nhãn thay vì IP lookup để forward packet — và tại sao telco yêu thích nó."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["RFC 3031", "RFC 3032"]
+tags: ["mpls", "label-switching", "networking", "telecom"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Chuyen nhan MPLS
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+IP routing hoạt động, nhưng nó có giới hạn. Mỗi router làm full IP lookup. Traffic engineering khó. VPN phức tạp.
+
+MPLS (Multiprotocol Label Switching) giải quyết các vấn đề này. Nó thêm nhãn đơn giản vào packet, cho phép forwarding nhanh, traffic engineering, và VPN service. Mọi backbone telco lớn đều chạy MPLS.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+### MPLS là gì?
+
+MPLS là **cơ chế forwarding** dùng nhãn ngắn thay vì địa chỉ IP dài để đưa ra quyết định forwarding.
+
+```
+IP routing truyền thống:          MPLS forwarding:
+
+Packet: [IP: 203.0.113.5]        Packet: [Label: 42]
+           │                              │
+           ▼                              ▼
+    ┌──────────────┐                ┌──────────────┐
+    │ IP lookup    │                │ Label lookup │
+    │ trong routing│                │ trong LFIB   │
+    │ table (phức  │                │ (đơn giản)   │
+    │ tạp)         │                │              │
+    └──────────────┘                └──────────────┘
+           │                              │
+           ▼                              ▼
+    Decision: eth1                  Decision: eth1, swap thành 57
+```
+
+**Insight quan trọng:** Label là local cho mỗi router. Router A có thể dùng label 42, nhưng router tiếp theo có thể dùng label 57 cho cùng path. Đây gọi là **label swapping**.
+
+### Tại sao MPLS?
+
+| Vấn đề | Giải pháp MPLS |
+|--------|----------------|
+| IP lookup chậm | Label lookup kích thước cố định (20 bit vs 128 bit cho IPv6) |
+| Traffic engineering | Explicit path qua RSVP-TE hoặc Segment Routing |
+| VPN service | Label stacking enable L2/L3 VPN |
+| Fast reroute | Backup path được tính trước |
+| Protocol-agnostic | Hoạt động với IP, Ethernet, ATM |
+
+### MPLS label
+
+MPLS label là 32-bit header được chèn giữa Layer 2 và Layer 3.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ L2 Header │ MPLS Label │ IP Header │ Payload            │
+└──────────────────────────────────────────────────────────┘
+                │
+                ▼
+┌───────────────────────────────────────┐
+│ Label (20 bits) │ TC │ S │ TTL       │
+│                 │ 3b │1b │ 8 bits    │
+└───────────────────────────────────────┘
+```
+
+**Label field:**
+- **Label (20 bit):** Giá trị label thực tế (0-1,048,575)
+- **TC (3 bit):** Traffic Class (QoS)
+- **S (1 bit):** Bottom of Stack (1 nếu đây là label cuối)
+- **TTL (8 bit):** Time to Live (như IP TTL)
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### MPLS domain và vai trò router
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    MPLS Domain                           │
+│                                                          │
+│   ┌─────┐     ┌─────┐     ┌─────┐     ┌─────┐          │
+│   │ LER │────►│ LSR │────►│ LSR │────►│ LER │          │
+│   │(PE) │     │ (P) │     │ (P) │     │(PE) │          │
+│   └─────┘     └─────┘     └─────┘     └─────┘          │
+│   Ingress     Transit     Transit     Egress           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+     ▲                                        │
+     │                                        ▼
+ Packet                                  Packet
+ không nhãn                              không nhãn
+```
+
+**LER (Label Edge Router) / PE (Provider Edge):**
+- Nằm ở rìa MPLS domain
+- **Ingress LER:** Push label vào packet
+- **Egress LER:** Pop label, forward như IP
+
+**LSR (Label Switch Router) / P (Provider):**
+- Core router trong MPLS domain
+- Swap label (không bao giờ nhìn IP header)
+
+### Label operation
+
+Ba operation cơ bản:
+
+| Operation | Ở đâu | Xảy ra gì |
+|-----------|-------|-----------|
+| **Push** | Ingress LER | Thêm label vào packet |
+| **Swap** | Transit LSR | Thay label bằng cái mới |
+| **Pop** | Egress LER | Gỡ label |
+
+**Ví dụ path:**
+
+```
+Packet: Dst 203.0.113.5
+
+    Customer ──► Ingress LER ──► LSR ──► LSR ──► Egress LER ──► Customer
+                     │           │       │           │
+                   PUSH        SWAP    SWAP        POP
+                  Label 42   42→57   57→31      Remove
+```
+
+### Label Distribution Protocol (LDP)
+
+Router biết dùng label nào như thế nào?
+
+**LDP** tự động phân phối label khắp MPLS domain.
+
+1. Router thiết lập LDP session (TCP port 646)
+2. Mỗi router advertise: "Cho prefix 10.0.0.0/8, dùng label 42 khi gửi đến tôi"
+3. Router build **LFIB (Label Forwarding Information Base)**
+
+```
+LFIB của Router A:
+┌─────────────────────────────────────────────────┐
+│ Incoming Label │ Outgoing Label │ Next Hop     │
+├─────────────────────────────────────────────────┤
+│ 42             │ 57             │ Router B     │
+│ 43             │ 58             │ Router B     │
+│ 100            │ Pop            │ Local        │
+└─────────────────────────────────────────────────┘
+```
+
+### Label stacking
+
+MPLS hỗ trợ nhiều label (một **label stack**). Điều này enable các feature mạnh mẽ.
+
+```
+┌────────┬────────┬────────┬──────────┬─────────┐
+│ L2 Hdr │Label 1 │Label 2 │ IP Header│ Payload │
+└────────┴────────┴────────┴──────────┴─────────┘
+          │        │
+          │        └── Inner label (VPN label)
+          └─────────── Outer label (transport)
+```
+
+**Use case:**
+- **L3 VPN:** Outer = transport, Inner = VPN identifier
+- **Traffic engineering:** Nhiều label cho segment routing
+- **Hierarchy:** Label khác nhau cho service khác nhau
+
+**S bit** chỉ bottom of stack. Khi S=1, đây là label cuối.
+
+### Penultimate Hop Popping (PHP)
+
+Một optimization: router áp chót pop label, nên egress LER không phải nhìn cả label VÀ IP header.
+
+```
+Không có PHP:                   Có PHP:
+
+LSR ──[Label 57]──► Egress      LSR ──[No label]──► Egress
+                    1. Pop                          Chỉ route IP
+                    2. IP lookup
+```
+
+**Implicit null label (3):** Được advertise bởi egress LER để signal "pop trước khi gửi đến tôi."
+
+### Forwarding Equivalence Class (FEC)
+
+**FEC** là nhóm packet được forward cùng cách.
+
+Ví dụ FEC:
+- Tất cả packet đến destination 10.0.0.0/8
+- Tất cả packet cho VPN customer X
+- Tất cả packet với DSCP EF (expedited forwarding)
+
+Ingress LER phân loại packet vào FEC và gán label tương ứng.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**So sánh MPLS vs IP:**
+
+| Khía cạnh | IP Routing | MPLS |
+|-----------|------------|------|
+| Lookup | Longest prefix match | Exact label match |
+| Path control | IGP quyết định | Có thể explicit (TE) |
+| VPN support | Phức tạp (GRE tunnel) | Native (VPN label) |
+| QoS | DSCP trong IP header | TC trong MPLS header |
+| Fast reroute | Phụ thuộc protocol | Sub-50ms với FRR |
+
+**Khi nào dùng MPLS:**
+
+- **Service provider backbone:** Luôn luôn. Enable L2/L3 VPN, traffic engineering.
+- **Enterprise lớn:** Thường. Đơn giản hóa WAN, enable private VPN.
+- **Mạng nhỏ:** Thường không. Complexity không justify benefit.
+
+**Kiến trúc MPLS VPN:**
+
+```
+Customer A                                     Customer A
+Site 1                                         Site 2
+   │                                              │
+   ▼                                              ▼
+┌─────┐     ┌─────┐     ┌─────┐     ┌─────┐     ┌─────┐
+│ CE  │────►│ PE  │────►│  P  │────►│ PE  │────►│ CE  │
+└─────┘     └─────┘     └─────┘     └─────┘     └─────┘
+             │                         │
+             │◄── MPLS backbone ──────►│
+             │   (Label stack:         │
+             │    Transport + VPN)     │
+```
+
+**Troubleshooting MPLS:**
+
+1. **LDP session không up:**
+   - Kiểm tra IP connectivity giữa router
+   - Verify LDP enabled trên interface
+   - Kiểm tra router-id configuration
+
+2. **Label không có trong LFIB:**
+   - Prefix có trong IGP không?
+   - LDP có đang advertise label không?
+   - Kiểm tra filtering
+
+3. **Packet bị drop trong MPLS core:**
+   - Kiểm tra label path với traceroute MPLS
+   - Verify MTU (MPLS thêm 4+ byte per label)
+   - Kiểm tra TTL propagation setting
+
+**Command hữu ích (Cisco-style):**
+
+```bash
+# Xem LDP neighbor
+show mpls ldp neighbor
+
+# Xem label binding
+show mpls ldp bindings
+
+# Xem LFIB
+show mpls forwarding-table
+
+# Traceroute với MPLS
+traceroute mpls ipv4 10.0.0.1/32
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Nghĩ MPLS thay thế IP.** MPLS là cơ chế forwarding, không phải routing protocol. Bạn vẫn cần IGP (OSPF/IS-IS) và có thể BGP. MPLS chỉ thay đổi cách packet được forward.
+
+2. **Bỏ qua MTU.** Mỗi MPLS label thêm 4 byte. Với label stacking, số này cộng dồn. Plan cho MTU lớn hơn trong core (thường 9000+ byte).
+
+3. **PHP confusion.** Nếu PHP disabled và egress router nhận labeled packet, nó phải làm cả label pop VÀ IP lookup. Hiểu PHP setting của bạn.
+
+4. **LDP vs RSVP-TE.** LDP theo IGP shortest path. RSVP-TE cho phép explicit path. Chúng serve mục đích khác nhau. Biết cái nào bạn cần.
+
+5. **Quên TTL.** Mặc định, IP TTL được copy sang MPLS TTL. Điều này tiết lộ internal topology cho traceroute. Một số provider disable TTL propagation cho security.
+
+6. **Over-engineering mạng nhỏ.** MPLS thêm complexity. Cho mạng nhỏ, operational burden có thể outweigh benefit.
+
+7. **Label exhaustion.** 20 bit = ~1 triệu label. Thường đủ, nhưng deployment nặng VPN với nhiều route có thể hit limit. Monitor label usage.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- RFC 3031, "Multiprotocol Label Switching Architecture"
+- RFC 3032, "MPLS Label Stack Encoding"
+- RFC 5036, "LDP Specification"
+- Minei & Lucek, *MPLS-Enabled Applications*, Wiley, 2011
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [VRF concept](/vi/core-network/mpls-vlan-vrf/vrf-concepts/) — virtual routing table
+- [Segment routing](/vi/core-network/mpls-vlan-vrf/segment-routing/) — source-routed MPLS
+- [L3VPN](/vi/core-network/mpls-vlan-vrf/l3vpn/) — MPLS-based VPN service
+
+</section>

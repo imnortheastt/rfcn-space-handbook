@@ -8,17 +8,337 @@ track: n3
 unit: service-based-interface-http2
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "HTTP/2 trong loi 5G"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n3-service-based-interface-http2-01-sbi-overview"]
+spiralRevisits: []
+title: "HTTP/2 trong Loi 5G"
+description: "Tai sao 5G chon HTTP/2 thay vi HTTP/1.1 — multiplexing, nen header, server push, va cac can nhac dac thu telecom."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 29.500", "RFC 7540"]
+tags: ["http2", "5g", "sbi", "protocol", "hpack"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# HTTP/2 trong loi 5G
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+HTTP/1.1 mo mot ket noi TCP moi cho moi request. Voi mot NF ban gui hang ngan request moi giay, do la hang ngan ket noi — va hang ngan TCP handshake.
+
+HTTP/2 gui tat ca request qua mot ket noi duy nhat. 5G SBI chon HTTP/2 vi workload telecom — tan suat request cao, payload nho, do tre nghiem ngat — phu hop hoan hao voi diem manh cua no.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### HTTP/1.1 vs HTTP/2
+
+```
+HTTP/1.1: Tuan tu tren Nhieu Ket noi
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Ket noi 1: ────[Req1]────[Resp1]────────────────       │
+│  Ket noi 2: ────[Req2]────[Resp2]────────────────       │
+│  Ket noi 3: ────[Req3]────[Resp3]────────────────       │
+│  Ket noi 4: ────[Req4]────[Resp4]────────────────       │
+│                                                          │
+│  Van de:                                                │
+│  - Moi ket noi = TCP handshake + TLS handshake         │
+│  - Chan head-of-line tren moi ket noi                  │
+│  - Header lap lai day du tren moi request              │
+│  - Overhead quan ly connection pool                    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+HTTP/2: Multiplexed tren Mot Ket noi
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Mot Ket noi Duy nhat:                                  │
+│  ═══════════════════════════════════════════════════   │
+│  │  Stream 1: [Req1]─────────────────[Resp1]       │   │
+│  │  Stream 3: [Req2]────[Resp2]                    │   │
+│  │  Stream 5: [Req3]──────────[Resp3]              │   │
+│  │  Stream 7: [Req4]───[Resp4]                     │   │
+│  ═══════════════════════════════════════════════════   │
+│                                                          │
+│  Loi ich:                                               │
+│  - Mot TCP + TLS handshake cho tat ca                  │
+│  - Cac stream dong thoi, khong chan                    │
+│  - Nen header (HPACK)                                  │
+│  - Mot ket noi de quan ly                              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Tai sao telecom chon HTTP/2
+
+```
+Mau Traffic 5G Core → Phu hop HTTP/2:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Mau                        │ Loi the HTTP/2            │
+│  ───────────────────────────┼─────────────────────────  │
+│                             │                           │
+│  Tan suat request cao       │ Stream multiplexing       │
+│  (10K+ req/giay moi NF)     │ tranh churn ket noi       │
+│                             │                           │
+│  Payload JSON nho           │ Nen header HPACK          │
+│  (header > body thuong)     │ giam overhead             │
+│                             │                           │
+│  Do tre nghiem ngat         │ Khong TCP handshake       │
+│  (muc tieu < 50ms)          │ moi request               │
+│                             │                           │
+│  Ket noi NF dai han         │ Mot ket noi cho moi       │
+│  (AMF ↔ SMF lien tuc)       │ cap NF hieu qua           │
+│                             │                           │
+│  Framing nhi phan           │ Parse nhanh hon           │
+│                             │ HTTP/1.1 dang text        │
+│                             │                           │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Framing HTTP/2
+
+```
+Cau truc Frame HTTP/2:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Length (24 bits)                                  │  │
+│  ├───────────────────────────────────────────────────┤  │
+│  │ Type (8 bits) │ Flags (8 bits)                    │  │
+│  ├───────────────────────────────────────────────────┤  │
+│  │ R │ Stream Identifier (31 bits)                   │  │
+│  ├───────────────────────────────────────────────────┤  │
+│  │                                                    │  │
+│  │ Frame Payload (bien doi)                          │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  Cac loai Frame:                                        │
+│  - DATA (0x0): noi dung body thuc te                   │
+│  - HEADERS (0x1): HTTP headers                         │
+│  - SETTINGS (0x4): tham so ket noi                     │
+│  - PING (0x6): keepalive/do latency                   │
+│  - GOAWAY (0x7): dong graceful                        │
+│  - WINDOW_UPDATE (0x8): flow control                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Multiplexing stream
+
+```
+Multiplexing Hoat dong:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Thoi gian →                                            │
+│                                                          │
+│  ┌─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┐     │
+│  │ H:1 │ D:1 │ H:3 │ D:3 │ D:1 │ H:5 │ D:5 │ D:1 │     │
+│  └─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘     │
+│                                                          │
+│  H = frame HEADERS, D = frame DATA                     │
+│  So = Stream ID                                        │
+│                                                          │
+│  Stream 1: Request dang ky                             │
+│  Stream 3: Tao PDU session                             │
+│  Stream 5: Cap nhat vi tri                             │
+│                                                          │
+│  Tat ca xen ke tren cung ket noi TCP!                  │
+│                                                          │
+│  Goi y priority co nhung it dung trong SBI             │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Nen header HPACK
+
+```
+Vi du Nen HPACK:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Request Dau tien (header day du):                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ :method: POST                                   │    │
+│  │ :path: /nsmf-pdusession/v1/sm-contexts         │    │
+│  │ :authority: smf.5gc.example.com                │    │
+│  │ content-type: application/json                 │    │
+│  │ 3gpp-sbi-target-apiroot: https://smf...        │    │
+│  └─────────────────────────────────────────────────┘    │
+│  → Ma hoa: ~150 bytes                                  │
+│                                                          │
+│  Request Thu hai (cung header → indexed):              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ [Index 62] [Index 63] [Index 64] [Index 65]    │    │
+│  └─────────────────────────────────────────────────┘    │
+│  → Ma hoa: ~15 bytes (giam 90%!)                       │
+│                                                          │
+│  Cach hoat dong:                                       │
+│  - Bang tinh: header pho bien (:method, :status)       │
+│  - Bang dong: header gan day duoc cache                │
+│  - Ma hoa Huffman: nen gia tri literal                 │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Flow control
+
+```
+Flow Control HTTP/2:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Hai cap do:                                            │
+│  1. Window cap ket noi (tat ca stream gop lai)         │
+│  2. Window cap stream (tung stream)                    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Nguoi gui           Nguoi nhan                 │    │
+│  │    │                    │                       │    │
+│  │    │─── DATA (1000) ───►│  Window: 65535→64535 │    │
+│  │    │─── DATA (1000) ───►│  Window: 64535→63535 │    │
+│  │    │                    │                       │    │
+│  │    │◄── WINDOW_UPDATE ──│  Window: 63535→65535 │    │
+│  │    │    (+2000)         │  (receiver da xu ly) │    │
+│  │    │                    │                       │    │
+│  │    │─── DATA (1000) ───►│  Tiep tuc gui...     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Ngan sender nhanh lam qua tai receiver cham           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Can nhac dac thu 5G
+
+```
+Profile HTTP/2 cho 5G SBI:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Yeu cau             │ Lua chon 5G                      │
+│  ─────────────────────┼────────────────────────────────│
+│                       │                                 │
+│  Phien ban TLS        │ TLS 1.2+ bat buoc (thuong 1.3) │
+│  Thuong luong ALPN    │ "h2" (HTTP/2)                   │
+│  Server push          │ Khong dung (client pull)        │
+│  Max stream dong thoi │ Theo vendor (thuong 100+)       │
+│  Window ban dau       │ Thuong tang tu 65535            │
+│  Timeout ket noi      │ Dai han (hang gio)              │
+│  Keepalive            │ Frame PING hoac TCP keepalive   │
+│                       │                                 │
+│  Header tuy chinh:                                      │
+│  - 3gpp-sbi-target-apiroot (dinh tuyen)                │
+│  - 3gpp-sbi-callback (callback URI)                    │
+│  - 3gpp-sbi-correlation-info (tracing)                 │
+│                       │                                 │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cai dat HTTP/2 cho 5G:**
+
+| Cai dat | Mac dinh | 5G Dien hinh |
+|---------|----------|--------------|
+| SETTINGS_MAX_CONCURRENT_STREAMS | khong gioi han | 100-1000 |
+| SETTINGS_INITIAL_WINDOW_SIZE | 65535 | 1MB+ |
+| SETTINGS_MAX_HEADER_LIST_SIZE | khong gioi han | 16KB |
+| SETTINGS_MAX_FRAME_SIZE | 16384 | 16384-65535 |
+
+**Debug HTTP/2 trong SBI:**
+
+```bash
+# Wireshark: frame HTTP/2
+http2.type == 0  # Frame DATA
+http2.type == 1  # Frame HEADERS
+http2.type == 7  # Frame GOAWAY
+
+# Kiem tra thuong luong ALPN
+openssl s_client -connect smf.local:29502 -alpn h2
+
+# nghttp2 de test
+nghttp -v https://smf.local:29502/nsmf-pdusession/v1/sm-contexts
+
+# Bat voi curl verbose
+curl -v --http2 https://smf.local:29502/nnrf-nfm/v1/nf-instances
+```
+
+**Chuoi frame pho bien:**
+
+| Tinh huong | Chuoi Frame |
+|------------|-------------|
+| Request don gian | HEADERS → DATA (body) → HEADERS (response) → DATA |
+| Request khong body | HEADERS (END_STREAM) → HEADERS (response) |
+| Streaming | HEADERS → DATA → DATA → DATA... → DATA (END_STREAM) |
+| Bat dau ket noi | SETTINGS ↔ SETTINGS (ACK) |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Xu ly GOAWAY.** Server gui GOAWAY truoc khi shutdown. Client phai xu ly graceful — ket noi lai va thu lai cac stream dang cho.
+
+2. **Can kiet window.** Neu receiver khong gui WINDOW_UPDATE, sender bi chan. Giam sat kich thuoc window.
+
+3. **Can kiet Stream ID.** Client dung ID le (1, 3, 5...), server dung chan. Sau 2^31 stream, phai ket noi lai.
+
+4. **Tan cong HPACK.** Header doc hai co the lam phong bang dong. Dat SETTINGS_MAX_HEADER_LIST_SIZE.
+
+5. **Head-of-line blocking o TCP.** HTTP/2 giai quyet HOL o lop HTTP, nhung truyen lai TCP van chan tat ca stream.
+
+6. **Tuong thich proxy.** Mot so proxy/load balancer khong xu ly HTTP/2 tot. Co the can cham dut h2 o edge.
+
+7. **Connection pooling.** Mot ket noi cho moi cap NF la ly tuong. Qua nhieu ket noi lang phi tai nguyen; qua it tao bottleneck.
+
+8. **Overhead TLS.** Ket noi dau tien co chi phi TLS handshake. Dung TLS session resumption cho ket noi lai.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- RFC 7540, "Hypertext Transfer Protocol Version 2 (HTTP/2)"
+- RFC 7541, "HPACK: Header Compression for HTTP/2"
+- 3GPP TS 29.500, "Technical Realization of Service Based Architecture"
+- 3GPP TS 33.501, "Security Architecture and Procedures"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Dang ky NF service](/vi/core-network/service-based-interface-http2/nf-service-registration/) — cach NF dang ky
+- [JSON va OpenAPI](/vi/core-network/service-based-interface-http2/json-and-openapi-in-5g/) — dinh nghia API
+- [Tong quan SBI](/vi/core-network/service-based-interface-http2/sbi-overview/) — mo hinh service
+
+</section>

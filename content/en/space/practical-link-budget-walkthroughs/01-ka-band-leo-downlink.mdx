@@ -8,17 +8,412 @@ track: s7
 unit: practical-link-budget-walkthroughs
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "Ka-band downlink from 550 km LEO"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: ["satcom-link-overview", "uplink-downlink-concepts"]
+spiralRevisits: []
+title: "Ka-band Downlink from 550 km LEO"
+description: "Step-by-step link budget for a Starlink-class LEO broadband downlink."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["link-budget", "ka-band", "leo", "starlink", "broadband"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Ka-band downlink from 550 km LEO
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+LEO broadband constellations like Starlink operate at Ka-band from 550 km altitude. This walkthrough builds a complete downlink budget line-by-line, showing how each parameter contributes to the final C/N₀ and why LEO at Ka-band can deliver hundreds of Mbps to a small flat-panel antenna.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The scenario
+
+```
+Ka-band LEO Downlink Scenario:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SATELLITE:                                                          │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Altitude: 550 km (Starlink shell 1)                        │   │
+│  │  Frequency: 19.7 GHz (Ka-band downlink)                    │   │
+│  │  Tx power: 10W per beam (10 dBW)                           │   │
+│  │  Antenna gain: 38 dBi (spot beam)                          │   │
+│  │  EIRP: 48 dBW per beam                                     │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│                     🛰                                               │
+│                    ╱│╲                                              │
+│                   ╱ │ ╲  550 km slant range                        │
+│                  ╱  │  ╲ (at 40° elevation)                        │
+│                 ╱   │   ╲                                           │
+│                ╱    │    ╲                                          │
+│               ╱     │     ╲                                         │
+│              📡     │     📡                                         │
+│           User A   │   User B                                       │
+│                     │                                               │
+│                  ~700 km slant                                      │
+│                                                                      │
+│  USER TERMINAL:                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Antenna: Phased array, 50 cm equivalent                   │   │
+│  │  Gain: 34 dBi at 19.7 GHz                                  │   │
+│  │  System temp: 150 K                                        │   │
+│  │  G/T: 34 - 10×log₁₀(150) = 12.2 dB/K                      │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Link budget structure
+
+```
+Link Budget Components (dB Domain):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TRANSMIT SIDE (GAINS):                                             │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  + Transmit power (P_tx)                    10.0 dBW        │   │
+│  │  + Transmit antenna gain (G_tx)            +38.0 dBi        │   │
+│  │  ───────────────────────────────────────────────────────   │   │
+│  │  = EIRP                                     48.0 dBW        │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  PATH (LOSSES):                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  - Free space path loss                   -181.8 dB         │   │
+│  │  - Atmospheric absorption                  -0.5 dB          │   │
+│  │  - Pointing loss (sat + user)              -1.0 dB          │   │
+│  │  - Polarization mismatch                   -0.3 dB          │   │
+│  │  ───────────────────────────────────────────────────────   │   │
+│  │  = Total path loss                        -183.6 dB         │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  RECEIVE SIDE (GAINS):                                              │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  + Receive G/T                             +12.2 dB/K       │   │
+│  │  + Boltzmann constant (negative)          +228.6 dBW/K/Hz   │   │
+│  │  ───────────────────────────────────────────────────────   │   │
+│  │  = Receive figure of merit                +240.8 dB         │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  RESULT:                                                            │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  C/N₀ = EIRP + Path + Receive FoM                          │   │
+│  │       = 48.0 - 183.6 + 240.8                               │   │
+│  │       = 105.2 dBHz                                         │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Step-by-step calculation
+
+```
+Detailed Link Budget Walkthrough:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  STEP 1: GEOMETRY                                                   │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Orbital altitude: h = 550 km                               │   │
+│  │  Earth radius: R_e = 6371 km                                │   │
+│  │  Elevation angle: El = 40°                                  │   │
+│  │                                                              │   │
+│  │  Slant range calculation:                                   │   │
+│  │  d = √[(R_e + h)² - (R_e × cos(El))²] - R_e × sin(El)      │   │
+│  │  d = √[(6921)² - (6371 × 0.766)²] - 6371 × 0.643           │   │
+│  │  d = √[47.9M - 23.8M] - 4097                               │   │
+│  │  d ≈ 700 km                                                 │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  STEP 2: FREE SPACE PATH LOSS                                       │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  L_fs = 20×log₁₀(4πd/λ)                                    │   │
+│  │                                                              │   │
+│  │  Frequency: f = 19.7 GHz                                    │   │
+│  │  Wavelength: λ = c/f = 0.0152 m                            │   │
+│  │  Distance: d = 700 km = 700,000 m                          │   │
+│  │                                                              │   │
+│  │  L_fs = 20×log₁₀(4π × 700000 / 0.0152)                     │   │
+│  │       = 20×log₁₀(5.77 × 10⁸)                               │   │
+│  │       = 20 × 8.76 = 175.2 dB                               │   │
+│  │                                                              │   │
+│  │  Or using formula: L_fs = 92.45 + 20×log₁₀(f_GHz × d_km)   │   │
+│  │       = 92.45 + 20×log₁₀(19.7 × 700) = 181.2 dB           │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  STEP 3: ADDITIONAL LOSSES                                          │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Atmospheric absorption (Ka-band, 40° el):    0.5 dB       │   │
+│  │  Pointing loss (satellite beam edge):         0.5 dB       │   │
+│  │  Pointing loss (user terminal tracking):      0.5 dB       │   │
+│  │  Polarization mismatch:                       0.3 dB       │   │
+│  │  Implementation loss:                         0.5 dB       │   │
+│  │  ─────────────────────────────────────────────────────     │   │
+│  │  Total additional losses:                     2.3 dB       │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  STEP 4: ASSEMBLE LINK BUDGET                                       │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Parameter                           Value      Unit        │   │
+│  │  ────────────────────────────────────────────────────────  │   │
+│  │  Satellite transmit power (P_tx)      10.0      dBW        │   │
+│  │  Satellite antenna gain (G_tx)       +38.0      dBi        │   │
+│  │  EIRP                                 48.0      dBW        │   │
+│  │  ────────────────────────────────────────────────────────  │   │
+│  │  Free space path loss               -181.2      dB         │   │
+│  │  Atmospheric + other losses          -2.3       dB         │   │
+│  │  Total path loss                    -183.5      dB         │   │
+│  │  ────────────────────────────────────────────────────────  │   │
+│  │  Receive antenna gain (G_rx)         +34.0      dBi        │   │
+│  │  System noise temp (T_sys)           150        K          │   │
+│  │  10×log₁₀(T_sys)                     21.8       dB         │   │
+│  │  G/T                                 +12.2      dB/K       │   │
+│  │  ────────────────────────────────────────────────────────  │   │
+│  │  Boltzmann constant (k)            -228.6      dBW/K/Hz   │   │
+│  │  ────────────────────────────────────────────────────────  │   │
+│  │  C/N₀ = EIRP - L + G/T - k                                │   │
+│  │       = 48.0 - 183.5 + 12.2 + 228.6                       │   │
+│  │       = 105.3 dBHz                                         │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Capacity estimation
+
+```
+From C/N₀ to Data Rate:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SHANNON CAPACITY:                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  C = B × log₂(1 + S/N)                                      │   │
+│  │                                                              │   │
+│  │  For a 250 MHz channel:                                     │   │
+│  │  C/N = C/N₀ - 10×log₁₀(B)                                   │   │
+│  │      = 105.3 - 10×log₁₀(250×10⁶)                           │   │
+│  │      = 105.3 - 84.0 = 21.3 dB                              │   │
+│  │                                                              │   │
+│  │  S/N linear = 10^(21.3/10) = 135                            │   │
+│  │  Shannon limit = 250 × log₂(136) = 250 × 7.1 = 1.8 Gbps    │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  PRACTICAL CAPACITY (with coding):                                  │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  DVB-S2X with LDPC coding achieves ~80% of Shannon         │   │
+│  │                                                              │   │
+│  │  At C/N = 21.3 dB: 64APSK with rate 3/4 feasible          │   │
+│  │  Spectral efficiency: ~5.5 bits/s/Hz                       │   │
+│  │  Practical rate: 250 MHz × 5.5 = 1.4 Gbps per beam        │   │
+│  │                                                              │   │
+│  │  With multiple users sharing beam:                         │   │
+│  │  ~200-500 Mbps per typical user (time division)            │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Complete link budget calculation:**
+
+```python
+import numpy as np
+
+def leo_ka_link_budget():
+    """
+    Complete Ka-band LEO downlink budget (Starlink-class).
+    """
+    # Geometry
+    altitude_km = 550
+    elevation_deg = 40
+    earth_radius_km = 6371
+    
+    # Calculate slant range
+    el_rad = np.radians(elevation_deg)
+    r_sat = earth_radius_km + altitude_km
+    slant_range_km = np.sqrt(
+        r_sat**2 - (earth_radius_km * np.cos(el_rad))**2
+    ) - earth_radius_km * np.sin(el_rad)
+    
+    # Frequency
+    freq_ghz = 19.7
+    wavelength_m = 0.3 / freq_ghz  # c/f
+    
+    # Free space path loss
+    fspl_db = 92.45 + 20 * np.log10(freq_ghz * slant_range_km)
+    
+    # Satellite parameters
+    p_tx_dbw = 10.0  # 10W per beam
+    g_tx_dbi = 38.0  # spot beam gain
+    eirp_dbw = p_tx_dbw + g_tx_dbi
+    
+    # Additional losses
+    atm_loss_db = 0.5  # atmospheric at 40° el
+    pointing_sat_db = 0.5
+    pointing_user_db = 0.5
+    pol_loss_db = 0.3
+    impl_loss_db = 0.5
+    total_add_loss_db = (atm_loss_db + pointing_sat_db + 
+                         pointing_user_db + pol_loss_db + impl_loss_db)
+    
+    # User terminal
+    g_rx_dbi = 34.0  # ~50 cm phased array at Ka
+    t_sys_k = 150.0
+    g_t_dbk = g_rx_dbi - 10 * np.log10(t_sys_k)
+    
+    # Boltzmann constant
+    k_dbw = -228.6
+    
+    # Link budget
+    total_loss_db = fspl_db + total_add_loss_db
+    c_n0_dbhz = eirp_dbw - total_loss_db + g_t_dbk - k_dbw
+    
+    # Capacity for 250 MHz channel
+    bandwidth_hz = 250e6
+    c_n_db = c_n0_dbhz - 10 * np.log10(bandwidth_hz)
+    snr_linear = 10 ** (c_n_db / 10)
+    shannon_bps = bandwidth_hz * np.log2(1 + snr_linear)
+    practical_bps = 0.8 * shannon_bps  # ~80% with good coding
+    
+    # Print results
+    print("Ka-band LEO Downlink Link Budget")
+    print("=" * 60)
+    print(f"\n--- GEOMETRY ---")
+    print(f"Altitude:        {altitude_km} km")
+    print(f"Elevation:       {elevation_deg}°")
+    print(f"Slant range:     {slant_range_km:.1f} km")
+    
+    print(f"\n--- TRANSMIT (Satellite) ---")
+    print(f"Tx power:        {p_tx_dbw:.1f} dBW")
+    print(f"Tx antenna gain: {g_tx_dbi:.1f} dBi")
+    print(f"EIRP:            {eirp_dbw:.1f} dBW")
+    
+    print(f"\n--- PATH LOSSES ---")
+    print(f"Frequency:       {freq_ghz} GHz")
+    print(f"Free space loss: {fspl_db:.1f} dB")
+    print(f"Additional loss: {total_add_loss_db:.1f} dB")
+    print(f"Total loss:      {total_loss_db:.1f} dB")
+    
+    print(f"\n--- RECEIVE (User Terminal) ---")
+    print(f"Rx antenna gain: {g_rx_dbi:.1f} dBi")
+    print(f"System temp:     {t_sys_k:.0f} K")
+    print(f"G/T:             {g_t_dbk:.1f} dB/K")
+    
+    print(f"\n--- RESULTS ---")
+    print(f"C/N₀:            {c_n0_dbhz:.1f} dBHz")
+    print(f"C/N (250 MHz):   {c_n_db:.1f} dB")
+    print(f"Shannon limit:   {shannon_bps/1e9:.2f} Gbps")
+    print(f"Practical rate:  {practical_bps/1e9:.2f} Gbps")
+    
+    # Margin analysis
+    print(f"\n--- MARGIN ANALYSIS ---")
+    required_cn_db = 15.0  # typical for 32APSK
+    margin_db = c_n_db - required_cn_db
+    print(f"Required C/N:    {required_cn_db:.1f} dB (32APSK)")
+    print(f"Margin:          {margin_db:.1f} dB")
+    
+    return c_n0_dbhz, c_n_db, practical_bps
+
+# Run the budget
+c_n0, c_n, rate = leo_ka_link_budget()
+
+# Rain fade impact
+print("\n" + "=" * 60)
+print("RAIN FADE IMPACT (Ka-band)")
+print("-" * 60)
+rain_fades = [0, 3, 6, 10]  # dB
+for rain in rain_fades:
+    c_n_rain = c_n - rain
+    snr = 10 ** (c_n_rain / 10)
+    rate_rain = 0.8 * 250e6 * np.log2(1 + snr)
+    print(f"Rain fade {rain:2d} dB: C/N = {c_n_rain:.1f} dB, "
+          f"Rate = {rate_rain/1e6:.0f} Mbps")
+```
+
+**Comparison with GEO:**
+
+| Parameter | LEO 550 km | GEO 36,000 km | Advantage |
+|-----------|------------|---------------|-----------|
+| Distance | 700 km | 36,000 km | LEO: 51× closer |
+| Path loss | 181 dB | 209 dB | LEO: 28 dB better |
+| Latency | 5 ms | 250 ms | LEO: 50× lower |
+| Power needed | 10W | 200W | LEO: 20× less |
+| Coverage | 1 beam | Global | GEO: simpler |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using altitude instead of slant range.** At low elevation, slant range >> altitude.
+
+2. **Ignoring rain at Ka-band.** 10+ dB fade possible; must budget margin.
+
+3. **Static elevation assumption.** LEO satellite moves; elevation changes during pass.
+
+4. **Forgetting Doppler.** ±45 kHz shift at Ka-band from LEO motion.
+
+5. **G/T at low elevation.** Sky temperature increases when looking near horizon.
+
+6. **Beam edge penalty.** Users at spot beam edge see 2-3 dB lower EIRP.
+
+7. **Shared capacity.** Per-beam capacity divided among all users in that beam.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- SpaceX FCC filings (Starlink specifications)
+- ITU-R P.618 (Rain attenuation)
+- DVB-S2X standard (ETSI EN 302 307-2)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [L-band IoT CubeSat](/en/space/practical-link-budget-walkthroughs/l-band-iot-cubesat/) — different band, different constraints
+- [LEO Constellation Architecture](/en/space/leo-constellation-architecture/starlink-class-design/) — system design
+- [Handover Between Satellites](/en/space/leo-constellation-architecture/handover-between-satellites/) — LEO challenges
+
+</section>

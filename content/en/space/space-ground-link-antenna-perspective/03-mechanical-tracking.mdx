@@ -8,17 +8,461 @@ track: s7
 unit: space-ground-link-antenna-perspective
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "Mechanical tracking"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Mechanical Tracking — Traditional Dish Antenna Systems"
+description: "Understanding motorized antenna tracking for GEO and LEO satellite communications."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["mechanical-tracking", "az-el", "pedestal", "servo", "dish-antenna"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Mechanical tracking
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Before phased arrays, there were motorized dishes—and they're still everywhere. GEO satellite earth stations, radio telescopes, radar systems, and many maritime/aviation terminals use mechanical tracking. Understanding azimuth-elevation mounts, servo control loops, and tracking algorithms is essential for operating traditional ground stations and understanding the baseline that ESAs are replacing.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The mechanical tracking concept
+
+```
+Mechanical Tracking Basics:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  GOAL: Keep dish pointed at moving (or stationary) satellite        │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │                    ☆ Satellite                        │         │
+│  │                   /                                    │         │
+│  │                  /                                     │         │
+│  │                 /                                      │         │
+│  │                /                                       │         │
+│  │           ┌───┴───┐                                   │         │
+│  │           │  ◠◠◠  │ ← Dish (parabolic reflector)     │         │
+│  │           │   │   │                                   │         │
+│  │           │   │   │                                   │         │
+│  │       ┌───┴───┴───┴───┐                               │         │
+│  │       │   PEDESTAL    │ ← Azimuth-Elevation mount    │         │
+│  │       │  ┌─────────┐  │                               │         │
+│  │       │  │ Az motor│  │                               │         │
+│  │       │  │ El motor│  │                               │         │
+│  │       └──┴─────────┴──┘                               │         │
+│  │      ═════════════════ Ground                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Mount types
+
+```
+Common Antenna Mount Types:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. AZIMUTH-ELEVATION (Az-El):                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │         Elevation axis                                │         │
+│  │           ──┬──                                       │         │
+│  │            ╱│╲  ← Dish rotates up/down               │         │
+│  │           ╱ │ ╲                                       │         │
+│  │          ╱  │  ╲                                      │         │
+│  │         ────┼────                                     │         │
+│  │             │                                         │         │
+│  │         ┌───┴───┐                                    │         │
+│  │         │   ↻   │ ← Azimuth rotation (360°)         │         │
+│  │         └───────┘                                    │         │
+│  │                                                        │         │
+│  │  • Most common for satellite tracking                │         │
+│  │  • Simple conceptually: Az = compass bearing         │         │
+│  │  • Problem: "keyhole" at zenith (gimbal lock)       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  2. X-Y MOUNT:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Two perpendicular horizontal axes                 │         │
+│  │  • No zenith keyhole problem                         │         │
+│  │  • Better for high-elevation tracking                │         │
+│  │  • Used in some radio telescopes                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  3. POLAR/EQUATORIAL MOUNT:                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • One axis aligned with Earth's rotation axis       │         │
+│  │  • Can track GEO arc with single-axis motion         │         │
+│  │  • Common for GEO-only earth stations                │         │
+│  │  • Simpler control for geostationary satellites      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Tracking modes
+
+```
+Satellite Tracking Modes:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. PROGRAM TRACK (open loop):                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  [Ephemeris] ──► [Compute Az/El] ──► [Motors]        │         │
+│  │                                                        │         │
+│  │  • Uses predicted satellite position                 │         │
+│  │  • No feedback from signal                           │         │
+│  │  • Good for: acquisition, LEO passes                 │         │
+│  │  • Accuracy limited by ephemeris quality             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  2. STEP TRACK (closed loop):                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  [Measure signal] ──► [Step Az/El] ──► [Maximize]   │         │
+│  │                                 ↑____________│        │         │
+│  │                                                        │         │
+│  │  • Small steps, measure signal after each            │         │
+│  │  • Hill-climbing to maximize received power          │         │
+│  │  • Good for: GEO tracking, fine pointing             │         │
+│  │  • Slow but robust                                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  3. MONOPULSE (closed loop, fast):                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Four-horn feed compares signal in quadrants         │         │
+│  │                                                        │         │
+│  │       ┌───┬───┐                                      │         │
+│  │       │ A │ B │  Δaz ∝ (A+C) - (B+D)                │         │
+│  │       ├───┼───┤  Δel ∝ (A+B) - (C+D)                │         │
+│  │       │ C │ D │                                      │         │
+│  │       └───┴───┘                                      │         │
+│  │                                                        │         │
+│  │  • Instantaneous error signal                        │         │
+│  │  • No stepping needed                                │         │
+│  │  • Fast enough for LEO tracking                      │         │
+│  │  • More complex feed system                          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  4. CONICAL SCAN:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Feed nutates (wobbles) in small circle            │         │
+│  │  • Signal modulation indicates pointing error        │         │
+│  │  • Simpler than monopulse but slower                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Servo control system
+
+```
+Antenna Control Unit (ACU) Architecture:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TYPICAL SERVO LOOP:                                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Command    ┌─────────┐   ┌─────────┐   ┌─────────┐  │         │
+│  │  position ─►│   PID   │──►│  Motor  │──►│ Antenna │  │         │
+│  │             │ Control │   │  Drive  │   │ + Load  │  │         │
+│  │             └─────────┘   └─────────┘   └────┬────┘  │         │
+│  │                  ▲                           │       │         │
+│  │                  │        ┌─────────┐        │       │         │
+│  │                  └────────│ Encoder │◄───────┘       │         │
+│  │                           └─────────┘                │         │
+│  │                        Position feedback             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KEY SPECIFICATIONS:                                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Parameter        │ GEO tracking │ LEO tracking      │         │
+│  │  ─────────────────┼──────────────┼─────────────────  │         │
+│  │  Max velocity     │ 0.5°/s       │ 10-20°/s         │         │
+│  │  Max acceleration │ 0.5°/s²      │ 10-20°/s²        │         │
+│  │  Pointing accuracy│ 0.02°        │ 0.1°             │         │
+│  │  Tracking error   │ < 0.01°      │ < 0.1°           │         │
+│  │                                                        │         │
+│  │  LEO requires MUCH faster motors and control loops   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### GEO vs LEO tracking
+
+```
+Tracking Requirements by Orbit:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  GEO SATELLITE (36,000 km, "stationary"):                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Apparent motion: ~0.1°/day (station-keeping window) │         │
+│  │  Tracking: Essentially fixed pointing                │         │
+│  │  Adjustment: Occasional step-track refinement        │         │
+│  │                                                        │         │
+│  │  Many GEO earth stations don't track at all—         │         │
+│  │  just point and leave (fixed mount)                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LEO SATELLITE (400-2000 km, moving fast):                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Pass duration: 5-15 minutes (horizon to horizon)    │         │
+│  │  Angular velocity: up to 3°/s near horizon           │         │
+│  │  Tracking: Continuous high-speed motion              │         │
+│  │                                                        │         │
+│  │  TYPICAL LEO PASS:                                    │         │
+│  │  ┌─────────────────────────────────────────────────┐ │         │
+│  │  │  El                                              │ │         │
+│  │  │  ▲                                              │ │         │
+│  │  │90│          ╭─────╮                             │ │         │
+│  │  │  │        ╱         ╲                           │ │         │
+│  │  │45│      ╱             ╲                         │ │         │
+│  │  │  │    ╱                 ╲                       │ │         │
+│  │  │ 0│──╱─────────────────────╲──► Time            │ │         │
+│  │  │     AOS              LOS                       │ │         │
+│  │  └─────────────────────────────────────────────────┘ │         │
+│  │                                                        │         │
+│  │  Keyhole problem: If pass goes through zenith,       │         │
+│  │  Az-El mount must slew 180° instantly → impossible   │         │
+│  │  Solution: X-Y mount or accept brief signal loss     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Mechanical tracking calculations:**
+
+```python
+import numpy as np
+
+def satellite_angular_velocity(altitude_km, elevation_deg):
+    """
+    Approximate angular velocity of LEO satellite as seen from ground.
+    
+    Args:
+        altitude_km: Satellite altitude
+        elevation_deg: Current elevation angle
+    
+    Returns:
+        Angular velocity in deg/s
+    """
+    R_earth = 6371  # km
+    orbital_velocity = 7.5  # km/s typical for LEO
+    
+    # Slant range
+    el_rad = np.radians(elevation_deg)
+    slant_range = np.sqrt((R_earth + altitude_km)**2 - 
+                          (R_earth * np.cos(el_rad))**2) - R_earth * np.sin(el_rad)
+    
+    # Approximate angular velocity (simplified)
+    # Faster near horizon, slower at zenith
+    angular_vel = np.degrees(orbital_velocity / (slant_range + altitude_km))
+    
+    return angular_vel
+
+def pointing_error_to_loss_db(error_deg, beamwidth_deg):
+    """
+    Calculate gain loss due to pointing error.
+    
+    For parabolic dish: G(θ) ≈ G_max × exp(-2.76 × (θ/θ_3dB)²)
+    """
+    x = error_deg / beamwidth_deg
+    loss_db = -12 * x**2  # Approximation for Gaussian beam
+    return loss_db
+
+def motor_sizing(dish_diameter_m, max_velocity_deg_s, max_acceleration_deg_s2):
+    """
+    Estimate motor torque requirements.
+    """
+    # Moment of inertia approximation for dish
+    # Treat as thin disk: I = 0.25 × m × r²
+    # Mass estimate: ~10 kg/m² for typical dish
+    area = np.pi * (dish_diameter_m/2)**2
+    mass = area * 10  # kg
+    radius = dish_diameter_m / 2
+    inertia = 0.25 * mass * radius**2  # kg⋅m²
+    
+    # Torque = I × α
+    alpha_rad = np.radians(max_acceleration_deg_s2)
+    torque = inertia * alpha_rad
+    
+    return {
+        "mass_kg": mass,
+        "inertia_kg_m2": inertia,
+        "torque_nm": torque,
+    }
+
+# Example calculations
+print("Mechanical Tracking Analysis")
+print("=" * 60)
+
+# LEO tracking requirements
+print("\n1. LEO Angular Velocity vs Elevation")
+print("-" * 60)
+altitude = 550  # km (Starlink)
+
+print(f"  Altitude: {altitude} km")
+print(f"  {'Elevation':>12} {'Angular velocity':>18} {'Required capability':>20}")
+for el in [5, 15, 30, 45, 60, 75, 90]:
+    ang_vel = satellite_angular_velocity(altitude, el)
+    print(f"  {el:>10}° {ang_vel:>16.2f}°/s {'⚠️ Fast!' if ang_vel > 2 else ''}")
+
+# Pointing error impact
+print("\n2. Pointing Error Impact on Link")
+print("-" * 60)
+beamwidth = 1.0  # degree (typical Ku-band 1.2m dish)
+
+print(f"  Beamwidth: {beamwidth}°")
+print(f"  {'Pointing error':>15} {'Gain loss':>12} {'Assessment':>20}")
+for error in [0.0, 0.05, 0.1, 0.2, 0.3, 0.5, 1.0]:
+    loss = pointing_error_to_loss_db(error, beamwidth)
+    assessment = "OK" if loss > -1 else ("Marginal" if loss > -3 else "Critical")
+    print(f"  {error:>13.2f}° {loss:>10.2f} dB {assessment:>20}")
+
+# Motor sizing
+print("\n3. Motor Sizing for Different Dish Sizes")
+print("-" * 60)
+max_vel = 10  # deg/s
+max_acc = 10  # deg/s²
+
+print(f"  Max velocity: {max_vel}°/s, Max acceleration: {max_acc}°/s²")
+print(f"  {'Diameter':>10} {'Mass':>10} {'Inertia':>12} {'Torque':>12}")
+print(f"  {'(m)':>10} {'(kg)':>10} {'(kg⋅m²)':>12} {'(N⋅m)':>12}")
+
+for diameter in [0.6, 1.2, 2.4, 3.7, 5.0]:
+    sizing = motor_sizing(diameter, max_vel, max_acc)
+    print(f"  {diameter:>10.1f} {sizing['mass_kg']:>10.0f} {sizing['inertia_kg_m2']:>12.1f} {sizing['torque_nm']:>12.1f}")
+
+# Tracking modes comparison
+print("\n4. Tracking Mode Comparison")
+print("-" * 60)
+modes = [
+    ("Program track", "0.1-0.5°", "Fast", "LEO acquisition"),
+    ("Step track", "0.01-0.05°", "Slow (5-30s)", "GEO refinement"),
+    ("Monopulse", "0.01°", "Real-time", "LEO tracking"),
+    ("Conical scan", "0.02°", "1-5s", "Radar, older systems"),
+]
+
+print(f"  {'Mode':<15} {'Accuracy':<12} {'Response':<15} {'Use case':<20}")
+print("-" * 60)
+for mode, accuracy, response, use in modes:
+    print(f"  {mode:<15} {accuracy:<12} {response:<15} {use:<20}")
+
+# GEO vs LEO comparison
+print("\n5. GEO vs LEO Tracking Requirements")
+print("-" * 60)
+comparison = [
+    ("Orbit altitude", "36,000 km", "400-2000 km"),
+    ("Angular velocity", "<0.01°/day", "0.5-3°/s"),
+    ("Pass duration", "24/7", "5-15 min"),
+    ("Motor speed needed", "0.1°/s", "10-20°/s"),
+    ("Pointing accuracy", "0.02°", "0.1°"),
+    ("Tracking mode", "Step track", "Program + monopulse"),
+    ("Mount type", "Fixed or Az-El", "Az-El or X-Y"),
+]
+
+print(f"  {'Parameter':<20} {'GEO':<15} {'LEO':<15}")
+print("-" * 60)
+for param, geo, leo in comparison:
+    print(f"  {param:<20} {geo:<15} {leo:<15}")
+```
+
+**Key specifications:**
+
+| Application | Dish size | Max velocity | Accuracy | Mount type |
+|-------------|-----------|--------------|----------|------------|
+| GEO VSAT | 1.2-2.4m | 0.5°/s | 0.02° | Az-El |
+| GEO gateway | 7-13m | 0.1°/s | 0.01° | Az-El or polar |
+| LEO TT&C | 3-5m | 10°/s | 0.1° | X-Y |
+| Maritime | 0.6-1.2m | 20°/s | 0.3° | 3-axis stabilized |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Keyhole at zenith.** Az-El mounts fail for overhead passes; need X-Y or accept dropout.
+
+2. **Wind loading.** Large dishes need stow position and wind speed limits; tracking degrades in wind.
+
+3. **Backlash.** Gear backlash in motors causes tracking hysteresis; use anti-backlash gears or direct drive.
+
+4. **Ice and snow.** Dish accumulation changes balance and blocks signal; heating systems needed.
+
+5. **Cable wrap.** Continuous rotation requires slip rings or cable wrap limits; plan for unwrap time.
+
+6. **Encoder resolution.** Poor encoder resolution = poor tracking; typical need: 0.001° or better.
+
+7. **LEO vs GEO confusion.** GEO tracking hardware usually can't handle LEO speeds; verify specs.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- INTELSAT Earth Station Standards (IESS)
+- ITU-R S.580 (Radiation diagrams for earth stations)
+- Orbit determination and tracking textbooks
+- Antenna mount manufacturer specifications
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Gateway Antennas](/en/space/space-ground-link-antenna-perspective/gateway-antennas/) — large earth stations
+- [Phased Arrays](/en/space/space-ground-link-antenna-perspective/phased-arrays-on-ground/) — electronic alternative
+- [Link Budget](/en/space/link-budget-master-class/) — pointing loss in calculations
+
+</section>

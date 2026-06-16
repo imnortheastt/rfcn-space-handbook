@@ -8,17 +8,404 @@ track: n6
 unit: fronthaul-interface
 order: 2
 level: L4
-estimatedReadingMinutes: 5
-title: "Dac ta fronthaul O-RAN"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n6-fronthaul-interface-01-ecpri-overview"]
+spiralRevisits: []
+title: "Dac ta Fronthaul O-RAN"
+description: "Dac ta Control, User, Synchronization, va Management Plane cua O-RAN WG4 cho Open Fronthaul."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG4.CUS", "O-RAN.WG4.MP"]
+tags: ["o-ran", "5g", "fronthaul", "cus", "m-plane"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Dac ta fronthaul O-RAN
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+eCPRI dinh nghia transport. O-RAN WG4 dinh nghia gi ben trong — cau truc section, tham so timing, dinh dang nen, va interface quan ly.
+
+Hieu dac ta fronthaul O-RAN la can thiet cho tuong thich da vendor. Day la noi cac chi tiet interop ton tai.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Cac plane fronthaul O-RAN
+
+```
+Cac Plane Open Fronthaul O-RAN:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Bon plane dinh nghia boi O-RAN WG4:                    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ C-Plane (Control Plane)                         │    │
+│  │ - Thong tin lap lich                             │    │
+│  │ - Mo ta section (cap phat PRB)                   │    │
+│  │ - Thong tin beamforming                          │    │
+│  │ - Gui truoc du lieu U-Plane                      │    │
+│  │ Giao thuc: eCPRI message type 0x02              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ U-Plane (User Plane)                            │    │
+│  │ - Du lieu mau IQ                                │    │
+│  │ - Mien tan so (sau DFT)                         │    │
+│  │ - Nen (BFP, nen dieu che)                       │    │
+│  │ Giao thuc: eCPRI message type 0x00              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ S-Plane (Synchronization Plane)                 │    │
+│  │ - Dong bo timing                                 │    │
+│  │ - Canh chinh pha                                 │    │
+│  │ Giao thuc: PTP (IEEE 1588), SyncE               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ M-Plane (Management Plane)                      │    │
+│  │ - Cau hinh                                       │    │
+│  │ - Giam sat hieu nang                             │    │
+│  │ - Quan ly loi                                    │    │
+│  │ Giao thuc: NETCONF/YANG                         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Luong tin nhan CUS
+
+```
+Trinh tu Tin nhan C-Plane va U-Plane:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  DU                                    RU                │
+│  │                                     │                │
+│  │ C-Plane (lap lich cho slot N)       │                │
+│  │ - Section type 1 (DL data)          │                │
+│  │ - Cap phat PRB                       │                │
+│  │ - Beam ID / trong so                 │                │
+│  │─────────────────────────────────────►│                │
+│  │                                     │ Luu C-Plane    │
+│  │                                     │                │
+│  │ U-Plane (du lieu IQ cho slot N)     │                │
+│  │ - Symbol 0, PRBs 0-50               │                │
+│  │─────────────────────────────────────►│                │
+│  │                                     │                │
+│  │ U-Plane (du lieu IQ cho slot N)     │                │
+│  │ - Symbol 0, PRBs 51-100             │                │
+│  │─────────────────────────────────────►│                │
+│  │                                     │                │
+│  │ ... them tin nhan U-Plane ...       │                │
+│  │─────────────────────────────────────►│                │
+│  │                                     │                │
+│  │                                     │ Ap dung C-Plane│
+│  │                                     │ cho U-Plane    │
+│  │                                     │                │
+│  │                                     │ IFFT + TX      │
+│  │                                     │─────────────►  │
+│  │                                     │     Khong khi  │
+│                                                          │
+│  Timing: C-Plane den T2a truoc ranh gioi slot           │
+│          U-Plane den Ta3 truoc ranh gioi symbol         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cau truc section C-Plane
+
+```
+Dinh dang Section C-Plane O-RAN:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Header Lop Ung dung:                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ dataDirection (1 bit): 0=UL, 1=DL               │    │
+│  │ payloadVersion (3 bits): 001 cho hien tai       │    │
+│  │ filterIndex (4 bits): Nhan dien tap bo loc      │    │
+│  │ frameId (8 bits): So khung radio mod 256        │    │
+│  │ subframeId (4 bits): 0-9                        │    │
+│  │ slotId (6 bits): Slot trong subframe            │    │
+│  │ startSymbolId (6 bits): Symbol bat dau          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Header Section (moi section):                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ sectionId (12 bits): Nhan dien section          │    │
+│  │ rb (1 bit): Chi bao resource block              │    │
+│  │ symInc (1 bit): Che do tang symbol              │    │
+│  │ startPrbc (10 bits): PRB bat dau                │    │
+│  │ numPrbc (8 bits): So PRB (0=tat ca)             │    │
+│  │ reMask (12 bits): RE nao trong PRB              │    │
+│  │ numSymbol (4 bits): So symbol                   │    │
+│  │ ef (1 bit): Co mo rong                          │    │
+│  │ beamId (15 bits): Dinh danh beam                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Mo rong Section (tuy chon, ef=1):                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ extType 1: Trong so beamforming                 │    │
+│  │ extType 2: Tham so nen BFW                      │    │
+│  │ extType 3: Offset thoi gian/tan so              │    │
+│  │ extType 4: Tham so nen dieu che                 │    │
+│  │ extType 5: Chi so codebook                      │    │
+│  │ ...them cac loai mo rong...                     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Dinh dang IQ U-Plane
+
+```
+Dinh dang Du lieu IQ U-Plane O-RAN:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Header Lop Ung dung:                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ dataDirection, payloadVersion, filterIndex      │    │
+│  │ frameId, subframeId, slotId, symbolId           │    │
+│  │ (Giong header C-Plane)                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Header Section:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ sectionId: Phai khop section C-Plane            │    │
+│  │ rb, symInc, startPrbc, numPrbc, reMask          │    │
+│  │                                                  │    │
+│  │ udCompHdr (neu dung nen):                       │    │
+│  │ - udIqWidth: Do rong bit IQ (v.d., 9 bits)      │    │
+│  │ - udCompMeth: Phuong phap nen                   │    │
+│  │   0: Khong nen                                  │    │
+│  │   1: Block floating point                       │    │
+│  │   2: Block scaling                              │    │
+│  │   3: µ-law                                      │    │
+│  │   4: Nen dieu che                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Du lieu Mau IQ (moi PRB):                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ [exponent (4 bits neu BFP)]                     │    │
+│  │ [I0, Q0], [I1, Q1], ..., [I11, Q11]            │    │
+│  │ (12 subcarrier moi PRB)                         │    │
+│  │                                                  │    │
+│  │ Dinh dang BFP (vi du 9-bit):                    │    │
+│  │ ┌─────────────────────────────────────────────┐ │    │
+│  │ │ Exp │ I0 (9b) │ Q0 (9b) │ ... │ I11 │ Q11 │ │    │
+│  │ │ 4b  │         │         │     │      │     │ │    │
+│  │ └─────────────────────────────────────────────┘ │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Mo hinh YANG M-Plane
+
+```
+Cau hinh M-Plane O-RAN (NETCONF/YANG):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Cac Module YANG Chinh:                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ o-ran-hardware.yang                             │    │
+│  │ - Kiem ke phan cung                             │    │
+│  │ - Trang thai thanh phan                         │    │
+│  │                                                  │    │
+│  │ o-ran-software-management.yang                  │    │
+│  │ - Slot phan mem                                 │    │
+│  │ - Nang cap firmware                             │    │
+│  │                                                  │    │
+│  │ o-ran-uplane-conf.yang                          │    │
+│  │ - Cau hinh carrier                              │    │
+│  │ - Anh xa antenna                                │    │
+│  │ - Cai dat nen                                   │    │
+│  │                                                  │    │
+│  │ o-ran-delay-management.yang                     │    │
+│  │ - Tham so T2a_min, T2a_max                     │    │
+│  │ - Tham so Ta3_min, Ta3_max                     │    │
+│  │                                                  │    │
+│  │ o-ran-compression-factors.yang                  │    │
+│  │ - Do rong bit IQ                                │    │
+│  │ - Phuong phap nen                               │    │
+│  │                                                  │    │
+│  │ o-ran-beamforming.yang                          │    │
+│  │ - Kha nang beam                                 │    │
+│  │ - Cau hinh codebook                             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Kien truc M-Plane:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ Phan cap: DU quan ly RU truc tiep               │    │
+│  │ ┌───────┐ NETCONF ┌───────┐                     │    │
+│  │ │  DU   │─────────│  RU   │                     │    │
+│  │ └───────┘         └───────┘                     │    │
+│  │                                                  │    │
+│  │ Ket hop: SMO va DU chia se quan ly              │    │
+│  │ ┌───────┐         ┌───────┐                     │    │
+│  │ │  SMO  │─────────│  RU   │ (cau hinh, SW)      │    │
+│  │ └───────┘         └───────┘                     │    │
+│  │     │                 │                          │    │
+│  │ ┌───────┐─────────────┘ (tham so runtime)       │    │
+│  │ │  DU   │                                       │    │
+│  │ └───────┘                                       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Timing S-Plane
+
+```
+Dong bo S-Plane:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Profile PTP: ITU-T G.8275.1                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Ho tro timing day du (FTS)                      │    │
+│  │ Moi switch la boundary clock                    │    │
+│  │ Muc tieu: ±1.5 µs tai giao dien khong khi      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Chuoi Timing:                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  GPS/GNSS ──► Grand Master ──► T-BC ──► T-BC   │    │
+│  │  (nguon)      (DU/router)     (switch) (switch)│    │
+│  │                                   │             │    │
+│  │                                   ▼             │    │
+│  │                                  RU             │    │
+│  │                              (slave clock)      │    │
+│  │                                                  │    │
+│  │  Moi hop them ngan sach sai so                 │    │
+│  │  Tong ngan sach: ~1.5 µs cho tat ca hop        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  SyncE cho Tan so:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Dong bo tan so lop vat ly                       │    │
+│  │ Yeu cau: ±50 ppb (±16 ppb cho vung rong)       │    │
+│  │ Tat ca switch phai ho tro va bat SyncE         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tai lieu O-RAN WG4 chinh:**
+
+| Tai lieu | Noi dung |
+|----------|----------|
+| O-RAN.WG4.CUS.0-v09.00 | Dac ta C/U/S-Plane |
+| O-RAN.WG4.MP.0-v09.00 | Dac ta M-Plane |
+| O-RAN.WG4.IOT | Spec kiem tra interop |
+| O-RAN.WG4.CONF | Spec kiem tra phu hop |
+
+**Thao tac NETCONF:**
+
+```bash
+# Lay kha nang RU
+netconf-cli get --filter "<o-ran-module-cap/>"
+
+# Cau hinh carrier
+netconf-cli edit-config --target running <<EOF
+<config>
+  <user-plane-configuration xmlns="urn:o-ran:uplane-conf:1.0">
+    <tx-array-carriers>
+      <name>cc0</name>
+      <absolute-frequency-center>3600000</absolute-frequency-center>
+      <channel-bandwidth>100000</channel-bandwidth>
+      <active>true</active>
+    </tx-array-carriers>
+  </user-plane-configuration>
+</config>
+EOF
+
+# Kiem tra tham so timing
+netconf-cli get --filter "<delay-management/>"
+
+# Xem canh bao
+netconf-cli get --filter "<alarms/>"
+```
+
+**Tham khao tham so timing:**
+
+| Tham so | Dien hinh | Don vi | Huong |
+|---------|-----------|--------|-------|
+| T2a_min_cp | 285 | µs | C-Plane DL |
+| T2a_max_cp | 429 | µs | C-Plane DL |
+| Ta3_min | 25 | µs | U-Plane DL |
+| Ta3_max | 131 | µs | U-Plane DL |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Khong khop Section ID.** U-Plane sectionId phai khop C-Plane. Khong khop gay mat du lieu.
+
+2. **Khong tuong thich tham so timing.** DU va RU phai thong nhat gia tri T2a/Ta3. Thuong luong qua M-Plane.
+
+3. **Khong khop nen.** udIqWidth va udCompMeth phai khop cau hinh. Cai dat sai lam hong du lieu IQ.
+
+4. **Phien ban mo hinh YANG.** Cac phien ban spec O-RAN khac co YANG khac. Xac minh tuong thich.
+
+5. **Ket noi M-Plane.** Kien truc phan cap vs ket hop phai khop trien khai. Mo hinh sai pha vo quan ly.
+
+6. **Phan tich mo rong.** Mo rong tuy chon (ef=1) phai phan tich dung. Mo rong khong biet nen bo qua.
+
+7. **Khong khop profile PTP.** O-RAN yeu cau G.8275.1. Profile sai (v.d., G.8265.1) cho do chinh xac sai.
+
+8. **Troi timing symbol.** Clock RU phai dong bo. Troi gay lech ranh gioi symbol.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- O-RAN Alliance WG4, "Management Plane Specification"
+- O-RAN Alliance WG4, "Fronthaul Interoperability Test Specification"
+- ITU-T G.8275.1, "PTP Profile for Phase/Time Synchronization"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Yeu cau transport](/vi/core-network/fronthaul-interface/transport-requirements/) — thiet ke mang
+- [Option 7-2x](/vi/core-network/functional-splits/option-7-2x/) — chi tiet phan tach
+- [O-RU](/vi/core-network/o-ran-architecture/o-ru/) — Don vi Vo tuyen
+
+</section>

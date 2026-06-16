@@ -8,17 +8,459 @@ track: n6
 unit: ric-xapps-rapps
 order: 3
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n6-ric-xapps-rapps-01-near-rt-ric"]
+spiralRevisits: []
 title: "xApps"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Near-RT RIC applications: architecture, common use cases, development framework, and deployment patterns."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG3.RICAPP"]
+tags: ["o-ran", "ric", "xapps", "e2", "ran-optimization"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# xApps
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+xApps are the intelligence engines of Near-RT RIC. They consume RAN data, apply algorithms (including ML), and issue control actions — all within the 10ms to 1s control loop.
+
+Understanding xApp development is essential for building O-RAN automation and optimization solutions.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### xApp architecture
+
+```
+xApp Architecture:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Near-RT RIC Platform                                   │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  ┌──────────────────────────────────────────────┐ │  │
+│  │  │               xApp Container                  │ │  │
+│  │  │                                               │ │  │
+│  │  │  ┌─────────────────────────────────────────┐ │ │  │
+│  │  │  │         Application Logic               │ │ │  │
+│  │  │  │  - Algorithm / ML Model                 │ │ │  │
+│  │  │  │  - Business rules                       │ │ │  │
+│  │  │  │  - Decision engine                      │ │ │  │
+│  │  │  └─────────────────────────────────────────┘ │ │  │
+│  │  │                     │                        │ │  │
+│  │  │  ┌─────────────────────────────────────────┐ │ │  │
+│  │  │  │           xApp Framework                │ │ │  │
+│  │  │  │  - RMR (RIC Message Router)             │ │ │  │
+│  │  │  │  - SDL (Shared Data Layer)              │ │ │  │
+│  │  │  │  - Config management                    │ │ │  │
+│  │  │  │  - Logging / Metrics                    │ │ │  │
+│  │  │  └─────────────────────────────────────────┘ │ │  │
+│  │  │                                               │ │  │
+│  │  └──────────────────────────────────────────────┘ │  │
+│  │                                                    │  │
+│  │  Platform Services:                               │  │
+│  │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐      │  │
+│  │  │  E2    │ │  Sub   │ │ Conflict│ │  A1   │      │  │
+│  │  │  Term  │ │  Mgr   │ │  Mitig  │ │ Medtr │      │  │
+│  │  └────────┘ └────────┘ └────────┘ └────────┘      │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Common xApp types
+
+```
+Common xApp Use Cases:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ MLB (Mobility Load Balancing)                   │    │
+│  │ - Monitor cell load via E2SM-KPM                │    │
+│  │ - Adjust handover parameters                    │    │
+│  │ - Balance UEs across cells                      │    │
+│  │ - Control via E2SM-RC                           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ MRO (Mobility Robustness Optimization)          │    │
+│  │ - Detect handover failures                      │    │
+│  │ - Identify too-early/too-late HO                │    │
+│  │ - Adjust HO thresholds                          │    │
+│  │ - Reduce ping-pong handovers                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ ES (Energy Saving)                              │    │
+│  │ - Monitor traffic patterns                      │    │
+│  │ - Identify low-utilization periods              │    │
+│  │ - Trigger cell sleep/wake                       │    │
+│  │ - Coordinate with capacity cells                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ TS (Traffic Steering)                           │    │
+│  │ - Steer traffic between RATs/slices             │    │
+│  │ - Apply QoS-aware routing                       │    │
+│  │ - Optimize for throughput or latency            │    │
+│  │ - Enforce slice SLAs                            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ QoE (Quality of Experience)                     │    │
+│  │ - Monitor application KPIs                      │    │
+│  │ - Predict QoE degradation                       │    │
+│  │ - Proactive resource allocation                 │    │
+│  │ - User-centric optimization                     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### RMR messaging
+
+```
+RIC Message Router (RMR):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  RMR is the messaging backbone for xApps:               │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Message Types:                                 │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ RIC_INDICATION (12050)                  │   │    │
+│  │  │ - E2 node sends data to xApp            │   │    │
+│  │  │ - Contains E2SM payload                 │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ RIC_CONTROL_REQ (12040)                 │   │    │
+│  │  │ - xApp sends action to E2 node          │   │    │
+│  │  │ - Contains E2SM control message         │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ RIC_CONTROL_ACK (12041)                 │   │    │
+│  │  │ - E2 node acknowledges action           │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ A1_POLICY_REQ/RESP (20010/20011)        │   │    │
+│  │  │ - Policy from Non-RT RIC                │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  RMR Routing:                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  xApp registers message types it handles        │    │
+│  │                                                  │    │
+│  │  Route table example:                           │    │
+│  │  mtype=12050 | subid=-1 | endpoint=xapp1:4560   │    │
+│  │  mtype=12050 | subid=100| endpoint=xapp2:4560   │    │
+│  │                                                  │    │
+│  │  RMR delivers based on mtype + subscription ID  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### SDL data access
+
+```
+Shared Data Layer (SDL):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SDL provides persistent storage for xApps:             │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Namespaces:                                    │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ "rnib" - RAN Network Information Base   │   │    │
+│  │  │  - Cell configuration                   │   │    │
+│  │  │  - E2 node inventory                    │   │    │
+│  │  │  - RAN function capabilities            │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ "uenib" - UE Network Information Base   │   │    │
+│  │  │  - UE context                           │   │    │
+│  │  │  - Bearer info                          │   │    │
+│  │  │  - Serving cell                         │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ "xapp-<name>" - xApp-specific namespace │   │    │
+│  │  │  - xApp state                           │   │    │
+│  │  │  - Algorithm parameters                 │   │    │
+│  │  │  - Historical data cache                │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Operations:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  sdl.Get(namespace, key) → value                │    │
+│  │  sdl.Set(namespace, key, value)                 │    │
+│  │  sdl.Remove(namespace, key)                     │    │
+│  │  sdl.GetAll(namespace) → map[key]value          │    │
+│  │  sdl.SetIf(namespace, key, oldVal, newVal)      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### xApp descriptor
+
+```
+xApp Descriptor (config-file.json):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  {                                                      │
+│    "xapp_name": "mlb-xapp",                             │
+│    "version": "1.0.0",                                  │
+│                                                          │
+│    "containers": [{                                     │
+│      "name": "mlb-xapp",                                │
+│      "image": {                                         │
+│        "registry": "registry.o-ran-sc.org",             │
+│        "name": "o-ran-sc/mlb-xapp",                     │
+│        "tag": "1.0.0"                                   │
+│      },                                                 │
+│      "command": ["./mlb-xapp"]                          │
+│    }],                                                  │
+│                                                          │
+│    "messaging": {                                       │
+│      "ports": [{                                        │
+│        "name": "rmr-data",                              │
+│        "container": "mlb-xapp",                         │
+│        "port": 4560,                                    │
+│        "rxMessages": ["RIC_INDICATION"],                │
+│        "txMessages": ["RIC_CONTROL_REQ"],               │
+│        "policies": []                                   │
+│      }]                                                 │
+│    },                                                   │
+│                                                          │
+│    "controls": {                                        │
+│      "mlb-threshold": {                                 │
+│        "type": "integer",                               │
+│        "default": 70,                                   │
+│        "description": "Load threshold for MLB trigger" │
+│      }                                                  │
+│    }                                                    │
+│  }                                                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### xApp development flow
+
+```
+xApp Development Workflow:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Setup                                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Choose language (Go, Python, C++)             │    │
+│  │ - Import xApp SDK                               │    │
+│  │ - Define config-file.json descriptor            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  2. Initialize                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ xapp := xapp.NewXApp()                          │    │
+│  │ xapp.SetMessageCallback(handleMessage)          │    │
+│  │ xapp.Run()                                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  3. Subscribe                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ subReq := SubscriptionRequest{                  │    │
+│  │   RanFunctionID: 1,                             │    │
+│  │   EventTrigger: KpmEventTrigger{Period: 100},   │    │
+│  │   Actions: []ActionDefinition{...}              │    │
+│  │ }                                               │    │
+│  │ subMgr.Subscribe(subReq)                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  4. Process                                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ func handleMessage(msg *rmr.Message) {          │    │
+│  │   indication := DecodeE2smKpm(msg.Payload)      │    │
+│  │   metrics := ExtractMetrics(indication)         │    │
+│  │   decision := RunAlgorithm(metrics)             │    │
+│  │   if decision.ShouldAct() {                     │    │
+│  │     SendControlRequest(decision)                │    │
+│  │   }                                             │    │
+│  │ }                                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  5. Control                                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ ctrlReq := ControlRequest{                      │    │
+│  │   RanFunctionID: 3,                             │    │
+│  │   ControlHeader: {...},                         │    │
+│  │   ControlMessage: RcControlMessage{             │    │
+│  │     RrcState: "Handover",                       │    │
+│  │     TargetCell: "cell-002"                      │    │
+│  │   }                                             │    │
+│  │ }                                               │    │
+│  │ e2.SendControl(ctrlReq)                         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**xApp SDK options:**
+
+| Language | SDK | Notes |
+|----------|-----|-------|
+| Go | ric-plt/xapp-frame | Reference implementation |
+| Python | ric-plt/xapp-frame-py | ML-friendly |
+| C/C++ | ric-plt/xapp-frame-cpp | Performance-critical |
+
+**MLB xApp example (Go):**
+
+```go
+package main
+
+import (
+    "gerrit.o-ran-sc.org/r/ric-plt/xapp-frame/pkg/xapp"
+)
+
+type MLBXapp struct {
+    threshold int
+}
+
+func (m *MLBXapp) Consume(msg *xapp.RMRParams) error {
+    switch msg.Mtype {
+    case xapp.RIC_INDICATION:
+        return m.handleIndication(msg)
+    case xapp.A1_POLICY_REQ:
+        return m.handlePolicy(msg)
+    }
+    return nil
+}
+
+func (m *MLBXapp) handleIndication(msg *xapp.RMRParams) error {
+    // Decode KPM indication
+    kpm := DecodeKpmIndication(msg.Payload)
+    
+    // Check cell load
+    for _, cell := range kpm.Cells {
+        if cell.PrbUtilDL > m.threshold {
+            // Find target cell for load balancing
+            target := m.findLeastLoadedNeighbor(cell)
+            if target != nil {
+                m.triggerHandover(cell, target)
+            }
+        }
+    }
+    return nil
+}
+
+func main() {
+    mlb := &MLBXapp{threshold: 70}
+    xapp.SetMessageCallback(mlb)
+    xapp.Run()
+}
+```
+
+**Deployment commands:**
+
+```bash
+# Package xApp as Helm chart
+helm package ./charts/mlb-xapp
+
+# Deploy to Near-RT RIC
+curl -X POST http://appmgr:8080/ric/v1/xapps \
+  -F "config=@config-file.json" \
+  -F "controls=@controls.json"
+
+# Check xApp status
+curl http://appmgr:8080/ric/v1/xapps/mlb-xapp
+
+# View xApp logs
+kubectl logs -n ricxapp -l app=mlb-xapp -f
+
+# Check subscriptions
+curl http://submgr:8080/ric/v1/subscriptions
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Blocking RMR callback.** Long processing in callback blocks message queue. Use async/goroutines.
+
+2. **Missing subscription cleanup.** xApp crashes without unsubscribing. Subscription manager handles orphans but check state.
+
+3. **SDL access patterns.** Frequent small reads slow down. Batch reads, cache locally.
+
+4. **Control rate too high.** Sending too many control messages causes E2 congestion. Implement rate limiting.
+
+5. **E2SM encoding errors.** Mismatched ASN.1 encoding between xApp and E2 node. Verify E2SM version compatibility.
+
+6. **Config not reloaded.** xApp doesn't pick up config changes. Implement config watch or restart.
+
+7. **Memory leaks.** Large indication payloads not released. Profile memory usage, especially for ML xApps.
+
+8. **Conflict with other xApps.** Multiple xApps controlling same parameters. Use conflict mitigation service.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- O-RAN Alliance WG3, "Near-RT RIC xApp Architecture"
+- O-RAN SC, "xApp Developer Guide"
+- O-RAN SC, "RIC xApp Frame documentation"
+- O-RAN SC, "RMR Library Guide"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [rApps](/en/core-network/ric-xapps-rapps/rapps/) — Non-RT RIC applications
+- [Near-RT RIC](/en/core-network/ric-xapps-rapps/near-rt-ric/) — platform architecture
+- [Non-RT RIC](/en/core-network/ric-xapps-rapps/non-rt-ric/) — policy and ML
+
+</section>

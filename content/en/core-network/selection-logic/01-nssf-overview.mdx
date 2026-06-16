@@ -8,17 +8,344 @@ track: n3
 unit: selection-logic
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "NSSF overview"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 8
+prerequisites: ["core-network-n2-network-functions-overview-05-nrf-nssf-pcf-nef"]
+spiralRevisits: []
+title: "NSSF Overview"
+description: "Network Slice Selection Function: how 5G routes UEs to the right network slice."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 29.531", "3GPP TS 23.501"]
+tags: ["5g", "nssf", "network-slicing", "slice-selection"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# NSSF overview
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Network slicing is 5G's killer feature for operators. Different slices for different services — eMBB, URLLC, mMTC — each with tailored QoS.
+
+NSSF decides which slice a UE uses. Get slice selection wrong, and users land in the wrong network with wrong QoS.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What NSSF does
+
+```
+NSSF Role in 5G Core:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE Registration Request:                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ "I want to connect. My subscription supports    │    │
+│  │  eMBB slice and URLLC slice."                   │    │
+│  │                                                  │    │
+│  │  Requested NSSAI: [SST=1, SD=abc], [SST=2]      │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │                                                 │
+│       ▼                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │              AMF                                │    │
+│  │  "I need to know which slices to serve."        │    │
+│  │  "Let me ask NSSF."                             │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │ Nnssf_NSSelection                              │
+│       ▼                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │              NSSF                               │    │
+│  │                                                  │    │
+│  │  Inputs:                                        │    │
+│  │  - Requested NSSAI (what UE wants)              │    │
+│  │  - Subscribed S-NSSAI (what UE is allowed)      │    │
+│  │  - UE location (TAI)                            │    │
+│  │  - Local configuration                          │    │
+│  │                                                  │    │
+│  │  Output:                                        │    │
+│  │  - Allowed NSSAI (granted slices)               │    │
+│  │  - Target AMF set (if re-routing needed)        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │                                                 │
+│       ▼                                                 │
+│  AMF serves UE on the allowed slices                    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### S-NSSAI structure
+
+```
+Single Network Slice Selection Assistance Information:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  S-NSSAI = SST + SD (optional)                          │
+│                                                          │
+│  ┌───────────────────────────────────┐                  │
+│  │ SST (Slice/Service Type)          │                  │
+│  │ 8 bits (0-255)                    │                  │
+│  │                                    │                  │
+│  │ Standard values:                   │                  │
+│  │ 1 = eMBB (enhanced Mobile BB)     │                  │
+│  │ 2 = URLLC (Ultra-Reliable Low Lat)│                  │
+│  │ 3 = mMTC (massive Machine Type)   │                  │
+│  │ 4 = V2X (Vehicle-to-Everything)   │                  │
+│  │ 5-127 = Reserved                  │                  │
+│  │ 128-255 = Operator-specific       │                  │
+│  └───────────────────────────────────┘                  │
+│                                                          │
+│  ┌───────────────────────────────────┐                  │
+│  │ SD (Slice Differentiator)         │                  │
+│  │ 24 bits (optional)                │                  │
+│  │                                    │                  │
+│  │ Used for:                         │                  │
+│  │ - Enterprise private slices       │                  │
+│  │ - Service differentiation         │                  │
+│  │ - Regional variations             │                  │
+│  └───────────────────────────────────┘                  │
+│                                                          │
+│  Example S-NSSAIs:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ SST=1, SD=none    → Default eMBB                │    │
+│  │ SST=1, SD=0xABC123 → Enterprise eMBB            │    │
+│  │ SST=2, SD=none    → Default URLLC               │    │
+│  │ SST=128, SD=0x001 → Operator gaming slice       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### NSSF service operations
+
+```
+NSSF Service-Based Interface:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nnssf_NSSelection service:                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ POST /nnssf-nsselection/v1/network-slice-info   │    │
+│  │                                                  │    │
+│  │ Request body:                                   │    │
+│  │ {                                               │    │
+│  │   "nfType": "AMF",                              │    │
+│  │   "nfId": "amf-uuid",                           │    │
+│  │   "sliceInfoRequestForRegistration": {          │    │
+│  │     "requestedNssai": [                         │    │
+│  │       {"sst": 1},                               │    │
+│  │       {"sst": 2, "sd": "000001"}                │    │
+│  │     ],                                          │    │
+│  │     "subscribedNssai": [...],                   │    │
+│  │     "tai": {"plmnId": {...}, "tac": "0001"}     │    │
+│  │   }                                             │    │
+│  │ }                                               │    │
+│  │                                                  │    │
+│  │ Response:                                       │    │
+│  │ {                                               │    │
+│  │   "allowedNssai": [                             │    │
+│  │     {"sst": 1}                                  │    │
+│  │   ],                                            │    │
+│  │   "targetAmfSet": "amf-set-1",                  │    │
+│  │   "nrfAccessTokenUri": "..."                    │    │
+│  │ }                                               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Nnssf_NSSAIAvailability service:                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ AMFs report which S-NSSAIs they can serve       │    │
+│  │                                                  │    │
+│  │ PUT /nnssf-nssaiavailability/v1/nssai-avail/{id}│    │
+│  │                                                  │    │
+│  │ Enables NSSF to route UEs to capable AMFs       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Slice selection flow
+
+```
+Registration with Slice Selection:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE        RAN       AMF-1     NSSF      AMF-2          │
+│  │          │          │         │         │            │
+│  │ Reg Req  │          │         │         │            │
+│  │ (NSSAI)  │          │         │         │            │
+│  │─────────►│          │         │         │            │
+│  │          │ N2 Setup │         │         │            │
+│  │          │─────────►│         │         │            │
+│  │          │          │         │         │            │
+│  │          │          │ NSSelect│         │            │
+│  │          │          │────────►│         │            │
+│  │          │          │         │         │            │
+│  │          │          │ Allowed │         │            │
+│  │          │          │ + AMF-2 │         │            │
+│  │          │          │◄────────│         │            │
+│  │          │          │         │         │            │
+│  │          │          │ Reroute │         │            │
+│  │          │          │ N14     │         │            │
+│  │          │          │─────────────────►│            │
+│  │          │          │         │         │            │
+│  │          │          │         │         │ Complete   │
+│  │          │          │         │         │ Reg        │
+│  │◄────────────────────────────────────────│            │
+│  │          │          │         │         │            │
+│                                                          │
+│  Scenario: AMF-1 doesn't serve URLLC slice.             │
+│  NSSF returns targetAmfSet pointing to AMF-2.           │
+│  AMF-1 reroutes registration to AMF-2.                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### NSSAI types
+
+```
+NSSAI Types in 5G:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Configured NSSAI                                │    │
+│  │ - Stored in UE (from previous registration)    │    │
+│  │ - Per-PLMN basis                               │    │
+│  │ - UE uses this to request slices               │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │                                                 │
+│       ▼                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Requested NSSAI                                 │    │
+│  │ - UE sends in Registration Request             │    │
+│  │ - Based on Configured NSSAI + application needs│    │
+│  └─────────────────────────────────────────────────┘    │
+│       │                                                 │
+│       │  Compared against                              │
+│       ▼                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Subscribed S-NSSAIs (from UDM)                  │    │
+│  │ - What the user's subscription allows           │    │
+│  │ - Per-PLMN or per-TAI basis                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │                                                 │
+│       │  + Local policy                                │
+│       ▼                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Allowed NSSAI                                   │    │
+│  │ - Returned by NSSF                             │    │
+│  │ - Intersection of requested, subscribed, and   │    │
+│  │   available in current location                 │    │
+│  │ - Sent to UE in Registration Accept            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**NSSF service endpoints:**
+
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/network-slice-info` | POST | Slice selection |
+| `/nssai-availability/{nfId}` | PUT | Register AMF capabilities |
+| `/nssai-availability/{nfId}` | DELETE | Deregister AMF |
+| `/nssai-availability/{nfId}` | PATCH | Update AMF capabilities |
+
+**Debugging slice selection:**
+
+```bash
+# Check NSSF logs for selection decisions
+kubectl logs -l app=nssf | grep NSSelection
+
+# Verify AMF NSSAI availability registration
+curl -X GET http://nssf:8080/nnssf-nssaiavailability/v1/nssai-availability
+
+# Test slice selection
+curl -X POST http://nssf:8080/nnssf-nsselection/v1/network-slice-info \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nfType": "AMF",
+    "nfId": "test-amf",
+    "sliceInfoRequestForRegistration": {
+      "requestedNssai": [{"sst": 1}],
+      "tai": {"plmnId": {"mcc": "001", "mnc": "01"}, "tac": "0001"}
+    }
+  }'
+```
+
+**Common S-NSSAI configurations:**
+
+| Use Case | SST | SD | Description |
+|----------|-----|-----|-------------|
+| Consumer broadband | 1 | - | Default eMBB |
+| Enterprise private | 1 | 0xABC123 | Dedicated eMBB |
+| Industrial IoT | 2 | 0x000001 | URLLC for factory |
+| Smart meters | 3 | - | mMTC for utilities |
+| Gaming | 128 | 0x00GAME | Low-latency gaming |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **AMF doesn't register NSSAI availability.** NSSF can't route if it doesn't know which AMFs serve which slices.
+
+2. **Missing SD in S-NSSAI.** SST=1 and SST=1+SD=abc are different slices. Forgetting SD causes wrong slice selection.
+
+3. **TAI-specific slices ignored.** Slices may be available only in certain tracking areas. NSSF must check TAI.
+
+4. **Roaming NSSAI mapping.** Visited PLMN may use different S-NSSAI values. NSSF must map correctly.
+
+5. **Subscribed NSSAI stale.** UDM subscription updates not propagated to NSSF. Check NSSF-UDM integration.
+
+6. **No fallback slice.** If all requested slices unavailable, should there be a default? Configure fallback behavior.
+
+7. **Circular rerouting.** AMF-1 routes to AMF-2, AMF-2 routes back to AMF-1. Check target AMF configuration.
+
+8. **NSSF not queried.** AMF may skip NSSF if it thinks it can handle locally. Verify AMF configuration.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 29.531, "NSSF Services"
+- 3GPP TS 23.501, "System Architecture for 5G" (clause 5.15)
+- 3GPP TS 23.502, "Procedures for 5G System" (clause 4.2)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Slice selection](/en/core-network/selection-logic/slice-selection/) — selection algorithm
+- [NF selection criteria](/en/core-network/selection-logic/nf-selection-criteria/) — general NF selection
+- [NRF and NSSF](/en/core-network/network-functions-overview/nrf-nssf-pcf-nef/) — related NFs
+
+</section>

@@ -8,17 +8,524 @@ track: s7
 unit: leo-constellation-architecture
 order: 2
 level: L4
-estimatedReadingMinutes: 5
-title: "Inter-satellite links (ISL)"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["starlink-class-design", "optical-laser-isl"]
+spiralRevisits: []
+title: "Inter-Satellite Links for Mega-Constellations"
+description: "How LEO constellations use ISLs to route traffic without ground relays."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["isl", "laser-link", "mesh-network", "starlink", "routing"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Inter-satellite links (ISL)
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Mega-constellations like Starlink use inter-satellite links (ISLs) to route traffic through space rather than bouncing every packet through a ground gateway. This enables lower latency for long-distance routes, coverage over oceans where no gateways exist, and reduced ground infrastructure costs. Understanding ISL topology and routing is essential for anyone designing or integrating with LEO broadband systems.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Why route through space?
+
+```
+Without ISL (Bent-Pipe):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  User A             User B                                          │
+│  (New York)         (London)                                        │
+│     │                  │                                            │
+│     ▼                  ▼                                            │
+│    🛰️                 🛰️                                           │
+│     │                  │                                            │
+│     ▼                  ▼                                            │
+│  Gateway A          Gateway B                                       │
+│  (NY)               (London)                                        │
+│     │                  │                                            │
+│     └────── Internet ──┘  ← ~100ms through fiber + routing         │
+│                                                                      │
+│  Total latency: ~140ms (2 hops to space + internet transit)        │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+
+With ISL (Mesh Network):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  User A                                    User B                   │
+│  (New York)                                (London)                 │
+│     │                                         │                     │
+│     ▼                                         ▼                     │
+│    🛰️ ←──── ISL ────→ 🛰️ ←──── ISL ────→ 🛰️                      │
+│     │                   │                   │                       │
+│     │                   │                   │                       │
+│  (only uplink)     (space routing)     (only downlink)             │
+│                                                                      │
+│  Total latency: ~40ms (shorter path, speed of light in vacuum)     │
+│                                                                      │
+│  Light in vacuum: 299,792 km/s (vs fiber ~200,000 km/s)            │
+│  NYC-London: ~5,600 km (great circle)                               │
+│  Space path: ~8,000 km (via ISL mesh)                              │
+│  Space: 8000/299792 × 2000 = 27ms                                  │
+│  Fiber:  5600/200000 × 2000 = 56ms ← ISL wins!                     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ISL topology in mega-constellations
+
+```
+Starlink ISL Mesh Architecture:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  EACH SATELLITE HAS 4 ISL TERMINALS:                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │         INTRA-PLANE (same orbital plane)              │         │
+│  │                                                        │         │
+│  │         🛰️ ←── ISL 1 ──→ 🛰️ ←── ISL 1 ──→ 🛰️         │         │
+│  │          │                │                │          │         │
+│  │          │ ISL 3    ISL 4 │                │          │         │
+│  │          ▼                ▼                ▼          │         │
+│  │         🛰️ ←── ISL 1 ──→ 🛰️ ←── ISL 1 ──→ 🛰️ ← Plane 2│        │
+│  │          │                │                │          │         │
+│  │          │                │                │          │         │
+│  │          ▼                ▼                ▼          │         │
+│  │         🛰️ ←── ISL 1 ──→ 🛰️ ←── ISL 1 ──→ 🛰️ ← Plane 3│        │
+│  │                                                        │         │
+│  │  ISL 1, 2: Intra-plane (front/back neighbors)        │         │
+│  │  ISL 3, 4: Inter-plane (left/right neighbors)        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LINK CHARACTERISTICS:                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Link Type    │ Distance    │ Stability   │ Data Rate │         │
+│  │  ─────────────┼─────────────┼─────────────┼───────────│         │
+│  │  Intra-plane  │ ~2,000 km   │ Very stable │ 100 Gbps  │         │
+│  │  Inter-plane  │ 500-5000 km │ Dynamic     │ 100 Gbps  │         │
+│  │               │             │ (varies with│           │         │
+│  │               │             │  latitude)  │           │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### ISL link budget and technology
+
+```
+Laser ISL Link Budget (Starlink-class):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TYPICAL OPTICAL ISL PARAMETERS:                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Parameter              │ Value                       │         │
+│  │  ──────────────────────┼────────────────────────────│         │
+│  │  Wavelength            │ 1550 nm                     │         │
+│  │  Tx Power              │ 1 W (30 dBm)               │         │
+│  │  Aperture              │ 80 mm                       │         │
+│  │  Beam divergence       │ ~47 μrad                   │         │
+│  │  Link distance         │ 2,000 km (intra-plane)     │         │
+│  │  Free space loss       │ ~289 dB                    │         │
+│  │  Telescope gain (Tx)   │ ~113 dB                    │         │
+│  │  Telescope gain (Rx)   │ ~113 dB                    │         │
+│  │  Pointing loss         │ ~3 dB                      │         │
+│  │  Received power        │ ~-36 dBm                   │         │
+│  │  Receiver sensitivity  │ ~-45 dBm @ 100 Gbps       │         │
+│  │  Link margin           │ ~9 dB                      │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LASER TERMINAL ARCHITECTURE:                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    ┌─────────────┐     ┌─────────────┐               │         │
+│  │    │ Fiber Laser │────→│ Collimator  │               │         │
+│  │    │ 1550nm, 1W  │     │ & Telescope │               │         │
+│  │    └─────────────┘     └──────┬──────┘               │         │
+│  │                               │                       │         │
+│  │                        ┌──────▼──────┐               │         │
+│  │                        │   Gimbal    │               │         │
+│  │                        │  or Coarse  │               │         │
+│  │                        │  Pointing   │               │         │
+│  │                        └──────┬──────┘               │         │
+│  │                               │                       │         │
+│  │                        ┌──────▼──────┐               │         │
+│  │    ┌─────────────┐     │    FSM      │  ← Fast       │         │
+│  │    │ Quad-Cell   │←────│ (Fine Steer)│    Steering   │         │
+│  │    │ Tracker     │     └─────────────┘    Mirror     │         │
+│  │    └─────────────┘                                    │         │
+│  │                                                        │         │
+│  │  Acquisition: ~5-30 seconds (spiral scan)            │         │
+│  │  Tracking accuracy: < 1 μrad                         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Routing in the ISL mesh
+
+```
+Routing Strategy:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SHORTEST-PATH ROUTING (typical):                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Source: NYC (40.7°N, 74°W)                           │         │
+│  │  Destination: Tokyo (35.7°N, 139.7°E)                 │         │
+│  │                                                        │         │
+│  │       NYC          Atlantic        Europe        Asia │         │
+│  │        ●━━━━━━━━━━━●━━━━━━━━━━━●━━━━━━━━━━━●         │         │
+│  │        ↑           │           │           ↓         │         │
+│  │     User A    ISL hops   ISL hops      User B        │         │
+│  │                                                        │         │
+│  │  Path selection:                                      │         │
+│  │  1. Dijkstra/SPF on mesh graph                       │         │
+│  │  2. Metric: propagation delay + queue depth          │         │
+│  │  3. Recompute every few seconds (topology changes)   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CHALLENGES:                                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. POLAR SEAM PROBLEM:                               │         │
+│  │     At high latitudes, orbital planes converge       │         │
+│  │     Inter-plane links get very short or break        │         │
+│  │                                                        │         │
+│  │     ╱╲    ╱╲    ╱╲    ╱╲   ← Planes converge        │         │
+│  │    ╱  ╲  ╱  ╲  ╱  ╲  ╱  ╲     at poles              │         │
+│  │   🛰️──X──🛰️──X──🛰️──X──🛰️  X = broken links        │         │
+│  │                                                        │         │
+│  │  2. SEAM LINE (counter-rotating planes):             │         │
+│  │     Where ascending and descending nodes meet        │         │
+│  │     Relative velocity ~15 km/s → no stable ISL      │         │
+│  │                                                        │         │
+│  │  3. DYNAMIC TOPOLOGY:                                 │         │
+│  │     ~5,000 link changes/hour in 4,000-sat system     │         │
+│  │     Requires predictive routing (use ephemeris)      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ISL vs bent-pipe comparison
+
+```
+Architecture Comparison:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Metric              │ ISL Mesh         │ Bent-Pipe Only  │         │
+│  ────────────────────┼──────────────────┼─────────────────│         │
+│  Long-distance RTT   │ 20-50 ms         │ 100-150 ms      │         │
+│  Ocean coverage      │ Full (no gateway)│ None (no relay) │         │
+│  Gateway requirement │ Fewer (~10-50)   │ Many (~100s)    │         │
+│  Satellite cost      │ +$1-5M/sat (LCT) │ Baseline        │         │
+│  System capacity     │ Higher (offload) │ Gateway-limited │         │
+│  Complexity          │ High (routing)   │ Simple (L2 only)│         │
+│  Failure modes       │ Graceful degrade │ Single gateway  │         │
+│                      │                  │ failure = outage│         │
+│  ────────────────────┴──────────────────┴─────────────────│         │
+│                                                                      │
+│  HYBRID APPROACH (Starlink actual):                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  - ISL for long-haul transit and ocean coverage      │         │
+│  │  - Gateways for internet peering and local pop       │         │
+│  │  - Routing decides: ISL path vs gateway drop         │         │
+│  │                                                        │         │
+│  │     User → Sat → ISL → ISL → Gateway → Internet      │         │
+│  │            ↓                                          │         │
+│  │     User → Sat → Gateway → Internet  (if closer)     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**ISL mesh routing simulator:**
+
+```python
+import numpy as np
+from collections import defaultdict
+import heapq
+
+# Constants
+R_EARTH = 6371  # km
+C_VACUUM = 299792  # km/s
+
+def latlon_to_xyz(lat_deg, lon_deg, alt_km):
+    """Convert lat/lon/alt to ECEF XYZ."""
+    lat = np.radians(lat_deg)
+    lon = np.radians(lon_deg)
+    r = R_EARTH + alt_km
+    x = r * np.cos(lat) * np.cos(lon)
+    y = r * np.cos(lat) * np.sin(lon)
+    z = r * np.sin(lat)
+    return np.array([x, y, z])
+
+def distance_3d(pos1, pos2):
+    """Euclidean distance between two 3D positions."""
+    return np.linalg.norm(pos1 - pos2)
+
+def propagation_delay_ms(distance_km):
+    """One-way propagation delay in milliseconds."""
+    return distance_km / C_VACUUM * 1000
+
+class MegaConstellation:
+    def __init__(self, n_planes, sats_per_plane, altitude_km, inclination_deg):
+        self.n_planes = n_planes
+        self.sats_per_plane = sats_per_plane
+        self.altitude = altitude_km
+        self.inclination = inclination_deg
+        self.satellites = {}
+        self.isl_links = []
+        self._generate_constellation()
+        self._generate_isl_links()
+    
+    def _generate_constellation(self):
+        """Generate satellite positions."""
+        for p in range(self.n_planes):
+            raan = 360 * p / self.n_planes
+            for s in range(self.sats_per_plane):
+                # True anomaly with phase offset
+                ta = 360 * s / self.sats_per_plane + (p * 360 / self.n_planes / self.sats_per_plane)
+                
+                # Simplified: compute subsatellite point
+                lat = self.inclination * np.sin(np.radians(ta))
+                lon = raan + ta * np.cos(np.radians(self.inclination))
+                lon = (lon + 180) % 360 - 180  # Normalize
+                
+                sat_id = (p, s)
+                self.satellites[sat_id] = {
+                    'lat': lat,
+                    'lon': lon,
+                    'alt': self.altitude,
+                    'pos': latlon_to_xyz(lat, lon, self.altitude),
+                    'plane': p,
+                    'slot': s
+                }
+    
+    def _generate_isl_links(self):
+        """Generate ISL links (4 per satellite)."""
+        for p in range(self.n_planes):
+            for s in range(self.sats_per_plane):
+                sat_id = (p, s)
+                
+                # Intra-plane links (front and back)
+                for ds in [-1, 1]:
+                    neighbor_s = (s + ds) % self.sats_per_plane
+                    neighbor_id = (p, neighbor_s)
+                    link = tuple(sorted([sat_id, neighbor_id]))
+                    if link not in self.isl_links:
+                        self.isl_links.append(link)
+                
+                # Inter-plane links (left and right)
+                for dp in [-1, 1]:
+                    neighbor_p = (p + dp) % self.n_planes
+                    neighbor_id = (neighbor_p, s)
+                    
+                    # Check if link is viable (not at polar seam)
+                    sat_pos = self.satellites[sat_id]['pos']
+                    neighbor_pos = self.satellites[neighbor_id]['pos']
+                    dist = distance_3d(sat_pos, neighbor_pos)
+                    
+                    # Max ISL range ~5000 km
+                    if dist < 5000:
+                        link = tuple(sorted([sat_id, neighbor_id]))
+                        if link not in self.isl_links:
+                            self.isl_links.append(link)
+    
+    def build_graph(self):
+        """Build adjacency graph with propagation delays."""
+        graph = defaultdict(list)
+        for sat1, sat2 in self.isl_links:
+            dist = distance_3d(
+                self.satellites[sat1]['pos'],
+                self.satellites[sat2]['pos']
+            )
+            delay = propagation_delay_ms(dist)
+            graph[sat1].append((sat2, delay))
+            graph[sat2].append((sat1, delay))
+        return graph
+    
+    def find_closest_sat(self, lat, lon):
+        """Find satellite closest to a ground point."""
+        ground_pos = latlon_to_xyz(lat, lon, 0)
+        min_dist = float('inf')
+        closest = None
+        for sat_id, sat in self.satellites.items():
+            dist = distance_3d(ground_pos, sat['pos'])
+            if dist < min_dist:
+                min_dist = dist
+                closest = sat_id
+        return closest, min_dist
+    
+    def dijkstra(self, source, destination):
+        """Find shortest path (minimum delay) between two satellites."""
+        graph = self.build_graph()
+        
+        dist = {sat: float('inf') for sat in self.satellites}
+        dist[source] = 0
+        prev = {sat: None for sat in self.satellites}
+        pq = [(0, source)]
+        
+        while pq:
+            d, u = heapq.heappop(pq)
+            if d > dist[u]:
+                continue
+            if u == destination:
+                break
+            for v, weight in graph[u]:
+                if dist[u] + weight < dist[v]:
+                    dist[v] = dist[u] + weight
+                    prev[v] = u
+                    heapq.heappush(pq, (dist[v], v))
+        
+        # Reconstruct path
+        path = []
+        node = destination
+        while node is not None:
+            path.append(node)
+            node = prev[node]
+        path.reverse()
+        
+        return path, dist[destination]
+
+# Example usage
+print("LEO Mega-Constellation ISL Routing Simulation")
+print("=" * 60)
+
+# Create simplified Starlink-like constellation
+constellation = MegaConstellation(
+    n_planes=18,          # Simplified from 72
+    sats_per_plane=22,
+    altitude_km=550,
+    inclination_deg=53
+)
+
+print(f"\nConstellation: {len(constellation.satellites)} satellites")
+print(f"ISL links: {len(constellation.isl_links)}")
+print(f"Average links per satellite: {2*len(constellation.isl_links)/len(constellation.satellites):.1f}")
+
+# Route between two cities
+cities = [
+    ("New York", 40.7, -74.0),
+    ("London", 51.5, -0.1),
+    ("Tokyo", 35.7, 139.7),
+    ("Sydney", -33.9, 151.2),
+]
+
+print("\n" + "=" * 60)
+print("Point-to-Point Routes")
+print("=" * 60)
+
+for i, (city1, lat1, lon1) in enumerate(cities):
+    for city2, lat2, lon2 in cities[i+1:]:
+        # Find closest satellites
+        sat1, dist1 = constellation.find_closest_sat(lat1, lon1)
+        sat2, dist2 = constellation.find_closest_sat(lat2, lon2)
+        
+        # Find ISL path
+        path, isl_delay = constellation.dijkstra(sat1, sat2)
+        
+        # Add uplink/downlink delays
+        uplink_delay = propagation_delay_ms(dist1)
+        downlink_delay = propagation_delay_ms(dist2)
+        total_delay = uplink_delay + isl_delay + downlink_delay
+        
+        # Great circle distance for comparison
+        from math import radians, sin, cos, asin, sqrt
+        lat1r, lon1r = radians(lat1), radians(lon1)
+        lat2r, lon2r = radians(lat2), radians(lon2)
+        dlat, dlon = lat2r - lat1r, lon2r - lon1r
+        a = sin(dlat/2)**2 + cos(lat1r)*cos(lat2r)*sin(dlon/2)**2
+        gc_dist = 2 * R_EARTH * asin(sqrt(a))
+        fiber_delay = gc_dist / 200 * 1000 * 2  # RTT, fiber speed ~200,000 km/s
+        
+        print(f"\n{city1} → {city2}:")
+        print(f"  Great circle: {gc_dist:.0f} km")
+        print(f"  ISL hops: {len(path) - 1}")
+        print(f"  ISL path delay: {isl_delay:.1f} ms")
+        print(f"  Total RTT (space): {total_delay * 2:.1f} ms")
+        print(f"  Estimated fiber RTT: {fiber_delay:.1f} ms")
+        print(f"  ISL advantage: {fiber_delay - total_delay*2:.1f} ms faster" if total_delay*2 < fiber_delay else f"  Fiber faster by: {total_delay*2 - fiber_delay:.1f} ms")
+```
+
+**ISL summary:**
+
+| Route | ISL RTT | Fiber RTT | Winner |
+|-------|---------|-----------|--------|
+| NYC-London | ~45 ms | ~56 ms | ISL |
+| NYC-Tokyo | ~70 ms | ~108 ms | ISL |
+| NYC-Sydney | ~95 ms | ~158 ms | ISL |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Polar seam.** Inter-plane links break at high latitudes where planes converge.
+
+2. **Counter-rotating seam.** No stable links where ascending and descending nodes cross (~15 km/s relative velocity).
+
+3. **Acquisition time.** Establishing a new ISL takes 5-30 seconds—can't handoff instantly.
+
+4. **Atmospheric interference.** Earth's limb blocks some paths; must route around.
+
+5. **Cost.** Each laser terminal adds $1-5M to satellite cost.
+
+6. **Routing complexity.** Topology changes ~5,000 times/hour; requires sophisticated SDN.
+
+7. **Single-link failure.** Must have redundant paths; mesh helps but adds complexity.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Handley, M. "Delay is Not an Option: Low Latency Routing in Space"
+- SpaceX FCC Filing on Laser ISL Technology
+- Del Portillo et al. "A Technical Comparison of LEO vs MEO vs GEO"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Gateway Placement](/en/space/leo-constellation-architecture/gateway-placement/) — ground infrastructure
+- [Handover](/en/space/leo-constellation-architecture/handover-between-satellites/) — beam switching
+- [Capacity Dynamics](/en/space/leo-constellation-architecture/capacity-dynamics/) — load balancing
+
+</section>

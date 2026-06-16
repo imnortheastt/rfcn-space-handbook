@@ -9,16 +9,525 @@ unit: ntn-in-3gpp
 order: 1
 level: L4
 estimatedReadingMinutes: 5
-title: "TR 38.811 — Study on NR for NTN"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "TR 38.811 — Study on NR for Non-Terrestrial Networks"
+description: "The foundational 3GPP study that defined channel models, deployment scenarios, and technical challenges for satellite-based 5G NR."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TR 38.811"]
+tags: ["ntn", "3gpp", "5g-nr", "satellite", "channel-model"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# TR 38.811 — Study on NR for NTN
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+TR 38.811 is where 3GPP's satellite ambitions became real. Released in 2019, this Technical Report defined the channel models, deployment scenarios, and technical challenges for integrating non-terrestrial networks (NTN) into 5G NR. Every subsequent NTN specification builds on 38.811's foundation. If you want to understand why NTN works the way it does — the timing advance formulas, the Doppler compensation requirements, the HARQ modifications — start here.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What TR 38.811 covers
+
+```
+TR 38.811 Scope — The NTN Study Item
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Release 15 Study Item: "Study on NR to support Non-Terrestrial    │
+│  Networks" — NOT a specification, but the research foundation.     │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  KEY DELIVERABLES:                                             │ │
+│  │                                                                 │ │
+│  │  1. DEPLOYMENT SCENARIOS                                       │ │
+│  │     • GEO (35,786 km), MEO (7-20k km), LEO (300-1500 km)       │ │
+│  │     • Transparent vs regenerative payloads                     │ │
+│  │     • Earth-fixed vs Earth-moving beams                        │ │
+│  │                                                                 │ │
+│  │  2. CHANNEL MODELS                                             │ │
+│  │     • Path loss for different orbits                           │ │
+│  │     • Atmospheric effects (rain, scintillation)                │ │
+│  │     • Clutter loss models                                      │ │
+│  │                                                                 │ │
+│  │  3. IDENTIFIED CHALLENGES                                      │ │
+│  │     • Propagation delay (1.2–541 ms round-trip)                │ │
+│  │     • Doppler shift (up to ±48 kHz for LEO)                    │ │
+│  │     • Timing advance beyond 5G NR's 2 ms limit                 │ │
+│  │     • Handover between fast-moving beams                       │ │
+│  │                                                                 │ │
+│  │  4. RECOMMENDED ADAPTATIONS                                    │ │
+│  │     • Extended timing advance field                            │ │
+│  │     • GNSS-based pre-compensation                              │ │
+│  │     • Modified HARQ timing                                     │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  This study led to TR 38.821 (solutions) and eventually TS 38.300  │
+│  (normative NTN specifications in Release 17).                     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### NTN architecture options
+
+```
+TR 38.811 Defined Two Payload Types:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TRANSPARENT (BENT-PIPE) PAYLOAD:                                  │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │    UE ─────► Satellite ─────► Gateway ─────► gNB (on ground)  │ │
+│  │               (RF relay)       (feeder link)    (baseband)     │ │
+│  │                                                                 │ │
+│  │  • Satellite only amplifies and frequency-converts             │ │
+│  │  • All baseband processing on the ground                       │ │
+│  │  • Simpler satellite, cheaper to build                         │ │
+│  │  • Higher latency (signal travels twice through space)         │ │
+│  │  • Used by: Starlink (initially), most GEO HTS                 │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  REGENERATIVE PAYLOAD:                                             │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │    UE ─────► Satellite (with gNB) ─────► Gateway              │ │
+│  │               (full baseband)              (backhaul only)     │ │
+│  │                                                                 │ │
+│  │  • Satellite has full gNB functionality onboard                │ │
+│  │  • Signal demodulated/remodulated on satellite                 │ │
+│  │  • Lower latency for UE-to-satellite hop                       │ │
+│  │  • Complex, expensive satellite                                │ │
+│  │  • Enables inter-satellite links (ISL)                         │ │
+│  │  • Used by: Starlink Gen2, Telesat Lightspeed                 │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TR 38.811 analyzed both, with transparent as baseline.            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Deployment scenarios
+
+```
+TR 38.811 Reference Scenarios:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SCENARIO    │ ALTITUDE  │ RTT        │ DOPPLER     │ COVERAGE     │
+│  ────────────┼───────────┼────────────┼─────────────┼────────────  │
+│  GEO         │ 35,786 km │ 477-541 ms │ negligible  │ 1/3 Earth    │
+│  MEO         │ 7-20k km  │ 47-270 ms  │ low         │ regional     │
+│  LEO-1200    │ 1,200 km  │ 8-26 ms    │ ±24 kHz     │ ~1000 km dia │
+│  LEO-600     │ 600 km    │ 4-13 ms    │ ±36 kHz     │ ~500 km dia  │
+│  LEO-300     │ 300 km    │ 2-6 ms     │ ±48 kHz     │ ~250 km dia  │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  DOPPLER AT LEO-600:                                           │ │
+│  │                                                                 │ │
+│  │  Satellite moving at ~7.5 km/s                                 │ │
+│  │  At horizon: maximum Doppler = v × cos(θ) × f/c               │ │
+│  │  For 2 GHz (S-band): ±36 kHz                                   │ │
+│  │  For 20 GHz (Ka-band): ±360 kHz                                │ │
+│  │                                                                 │ │
+│  │  This CRUSHES standard 5G NR subcarrier spacing (15-60 kHz)   │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  Each scenario has different requirements for timing, Doppler,     │
+│  handover frequency, and link budget.                              │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Channel model
+
+```
+TR 38.811 NTN Channel Model:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PATH LOSS MODEL:                                                   │
+│                                                                      │
+│  PL = FSPL + Clutter + Atmospheric + Scintillation + Shadow       │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. FREE SPACE PATH LOSS (FSPL):                               │ │
+│  │     FSPL = 32.45 + 20·log₁₀(f_MHz) + 20·log₁₀(d_km) dB        │ │
+│  │                                                                 │ │
+│  │     At 2 GHz, 600 km:  FSPL ≈ 170 dB                          │ │
+│  │     At 20 GHz, 35786 km: FSPL ≈ 210 dB                        │ │
+│  │                                                                 │ │
+│  │  2. CLUTTER LOSS (ground environment):                         │ │
+│  │     Dense Urban: 23 dB median                                  │ │
+│  │     Urban: 17 dB median                                        │ │
+│  │     Suburban: 10 dB median                                     │ │
+│  │     Rural: 4 dB median                                         │ │
+│  │                                                                 │ │
+│  │  3. ATMOSPHERIC ATTENUATION:                                   │ │
+│  │     &lt;10 GHz: minimal (0.1-0.5 dB)                             │ │
+│  │     Ka-band (20-30 GHz): rain fade up to 10+ dB               │ │
+│  │                                                                 │ │
+│  │  4. SCINTILLATION:                                             │ │
+│  │     Ionospheric (S-band): 1-3 dB                              │ │
+│  │     Tropospheric (Ka-band): 0.5-2 dB                          │ │
+│  │                                                                 │ │
+│  │  5. SHADOW FADING:                                             │ │
+│  │     Log-normal, σ = 3-6 dB depending on environment           │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Timing advance challenge
+
+```
+Why Standard 5G NR Timing Advance Fails for NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  STANDARD 5G NR:                                                    │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  Timing Advance (TA) field: 12 bits                            │ │
+│  │  TA range: 0 to 3846 × 16 × Tc = 0 to ~2 ms                   │ │
+│  │  Designed for terrestrial cells with max ~100 km radius       │ │
+│  │  RTT for 100 km cell: ~0.67 ms                                │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  NTN PROBLEM:                                                       │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Orbit      │ RTT (edge of beam) │ Required TA               │ │
+│  │  ───────────┼────────────────────┼────────────────────────── │ │
+│  │  LEO 600 km │ 13 ms              │ ~6.5 ms                   │ │
+│  │  GEO        │ 541 ms             │ ~270 ms                   │ │
+│  │                                                                 │ │
+│  │  Standard TA field can only express up to ~2 ms!              │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TR 38.811 SOLUTION PROPOSALS:                                     │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. GNSS-BASED PRE-COMPENSATION:                               │ │
+│  │     UE knows its location via GPS                              │ │
+│  │     Network broadcasts satellite ephemeris                     │ │
+│  │     UE pre-computes delay and Doppler → applies before TX     │ │
+│  │                                                                 │ │
+│  │  2. COMMON TA + DIFFERENTIAL TA:                               │ │
+│  │     Network broadcasts "common TA" for beam center            │ │
+│  │     UE computes small differential for its position           │ │
+│  │                                                                 │ │
+│  │  3. EXTENDED TA FIELD:                                         │ │
+│  │     Add more bits to MAC-CE TA command                        │ │
+│  │     (Eventually standardized as TA-Common + TA-Offset)        │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### HARQ timing issue
+
+```
+NTN HARQ Timing Challenge:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  STANDARD 5G NR HARQ:                                              │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  UE TX → gNB RX → Processing → ACK/NACK TX → UE RX            │ │
+│  │    │              (4 slots typical)              │              │ │
+│  │    └────────────── K1 slots ────────────────────┘              │ │
+│  │                                                                 │ │
+│  │  K1 typically 1-8 slots (0.125-1 ms at 120 kHz SCS)           │ │
+│  │  Assumes nearly instant propagation                            │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  NTN PROBLEM (GEO example):                                        │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  UE TX ──┐                                                     │ │
+│  │          │ 270 ms to satellite                                 │ │
+│  │          ▼                                                     │ │
+│  │  Sat RX/TX (transparent)                                       │ │
+│  │          │ 270 ms to gateway                                   │ │
+│  │          ▼                                                     │ │
+│  │  gNB processing (few ms)                                       │ │
+│  │          │ 270 ms back to satellite                           │ │
+│  │          ▼                                                     │ │
+│  │  ACK TX ──┐                                                    │ │
+│  │          │ 270 ms to UE                                       │ │
+│  │          ▼                                                     │ │
+│  │  UE RX ACK                                                     │ │
+│  │                                                                 │ │
+│  │  Total: ~1080 ms (not counting processing)                    │ │
+│  │  K1 = 1-8 slots is IMPOSSIBLE                                 │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TR 38.811 SOLUTION: Disable HARQ or use delayed HARQ with        │
+│  many parallel HARQ processes (16 → 32 for GEO).                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**TR 38.811 link budget and delay calculator:**
+
+```python
+import math
+
+def free_space_path_loss(freq_ghz, distance_km):
+    """
+    Calculate free space path loss in dB.
+    FSPL = 32.45 + 20*log10(f_MHz) + 20*log10(d_km)
+    """
+    freq_mhz = freq_ghz * 1000
+    fspl = 32.45 + 20 * math.log10(freq_mhz) + 20 * math.log10(distance_km)
+    return fspl
+
+def ntn_path_loss(freq_ghz, distance_km, environment, elevation_deg):
+    """
+    Calculate total NTN path loss per TR 38.811.
+    """
+    fspl = free_space_path_loss(freq_ghz, distance_km)
+    
+    clutter_table = {
+        "dense_urban": 23,
+        "urban": 17,
+        "suburban": 10,
+        "rural": 4
+    }
+    clutter = clutter_table.get(environment, 10)
+    
+    if freq_ghz < 10:
+        atmospheric = 0.3
+    else:
+        atmospheric = 2 + 0.1 * (freq_ghz - 10)
+    
+    shadow = 4.0
+    
+    el_factor = max(0, (90 - elevation_deg) / 90)
+    clutter_adjusted = clutter * el_factor
+    
+    total = fspl + clutter_adjusted + atmospheric + shadow
+    
+    return {
+        "fspl_db": fspl,
+        "clutter_db": clutter_adjusted,
+        "atmospheric_db": atmospheric,
+        "shadow_db": shadow,
+        "total_db": total
+    }
+
+def doppler_shift(freq_ghz, sat_velocity_km_s, elevation_deg):
+    """
+    Calculate maximum Doppler shift.
+    """
+    c = 299792.458
+    theta = math.radians(elevation_deg)
+    
+    max_doppler = (sat_velocity_km_s / c) * freq_ghz * 1e9 * math.cos(theta)
+    
+    return max_doppler
+
+def propagation_delay(altitude_km, elevation_deg):
+    """
+    Calculate one-way propagation delay.
+    """
+    earth_radius = 6371
+    el_rad = math.radians(elevation_deg)
+    
+    slant_range = (-earth_radius * math.sin(el_rad) + 
+                   math.sqrt((earth_radius * math.sin(el_rad))**2 + 
+                            2 * earth_radius * altitude_km + altitude_km**2))
+    
+    c = 299792.458
+    delay_ms = (slant_range / c) * 1000
+    
+    return slant_range, delay_ms
+
+def timing_advance_requirement(altitude_km, elevation_deg, payload_type="transparent"):
+    """
+    Calculate required timing advance for NTN.
+    """
+    slant_range, one_way_ms = propagation_delay(altitude_km, elevation_deg)
+    
+    if payload_type == "transparent":
+        rtt = one_way_ms * 4
+    else:
+        rtt = one_way_ms * 2
+    
+    ta_required = rtt / 2
+    
+    standard_ta_max = 2.0
+    
+    return {
+        "slant_range_km": slant_range,
+        "one_way_delay_ms": one_way_ms,
+        "round_trip_ms": rtt,
+        "ta_required_ms": ta_required,
+        "standard_ta_max_ms": standard_ta_max,
+        "exceeds_standard": ta_required > standard_ta_max
+    }
+
+def harq_process_count(rtt_ms, slot_duration_ms=0.5):
+    """
+    Calculate minimum HARQ processes needed for NTN.
+    """
+    standard_processes = 16
+    
+    slots_for_rtt = math.ceil(rtt_ms / slot_duration_ms)
+    
+    processes_needed = max(standard_processes, slots_for_rtt)
+    
+    return {
+        "standard_processes": standard_processes,
+        "slots_for_rtt": slots_for_rtt,
+        "processes_needed": processes_needed
+    }
+
+print("TR 38.811 NTN Analysis")
+print("=" * 70)
+
+scenarios = [
+    ("LEO-600", 600, 7.5, 30),
+    ("LEO-1200", 1200, 7.35, 30),
+    ("MEO-8000", 8000, 4.9, 20),
+    ("GEO", 35786, 3.07, 10),
+]
+
+print("\n1. Propagation Delay Analysis")
+print("-" * 70)
+print(f"  {'Scenario':<12} {'Alt (km)':>10} {'Slant (km)':>12} {'1-way (ms)':>12} {'RTT (ms)':>10}")
+print(f"  {'-'*58}")
+
+for name, alt, vel, el in scenarios:
+    ta = timing_advance_requirement(alt, el, "transparent")
+    print(f"  {name:<12} {alt:>10} {ta['slant_range_km']:>12.0f} {ta['one_way_delay_ms']:>12.1f} {ta['round_trip_ms']:>10.1f}")
+
+print("\n2. Doppler Shift Analysis (S-band: 2 GHz)")
+print("-" * 70)
+print(f"  {'Scenario':<12} {'Velocity':>12} {'Elev':>8} {'Max Doppler':>14}")
+print(f"  {'-'*48}")
+
+for name, alt, vel, el in scenarios:
+    doppler = doppler_shift(2.0, vel, el)
+    print(f"  {name:<12} {vel:>10.1f}km/s {el:>6}° {doppler:>12.0f} Hz")
+
+print("\n3. Path Loss Analysis (S-band: 2 GHz, Urban)")
+print("-" * 70)
+print(f"  {'Scenario':<12} {'FSPL':>10} {'Clutter':>10} {'Atmos':>10} {'Total':>10}")
+print(f"  {'-'*52}")
+
+for name, alt, vel, el in scenarios:
+    slant, _ = propagation_delay(alt, el)
+    pl = ntn_path_loss(2.0, slant, "urban", el)
+    print(f"  {name:<12} {pl['fspl_db']:>9.1f} {pl['clutter_db']:>9.1f} {pl['atmospheric_db']:>9.1f} {pl['total_db']:>9.1f}")
+
+print("\n4. Timing Advance Requirement")
+print("-" * 70)
+print(f"  {'Scenario':<12} {'TA Required':>14} {'Standard Max':>14} {'Exceeds?':>10}")
+print(f"  {'-'*52}")
+
+for name, alt, vel, el in scenarios:
+    ta = timing_advance_requirement(alt, el, "transparent")
+    exceeds = "YES" if ta['exceeds_standard'] else "No"
+    print(f"  {name:<12} {ta['ta_required_ms']:>12.1f}ms {ta['standard_ta_max_ms']:>12.1f}ms {exceeds:>10}")
+
+print("\n5. HARQ Process Requirements")
+print("-" * 70)
+print(f"  {'Scenario':<12} {'RTT Slots':>12} {'Standard':>12} {'Required':>12}")
+print(f"  {'-'*50}")
+
+for name, alt, vel, el in scenarios:
+    ta = timing_advance_requirement(alt, el, "transparent")
+    harq = harq_process_count(ta['round_trip_ms'])
+    print(f"  {name:<12} {harq['slots_for_rtt']:>12} {harq['standard_processes']:>12} {harq['processes_needed']:>12}")
+
+print("""
+
+KEY INSIGHT from TR 38.811:
+Standard 5G NR cannot work for NTN without modifications to:
+• Timing advance (needs GNSS-based pre-compensation)
+• HARQ (needs many more processes or disabling)
+• Doppler (needs pre-compensation or wider SCS)
+• Handover (LEO cells move fast → frequent handovers)
+""")
+```
+
+**Key formulas from TR 38.811:**
+
+| Parameter | Formula |
+|-----------|---------|
+| FSPL | 32.45 + 20·log₁₀(f_MHz) + 20·log₁₀(d_km) dB |
+| Max Doppler | (v/c) × f × cos(θ) |
+| Slant range | √((R·sinθ)² + 2Rh + h²) - R·sinθ |
+| RTT (transparent) | 4 × (slant_range / c) |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using terrestrial channel models.** TR 38.811 channel model includes LOS, clutter, and elevation-dependent fading — terrestrial models don't apply.
+
+2. **Ignoring feeder link.** For transparent satellites, the UE-gateway path goes through two hops — don't forget the gateway-to-satellite link.
+
+3. **Assuming static Doppler.** LEO Doppler changes rapidly during a pass. The value at horizon differs from overhead by 100%.
+
+4. **Confusing TR and TS.** TR 38.811 is a study (informative). Normative specs are in TS 38.300 and TS 38.101.
+
+5. **Forgetting rain fade.** Ka-band NTN suffers severe rain attenuation (10+ dB). S-band is more robust but bandwidth-limited.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TR 38.811 v15.4.0 — Study on New Radio (NR) to support non-terrestrial networks
+- 3GPP TR 38.821 — Solutions for NR to support non-terrestrial networks
+- ESA/3GPP NTN workshop proceedings (2018)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [TR 38.821](/en/space/ntn-in-3gpp/tr-38-821/) — solutions identified based on this study
+- [NR-NTN](/en/space/ntn-in-3gpp/nr-ntn/) — the normative specification
+- [IoT-NTN](/en/space/ntn-in-3gpp/iot-ntn/) — NB-IoT and eMTC over satellite
+
+</section>

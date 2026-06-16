@@ -8,17 +8,418 @@ track: n3
 unit: selection-logic
 order: 3
 level: L4
-estimatedReadingMinutes: 5
-title: "NF selection criteria"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n2-network-functions-overview-05-nrf-nssf-pcf-nef"]
+spiralRevisits: []
+title: "NF Selection Criteria"
+description: "How NRF and consuming NFs select the right NF instance based on locality, capacity, priority, and service capabilities."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 29.510", "3GPP TS 23.501"]
+tags: ["5g", "nrf", "nf-selection", "service-discovery"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# NF selection criteria
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+5G Core has multiple instances of each NF for scalability and resilience. When AMF needs an SMF, which one does it pick?
+
+NF selection criteria determine load distribution, failure recovery, and optimal routing. Wrong selection causes hot spots, increased latency, or service failures.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### NF discovery and selection
+
+```
+NF Discovery and Selection Flow:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Consumer NF (e.g., AMF)                                │
+│  "I need an SMF that serves S-NSSAI=1 in TAI-1"         │
+│       │                                                 │
+│       │ Nnrf_NFDiscovery                               │
+│       ▼                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                    NRF                          │    │
+│  │                                                  │    │
+│  │  Step 1: Filter by required attributes          │    │
+│  │  - NF Type = SMF                                │    │
+│  │  - S-NSSAI = 1                                  │    │
+│  │  - TAI includes TAI-1                           │    │
+│  │                                                  │    │
+│  │  Step 2: Apply selection criteria               │    │
+│  │  - Priority (lower = better)                    │    │
+│  │  - Capacity (higher = more available)           │    │
+│  │  - Locality (prefer same region)                │    │
+│  │  - Load (current utilization)                   │    │
+│  │                                                  │    │
+│  │  Step 3: Return ranked list                     │    │
+│  │  [smf-1, smf-3, smf-2] (in priority order)      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │                                                 │
+│       ▼                                                 │
+│  Consumer selects from list (usually first)             │
+│  AMF → SMF-1                                            │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Selection criteria hierarchy
+
+```
+NF Selection Criteria Priority:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Criteria               Weight    Description           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ 1. Required Services   Filter                   │    │
+│  │    NF must support the service needed           │    │
+│  │    (e.g., Nsmf_PDUSession)                      │    │
+│  │                                                  │    │
+│  │ 2. Required Features   Filter                   │    │
+│  │    NF must support specific features            │    │
+│  │    (e.g., IMS voice, N3IWF)                     │    │
+│  │                                                  │    │
+│  │ 3. S-NSSAI            Filter                   │    │
+│  │    NF must serve the required slice             │    │
+│  │                                                  │    │
+│  │ 4. TAI / Serving Area  Filter + Rank           │    │
+│  │    NF must serve the location                   │    │
+│  │    Prefer closer/same-region NFs                │    │
+│  │                                                  │    │
+│  │ 5. Priority            Rank (lower better)      │    │
+│  │    Operator-assigned priority                   │    │
+│  │                                                  │    │
+│  │ 6. Capacity            Rank (higher better)     │    │
+│  │    Relative capacity (0-65535)                  │    │
+│  │                                                  │    │
+│  │ 7. Load                Rank (lower better)      │    │
+│  │    Current load percentage (0-100)              │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### NRF discovery request
+
+```
+NFDiscovery Request Parameters:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  GET /nnrf-disc/v1/nf-instances?<query-params>          │
+│                                                          │
+│  Required Parameters:                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ target-nf-type    = SMF                         │    │
+│  │ requester-nf-type = AMF                         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Optional Filters:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ snssais          = [{"sst":1}]                  │    │
+│  │ tai              = {"plmnId":...,"tac":"0001"}  │    │
+│  │ dnn              = "internet"                   │    │
+│  │ smf-serving-area = "area-1"                     │    │
+│  │ service-names    = ["nsmf-pdusession"]          │    │
+│  │ preferred-locality = "region-east"             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Selection Hints:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ max-payload-size = 4096                         │    │
+│  │ limit            = 10                           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Response:                                              │
+│  {                                                      │
+│    "validityPeriod": 3600,                              │
+│    "nfInstances": [                                     │
+│      {                                                  │
+│        "nfInstanceId": "smf-1-uuid",                    │
+│        "nfType": "SMF",                                 │
+│        "priority": 10,                                  │
+│        "capacity": 1000,                                │
+│        "load": 45,                                      │
+│        "locality": "region-east",                       │
+│        "nfServices": [...]                              │
+│      },                                                 │
+│      ...                                                │
+│    ]                                                    │
+│  }                                                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Priority and capacity
+
+```
+Priority and Capacity Calculation:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Priority (0-65535, lower = preferred):                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Use cases:                                     │    │
+│  │  - Primary/backup designation                   │    │
+│  │  - Geographic preference                        │    │
+│  │  - Hardware tier (new vs old)                   │    │
+│  │                                                  │    │
+│  │  Example:                                       │    │
+│  │  smf-1: priority=10  ← Primary                  │    │
+│  │  smf-2: priority=10  ← Primary (shared)         │    │
+│  │  smf-3: priority=50  ← Secondary                │    │
+│  │  smf-4: priority=100 ← Disaster recovery        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Capacity (0-65535, relative weight):                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Weighted distribution among same-priority NFs  │    │
+│  │                                                  │    │
+│  │  Example (priority=10 group):                   │    │
+│  │  smf-1: capacity=1000 → 50% of traffic         │    │
+│  │  smf-2: capacity=1000 → 50% of traffic         │    │
+│  │                                                  │    │
+│  │  Example (unequal sizing):                      │    │
+│  │  smf-1: capacity=3000 → 75% of traffic         │    │
+│  │  smf-2: capacity=1000 → 25% of traffic         │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Load (0-100, current utilization %):                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Dynamic metric, updated via Nnrf_NFManagement  │    │
+│  │                                                  │    │
+│  │  Consumer may adjust selection:                 │    │
+│  │  - Avoid NFs with load > 80%                    │    │
+│  │  - Prefer NFs with load < 50%                   │    │
+│  │  - Consider (capacity - load) as effective     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Locality-based selection
+
+```
+Locality and Geographic Selection:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Locality String Format:                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ "country.region.datacenter.rack"                │    │
+│  │                                                  │    │
+│  │ Examples:                                       │    │
+│  │ "vn.north.hanoi-dc1"                            │    │
+│  │ "vn.south.hcmc-dc2.rack-a"                      │    │
+│  │ "us.east.virginia-az1"                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Locality Matching:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Requester locality: "vn.north.hanoi-dc1"       │    │
+│  │                                                  │    │
+│  │  Candidate 1: "vn.north.hanoi-dc1" → Exact ✓    │    │
+│  │  Candidate 2: "vn.north.hanoi-dc2" → Region ✓   │    │
+│  │  Candidate 3: "vn.south.hcmc-dc1"  → Country ✓  │    │
+│  │  Candidate 4: "us.east.virginia"   → No match   │    │
+│  │                                                  │    │
+│  │  Preference: Candidate 1 > 2 > 3 > 4            │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Locality in Selection Algorithm:                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. Filter by required attributes               │    │
+│  │  2. Group by priority                           │    │
+│  │  3. Within priority group, prefer local         │    │
+│  │  4. Within locality, weight by capacity         │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Service-specific selection
+
+```
+NF Service Selection:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  NF Registration with Services:                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ {                                               │    │
+│  │   "nfInstanceId": "smf-1",                      │    │
+│  │   "nfType": "SMF",                              │    │
+│  │   "nfServices": [                               │    │
+│  │     {                                           │    │
+│  │       "serviceName": "nsmf-pdusession",         │    │
+│  │       "versions": [{"apiVersionInUri": "v1"}],  │    │
+│  │       "scheme": "https",                        │    │
+│  │       "nfServiceStatus": "REGISTERED",          │    │
+│  │       "priority": 10,                           │    │
+│  │       "capacity": 500                           │    │
+│  │     },                                          │    │
+│  │     {                                           │    │
+│  │       "serviceName": "nsmf-event-exposure",     │    │
+│  │       "versions": [{"apiVersionInUri": "v1"}],  │    │
+│  │       "scheme": "https",                        │    │
+│  │       "nfServiceStatus": "REGISTERED",          │    │
+│  │       "priority": 20,                           │    │
+│  │       "capacity": 200                           │    │
+│  │     }                                           │    │
+│  │   ]                                             │    │
+│  │ }                                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Service-Level Selection:                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ Consumer queries for specific service:          │    │
+│  │ GET /nnrf-disc/v1/nf-instances                  │    │
+│  │   ?target-nf-type=SMF                           │    │
+│  │   &service-names=nsmf-pdusession                │    │
+│  │                                                  │    │
+│  │ NRF returns only NFs with that service          │    │
+│  │ Service-level priority/capacity used for ranking│    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Selection criteria summary:**
+
+| Criteria | Type | Values | Purpose |
+|----------|------|--------|---------|
+| Priority | Rank | 0-65535 (lower=better) | Primary/backup |
+| Capacity | Weight | 0-65535 (relative) | Load distribution |
+| Load | Dynamic | 0-100% | Avoid overload |
+| Locality | Preference | String hierarchy | Latency |
+| S-NSSAI | Filter | SST+SD | Slice routing |
+| TAI | Filter | PLMN+TAC | Area coverage |
+
+**NRF discovery example:**
+
+```bash
+# Discover SMF for slice 1 in TAI 0001
+curl -X GET "http://nrf:8080/nnrf-disc/v1/nf-instances\
+?target-nf-type=SMF\
+&requester-nf-type=AMF\
+&snssais=%5B%7B%22sst%22%3A1%7D%5D\
+&tai=%7B%22plmnId%22%3A%7B%22mcc%22%3A%22001%22%2C%22mnc%22%3A%2201%22%7D%2C%22tac%22%3A%220001%22%7D" | jq
+
+# Check NF load status
+curl -X GET "http://nrf:8080/nnrf-nfm/v1/nf-instances/smf-1-uuid" | jq '.load, .capacity'
+
+# Update NF load
+curl -X PATCH "http://nrf:8080/nnrf-nfm/v1/nf-instances/smf-1-uuid" \
+  -H "Content-Type: application/json-patch+json" \
+  -d '[{"op": "replace", "path": "/load", "value": 75}]'
+```
+
+**Selection algorithm pseudocode:**
+
+```python
+def select_nf(discovery_response):
+    candidates = discovery_response.nfInstances
+    
+    # Group by priority
+    groups = group_by(candidates, key=lambda nf: nf.priority)
+    
+    for priority in sorted(groups.keys()):
+        group = groups[priority]
+        
+        # Filter out overloaded
+        available = [nf for nf in group if nf.load < 90]
+        if not available:
+            continue
+        
+        # Prefer local
+        local = [nf for nf in available if nf.locality == my_locality]
+        pool = local if local else available
+        
+        # Weighted random by capacity
+        return weighted_choice(pool, weight=lambda nf: nf.capacity)
+    
+    return None  # No suitable NF
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **All NFs same priority.** Without priority differentiation, can't do primary/backup. Set priorities intentionally.
+
+2. **Capacity not updated.** Static capacity values don't reflect actual availability. Update capacity on scale events.
+
+3. **Load stale.** Load updates not frequent enough. Set heartbeat interval appropriately (30s-60s).
+
+4. **Locality mismatch.** Consumer and producer use different locality naming. Standardize across deployment.
+
+5. **Service not registered.** NF registered but service missing from nfServices list. Consumer can't find it.
+
+6. **Discovery cache expired.** Consumer caches discovery results past validityPeriod. Respect TTL.
+
+7. **No fallback on failure.** Selected NF fails, consumer doesn't retry with next candidate. Implement retry logic.
+
+8. **Filter too restrictive.** No NFs match all criteria. Relax optional filters, keep required ones.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 29.510, "NRF Services"
+- 3GPP TS 23.501, "System Architecture" clause 6.3
+- 3GPP TS 29.500, "Technical Realization of SBI"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [NSSF overview](/en/core-network/selection-logic/nssf-overview/) — slice-specific selection
+- [NRF](/en/core-network/network-functions-overview/nrf-nssf-pcf-nef/) — discovery service
+- [SBI overview](/en/core-network/service-based-interface-http2/sbi-overview/) — service calls
+
+</section>

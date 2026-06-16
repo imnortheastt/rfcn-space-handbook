@@ -8,12 +8,12 @@ track: r0
 unit: maxwells-equations-engineers-view
 order: 5
 level: L3
-estimatedReadingMinutes: 7
+estimatedReadingMinutes: 14
 prerequisites: ["rf-r0-maxwells-equations-engineers-view-04-wave-equation"]
 spiralRevisits: []
 title: "Điều kiện biên"
-description: "Hành vi trường tại giao diện vật liệu."
-authors: ["tindang"]
+description: "Hành vi của trường tại mặt phân cách vật liệu."
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -25,11 +25,13 @@ status: published
 
 <section class="lesson-hook">
 
-## Tại sao điều kiện biên?
+## Tại sao cần điều kiện biên?
 
-Bất cứ khi nào sóng điện từ chạm giao diện vật liệu — anten đến không khí, đế đến kim loại, thành ống dẫn sóng — trường phải thỏa mãn điều kiện biên. Các điều kiện này xác định phản xạ, truyền qua, và dòng điện bề mặt.
+Mọi hệ thống RF thực tế đều có các mặt phân cách vật liệu: đường dẫn kim loại trên substrate điện môi, đầu nối từ cáp đồng trục sang PCB, anten bức xạ vào không khí, thành waveguide giữ các mode. Tại mỗi mặt phân cách, trường điện từ không thể cư xử tùy tiện — các phương trình Maxwell áp đặt bốn điều kiện cụ thể về cách các thành phần trường vượt qua ranh giới.
 
-Mọi bài toán RF với vật liệu thực đều liên quan đến điều kiện biên.
+Các điều kiện này không phải vật lý bổ sung. Chúng là các phương trình Maxwell áp dụng cho một giới hạn: một bề mặt vô cùng mỏng. Chúng xác định hệ số phản xạ, hệ số truyền qua, tỉ số sóng đứng, và dòng điện bề mặt gây tổn hao dây dẫn. Không có chúng, bạn không thể phân tích đường truyền, thiết kế mạng phối hợp trở kháng, hay giải thích tại sao anten microstrip có tần số cộng hưởng nhất định.
+
+Điều kiện biên là nơi các phương trình trừu tượng của Maxwell trở thành các quy tắc thiết kế thực tế của kỹ thuật RF.
 
 </section>
 
@@ -37,9 +39,33 @@ Mọi bài toán RF với vật liệu thực đều liên quan đến điều k
 
 ## Trực giác
 
-Trường không thể nhảy tùy ý tại giao diện — vật lý áp đặt ràng buộc. Một số thành phần trường phải liên tục (E tiếp tuyến); những thành phần khác có thể nhảy bằng lượng điện tích hoặc dòng điện bề mặt.
+### Tại sao một số thành phần liên tục
 
-Hãy nghĩ như dòng chảy nước: vận tốc tiếp tuyến với tường liên tục, nhưng áp suất vuông góc với tường xác định lực.
+Hãy tưởng tượng định luật Faraday áp dụng cho một vòng chữ nhật nhỏ bắc qua mặt phân cách. Vòng có chiều rộng $\Delta w$ (cắt qua ranh giới) và chiều dài $\Delta l$ (song song với bề mặt). Khi độ dày vòng $\Delta w \to 0$:
+
+$$\oint \mathbf{E} \cdot d\mathbf{l} = -\frac{d\Phi_B}{dt}$$
+
+Thông lượng từ $\Phi_B$ qua vòng tiến về 0 (diện tích → 0) trừ khi $\mathbf{B}$ vô cùng lớn — điều phi vật lý. Vì vậy tích phân lưu thông phải bằng 0. Các số hạng duy nhất còn lại là đóng góp của $\mathbf{E}$ tiếp tuyến ở mỗi phía của mặt phân cách:
+
+$$E_{t1}\,\Delta l - E_{t2}\,\Delta l = 0 \quad \Rightarrow \quad E_{t1} = E_{t2}$$
+
+$\mathbf{E}$ tiếp tuyến phải liên tục. Một bước nhảy trong $\mathbf{E}$ tiếp tuyến sẽ đòi hỏi $\mathbf{B}$ biến thiên vô cùng — phi vật lý.
+
+Tương tự, áp dụng định luật Gauss cho $\mathbf{B}$ lên một pillbox mỏng cho $B_{n1} = B_{n2}$: $\mathbf{B}$ pháp tuyến luôn liên tục vì không tồn tại từ tích điện để tạo ra bước nhảy.
+
+### Tại sao một số thành phần có thể nhảy
+
+$\mathbf{D}$ pháp tuyến có thể nhảy — vì điện tích bề mặt thực $\sigma_s$ tồn tại. Phiên bản pillbox của định luật Gauss cho:
+
+$$D_{n1} - D_{n2} = \sigma_s$$
+
+Trên bề mặt dây dẫn, điện tích phân bố lại tự do. Mật độ điện tích bề mặt $\sigma_s$ là giá trị cần thiết để làm $\mathbf{E} = 0$ bên trong dây dẫn.
+
+$\mathbf{H}$ tiếp tuyến có thể nhảy — vì dòng điện bề mặt thực $\mathbf{K}$ (A/m) tồn tại. Tại bề mặt dây dẫn lý tưởng, dòng điện bề mặt $\mathbf{K}$ duy trì từ trường ở bên ngoài trong khi $\mathbf{H} = 0$ ở bên trong.
+
+### Mẹo ghi nhớ hữu ích
+
+"$\mathbf{E}$ tiếp tuyến và $\mathbf{B}$ pháp tuyến luôn liên tục. Mọi thứ khác có thể nhảy nếu có nguồn bề mặt."
 
 </section>
 
@@ -47,71 +73,74 @@ Hãy nghĩ như dòng chảy nước: vận tốc tiếp tuyến với tường 
 
 ## Cơ chế
 
-### Điện trường tiếp tuyến
+### Bốn điều kiện biên
+
+| Thành phần | Điều kiện tổng quát | Tại dây dẫn lý tưởng | Tại mặt phân cách điện môi (không có nguồn) |
+|------------|---------------------|----------------------|---------------------------------------------|
+| $\mathbf{E}$ tiếp tuyến | $E_{t1} = E_{t2}$ | $E_{t} = 0$ | $E_{t1} = E_{t2}$ |
+| $\mathbf{D}$ pháp tuyến | $D_{n1} - D_{n2} = \sigma_s$ | $D_{n} = \sigma_s$ | $D_{n1} = D_{n2}$ |
+| $\mathbf{H}$ tiếp tuyến | $\hat{\mathbf{n}} \times (\mathbf{H}_1 - \mathbf{H}_2) = \mathbf{K}$ | $H_{t} = K$ | $H_{t1} = H_{t2}$ |
+| $\mathbf{B}$ pháp tuyến | $B_{n1} = B_{n2}$ | $B_{n} = 0$ | $B_{n1} = B_{n2}$ |
+
+$\hat{\mathbf{n}}$ chỉ từ môi trường 2 vào môi trường 1. $\sigma_s$ là mật độ điện tích bề mặt (C/m²). $\mathbf{K}$ là mật độ dòng điện bề mặt (A/m).
+
+### Dẫn xuất: E tiếp tuyến (định luật Faraday)
+
+Áp dụng định luật Faraday cho vòng chữ nhật mỏng chiều cao $\delta \to 0$ và chiều dài $\Delta l$ bắc qua mặt phân cách:
+
+$$\oint \mathbf{E} \cdot d\mathbf{l} = E_{t1}\Delta l - E_{t2}\Delta l + O(\delta) = -\frac{d}{dt}\iint_S \mathbf{B}\cdot d\mathbf{A}$$
+
+Vế phải: $|B|\,\Delta l\,\delta \to 0$ khi $\delta \to 0$. Vế trái cũng phải bằng 0:
 
 $$E_{t1} = E_{t2}$$
 
-E tiếp tuyến liên tục qua bất kỳ giao diện nào.
+### Dẫn xuất: D pháp tuyến (định luật Gauss)
 
-Từ định luật Faraday: nếu E_t nhảy, sẽ có $\partial B/\partial t$ vô hạn trong độ dày bằng không.
+Áp dụng định luật Gauss cho pillbox mỏng chiều cao $\delta \to 0$ và diện tích tiết diện $\Delta A$:
 
-### Điện dịch pháp tuyến
+$$\oint \mathbf{D}\cdot d\mathbf{A} = (D_{n1} - D_{n2})\Delta A = Q_\text{enc} = \sigma_s \Delta A$$
 
 $$D_{n1} - D_{n2} = \sigma_s$$
 
-D pháp tuyến nhảy bằng mật độ điện tích bề mặt.
+### Phản xạ và truyền qua ở tới bình thường
 
-Từ định luật Gauss áp dụng cho hộp thuốc mỏng.
+Cho sóng phẳng tới vuông góc từ môi trường 1 (trở kháng $\eta_1$) lên môi trường 2 (trở kháng $\eta_2$):
 
-### Từ trường tiếp tuyến
-
-$$H_{t1} - H_{t2} = K$$
-
-H tiếp tuyến nhảy bằng mật độ dòng điện bề mặt K (A/m).
-
-Từ định luật Ampere áp dụng cho vòng chữ nhật mỏng.
-
-### Thông lượng từ pháp tuyến
-
-$$B_{n1} = B_{n2}$$
-
-B pháp tuyến liên tục (không có điện tích từ).
-
-### Bảng tóm tắt
-
-| Thành phần | Điều kiện |
-|------------|-----------|
-| $E_t$ | Liên tục |
-| $D_n$ | Nhảy bằng $\sigma_s$ |
-| $H_t$ | Nhảy bằng $K$ |
-| $B_n$ | Liên tục |
-
-### Dẫn hoàn hảo
-
-Bên trong: E = 0, H = 0.
-
-Tại bề mặt:
-- $E_t = 0$ (E tiếp tuyến triệt tiêu)
-- $H_t = K$ (dòng điện bề mặt hỗ trợ H tiếp tuyến)
-- $D_n = \sigma_s$ (điện tích bề mặt hỗ trợ D pháp tuyến)
-- $B_n = 0$ (không có B pháp tuyến)
-
-### Giao diện điện môi (không có điện tích hoặc dòng điện)
-
-$$\frac{\tan\theta_1}{\tan\theta_2} = \frac{\epsilon_1}{\epsilon_2}$$
-
-Đường sức uốn cong ở ranh giới điện môi.
-
-### Hệ số phản xạ
-
-Cho tới vuông góc từ môi trường 1 đến môi trường 2:
+Tính liên tục của $\mathbf{E}$ và $\mathbf{H}$ tiếp tuyến tại mặt phân cách cho:
 
 $$\Gamma = \frac{\eta_2 - \eta_1}{\eta_2 + \eta_1}$$
 
-trong đó $\eta = \sqrt{\mu/\epsilon}$.
+$$\tau = \frac{2\eta_2}{\eta_2 + \eta_1} = 1 + \Gamma$$
 
-Hệ số truyền qua:
-$$T = 1 + \Gamma = \frac{2\eta_2}{\eta_2 + \eta_1}$$
+- $\Gamma$ = hệ số phản xạ điện áp (tỉ số biên độ, có thể âm)
+- $\tau$ = hệ số truyền qua điện áp
+- Phản xạ công suất: $|\Gamma|^2$
+- Truyền qua công suất: $1 - |\Gamma|^2 = \tau^2 \eta_1/\eta_2$
+
+### Uốn cong trường tại mặt phân cách điện môi
+
+Tại mặt phân cách giữa hai điện môi không có điện tích tự do ($\sigma_s = 0$, $\mathbf{K} = 0$):
+
+- $\mathbf{E}$ tiếp tuyến liên tục: $E_{t1} = E_{t2}$
+- $\mathbf{D}$ pháp tuyến liên tục: $\varepsilon_1 E_{n1} = \varepsilon_2 E_{n2}$
+
+Nếu $\varepsilon_2 > \varepsilon_1$, thành phần pháp tuyến bị nén trong môi trường 2 so với môi trường 1. Đường sức trường uốn về phía pháp tuyến — góc với pháp tuyến giảm:
+
+$$\frac{\tan\theta_1}{\tan\theta_2} = \frac{\varepsilon_1}{\varepsilon_2}$$
+
+Đây là tương tự điện từ của định luật Snell.
+
+### Điều kiện biên tại dây dẫn điện lý tưởng (PEC)
+
+Bên trong PEC: $\mathbf{E} = 0$, $\mathbf{H} = 0$. Tại bề mặt (môi trường 1 = PEC, môi trường 2 = bên ngoài):
+
+$$\mathbf{E}_t = 0 \quad \text{(không có E tiếp tuyến tại bề mặt)}$$
+
+$$\mathbf{D}_n = \sigma_s \quad \text{(D pháp tuyến bằng điện tích bề mặt)}$$
+
+$$\hat{\mathbf{n}} \times \mathbf{H} = \mathbf{K} \quad \text{(dòng bề mặt duy trì H bên ngoài)}$$
+
+$$\mathbf{B}_n = 0 \quad \text{(không có B pháp tuyến tại bề mặt)}$$
 
 </section>
 
@@ -119,51 +148,63 @@ $$T = 1 + \Gamma = \frac{2\eta_2}{\eta_2 + \eta_1}$$
 
 ## Áp dụng
 
-**Ví dụ: Không khí đến dẫn**
+### Ví dụ 1: Phản xạ hoàn toàn tại dây dẫn lý tưởng
 
-Sóng trong không khí chạm dẫn hoàn hảo.
+Sóng phẳng trong không khí ($\eta_1 = 377\,\Omega$) chiếu vào dây dẫn lý tưởng ($\eta_2 = 0$).
 
-$\eta_{air} = 377\ \Omega$, $\eta_{conductor} = 0$.
+$$\Gamma = \frac{0 - 377}{0 + 377} = -1$$
 
-$\Gamma = (0 - 377)/(0 + 377) = -1$.
+$|\Gamma| = 1$: 100% công suất bị phản xạ. Dấu âm có nghĩa là $\mathbf{E}$ phản xạ lệch pha 180° so với $\mathbf{E}$ tới tại bề mặt — cần thiết để đảm bảo $E_t = 0$ tại dây dẫn.
 
-Phản xạ toàn phần, dịch pha 180°. Sóng đứng hình thành.
+Sự chồng chất của sóng tới và sóng phản xạ tạo ra sóng đứng. Các nút của $\mathbf{E}$ (nơi $\mathbf{E} = 0$) xuất hiện tại bề mặt và mỗi $\lambda/2$ cách xa. Bụng của $\mathbf{E}$ xuất hiện cách bề mặt $\lambda/4$.
 
-**Ví dụ: Không khí đến điện môi**
+Đây là vật lý của đường truyền ngắn mạch, bộ cộng hưởng hốc, và anten lưỡng cực đặt trên mặt phẳng đất.
 
-Sóng từ không khí ($\epsilon_r = 1$) đến thủy tinh ($\epsilon_r = 4$).
+### Ví dụ 2: Mặt phân cách không khí — FR4
 
-$\eta_{air} = 377\ \Omega$, $\eta_{glass} = 377/\sqrt{4} = 188.5\ \Omega$.
+Sóng trong không khí ($\varepsilon_r = 1$, $\eta_1 = 377\,\Omega$) chiếu vào substrate FR4 ($\varepsilon_r = 4,4$, $\mu_r = 1$).
 
-$\Gamma = (188.5 - 377)/(188.5 + 377) = -0.33$.
+$$\eta_2 = \frac{377}{\sqrt{4,4}} \approx 179,6\,\Omega$$
 
-33% công suất phản xạ, 67% truyền qua.
+$$\Gamma = \frac{179,6 - 377}{179,6 + 377} = \frac{-197,4}{556,6} \approx -0,355$$
 
-**Ví dụ: Đường microstrip**
+Phản xạ công suất: $|\Gamma|^2 = 0,126$ → 12,6% công suất tới bị phản xạ.
 
-Trace kim loại trên đế điện môi.
+Truyền qua công suất: $1 - 0,126 = 87,4$%.
 
-Tại bề mặt kim loại: $E_t = 0$, dòng điện bề mặt K chảy.
+Tổn hao phản xạ 12,6% này xảy ra tại mỗi mặt phân cách không khí-substrate trong anten PCB. Anten patch trên FR4 có hiệu suất bức xạ thấp hơn một phần vì sự không khớp này (cộng với tổn hao substrate). Substrate Rogers có $\varepsilon_r$ thấp hơn (ví dụ 2,2) có $\eta_2 = 254\,\Omega$ → $\Gamma = -0,195$ → chỉ 3,8% bị phản xạ.
 
-Tại giao diện điện môi: E và H liên tục (không có điện tích bề mặt).
+### Ví dụ 3: Hằng số điện môi hiệu dụng của microstrip từ điều kiện biên
 
-Trường tồn tại cả trên và dưới trace — $\epsilon_r$ hiệu dụng nằm giữa 1 và $\epsilon_r$ đế.
+Đường microstrip có đường dẫn kim loại trên FR4, với không khí ở trên. Trường tồn tại ở cả hai môi trường — một phần trong FR4 (dưới đường dẫn) và một phần trong không khí (trên). Điều kiện biên không hoàn toàn áp dụng cho bên nào: sóng "nhìn thấy" một môi trường trung bình.
 
-**Ví dụ: Thành ống dẫn sóng**
+Hằng số điện môi hiệu dụng xấp xỉ:
 
-Thành kim loại buộc $E_t = 0$.
+$$\varepsilon_{eff} = \frac{\varepsilon_r + 1}{2} + \frac{\varepsilon_r - 1}{2}\frac{1}{\sqrt{1 + 12\,h/w}}$$
 
-Chỉ một số pattern trường (mode) thỏa mãn điều này ở mọi nơi.
+với $h$ là chiều dày substrate và $w$ là chiều rộng đường dẫn. Với FR4 ($\varepsilon_r = 4,4$) và đường 50 Ω có $w/h \approx 2$:
 
-Mode TE và TM có tần số cắt khác nhau.
+$$\varepsilon_{eff} \approx \frac{5,4}{2} + \frac{3,4}{2} \cdot \frac{1}{\sqrt{1+6}} \approx 2,7 + 0,64 \approx 3,34$$
 
-**Ví dụ: Anten trên mặt đất**
+Vận tốc pha: $v = c/\sqrt{3,34} = 0,547c$. Đây là lý do tại sao microstrip có hệ số vận tốc ~55%, không phải 48% (bạn sẽ có được nếu đường dẫn hoàn toàn nhúng trong FR4). Điều kiện biên tại mặt phân cách không khí-điện môi trực tiếp xác định tốc độ sóng.
 
-Lý thuyết ảnh: dẫn hoạt động như gương.
+### Ví dụ 4: Tần số cắt mode waveguide từ điều kiện biên
 
-Dipole ngang ở độ cao h có ảnh ở độ sâu h với dòng điện ngược.
+Waveguide hình chữ nhật có thành dẫn lý tưởng tại $x = 0$, $x = a$, $y = 0$, $y = b$.
 
-Pattern gấp đôi trong bán cầu phía trước.
+Điều kiện biên: $E_t = 0$ tại tất cả bề mặt dây dẫn.
+
+Với mode TE$_{10}$ (mode chủ), $E_y$ là thành phần trường duy nhất. Áp dụng $E_y = 0$ tại $x = 0$ và $x = a$:
+
+$$E_y(x) = E_0 \sin\left(\frac{\pi x}{a}\right)$$
+
+Hàm $\sin(\pi x/a)$ này là hàm duy nhất thỏa mãn $E_y = 0$ tại cả hai thành. Hằng số sóng theo $x$ được cố định: $k_x = \pi/a$.
+
+Để lan truyền theo $z$ tồn tại, cần $k_z^2 = k^2 - k_x^2 > 0$:
+
+$$k > \frac{\pi}{a} \quad \Rightarrow \quad f > f_c = \frac{c}{2a}$$
+
+Với waveguide WR-90 tiêu chuẩn ($a = 22,86$ mm): $f_c = c/(2 \times 0,02286) = 6,56$ GHz. Dưới tần số này, không có lan truyền — trường thuần evanescent. Đây là điều kiện biên xác định tần số cắt waveguide.
 
 </section>
 
@@ -171,17 +212,15 @@ Pattern gấp đôi trong bán cầu phía trước.
 
 ## Lỗi thường gặp
 
-1. **Nhầm E và D.** E_t liên tục; D_n có nhảy. Không nhầm tiếp tuyến và pháp tuyến, E và D.
+1. **Nhầm thành phần nào liên tục.** Mẹo ghi nhớ: $\mathbf{E}$ tiếp tuyến và $\mathbf{B}$ pháp tuyến luôn liên tục (chúng đến từ phương trình "curl" không có số hạng nguồn). $\mathbf{D}$ pháp tuyến và $\mathbf{H}$ tiếp tuyến có thể nhảy (chúng đến từ phương trình "curl" có nguồn — điện tích và dòng điện). Một câu: "$E_t$ và $B_n$ luôn liên tục; $D_n$ và $H_t$ có thể nhảy."
 
-2. **Bỏ qua dòng điện bề mặt.** Trên dẫn tốt, H_t được hỗ trợ bởi dòng điện bề mặt K. Dòng điện này có thật và gây tổn hao.
+2. **Nhầm hệ số phản xạ điện áp và hệ số phản xạ công suất.** $\Gamma$ là hệ số phản xạ biên độ (điện áp). Công suất phản xạ là $|\Gamma|^2$. Return loss tính bằng dB = $-20\log_{10}|\Gamma|$, không phải $-10\log_{10}|\Gamma|$. Sai số hệ số 2 này trong dB cực kỳ phổ biến.
 
-3. **Giả định liên tục ở mọi nơi.** Trường liên tục trong vùng đồng nhất. Tại giao diện, áp dụng điều kiện biên rõ ràng.
+3. **Quên rằng dây dẫn thực có độ dẫn điện hữu hạn.** PEC có $E_t = 0$ chính xác. Dây dẫn thực (đồng, nhôm) có $E_t$ nhỏ nhưng khác không tại bề mặt, dẫn dắt dòng điện bề mặt và gây tổn hao điện trở. Đây là lý do tại sao Q dây dẫn trong bộ cộng hưởng hốc là hữu hạn, và tại sao suy hao đường truyền tăng theo tần số do điện trở bề mặt $R_s = 1/(\sigma\delta_s) \propto \sqrt{f}$ tăng.
 
-4. **Quên độ dẫn hữu hạn.** Kim loại thực có độ sâu da. Trường xâm nhập nhẹ, dòng điện bề mặt có độ dày, và có tổn hao.
+4. **Áp dụng công thức Snell điện môi cho kim loại.** Công thức góc $\tan\theta_1/\tan\theta_2 = \varepsilon_1/\varepsilon_2$ áp dụng cho trường tĩnh hay gần tĩnh tại mặt phân cách điện môi không tổn hao. Với vật liệu tổn hao hoặc lan truyền sóng (không chỉ hướng trường), dùng phương trình Fresnel đầy đủ với $\varepsilon$ phức.
 
-5. **Nhầm hệ số phản xạ cho công suất vs. biên độ.** $\Gamma$ là tỷ số biên độ. Phản xạ công suất là $|\Gamma|^2$.
-
-6. **Sai quy ước dấu.** Các sách khác nhau dùng quy ước khác nhau cho $\Gamma$. Nhất quán trong phân tích của bạn.
+5. **Bỏ qua hằng số điện môi hiệu dụng cho cấu trúc phẳng.** Khi trường tồn tại ở hai vùng điện môi (không khí và substrate trong microstrip), bạn không thể chỉ dùng $\varepsilon_r$ của substrate hay $\varepsilon_r = 1$. Vận tốc pha thực tế được xác định bởi trung bình có trọng số do điều kiện biên tại mặt phân cách điện môi. Dùng công thức $\varepsilon_{eff}$ từ tài liệu CAD vi sóng để có kết quả chính xác.
 
 </section>
 
@@ -189,8 +228,8 @@ Pattern gấp đôi trong bán cầu phía trước.
 
 ## Tài liệu tham khảo
 
-- Griffiths, *Introduction to Electrodynamics*, Chapter 7.
-- Pozar, *Microwave Engineering*, Chapter 1.
-- Balanis, *Advanced Engineering Electromagnetics*, Chapter 5.
+- Griffiths, *Introduction to Electrodynamics*, Chương 7 — dẫn xuất tất cả bốn điều kiện biên với chứng minh.
+- Pozar, *Microwave Engineering*, Chương 1 — ứng dụng kỹ thuật của điều kiện biên cho đường truyền và waveguide.
+- Balanis, *Advanced Engineering Electromagnetics*, Chương 5 — xử lý có hệ thống phản xạ, truyền qua, và phương trình Fresnel.
 
 </section>

@@ -8,17 +8,353 @@ track: n3
 unit: identifiers
 order: 3
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-identifiers-02-guti-and-5g-tmsi"]
+spiralRevisits: ["core-network-n4-security-04-equipment-identity"]
 title: "GPSI and IMEI"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Generic Public Subscription Identifier and International Mobile Equipment Identity — public and device identifiers."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 23.003", "3GPP TS 22.016"]
+tags: ["gpsi", "imei", "pei", "identity", "5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# GPSI and IMEI
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+SUPI identifies your subscription. But what about your phone number? And what about the device itself?
+
+**GPSI** is your public identity — the phone number or email that external services use to reach you. **IMEI** identifies the physical device. Together with SUPI, they form the complete identity picture in 5G.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The identity trio
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   5G Identity Model                      │
+│                                                          │
+│  ┌─────────────────┐                                    │
+│  │      SUPI       │  Subscription identity (private)   │
+│  │ (internal only) │  "Who are you to us?"              │
+│  └────────┬────────┘                                    │
+│           │                                              │
+│  ┌────────┴────────┐                                    │
+│  │      GPSI       │  Public identity (external)        │
+│  │ (phone number)  │  "How do others reach you?"        │
+│  └────────┬────────┘                                    │
+│           │                                              │
+│  ┌────────┴────────┐                                    │
+│  │   PEI (IMEI)    │  Equipment identity                │
+│  │ (device serial) │  "What device are you using?"      │
+│  └─────────────────┘                                    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### What is GPSI?
+
+**GPSI (Generic Public Subscription Identifier)** is the external-facing identity for a subscriber. It's what the outside world uses to reach you.
+
+```
+GPSI formats:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  MSISDN format:                                         │
+│  ┌─────────────────────────────────────────────┐        │
+│  │ +1 (555) 123-4567                           │        │
+│  │  │   └───────────────┘                      │        │
+│  │  │         │                                │        │
+│  │  CC       NDC + SN (National number)        │        │
+│  └─────────────────────────────────────────────┘        │
+│                                                          │
+│  External Identifier format (NAI-style):                │
+│  ┌─────────────────────────────────────────────┐        │
+│  │ user@example.com                            │        │
+│  │ device123@iot.operator.net                  │        │
+│  └─────────────────────────────────────────────┘        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**GPSI uses:**
+- Incoming voice calls
+- SMS delivery
+- External service addressing
+- IMS registration
+
+### What is PEI/IMEI?
+
+**PEI (Permanent Equipment Identifier)** in 5G is typically the **IMEI (International Mobile Equipment Identity)** — a unique identifier for the physical device.
+
+```
+IMEI structure (15 digits):
+
+┌────────────────────────────────────────────────────────┐
+│                                                         │
+│   TAC (8 digits)    │  SNR (6 digits)  │  CD (1 digit)│
+│   Type Allocation   │  Serial Number   │  Check Digit │
+│   Code              │  (unique)        │  (Luhn)      │
+│                     │                  │              │
+│   35  -  123456     │   789012         │      3       │
+│   │       │         │     │            │      │       │
+│   │       │         │     │            │      └── Luhn check
+│   │       │         │     └── Unique to device
+│   │       │         │
+│   │       └── Model code (vendor assigned)
+│   └── Reporting Body ID (GSMA assigned)
+│                                                         │
+└────────────────────────────────────────────────────────┘
+```
+
+**IMEI-SV (Software Version):** 16 digits, adds software version instead of check digit.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### GPSI-SUPI mapping
+
+The UDM maintains the binding between GPSI and SUPI:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                        UDM                               │
+│                                                          │
+│  Subscription Data:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ SUPI: 310260123456789                           │    │
+│  │                                                  │    │
+│  │ GPSI(s):                                        │    │
+│  │   - msisdn-15551234567 (primary)                │    │
+│  │   - msisdn-15557654321 (secondary)              │    │
+│  │   - extid-user@example.com                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Lookup directions:                                     │
+│  GPSI → SUPI (for incoming calls/SMS)                   │
+│  SUPI → GPSI (for caller ID, service invocation)        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Multiple GPSI:** A subscriber can have multiple phone numbers (MSISDN) and external identifiers, all mapping to one SUPI.
+
+### Equipment identity check
+
+When UE registers, the network can check the device identity:
+
+```
+UE                      AMF                      EIR
+│                        │                        │
+│   Registration         │                        │
+│   (includes PEI/IMEI)  │                        │
+│───────────────────────►│                        │
+│                        │                        │
+│                        │   Identity Check Req   │
+│                        │   (PEI)                │
+│                        │───────────────────────►│
+│                        │                        │
+│                        │        ┌───────────────┤
+│                        │        │ Check lists:  │
+│                        │        │ - White list  │
+│                        │        │ - Black list  │
+│                        │        │ - Gray list   │
+│                        │        └───────────────┤
+│                        │                        │
+│                        │   Identity Check Resp  │
+│                        │   (Result: allowed/    │
+│                        │    barred/unknown)     │
+│                        │◄───────────────────────│
+│                        │                        │
+```
+
+**EIR lists:**
+- **White list:** Known, approved devices
+- **Black list:** Stolen, blocked, counterfeit devices
+- **Gray list:** Under observation
+
+### GPSI in service requests
+
+External services use GPSI to address subscribers:
+
+```
+External                 IMS/AS                  AMF/SMF                UDM
+Service
+   │                       │                        │                     │
+   │  Call to MSISDN       │                        │                     │
+   │───────────────────────►                        │                     │
+   │                       │                        │                     │
+   │                       │   Lookup GPSI→SUPI     │                     │
+   │                       │────────────────────────────────────────────►│
+   │                       │                        │                     │
+   │                       │         SUPI           │                     │
+   │                       │◄────────────────────────────────────────────│
+   │                       │                        │                     │
+   │                       │   Page/Connect (SUPI)  │                     │
+   │                       │───────────────────────►│                     │
+   │                       │                        │                     │
+```
+
+### PEI retrieval
+
+The AMF can request device identity when needed:
+
+```
+AMF                           UE
+ │                             │
+ │   Identity Request          │
+ │   (Identity type: PEI)      │
+ │────────────────────────────►│
+ │                             │
+ │   Identity Response         │
+ │   (PEI: IMEI or IMEISV)     │
+ │◄────────────────────────────│
+ │                             │
+```
+
+**When PEI is requested:**
+- Initial registration (optional)
+- Service request (optional)
+- Regulatory requirements (lawful intercept)
+- Fraud/security investigation
+
+### IMEI format in signaling
+
+```
+In NAS messages:
+
+Identity Response:
+  Mobile identity
+    Type: PEI
+    PEI type: IMEI
+    IMEI: 35 12 34 56 78 90 12 3
+
+Or with software version:
+  Mobile identity
+    Type: PEI
+    PEI type: IMEISV
+    IMEISV: 35 12 34 56 78 90 12 34
+                               └── SVN (2 digits)
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**GPSI configuration:**
+
+```yaml
+# UDM subscription provisioning example
+supi: "imsi-310260123456789"
+gpsi:
+  - type: msisdn
+    value: "+15551234567"
+    primary: true
+  - type: msisdn
+    value: "+15557654321"
+    primary: false
+  - type: external-id
+    value: "user@example.com"
+```
+
+**IMEI validation:**
+
+```python
+# Luhn check for IMEI
+def validate_imei(imei):
+    # Remove check digit
+    digits = [int(d) for d in imei[:14]]
+    
+    # Double every second digit from right
+    for i in range(len(digits) - 2, -1, -2):
+        digits[i] *= 2
+        if digits[i] > 9:
+            digits[i] -= 9
+    
+    # Sum and check
+    total = sum(digits)
+    check = (10 - (total % 10)) % 10
+    
+    return check == int(imei[14])
+```
+
+**Troubleshooting:**
+
+| Symptom | Possible cause | Check |
+|---------|----------------|-------|
+| Incoming calls fail | GPSI not provisioned | Verify UDM subscription |
+| Device blocked | IMEI on blacklist | Check EIR status |
+| No GPSI in CDR | Missing subscription data | Verify GPSI-SUPI binding |
+| Wrong caller ID | GPSI misconfigured | Check primary GPSI setting |
+
+**Use cases comparison:**
+
+| Identifier | When to use | Example |
+|------------|-------------|---------|
+| SUPI | Internal routing, authentication | Subscriber lookup |
+| GPSI | External addressing, billing | Caller ID, SMS |
+| PEI | Device tracking, fraud detection | Stolen phone check |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **GPSI is not SUPI.** They serve different purposes. GPSI can change (number portability), SUPI stays constant.
+
+2. **Multiple MSISDN.** One SUPI can have multiple GPSI. Ensure services handle this correctly.
+
+3. **IMEI spoofing.** Attackers can modify IMEI in software-defined radios. Don't rely solely on IMEI for security.
+
+4. **IMEISV vs IMEI.** They're different lengths (16 vs 15 digits). Handle both formats.
+
+5. **EIR synchronization.** Blacklist updates must propagate to all network nodes. Stale data allows blocked devices.
+
+6. **Privacy of GPSI.** GPSI (phone number) is often treated as public, but linking to SUPI requires authorization.
+
+7. **eSIM and IMEI.** eSIM devices still have IMEI (it's the hardware ID), but SUPI changes with profile.
+
+8. **TAC database.** Type Allocation Code identifies manufacturer/model. Keep TAC database current for device analytics.
+
+9. **Regional IMEI formats.** Some regions require additional identifiers (e.g., MEID for CDMA). Handle legacy formats.
+
+10. **Number portability.** GPSI (MSISDN) can move between operators while SUPI stays with original network. Routing must handle this.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.003, "Numbering, addressing and identification"
+- 3GPP TS 22.016, "International Mobile Equipment Identities (IMEI)"
+- 3GPP TS 23.502, "Procedures for 5G System"
+- GSMA TS.06, "IMEI Allocation and Approval Guidelines"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Equipment identity register](/en/core-network/5g-core-functions/eir/) — managing device blacklists
+- [Number portability](/en/core-network/interconnect/number-portability/) — GPSI routing complexity
+- [UDM data model](/en/core-network/5g-core-functions/udm-data-model/) — subscription data structure
+
+</section>

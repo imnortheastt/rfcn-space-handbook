@@ -8,17 +8,311 @@ track: s1
 unit: math-toolbox-numerical-integrators
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
 title: "Phuong phap Runge-Kutta"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
+description: "Lam chu cac bo giai ODE chu luc trong co hoc quy dao — tu Euler den RK4, voi Butcher tableaux va cai dat Python."
+authors: ["Crystal D."]
 publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+lastVerified: "2026-06-04"
+tags: ["tich-phan-so", "bo-giai-ode", "runge-kutta", "lan-truyen-quy-dao", "python"]
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
 # Phuong phap Runge-Kutta
 
-_Bản nháp — nội dung sẽ được bổ sung._
+<section class="lesson-hook">
+
+## Tai sao Runge-Kutta?
+
+Moi bo lan truyen quy dao, tu du an sinh vien den ke hoach nhiem vu NASA, deu dua vao tich phan so. Ban khong the giai bai toan ba vat the bang cong thuc dong. Luc can khi quyen, ap luc buc xa mat troi, va cac song dieu hoa trong truong lam cho loi giai dang dong bat kha thi.
+
+Phuong phap Runge-Kutta la dao da nang cua tich phan ODE:
+- **Don gian de cai dat** — khong can dao nguoc ma tran, khong can giai an
+- **Do chinh xac co the du doan** — quan he bac sai so ro rang
+- **Ap dung pho quat** — hoat dong voi moi he ODE bac nhat
+
+Khi ban chay STK, GMAT, hay ke ca mod Kerbal Space Program, RK4 hoac ho hang cua no dang lam cong viec nang.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Y tuong cot loi: Trung binh do doc co trong so
+
+Phuong phap Euler su dung mot mau do doc tai dau khoang:
+
+```
+         y
+         |
+         |    * duong cong thuc
+         |   /
+         | *---------> buoc Euler (vuot qua)
+         |/
+         *
+         +------------------ t
+```
+
+Phuong phap RK lay mau do doc tai nhieu diem trong khoang, sau do tinh trung binh co trong so:
+
+```
+         y
+         |
+         |        * duong cong thuc
+         |      *-+
+         |     /  | k2: do doc tai diem giua
+         |   *----+---> buoc RK2 (gan hon!)
+         |  /  k1
+         *
+         +------------------ t
+```
+
+Nhieu mau hon = xap xi tot hon = do chinh xac bac cao hon.
+
+**Hieu biet then chot**: Chung ta khong luu them lich su — chung ta danh gia ham dao ham `f(t, y)` nhieu lan moi buoc de nam bat do cong.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Ho RK: Tu Euler den RK4
+
+### RK1: Euler tien (Bac 1)
+
+Bo tich phan don gian nhat. Mot luot danh gia moi buoc.
+
+$$y_{n+1} = y_n + h \cdot f(t_n, y_n)$$
+
+**Sai so**: O(h) moi buoc, O(1) toan cuc — tich luy nhanh.
+
+### RK2: Phuong phap Heun (Bac 2)
+
+Hai luot danh gia. Du doan bang Euler, hieu chinh bang do doc trung binh.
+
+$$k_1 = f(t_n, y_n)$$
+$$k_2 = f(t_n + h, y_n + h \cdot k_1)$$
+$$y_{n+1} = y_n + \frac{h}{2}(k_1 + k_2)$$
+
+**Sai so**: O(h^2) moi buoc — buoc nho 100x = sai so nho 10000x.
+
+### RK2: Phuong phap diem giua (Bac 2)
+
+RK2 thay the. Danh gia do doc tai diem giua khoang.
+
+$$k_1 = f(t_n, y_n)$$
+$$k_2 = f(t_n + \frac{h}{2}, y_n + \frac{h}{2} k_1)$$
+$$y_{n+1} = y_n + h \cdot k_2$$
+
+### RK4: Phuong phap co dien (Bac 4)
+
+Con ngua tho. Bon luot danh gia moi buoc.
+
+$$k_1 = f(t_n, y_n)$$
+$$k_2 = f(t_n + \frac{h}{2}, y_n + \frac{h}{2} k_1)$$
+$$k_3 = f(t_n + \frac{h}{2}, y_n + \frac{h}{2} k_2)$$
+$$k_4 = f(t_n + h, y_n + h \cdot k_3)$$
+$$y_{n+1} = y_n + \frac{h}{6}(k_1 + 2k_2 + 2k_3 + k_4)$$
+
+**Sai so**: O(h^4) moi buoc. Giam buoc mot nua = cai thien do chinh xac 16x.
+
+## Butcher Tableaux: Ky hieu thu gon
+
+Moi phuong phap RK co the bieu dien bang Butcher tableau:
+
+```
+  c | A
+  -----
+    | b^T
+```
+
+Trong do:
+- `c` = nut (do lech thoi gian trong buoc)
+- `A` = he so giai doan (cach tinh cac gia tri k trung gian)
+- `b` = trong so (cach ket hop cac gia tri k)
+
+**Butcher Tableau RK4:**
+
+```
+  0   |
+  1/2 | 1/2
+  1/2 | 0   1/2
+  1   | 0   0   1
+  ----+------------
+      | 1/6 1/3 1/3 1/6
+```
+
+Doc tableau:
+- Hang 1: k1 khong dung k truoc (bat dau tai t_n)
+- Hang 2: k2 tai t + h/2, dung 0.5*k1
+- Hang 3: k3 tai t + h/2, dung 0.5*k2
+- Hang 4: k4 tai t + h, dung 1.0*k3
+- Day: tong co trong so cuoi cung
+
+## Phan tich sai so
+
+| Phuong phap | Bac | Sai so cuc bo | Sai so toan cuc | Luot danh gia |
+|-------------|-----|---------------|-----------------|---------------|
+| RK1         | 1   | O(h^2)        | O(h)            | 1             |
+| RK2         | 2   | O(h^3)        | O(h^2)          | 2             |
+| RK4         | 4   | O(h^5)        | O(h^4)          | 4             |
+
+**Chi phi-loi ich**: RK4 cho do chinh xac bac 4 voi chi 4x chi phi cua Euler. Thoa thuan tuyet voi.
+
+</section>
+
+<section class="lesson-apply">
+
+## Cai dat Python: Lan truyen quy dao hai vat the
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Hang so
+MU = 398600.4418  # Tham so hap dan Trai Dat [km^3/s^2]
+
+def two_body_ode(t, state):
+    """
+    Phuong trinh chuyen dong hai vat the.
+    state = [x, y, z, vx, vy, vz]
+    Tra ve: [vx, vy, vz, ax, ay, az]
+    """
+    r = state[:3]
+    v = state[3:]
+    r_mag = np.linalg.norm(r)
+    a = -MU * r / r_mag**3
+    return np.concatenate([v, a])
+
+def rk4_step(f, t, y, h):
+    """Mot buoc RK4."""
+    k1 = f(t, y)
+    k2 = f(t + h/2, y + h/2 * k1)
+    k3 = f(t + h/2, y + h/2 * k2)
+    k4 = f(t + h, y + h * k3)
+    return y + h/6 * (k1 + 2*k2 + 2*k3 + k4)
+
+def propagate_orbit(state0, t_span, dt):
+    """
+    Lan truyen quy dao dung RK4.
+    
+    Tham so:
+        state0: Ban dau [x, y, z, vx, vy, vz] trong km, km/s
+        t_span: (t_bat_dau, t_ket_thuc) trong giay
+        dt: Buoc thoi gian trong giay
+    
+    Tra ve:
+        Mang times, states
+    """
+    t_start, t_end = t_span
+    times = [t_start]
+    states = [state0.copy()]
+    
+    t = t_start
+    state = state0.copy()
+    
+    while t < t_end:
+        h = min(dt, t_end - t)
+        state = rk4_step(two_body_ode, t, state, h)
+        t += h
+        times.append(t)
+        states.append(state.copy())
+    
+    return np.array(times), np.array(states)
+
+# Vi du: Quy dao giong ISS
+# Dieu kien ban dau: Quy dao tron do cao 400 km
+r0 = 6778.0  # km (Ban kinh Trai Dat + 400 km)
+v0 = np.sqrt(MU / r0)  # Van toc tron
+
+state0 = np.array([r0, 0, 0, 0, v0, 0])
+period = 2 * np.pi * np.sqrt(r0**3 / MU)  # Chu ky quy dao
+
+# Lan truyen mot vong quy dao
+times, states = propagate_orbit(state0, (0, period), dt=10.0)
+
+# Kiem tra bao toan nang luong
+def specific_energy(state):
+    r = np.linalg.norm(state[:3])
+    v = np.linalg.norm(state[3:])
+    return v**2/2 - MU/r
+
+E0 = specific_energy(states[0])
+E_final = specific_energy(states[-1])
+print(f"Do troi nang luong: {abs(E_final - E0) / abs(E0) * 100:.6f}%")
+```
+
+**Dau ra** (dien hinh):
+```
+Do troi nang luong: 0.000003%
+```
+
+RK4 voi buoc 10 giay duy tri bao toan nang luong tuyet voi trong mot vong quy dao.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Nhung bay thuong gap
+
+### 1. Buoc qua lon
+
+RK4 khong phai phep mau. Voi quy dao do lech tam cao gan can diem, van toc thay doi nhanh.
+
+**Sua**: Dung buoc thich ung (xem bai DOPRI) hoac giam buoc gan can diem.
+
+### 2. Gia dinh bac cao hon = Luon tot hon
+
+RK4 khong phai luc nao cung la lua chon tot nhat:
+- Bai toan rat tron: bac thap re hon
+- Tich phan dai: phuong phap symplectic bao toan nang luong tot hon
+- Bai toan cung: can phuong phap an
+
+### 3. Quen don vi
+
+Tron lan km va m, hoac giay va ngay, gay ra tham hoa am tham.
+
+```python
+# XAU: Don vi tron lan
+MU = 3.986e14  # m^3/s^2
+r0 = 6778.0    # km  <-- Khong khop don vi!
+
+# TOT: Don vi nhat quan
+MU = 398600.4418  # km^3/s^2
+r0 = 6778.0       # km
+```
+
+### 4. Bo qua tich luy sai so
+
+Sai so cuc bo O(h^5) khong co nghia sai so bien mat. Qua 10000 vong quy dao, sai so nho cong don.
+
+**Quy tac chung**: Voi N buoc, sai so toan cuc ~ N * sai_so_cuc_bo.
+
+</section>
+
+<section class="lesson-references">
+
+## Tai lieu tham khao
+
+1. Hairer, E., Norsett, S.P., Wanner, G. (1993). *Solving Ordinary Differential Equations I: Nonstiff Problems*. Springer.
+
+2. Montenbruck, O., Gill, E. (2000). *Satellite Orbits: Models, Methods, Applications*. Springer. Chuong 4.
+
+3. Butcher, J.C. (2016). *Numerical Methods for Ordinary Differential Equations*. Wiley.
+
+4. Curtis, H. (2020). *Orbital Mechanics for Engineering Students*. Elsevier. Phu luc D.
+
+</section>
+
+<section class="lesson-bridge">
+
+## Tiep theo la gi?
+
+RK4 hoat dong tuyet voi cho lan truyen ngan, nhung:
+
+- **Quy dao dai han** (thang, nam): Do troi nang luong tich luy. Xem [Bo tich phan Symplectic](/space/math-toolbox-numerical-integrators/symplectic-integrators).
+
+- **Nhu cau do chinh xac thay doi**: Khi ban can kiem soat sai so ma khong can chon buoc thu cong. Xem [RK4 vs DOPRI vs Everhart](/space/math-toolbox-numerical-integrators/rk4-vs-dopri-vs-everhart).
+
+- **Nhieu loan thuc te**: J2, luc can, ap luc mat troi. ODE tro nen phuc tap hon, nhung bo tich phan van nhu cu.
+
+</section>

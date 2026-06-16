@@ -8,12 +8,12 @@ track: r0
 unit: complex-numbers-for-rf
 order: 2
 level: L2
-estimatedReadingMinutes: 10
+estimatedReadingMinutes: 14
 prerequisites: ["rf-r0-complex-numbers-for-rf-01-phasors"]
 spiralRevisits: []
 title: "Impedance"
 description: "Complex resistance — why RF circuits need more than Ohm's law."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -25,11 +25,13 @@ status: published
 
 <section class="lesson-hook">
 
-## Why impedance?
+## Why Ohm's law isn't enough
 
-At DC, a capacitor blocks current and an inductor passes it freely. At high frequencies, the roles reverse. Resistance alone cannot capture this frequency-dependent behavior. **Impedance** extends Ohm's law to AC: $\tilde{V} = \tilde{I} Z$, where $Z$ is a complex number encoding both magnitude and phase shift.
+At DC, a wire is a wire, a resistor is a resistor, and $V = IR$ tells you everything. Now connect a capacitor in series with a 1 kΩ resistor and apply a 1 MHz sine wave. The voltage across the capacitor is not simply $I \times 0$ — the capacitor has a frequency-dependent opposition to current flow that Ohm's law cannot capture.
 
-Every RF component — antennas, filters, transmission lines — has an impedance. Matching impedances is how you transfer power efficiently and avoid reflections.
+At RF frequencies, every component — resistors, wire traces, solder joints, connector pins — has frequency-dependent behavior. The concept that unifies all of it is **impedance**: a complex-valued generalization of resistance that encodes both the magnitude and the phase of the voltage-to-current relationship.
+
+Impedance is the fundamental language of RF circuit design. Matching impedances is how you transfer power efficiently across cables, connectors, and through amplifiers. Mismatched impedances cause reflections, standing waves, and wasted power. The entire chain from transmitter to antenna must be carefully impedance-matched to work correctly.
 
 </section>
 
@@ -37,16 +39,23 @@ Every RF component — antennas, filters, transmission lines — has an impedanc
 
 ## Intuition
 
-Impedance $Z = R + jX$ has two parts:
+Impedance $Z = R + jX$ has two orthogonal components:
 
-- **Resistance $R$** (real part): dissipates energy as heat. Always positive.
-- **Reactance $X$** (imaginary part): stores and releases energy without dissipating it.
-  - $X > 0$: inductive (current lags voltage)
-  - $X < 0$: capacitive (current leads voltage)
+**Resistance $R$ (real part):** Dissipates energy as heat. Irreversible. Always non-negative for passive components. A 50 Ω resistor has $Z = 50 + j0$ Ω at every frequency.
 
-Think of resistance as friction and reactance as springiness. A purely resistive load absorbs power; a purely reactive load bounces power back and forth.
+**Reactance $X$ (imaginary part):** Stores energy temporarily and returns it. Reversible. Can be positive (inductive) or negative (capacitive).
+- $X > 0$: **inductive** — current lags voltage by up to 90°
+- $X < 0$: **capacitive** — current leads voltage by up to 90°
+- $X = 0$: **resonance** — voltage and current are in phase
 
-The magnitude $|Z| = \sqrt{R^2 + X^2}$ tells you the ratio of voltage to current amplitudes. The phase angle $\theta = \arctan(X/R)$ tells you the phase shift between voltage and current.
+Think of resistance as friction and reactance as a spring. Friction dissipates energy; a spring stores and returns it. In an RF circuit:
+- A resistor is pure friction — it absorbs power
+- A capacitor is a spring that gets stiffer at low frequencies (opposes slow changes)
+- An inductor is a spring that gets stiffer at high frequencies (opposes fast changes)
+
+The **magnitude** $|Z| = \sqrt{R^2 + X^2}$ gives the voltage-to-current amplitude ratio. The **phase angle** $\theta = \arctan(X/R)$ gives how much current leads or lags voltage.
+
+A component with $Z = 0 + j100$ Ω passes no real power to a load — it's a pure reactive element that stores and returns energy every cycle. A component with $Z = 100 + j0$ Ω absorbs maximum power.
 
 </section>
 
@@ -54,38 +63,73 @@ The magnitude $|Z| = \sqrt{R^2 + X^2}$ tells you the ratio of voltage to current
 
 ## Mechanism
 
-### Impedance of basic elements
+### Impedance of fundamental elements
 
-| Element | Impedance | At DC | At high $\omega$ |
-|---------|-----------|-------|------------------|
-| Resistor | $Z_R = R$ | $R$ | $R$ |
-| Capacitor | $Z_C = \frac{1}{j\omega C} = -\frac{j}{\omega C}$ | $\infty$ (open) | $\to 0$ (short) |
-| Inductor | $Z_L = j\omega L$ | $0$ (short) | $\to \infty$ (open) |
+| Element | Impedance $Z$ | At DC ($\omega \to 0$) | At high frequency ($\omega \to \infty$) |
+|---|---|---|---|
+| Resistor R | $Z_R = R$ | $R$ (unchanged) | $R$ (unchanged) |
+| Capacitor C | $Z_C = \dfrac{1}{j\omega C}$ | $\infty$ (open circuit) | 0 (short circuit) |
+| Inductor L | $Z_L = j\omega L$ | 0 (short circuit) | $\infty$ (open circuit) |
 
-### Series and parallel combinations
+where $\omega = 2\pi f$ is the angular frequency in rad/s.
 
-**Series:** $Z_\text{total} = Z_1 + Z_2 + \cdots$
+The capacitor's impedance $1/(j\omega C)$ can be rewritten as $-j/(\omega C)$, making the negative reactance explicit. At 1 GHz with $C = 1$ pF: $|Z_C| = 1/(2\pi \times 10^9 \times 10^{-12}) \approx 159$ Ω. At 10 GHz: about 16 Ω. The capacitor becomes increasingly transparent as frequency rises.
 
-**Parallel:** $\frac{1}{Z_\text{total}} = \frac{1}{Z_1} + \frac{1}{Z_2} + \cdots$
+The inductor's impedance $j\omega L$ grows linearly with frequency. At 1 GHz with $L = 1$ nH: $|Z_L| = 2\pi \times 10^9 \times 10^{-9} \approx 6.3$ Ω. At 10 GHz: about 63 Ω. Bond wires and PCB traces have inductance that becomes significant at GHz frequencies.
 
-Or use admittance $Y = 1/Z$ for parallel: $Y_\text{total} = Y_1 + Y_2 + \cdots$
+### Series and parallel combination rules
 
-### Admittance
+**Series impedances** add directly (same current flows through all):
+$$Z_\text{series} = Z_1 + Z_2 + \cdots = (R_1 + R_2 + \cdots) + j(X_1 + X_2 + \cdots)$$
 
-Admittance $Y = G + jB$ where:
-- $G$ = conductance (real part)
-- $B$ = susceptance (imaginary part)
+**Parallel impedances** combine via the reciprocal rule:
+$$\frac{1}{Z_\text{parallel}} = \frac{1}{Z_1} + \frac{1}{Z_2} + \cdots$$
 
-Useful when components are in parallel.
+For two elements in parallel:
+$$Z_\text{parallel} = \frac{Z_1 Z_2}{Z_1 + Z_2}$$
+
+Parallel combinations are often easier to compute using **admittance** $Y = 1/Z$, because admittances in parallel simply add.
+
+### Admittance: the parallel-circuit dual
+
+Admittance $Y = G + jB$ (unit: siemens, S):
+- $G = \text{Re}(Y)$ = **conductance** (reciprocal of resistance, not $1/R$ in general when reactance is present)
+- $B = \text{Im}(Y)$ = **susceptance** (reciprocal of reactance in sign-flipped form)
+
+For a pure element: $Y_R = 1/R$, $Y_C = j\omega C$, $Y_L = 1/(j\omega L) = -j/(\omega L)$.
+
+Parallel admittances add: $Y_\text{total} = Y_1 + Y_2 + \cdots$
+
+### Series LC resonance
+
+A series inductor L and capacitor C resonate when their reactances cancel:
+$$X_L + X_C = 0 \implies \omega L - \frac{1}{\omega C} = 0 \implies \omega_0 = \frac{1}{\sqrt{LC}}$$
+
+At resonance, $Z = R$ (only resistance remains). Current is maximum. This is why a series LC tank circuit passes signals at $f_0 = \omega_0 / (2\pi)$ and blocks others.
 
 ### Power in complex impedance
 
-Instantaneous power oscillates, but average power depends only on the resistive part:
+For a sinusoidal current $\tilde{I}$ through impedance $Z = R + jX$:
 
-$$P_\text{avg} = \frac{1}{2}|I|^2 R = \frac{1}{2}\text{Re}(\tilde{V}\tilde{I}^*)$$
+**Real (average) power** — actually dissipated:
+$$P_\text{avg} = \frac{1}{2}|\tilde{I}|^2 R = \frac{1}{2}\text{Re}(\tilde{V}\tilde{I}^*)$$
 
-Reactive power (stored/returned, not dissipated):
-$$Q = \frac{1}{2}|I|^2 X$$
+**Reactive power** — stored and returned each cycle, not dissipated:
+$$Q_\text{reactive} = \frac{1}{2}|\tilde{I}|^2 X$$
+
+**Apparent power** (complex):
+$$S = \frac{1}{2}\tilde{V}\tilde{I}^* = P_\text{avg} + jQ_\text{reactive}$$
+
+The **power factor** $\cos\theta = R/|Z|$ tells you what fraction of apparent power is real. For a purely reactive load, $\theta = 90°$ and zero real power is delivered — the source just charges and discharges the reactive element.
+
+### Impedance matching: why it matters
+
+Maximum power transfer from a source with output impedance $Z_s = R_s + jX_s$ to a load $Z_L$ occurs when:
+$$Z_L = Z_s^* = R_s - jX_s \quad \text{(complex conjugate match)}$$
+
+The reactive parts cancel (they resonate), and the resistive parts match. Under this condition, half the available power is delivered to the load (the other half is dissipated in the source resistance — unavoidable). Any deviation from conjugate match reduces delivered power.
+
+In RF systems, the reference impedance is almost always $Z_0 = 50$ Ω (or 75 Ω for cable TV). Every component in the chain — amplifier, filter, cable, antenna — is designed for 50 Ω. Departures create reflections characterized by the reflection coefficient $\Gamma = (Z_L - Z_0)/(Z_L + Z_0)$.
 
 </section>
 
@@ -93,22 +137,41 @@ $$Q = \frac{1}{2}|I|^2 X$$
 
 ## Apply
 
-**Example: RC low-pass filter**
+**Example 1: RC low-pass filter cutoff**
 
-A resistor $R$ in series with a capacitor $C$ to ground. Input voltage $\tilde{V}_\text{in}$, output taken across $C$.
+Resistor $R = 50$ Ω in series, capacitor $C = 3{,}18$ pF to ground. Find the −3 dB cutoff frequency.
 
-Capacitor impedance: $Z_C = 1/(j\omega C)$
+Cutoff: $f_c = 1/(2\pi RC) = 1/(2\pi \times 50 \times 3{,}18 \times 10^{-12}) = 1$ GHz.
 
-Voltage divider:
-$$\tilde{V}_\text{out} = \tilde{V}_\text{in} \cdot \frac{Z_C}{R + Z_C} = \tilde{V}_\text{in} \cdot \frac{1}{1 + j\omega RC}$$
+At $f_c$: $|Z_C| = 50$ Ω = $R$. The voltage divider gives $|\tilde{V}_\text{out}/\tilde{V}_\text{in}| = 1/\sqrt{2}$ = −3 dB.
 
-At low $\omega$: $|\tilde{V}_\text{out}| \approx |\tilde{V}_\text{in}|$ (passes through).
-At high $\omega$: $|\tilde{V}_\text{out}| \to 0$ (filtered out).
-Cutoff frequency: $\omega_c = 1/(RC)$, where output is $1/\sqrt{2}$ of input (−3 dB).
+The phase shift at cutoff: $\theta = -\arctan(1) = -45°$ (output lags input by 45°).
 
-**Example: Antenna feed impedance**
+**Example 2: Dipole antenna impedance matching**
 
-A half-wave dipole has feed impedance $Z \approx 73 + j42.5$ Ω at resonance. The real part (73 Ω) represents radiation resistance — power delivered to the antenna radiates. The imaginary part (42.5 Ω inductive) can be canceled with a series capacitor for impedance matching.
+A half-wave dipole at its resonant frequency has feed impedance $Z \approx 73 + j42{,}5$ Ω.
+
+The 73 Ω real part is radiation resistance — it represents power radiated into space. The 42.5 Ω inductive reactance means current lags voltage: the antenna is slightly longer than the half-wavelength that gives pure resistance.
+
+To match this to 50 Ω coaxial feed:
+- Cancel the reactance: add a series capacitor $X_C = -42.5$ Ω at the operating frequency. This brings $Z$ to $73 + j0$ Ω.
+- Then use a transformer or matching network to transform 73 Ω to 50 Ω.
+
+**Example 3: Transmission line bond wire**
+
+A gold bond wire connecting an IC to a PCB pad is 1 mm long. Its inductance is roughly 1 nH/mm = 1 nH total.
+
+At 5 GHz: $|Z_L| = 2\pi \times 5 \times 10^9 \times 1 \times 10^{-9} = 31{,}4$ Ω.
+
+This 31 Ω series inductance is significant relative to the 50 Ω system impedance. In a 5 GHz RF path, a single bond wire creates a measurable mismatch. RF chip designers use multiple parallel bond wires (halving the inductance) or flip-chip bumps to minimize this.
+
+**Example 4: Parallel LC tank**
+
+$L = 10$ nH, $C = 2{,}53$ pF in parallel.
+
+Resonant frequency: $f_0 = 1/(2\pi\sqrt{10 \times 10^{-9} \times 2{,}53 \times 10^{-12}}) = 1$ GHz.
+
+At resonance, the parallel impedance theoretically becomes infinite (open circuit) for an ideal LC — it blocks current at $f_0$. Real components have series resistance $R_s$, so the peak impedance is $Q^2 R_s$ where $Q = \omega_0 L / R_s$. This is the basis of RF bandpass filters and oscillator tanks.
 
 </section>
 
@@ -116,15 +179,17 @@ A half-wave dipole has feed impedance $Z \approx 73 + j42.5$ Ω at resonance. Th
 
 ## Pitfalls
 
-1. **Impedance is frequency-dependent.** A capacitor's impedance at 1 MHz is 100× smaller than at 10 kHz. Always specify the frequency.
+1. **Impedance is frequency-dependent — always specify frequency.** A capacitor's impedance at 100 MHz is 10× larger than at 1 GHz. Saying "the capacitor's impedance is 16 Ω" is meaningless without the frequency.
 
-2. **Resistance ≠ impedance magnitude.** A purely reactive element has $R = 0$ but $|Z| \neq 0$. Don't confuse the two.
+2. **Resistance ≠ impedance magnitude.** A 100 Ω inductor ($Z = j100$ Ω) has $|Z| = 100$ Ω but $R = 0$. It delivers zero real power despite the non-zero magnitude. Equating $|Z|$ with $R$ gives wildly wrong power estimates.
 
-3. **Phase matters for power.** Two devices with the same $|Z|$ but different phases deliver different real power. Only the resistive part dissipates.
+3. **Conjugate match ≠ equal impedances.** Maximum power transfer requires $Z_L = Z_s^*$. For $Z_s = 50 + j30$ Ω, the optimal load is $50 - j30$ Ω, not $50 + j30$ Ω. Getting this wrong leaves power on the table.
 
-4. **Complex conjugate matching.** Maximum power transfer requires $Z_\text{load} = Z_\text{source}^*$ (conjugate match), not $Z_\text{load} = Z_\text{source}$.
+4. **Reactive power is not "wasted power."** Reactive power oscillates between source and load — it doesn't dissipate, but it does flow through the wires, causing I²R losses in resistance along the path. High reactive power with low power factor stresses components without doing useful work.
 
-5. **Units.** Impedance is in ohms (Ω). Admittance is in siemens (S). Reactance and resistance are both in ohms.
+5. **Parasitic elements dominate at RF.** A real 0402 resistor at 6 GHz is not 50 Ω — it has roughly 0.4 nH series inductance and 0.1 pF shunt capacitance. These parasitics change its effective impedance entirely. Always use RF-grade component models, not DC values.
+
+6. **Admittance for parallel, impedance for series.** Combining two admittances in parallel is trivial addition. Converting to impedance first, computing $Z_1 Z_2/(Z_1+Z_2)$, then back is error-prone and unnecessary. Choose the representation that matches your circuit topology.
 
 </section>
 
@@ -132,7 +197,9 @@ A half-wave dipole has feed impedance $Z \approx 73 + j42.5$ Ω at resonance. Th
 
 ## References
 
-- Pozar, *Microwave Engineering*, Chapter 2 — impedance and transmission lines.
-- Alexander & Sadiku, *Fundamentals of Electric Circuits*, Chapter 9 — AC impedance analysis.
+- Pozar, D.M., *Microwave Engineering*, 4th ed., Chapter 2 — impedance, transmission lines, and matching networks.
+- Alexander, C.K. & Sadiku, M.N.O., *Fundamentals of Electric Circuits*, 6th ed., Chapter 9 — AC steady-state impedance analysis.
+- Ludwig, R. & Bretchko, P., *RF Circuit Design*, Chapter 2 — impedance matching techniques for RF applications.
+- Bahl, I.J. & Trivedi, D.K., "A Designer's Guide to Microstrip Line," *Microwaves*, 1977 — practical parasitic effects.
 
 </section>

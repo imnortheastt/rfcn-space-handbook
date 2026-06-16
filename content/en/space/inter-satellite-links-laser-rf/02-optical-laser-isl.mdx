@@ -8,17 +8,518 @@ track: s7
 unit: inter-satellite-links-laser-rf
 order: 2
 level: L4
-estimatedReadingMinutes: 5
-title: "Optical/laser ISL"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: ["rf-isl"]
+spiralRevisits: []
+title: "Optical Laser ISL — High-Speed Crosslinks at Light Speed"
+description: "Understanding free-space optical inter-satellite links for multi-Gbps constellation networking."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["optical", "laser", "isl", "fsoc", "crosslink", "constellation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Optical/laser ISL
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+While RF ISLs are proven technology, they're bandwidth-limited by spectrum availability and antenna size. Optical (laser) inter-satellite links operate at infrared wavelengths where bandwidth is virtually unlimited and antennas shrink to centimeter-scale telescopes. Starlink's laser mesh demonstrates that optical ISL enables global low-latency connectivity without ground station dependency. Understanding optical ISL physics and engineering is critical for next-generation constellation design.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Why optical wins on bandwidth
+
+```
+RF vs Optical ISL Comparison:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ELECTROMAGNETIC SPECTRUM:                                          │
+│                                                                      │
+│  Frequency:  10 GHz    100 GHz    1 THz    100 THz    1000 THz     │
+│              │         │          │        │          │             │
+│  ────────────┼─────────┼──────────┼────────┼──────────┼──────────   │
+│              │    RF   │          │        │  Optical │             │
+│              │   ISL   │          │        │   ISL    │             │
+│              │         │          │        │          │             │
+│  Wavelength: 3 cm      3 mm       300 μm   3 μm      300 nm        │
+│                                            │                        │
+│                                         1550 nm                     │
+│                                        (telecom)                    │
+│                                                                      │
+│  ────────────────────────────────────────────────────────────────   │
+│                                                                      │
+│  Key insight: Optical frequency is ~10,000× higher than Ka-band    │
+│  Available bandwidth scales with carrier frequency!                 │
+│                                                                      │
+│  Ka-band (25 GHz):  ~1 GHz bandwidth available → ~2 Gbps           │
+│  Optical (193 THz): ~1 THz bandwidth available → ~1 Tbps           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Optical terminal architecture
+
+```
+Laser Communication Terminal (LCT) Block Diagram:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TRANSMIT PATH:                                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────┐│         │
+│  │  │  Data   │───→│ Laser   │───→│ Modula- │───→│Tele-││         │
+│  │  │ Input   │    │ Source  │    │  tor    │    │scope││         │
+│  │  │(10 Gbps)│    │(1550 nm)│    │ (DPSK)  │    │     ││         │
+│  │  └─────────┘    └─────────┘    └─────────┘    └──┬──┘│         │
+│  │                                                   │   │         │
+│  │                     Fiber      Amplifier    Beam  │   │         │
+│  │                     optics     (EDFA)       expander │         │
+│  │                                                   │   │         │
+│  └───────────────────────────────────────────────────┼───┘         │
+│                                                      │              │
+│                                              ┌───────▼───────┐      │
+│                                              │   POINTING    │      │
+│                                              │   ASSEMBLY    │      │
+│                                              │               │      │
+│                                              │ • Coarse (°)  │      │
+│                                              │ • Fine (μrad) │      │
+│                                              │               │      │
+│                                              └───────┬───────┘      │
+│                                                      │              │
+│  RECEIVE PATH:                                       │              │
+│  ┌───────────────────────────────────────────────────┼───┐         │
+│  │                                                   │   │         │
+│  │  ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌──▼──┐│         │
+│  │  │  Data   │←───│Demodula-│←───│ Photo-  │←───│Tele-││         │
+│  │  │ Output  │    │  tor    │    │detector │    │scope││         │
+│  │  │(10 Gbps)│    │         │    │ (APD)   │    │     ││         │
+│  │  └─────────┘    └─────────┘    └─────────┘    └─────┘│         │
+│  │                                                       │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  Key components:                                                    │
+│  • Laser: 1550 nm (telecom C-band), 1-5 W optical power            │
+│  • Telescope: 5-10 cm aperture (much smaller than RF!)             │
+│  • Detector: Avalanche photodiode or coherent receiver             │
+│  • Pointing: Sub-microradian accuracy required                      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Optical link budget
+
+```
+Optical ISL Link Budget (1550 nm, 2000 km):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TRANSMIT SIDE:                                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Parameter              │ Value     │ Notes           │         │
+│  │  ──────────────────────┼───────────┼─────────────────│         │
+│  │  Laser power           │ +37 dBm   │ 5 W optical     │         │
+│  │  Tx telescope gain     │ +113 dBi  │ 8 cm aperture   │         │
+│  │  Tx efficiency         │ -2 dB     │ optics losses   │         │
+│  │  ──────────────────────┼───────────┼─────────────────│         │
+│  │  EIRP (equivalent)     │ +148 dBm  │                 │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PATH:                                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Free space loss at 1550 nm:                          │         │
+│  │  FSPL = 20log(4πd/λ)                                  │         │
+│  │  FSPL = 20log(4π × 2×10⁹ m / 1.55×10⁻⁶ m)            │         │
+│  │  FSPL = -292 dB (!)                                   │         │
+│  │                                                        │         │
+│  │  Compare to Ka-band: -206 dB                          │         │
+│  │  Difference: 86 dB more loss!                         │         │
+│  │                                                        │         │
+│  │  But optical antenna gain is ~80 dB higher too       │         │
+│  │  (small aperture at short wavelength = huge gain)     │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  RECEIVE SIDE:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Rx telescope gain     │ +113 dBi  │ 8 cm aperture   │         │
+│  │  Rx efficiency         │ -2 dB     │ optics losses   │         │
+│  │  Pointing loss         │ -3 dB     │ jitter penalty  │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LINK MARGIN:                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Received power = 148 - 292 + 113 - 2 - 3            │         │
+│  │                 = -36 dBm = 250 nW                    │         │
+│  │                                                        │         │
+│  │  Detector sensitivity (10 Gbps DPSK): -45 dBm        │         │
+│  │                                                        │         │
+│  │  Link margin: -36 - (-45) = 9 dB                     │         │
+│  │                                                        │         │
+│  │  Adequate for reliable operation with margin for     │         │
+│  │  pointing errors and component degradation           │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Pointing precision requirements
+
+```
+Optical Beam Divergence and Pointing:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  BEAM DIVERGENCE:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Full angle divergence ≈ 2.44 × λ/D                   │         │
+│  │                                                        │         │
+│  │  For 8 cm aperture at 1550 nm:                        │         │
+│  │  θ = 2.44 × 1.55 μm / 80 mm                           │         │
+│  │  θ = 47 μrad = 0.0027° = 9.7 arcsec                   │         │
+│  │                                                        │         │
+│  │  At 2000 km range:                                    │         │
+│  │  Beam footprint = 2000 km × 47 μrad = 94 m diameter   │         │
+│  │                                                        │         │
+│  │  Compare to Ka-band (0.5m dish):                      │         │
+│  │  Beam footprint ≈ 60 km diameter                      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  POINTING REQUIREMENT:                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Need pointing accuracy < beam divergence / 10        │         │
+│  │  Required: < 5 μrad = 1 arcsec                        │         │
+│  │                                                        │         │
+│  │  This is EXTREMELY precise:                           │         │
+│  │                                                        │         │
+│  │       ┌──────────────────────────────────┐            │         │
+│  │       │         │          │             │            │         │
+│  │       │  Human  │  Star    │  Optical    │            │         │
+│  │       │  eye    │  tracker │  ISL        │            │         │
+│  │       │         │          │  pointing   │            │         │
+│  │       │ 60"     │  1-10"   │  &lt;1"        │            │         │
+│  │       │         │          │             │            │         │
+│  │       └──────────────────────────────────┘            │         │
+│  │                                                        │         │
+│  │  Solutions:                                           │         │
+│  │  • Coarse pointing: gimbal (±60°, 1 mrad accuracy)   │         │
+│  │  • Fine pointing: fast steering mirror (±1°, &lt;1 μrad)│         │
+│  │  • Tracking: beacon + quad-cell detector feedback    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  POINTING ARCHITECTURE:                                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Level     │ Mechanism        │ Range    │ Accuracy   │         │
+│  │  ──────────┼──────────────────┼──────────┼───────────│         │
+│  │  Spacecraft│ Reaction wheels  │ Full sky │ ~100 μrad │         │
+│  │  Coarse    │ Gimbal assembly  │ ±60°     │ ~1 mrad   │         │
+│  │  Fine      │ Fast steering    │ ±1°      │ &lt;1 μrad   │         │
+│  │            │ mirror (FSM)     │          │           │         │
+│  │  ──────────┴──────────────────┴──────────┴───────────│         │
+│  │                                                        │         │
+│  │  Loop bandwidth: 100-1000 Hz for vibration rejection  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Modulation and detection
+
+```
+Optical Modulation Schemes:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  INTENSITY MODULATION (IM/DD - older):                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Laser ──────┬──────┬──────┬──────► Time              │         │
+│  │  Power      ON     OFF    ON      OFF                 │         │
+│  │             "1"    "0"    "1"     "0"                 │         │
+│  │                                                        │         │
+│  │  Pros: Simple, low cost                               │         │
+│  │  Cons: Lower sensitivity, ~3 dB penalty vs coherent  │         │
+│  │  Rate: Up to ~10 Gbps practical                       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DPSK (Differential Phase Shift Keying):                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Phase: ───0°──180°──0°──0°──180°──► Time             │         │
+│  │          "1"   "0"  "1" "1"  "0"                      │         │
+│  │                                                        │         │
+│  │  Pros: Better sensitivity than IM/DD                  │         │
+│  │  Cons: Needs interferometric detector                 │         │
+│  │  Rate: 10-25 Gbps per wavelength                      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  COHERENT (QPSK, 16-QAM):                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │       Q                                               │         │
+│  │       │     ●         ●                               │         │
+│  │       │                                               │         │
+│  │  ─────┼───────────────────── I                        │         │
+│  │       │                                               │         │
+│  │       │     ●         ●                               │         │
+│  │       │                                               │         │
+│  │       QPSK: 4 symbols → 2 bits/symbol                │         │
+│  │                                                        │         │
+│  │  Pros: Best sensitivity, highest spectral efficiency │         │
+│  │  Cons: Complex, needs local oscillator laser         │         │
+│  │  Rate: 100+ Gbps per wavelength (with WDM: Tbps!)    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Optical ISL link budget calculator:**
+
+```python
+import numpy as np
+
+# Constants
+C = 299792458  # m/s
+H_PLANCK = 6.62607015e-34  # J·s
+
+def optical_fspl_db(distance_km, wavelength_nm):
+    """Free space path loss for optical wavelength."""
+    d_m = distance_km * 1000
+    lambda_m = wavelength_nm * 1e-9
+    return 20 * np.log10(4 * np.pi * d_m / lambda_m)
+
+def telescope_gain_db(aperture_m, wavelength_nm, efficiency=0.8):
+    """Telescope gain (diffraction-limited)."""
+    lambda_m = wavelength_nm * 1e-9
+    area = np.pi * (aperture_m / 2) ** 2
+    gain = efficiency * (np.pi * aperture_m / lambda_m) ** 2
+    return 10 * np.log10(gain)
+
+def beam_divergence_urad(aperture_m, wavelength_nm):
+    """Full-angle beam divergence in microradians."""
+    lambda_m = wavelength_nm * 1e-9
+    theta = 2.44 * lambda_m / aperture_m
+    return theta * 1e6  # Convert to μrad
+
+def beam_footprint_m(range_km, divergence_urad):
+    """Beam diameter at target range."""
+    return range_km * 1000 * divergence_urad * 1e-6
+
+def photons_per_bit(rx_power_dbm, data_rate_gbps, wavelength_nm):
+    """Calculate received photons per bit."""
+    rx_power_w = 10 ** ((rx_power_dbm - 30) / 10)
+    lambda_m = wavelength_nm * 1e-9
+    photon_energy = H_PLANCK * C / lambda_m
+    photons_per_sec = rx_power_w / photon_energy
+    bits_per_sec = data_rate_gbps * 1e9
+    return photons_per_sec / bits_per_sec
+
+def optical_isl_link_budget(tx_power_dbm, tx_aperture_m, rx_aperture_m,
+                            wavelength_nm, range_km, 
+                            tx_loss_db=2, rx_loss_db=2, pointing_loss_db=3):
+    """Complete optical ISL link budget."""
+    # Gains
+    tx_gain = telescope_gain_db(tx_aperture_m, wavelength_nm)
+    rx_gain = telescope_gain_db(rx_aperture_m, wavelength_nm)
+    
+    # Path loss
+    fspl = optical_fspl_db(range_km, wavelength_nm)
+    
+    # Received power
+    rx_power = (tx_power_dbm + tx_gain - tx_loss_db 
+                - fspl + rx_gain - rx_loss_db - pointing_loss_db)
+    
+    # Beam parameters
+    divergence = beam_divergence_urad(tx_aperture_m, wavelength_nm)
+    footprint = beam_footprint_m(range_km, divergence)
+    pointing_req = divergence / 10  # μrad
+    
+    return {
+        'tx_power_dbm': tx_power_dbm,
+        'tx_gain_dbi': tx_gain,
+        'rx_gain_dbi': rx_gain,
+        'fspl_db': fspl,
+        'rx_power_dbm': rx_power,
+        'divergence_urad': divergence,
+        'footprint_m': footprint,
+        'pointing_req_urad': pointing_req,
+        'pointing_req_arcsec': pointing_req * 0.206,
+    }
+
+def detector_sensitivity_dbm(modulation, data_rate_gbps):
+    """Approximate detector sensitivity for given modulation."""
+    # Sensitivity in photons/bit, then convert to dBm
+    ppb = {
+        'OOK': 100,       # On-off keying
+        'DPSK': 30,       # Differential PSK
+        'BPSK_coherent': 10,  # Coherent BPSK
+        'QPSK_coherent': 15,  # Coherent QPSK
+    }
+    
+    if modulation not in ppb:
+        return None
+    
+    wavelength_nm = 1550
+    lambda_m = wavelength_nm * 1e-9
+    photon_energy = H_PLANCK * C / lambda_m
+    
+    power_w = ppb[modulation] * photon_energy * data_rate_gbps * 1e9
+    return 10 * np.log10(power_w) + 30  # dBm
+
+# Analysis
+print("Optical ISL Link Budget Analysis")
+print("=" * 60)
+
+# Starlink-class optical ISL
+print("\n1. LEO Optical ISL (Starlink-class)")
+print("-" * 60)
+budget = optical_isl_link_budget(
+    tx_power_dbm=37,         # 5 W optical
+    tx_aperture_m=0.08,      # 8 cm telescope
+    rx_aperture_m=0.08,
+    wavelength_nm=1550,      # Telecom C-band
+    range_km=2000,
+)
+
+for k, v in budget.items():
+    if 'db' in k.lower():
+        print(f"  {k:20}: {v:+.1f} dB")
+    elif 'urad' in k.lower():
+        print(f"  {k:20}: {v:.1f} μrad")
+    elif 'arcsec' in k.lower():
+        print(f"  {k:20}: {v:.1f} arcsec")
+    elif '_m' in k.lower() and 'dbm' not in k.lower():
+        print(f"  {k:20}: {v:.1f} m")
+    else:
+        print(f"  {k:20}: {v:.1f}")
+
+# Check margin for different modulations
+print("\n  Modulation Analysis (10 Gbps):")
+print(f"  {'Modulation':15} {'Sensitivity':>12} {'Margin':>10}")
+for mod in ['OOK', 'DPSK', 'BPSK_coherent', 'QPSK_coherent']:
+    sens = detector_sensitivity_dbm(mod, 10)
+    margin = budget['rx_power_dbm'] - sens
+    print(f"  {mod:15} {sens:>10.1f} dBm {margin:>8.1f} dB")
+
+# Photons per bit
+ppb = photons_per_bit(budget['rx_power_dbm'], 10, 1550)
+print(f"\n  Photons per bit (10 Gbps): {ppb:.0f}")
+
+# Longer range scenario (GEO relay)
+print("\n2. GEO-LEO Optical Link (EDRS-class)")
+print("-" * 60)
+budget2 = optical_isl_link_budget(
+    tx_power_dbm=40,         # 10 W optical
+    tx_aperture_m=0.135,     # 13.5 cm (EDRS spec)
+    rx_aperture_m=0.135,
+    wavelength_nm=1064,      # Nd:YAG
+    range_km=45000,          # GEO-LEO distance
+)
+
+for k, v in budget2.items():
+    if 'db' in k.lower():
+        print(f"  {k:20}: {v:+.1f} dB")
+    elif 'urad' in k.lower():
+        print(f"  {k:20}: {v:.1f} μrad")
+    elif 'arcsec' in k.lower():
+        print(f"  {k:20}: {v:.1f} arcsec")
+    elif '_m' in k.lower() and 'dbm' not in k.lower():
+        print(f"  {k:20}: {v:.1f} m")
+
+# Comparison table
+print("\n" + "=" * 60)
+print("RF vs Optical ISL Comparison (2000 km)")
+print("-" * 60)
+print(f"{'Parameter':25} {'Ka-band RF':>15} {'Optical':>15}")
+print("-" * 60)
+print(f"{'Wavelength':25} {'12 mm':>15} {'1.55 μm':>15}")
+print(f"{'Frequency':25} {'25 GHz':>15} {'193 THz':>15}")
+print(f"{'Antenna/aperture':25} {'0.5 m dish':>15} {'8 cm telescope':>15}")
+print(f"{'Antenna gain':25} {'~35 dBi':>15} {'~113 dBi':>15}")
+print(f"{'FSPL':25} {'~207 dB':>15} {'~292 dB':>15}")
+print(f"{'Beamwidth':25} {'~1.7°':>15} {'~0.003°':>15}")
+print(f"{'Pointing accuracy':25} {'~0.2°':>15} {'~1 arcsec':>15}")
+print(f"{'Typical data rate':25} {'1-2 Gbps':>15} {'10-100 Gbps':>15}")
+print(f"{'Mass (terminal)':25} {'~10 kg':>15} {'~3-5 kg':>15}")
+print(f"{'Spectrum license':25} {'Required':>15} {'Not required':>15}")
+```
+
+**Operational optical ISL systems:**
+
+| System | Operator | Wavelength | Rate | Range | Status |
+|--------|----------|------------|------|-------|--------|
+| Starlink v1.5+ | SpaceX | 1550 nm | ~100 Gbps | 2,000 km | Operational |
+| EDRS | ESA | 1064 nm | 1.8 Gbps | 45,000 km | Operational |
+| LCRD | NASA | 1550 nm | 1.2 Gbps | GEO-ground | Operational |
+| SDA Tranche 1 | US DoD | 1550 nm | 10 Gbps | LEO mesh | Deploying |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Pointing is everything.** A 5 μrad pointing error loses 3 dB; 20 μrad loses most of your signal.
+
+2. **Acquisition time.** Finding the partner satellite takes 10-60 seconds; plan for handover gaps.
+
+3. **Sun blinding.** When Sun is near line of sight, detector saturates; may need to break link.
+
+4. **Background noise.** Earth albedo, Sun reflection from target can raise noise floor.
+
+5. **Thermal management.** Laser generates heat; stable operation needs active thermal control.
+
+6. **Wavelength choice matters.** 1550 nm has lower solar background but 1064 nm has higher power lasers.
+
+7. **Coherent vs incoherent tradeoff.** Coherent detection needs matched linewidth lasers — adds complexity.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Hemmati, H. "Deep Space Optical Communications" (JPL)
+- ESA EDRS System Description Document
+- CCSDS 141.0-B-1: Optical Communications Physical Layer
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [ISL Pointing & Acquisition](/en/space/inter-satellite-links-laser-rf/isl-pointing-acquisition/) — acquisition sequences
+- [RF ISL](/en/space/inter-satellite-links-laser-rf/rf-isl/) — comparison technology
+- [LEO Constellation Architecture](/en/space/leo-constellation-architecture/starlink-class-design/) — mesh networking
+
+</section>

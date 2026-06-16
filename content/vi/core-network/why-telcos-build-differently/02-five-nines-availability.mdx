@@ -1,24 +1,300 @@
 ---
-id: core-network-n0-why-telcos-build-differently-02-five-nines-availability-vi
+id: core-network-n1-why-telcos-build-differently-02-five-nines-availability-vi
 slug: five-nines-availability
 lang: vi
-parityId: core-network-n0-why-telcos-build-differently-02-five-nines-availability
+parityId: core-network-n1-why-telcos-build-differently-02-five-nines-availability
 domain: core-network
-track: n0
+track: n1
 unit: why-telcos-build-differently
 order: 2
 level: L1
-estimatedReadingMinutes: 5
-title: "Tinh kha dung 99.999%"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n1-why-telcos-build-differently-01-carrier-grade-requirements"]
+spiralRevisits: ["core-network-n3-5g-core-deployment-01-redundancy-patterns"]
+title: "Tính khả dụng 99.999%"
+description: "Toán học và engineering đằng sau 99.999% uptime — tại sao nó khó và cách đạt được."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["ITU-T E.800", "TL 9000"]
+tags: ["availability", "reliability", "high-availability", "telecom"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tinh kha dung 99.999%
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+"Five nines" nghe như thuật ngữ marketing. Không phải — đó là ràng buộc engineering định hình mọi quyết định thiết kế.
+
+Với 99.999% availability, bạn có 5.26 phút downtime mỗi năm. Đó là khoảng 26 giây mỗi tháng. Một deployment sai và bạn đã tiêu hết ngân sách cả năm.
+
+Hiểu cách đạt và đo five nines phân biệt kiến trúc lý thuyết với thực tế production.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+### Bảng nines
+
+| Availability | Downtime/năm | Downtime/tháng | Downtime/tuần |
+|--------------|--------------|----------------|---------------|
+| 99% (two nines) | 3.65 ngày | 7.31 giờ | 1.68 giờ |
+| 99.9% (three nines) | 8.76 giờ | 43.83 phút | 10.08 phút |
+| 99.99% (four nines) | 52.60 phút | 4.38 phút | 1.01 phút |
+| 99.999% (five nines) | 5.26 phút | 26.30 giây | 6.05 giây |
+| 99.9999% (six nines) | 31.56 giây | 2.63 giây | 0.60 giây |
+
+**Insight quan trọng:** Mỗi nine thêm vào khó 10× hơn. Đi từ 99.9% lên 99.99% là engineering khác biệt về cơ bản — không phải chỉ "cố gắng hơn."
+
+### Cái gì tính là downtime?
+
+Availability được đo ở **mức dịch vụ**, không phải mức component:
+
+$$A = \frac{\text{Uptime}}{\text{Total time}} = \frac{\text{MTBF}}{\text{MTBF} + \text{MTTR}}$$
+
+Trong đó:
+- **MTBF** = Mean Time Between Failures
+- **MTTR** = Mean Time To Repair (hoặc Recover)
+
+**Dịch vụ "up" nếu:** Người dùng có thể hoàn thành hành động dự định. Với voice, đó là thực hiện cuộc gọi. Với data, đó là thiết lập session.
+
+**Bảo trì có kế hoạch tính** trừ khi bạn có hitless upgrade thực sự. Nếu người dùng không thể gọi điện trong maintenance window 2 AM của bạn, đó là downtime.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### Hệ thống Serial vs Parallel
+
+**Hệ thống serial:** Component theo sequence. Tất cả phải hoạt động.
+
+```
+[A] → [B] → [C]
+```
+
+$$A_{serial} = A_A \times A_B \times A_C$$
+
+Nếu mỗi component là 99.9% available:
+$$A_{serial} = 0.999^3 = 99.7\%$$
+
+Three nines → ít hơn three nines. **Serial chain giết availability.**
+
+**Hệ thống parallel:** Component trong redundancy. Bất kỳ cái nào hoạt động là đủ.
+
+```
+    ┌──[A]──┐
+────┤       ├────
+    └──[B]──┘
+```
+
+$$A_{parallel} = 1 - (1 - A_A)(1 - A_B)$$
+
+Nếu mỗi component là 99% available:
+$$A_{parallel} = 1 - (0.01)^2 = 99.99\%$$
+
+Two nines → four nines với dual redundancy. **Parallel redundancy nhân availability.**
+
+### Đạt Five Nines
+
+**Chiến lược 1: Giảm MTTR**
+
+Nếu component fail, recover nhanh.
+
+| MTBF | MTTR | Availability |
+|------|------|--------------|
+| 1000 giờ | 1 giờ | 99.9% |
+| 1000 giờ | 6 phút | 99.99% |
+| 1000 giờ | 36 giây | 99.999% |
+
+**Chiến thuật:**
+- Automated failover (không có người trong loop)
+- Pre-staged spare capacity
+- Health check mỗi vài giây
+- Graceful degradation (shed load, không crash)
+
+**Chiến lược 2: Tăng MTBF**
+
+Ngăn failure ngay từ đầu.
+
+**Chiến thuật:**
+- Component chất lượng cao hơn (enterprise vs consumer)
+- Burn-in testing trước deployment
+- Thay thế chủ động trước khi fail
+- Kiểm soát môi trường (nhiệt độ, nguồn điện)
+
+**Chiến lược 3: Loại bỏ Single Point of Failure**
+
+Với mọi component, hỏi: "Nếu cái này fail, dịch vụ có fail không?"
+
+**SPOF phổ biến trong network:**
+- Single router/switch trên đường đi
+- Single power feed
+- Single database instance
+- Single configuration management system
+- Single người vận hành thực hiện thay đổi
+
+**Ví dụ: Kiến trúc dual-homed**
+
+```
+        ┌───────────┐
+        │  Client   │
+        └─────┬─────┘
+              │
+    ┌─────────┴─────────┐
+    │                   │
+┌───┴───┐           ┌───┴───┐
+│ LB-A  │           │ LB-B  │
+└───┬───┘           └───┬───┘
+    │                   │
+    └─────────┬─────────┘
+              │
+    ┌─────────┴─────────┐
+    │                   │
+┌───┴───┐           ┌───┴───┐
+│ App-A │           │ App-B │
+└───┬───┘           └───┬───┘
+    │                   │
+    └─────────┬─────────┘
+              │
+    ┌─────────┴─────────┐
+    │                   │
+┌───┴───┐           ┌───┴───┐
+│ DB-1  │◄─────────►│ DB-2  │
+└───────┘  sync     └───────┘
+```
+
+Mọi tier có redundancy. Client kết nối đến đường nào cũng được. Failure của bất kỳ component đơn lẻ nào không gây outage dịch vụ.
+
+### Kẻ Thù Ẩn: Correlated Failure
+
+Redundancy giả định failure độc lập. Correlated failure phá vỡ giả định này.
+
+**Ví dụ:**
+- Software bug ảnh hưởng tất cả instance đồng thời
+- Mất điện làm sập cả active và standby
+- Network partition cô lập toàn bộ rack
+- Configuration change push đến tất cả node
+- Operator error trong maintenance
+
+**Mitigation:**
+- **Diversity:** Vendor khác nhau, software version khác nhau, power feed khác nhau
+- **Isolation:** Failure domain riêng (rack, zone, region)
+- **Staged rollout:** Không push thay đổi everywhere cùng lúc
+- **Chaos engineering:** Cố tình inject failure để tìm correlated weakness
+
+### Đo Availability
+
+**Service-level indicator (SLI):**
+- Tỷ lệ request thành công
+- Error rate
+- Latency (P50, P95, P99)
+
+**Service-level objective (SLO):**
+- "99.99% request thành công trong 100ms"
+- "99.999% cuộc gọi voice kết nối trong 5 giây"
+
+**Service-level agreement (SLA):**
+- Cam kết hợp đồng với penalty
+- Thường 0.5-1 nine dưới SLO nội bộ (buffer)
+
+**Thách thức đo:**
+- Clock drift giữa các hệ thống monitoring
+- Hệ thống monitoring cũng có thể fail
+- Định nghĩa "available" khác nhau theo perspective
+- Aggregation che giấu outage ngắn
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Tính availability cho một hệ thống:**
+
+Cho:
+- 2 load balancer (99.9% mỗi cái, active-active)
+- 3 app server (99.9% mỗi cái, cần 2 trong 3)
+- 2 database (99.9% mỗi cái, active-standby với 30s failover)
+
+**Availability load balancer:**
+$$A_{LB} = 1 - (1 - 0.999)^2 = 99.9999\%$$
+
+**Availability app server (2 trong 3):**
+$$A_{App} = \binom{3}{3}(0.999)^3 + \binom{3}{2}(0.999)^2(0.001)$$
+$$= 0.997 + 0.003 \times 0.999 = 99.9997\%$$
+
+**Availability database:**
+Active-standby với MTTR=30s, giả sử 1 failure/tháng:
+$$A_{DB} \approx 99.999\%$$
+
+**Availability hệ thống:**
+$$A_{total} = A_{LB} \times A_{App} \times A_{DB}$$
+$$= 0.999999 \times 0.999997 \times 0.99999 \approx 99.998\%$$
+
+Gần five nines — nhưng database là yếu tố giới hạn.
+
+**Cải thiện thiết kế:**
+- Giảm DB failover time xuống &lt;1s
+- Thêm read replica cho query load
+- Implement connection pooling để che failover ngắn
+
+**Quản lý ngân sách availability:**
+
+Ngân sách năm với 99.99%: 52.6 phút
+
+| Sự kiện | Thời gian | Ngân sách dùng |
+|---------|-----------|----------------|
+| Upgrade có kế hoạch (hitless) | 0 phút | 0% |
+| Software bug (auto-recover) | 2 phút | 3.8% |
+| Network issue (manual fix) | 15 phút | 28.5% |
+| Còn lại | — | 67.7% |
+
+Sau network issue, bạn còn ~35 phút cho cả năm. Điều này thay đổi risk tolerance cho deployment.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Trung bình che spike.** 99.99% trung bình tháng có thể che 4-giờ outage nếu phần còn lại perfect. SLO nên bao gồm burst detection.
+
+2. **Đo từ điểm sai.** Server-side metric bỏ lỡ client-side failure. Luôn đo từ perspective người dùng.
+
+3. **Bỏ qua partial failure.** Nếu 10% người dùng không kết nối được, dịch vụ có up không? Định nghĩa degraded state rõ ràng.
+
+4. **Coi MTBF là hằng số.** Component cũ đi. MTBF giảm theo thời gian. Lên kế hoạch thay thế chủ động.
+
+5. **Nhầm planned và unplanned downtime.** Một số SLA loại trừ planned maintenance. Làm rõ cái gì tính.
+
+6. **Tin claim của vendor.** "Five nines capable" không có nghĩa gì. Yêu cầu measured availability trong deployment tương đương.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- ITU-T E.800, "Terms and definitions related to quality of service"
+- TL 9000, "Quality Management System Requirements"
+- Marcus & Stern, *Blueprints for High Availability*, Wiley, 2003
+- Beyer et al., *Site Reliability Engineering*, O'Reilly, 2016
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [Bối cảnh pháp lý viễn thông](/vi/core-network/why-telcos-build-differently/telco-regulatory-context/) — yêu cầu compliance bắt buộc availability
+- [MTBF và MTTR](/vi/core-network/carrier-grade-vocabulary/mtbf-and-mttr/) — deep dive vào failure metric
+- [Redundancy pattern](/vi/core-network/carrier-grade-vocabulary/redundancy-patterns/) — active-active, active-standby, N+M
+
+</section>

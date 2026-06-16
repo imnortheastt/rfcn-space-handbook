@@ -8,17 +8,450 @@ track: s7
 unit: space-ground-link-antenna-perspective
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "Electronic steering"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["space-s7-space-ground-link-antenna-perspective-01-phased-arrays-on-ground"]
+spiralRevisits: []
+title: "Electronic Steering — Beamforming Algorithms and Implementation"
+description: "Deep dive into how phase shifters and beamforming algorithms steer antenna beams electronically."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["beamforming", "phase-shifter", "digital-beamforming", "analog-beamforming", "esa"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Electronic steering
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Electronic steering is what makes flat-panel satellite antennas possible. Instead of physically rotating a dish, we compute the right phase shift for each antenna element to point the beam wherever we want—in microseconds. Understanding beamforming algorithms, phase shifter technologies, and the tradeoffs between analog and digital approaches is essential for designing next-generation satellite terminals and base stations.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### From physics to algorithm
+
+```
+The Beamforming Problem:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  GIVEN:                                                             │
+│  • N antenna elements at known positions                            │
+│  • Desired beam direction (θ, φ) in spherical coordinates          │
+│  • Operating frequency f (wavelength λ)                            │
+│                                                                      │
+│  FIND:                                                              │
+│  • Phase shift φₙ for each element n                               │
+│  • (Optional) Amplitude weight wₙ for each element                 │
+│                                                                      │
+│  SOLUTION (uniform linear array):                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  φₙ = -k × dₙ × sin(θ)                                │         │
+│  │                                                        │         │
+│  │  where:                                                │         │
+│  │    k = 2π/λ (wavenumber)                              │         │
+│  │    dₙ = position of element n                        │         │
+│  │    θ = desired steering angle                         │         │
+│  │                                                        │         │
+│  │  For 2D planar array:                                 │         │
+│  │  φₘₙ = -k × (xₘ × sin(θ)cos(φ) + yₙ × sin(θ)sin(φ)) │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Phase shifter operation
+
+```
+How Phase Shifters Work:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  BASIC CONCEPT:                                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Input signal ───► [Phase Shifter] ───► Output signal │         │
+│  │       A∠0°              +φ              A∠φ          │         │
+│  │                                                        │         │
+│  │  The signal is delayed (phase shifted) without        │         │
+│  │  changing amplitude (ideally)                         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PHASE SHIFTER TYPES:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. SWITCHED-LINE:                                    │         │
+│  │     ┌──────────────────┐                              │         │
+│  │     │    Short path    │                              │         │
+│  │  ──►│  ═══════════════ │──►                          │         │
+│  │     │    Long path     │                              │         │
+│  │     │  ═══╲      ╱═══  │                              │         │
+│  │     │      ╲    ╱      │                              │         │
+│  │     │       ╲  ╱       │                              │         │
+│  │     │        ╳         │  → switches select path      │         │
+│  │     └──────────────────┘                              │         │
+│  │                                                        │         │
+│  │  2. LOADED-LINE:                                      │         │
+│  │     Variable capacitors change effective length       │         │
+│  │                                                        │         │
+│  │  3. REFLECTION-TYPE:                                  │         │
+│  │     Varactor diodes reflect signal with variable φ   │         │
+│  │                                                        │         │
+│  │  4. VECTOR MODULATOR:                                 │         │
+│  │     I/Q decomposition for arbitrary phase/amplitude  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Analog vs digital beamforming
+
+```
+Beamforming Architectures:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ANALOG BEAMFORMING:                                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ▭ ──► [φ₁] ──┐                                       │         │
+│  │  ▭ ──► [φ₂] ──┼──► [Combiner] ──► [ADC] ──► DSP     │         │
+│  │  ▭ ──► [φ₃] ──┤                                       │         │
+│  │  ▭ ──► [φ₄] ──┘                                       │         │
+│  │                                                        │         │
+│  │  • Single RF chain (cheaper)                          │         │
+│  │  • Phase shifts in analog domain                     │         │
+│  │  • Limited to single beam at a time                  │         │
+│  │  • Lower power consumption                           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DIGITAL BEAMFORMING:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ▭ ──► [LNA] ──► [ADC] ──┐                           │         │
+│  │  ▭ ──► [LNA] ──► [ADC] ──┼──► DSP (compute φ)       │         │
+│  │  ▭ ──► [LNA] ──► [ADC] ──┤                           │         │
+│  │  ▭ ──► [LNA] ──► [ADC] ──┘                           │         │
+│  │                                                        │         │
+│  │  • RF chain per element (expensive)                  │         │
+│  │  • Phase shifts computed digitally                   │         │
+│  │  • Multiple simultaneous beams possible              │         │
+│  │  • Maximum flexibility, highest power                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  HYBRID BEAMFORMING:                                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ▭ ▭ ▭ ▭ ──► [Analog BF] ──► [ADC] ──┐               │         │
+│  │  ▭ ▭ ▭ ▭ ──► [Analog BF] ──► [ADC] ──┼──► DSP       │         │
+│  │  ▭ ▭ ▭ ▭ ──► [Analog BF] ──► [ADC] ──┤               │         │
+│  │  ▭ ▭ ▭ ▭ ──► [Analog BF] ──► [ADC] ──┘               │         │
+│  │                                                        │         │
+│  │  • Subarrays with analog BF                          │         │
+│  │  • Digital BF between subarrays                      │         │
+│  │  • Best of both worlds (cost vs flexibility)         │         │
+│  │  • Common in 5G massive MIMO and satcom              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Beam steering speed
+
+```
+Steering Speed Comparison:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Technology        │ Steering time │ Use case                      │
+│  ──────────────────┼───────────────┼────────────────────────────── │
+│  Mechanical dish   │ 1-10 seconds  │ GEO tracking                 │
+│  Hybrid (motor+ESA)│ 0.1-1 second  │ LEO coarse+fine              │
+│  Analog phase shift│ 1-100 μs      │ LEO tracking, 5G             │
+│  Digital BF        │ < 1 μs        │ Multi-beam, radar            │
+│                                                                      │
+│  LEO TRACKING REQUIREMENT:                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Satellite angular velocity at 550 km altitude:       │         │
+│  │    ~1°/second at zenith                               │         │
+│  │    ~3°/second near horizon                            │         │
+│  │                                                        │         │
+│  │  For 0.5° beamwidth, need to update:                  │         │
+│  │    Every ~150 ms at zenith                            │         │
+│  │    Every ~50 ms near horizon                          │         │
+│  │                                                        │         │
+│  │  Analog ESA easily handles this (μs updates)          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Calibration requirements
+
+```
+ESA Calibration:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  WHY CALIBRATION IS CRITICAL:                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Ideal:   All elements have identical phase response  │         │
+│  │  Reality: Each element has unique phase/amplitude     │         │
+│  │           Manufacturing tolerances                    │         │
+│  │           Temperature drift                           │         │
+│  │           Aging effects                               │         │
+│  │                                                        │         │
+│  │  Impact: Beam points wrong direction, sidelobes grow  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CALIBRATION PROCESS:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. FACTORY CALIBRATION                               │         │
+│  │     - Measure each element's phase/amplitude         │         │
+│  │     - Store correction table in firmware             │         │
+│  │                                                        │         │
+│  │  2. FIELD CALIBRATION (periodic)                     │         │
+│  │     - Use known satellite beacon                     │         │
+│  │     - Adjust for temperature, aging                  │         │
+│  │                                                        │         │
+│  │  3. CONTINUOUS CALIBRATION                           │         │
+│  │     - Inject pilot signals                           │         │
+│  │     - Measure and correct in real-time               │         │
+│  │                                                        │         │
+│  │  Typical accuracy needed: < 5° phase, < 0.5 dB gain  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Beamforming algorithm implementation:**
+
+```python
+import numpy as np
+
+def compute_steering_vector(element_positions, theta_deg, phi_deg, frequency_ghz):
+    """
+    Compute steering vector for arbitrary array geometry.
+    
+    Args:
+        element_positions: Nx3 array of (x,y,z) positions in meters
+        theta_deg: Elevation angle from broadside (0=up)
+        phi_deg: Azimuth angle (0=x-axis)
+        frequency_ghz: Operating frequency
+    
+    Returns:
+        Complex steering vector (phase shifts)
+    """
+    c = 299792458
+    wavelength = c / (frequency_ghz * 1e9)
+    k = 2 * np.pi / wavelength
+    
+    # Convert angles to radians
+    theta = np.radians(theta_deg)
+    phi = np.radians(phi_deg)
+    
+    # Unit vector in desired direction
+    u = np.array([
+        np.sin(theta) * np.cos(phi),
+        np.sin(theta) * np.sin(phi),
+        np.cos(theta)
+    ])
+    
+    # Phase shift for each element
+    phases = -k * np.dot(element_positions, u)
+    
+    # Return complex steering vector
+    return np.exp(1j * phases)
+
+def create_ula(n_elements, spacing_wavelengths):
+    """Create uniform linear array positions."""
+    positions = np.zeros((n_elements, 3))
+    positions[:, 0] = np.arange(n_elements) * spacing_wavelengths
+    return positions
+
+def create_upa(nx, ny, spacing_wavelengths):
+    """Create uniform planar array positions."""
+    positions = []
+    for i in range(nx):
+        for j in range(ny):
+            positions.append([i * spacing_wavelengths, j * spacing_wavelengths, 0])
+    return np.array(positions)
+
+def array_factor(element_positions, weights, theta_scan, phi_scan, frequency_ghz):
+    """
+    Compute array factor (radiation pattern) for given weights.
+    """
+    theta_vals = np.linspace(-90, 90, 361)
+    af = np.zeros(len(theta_vals), dtype=complex)
+    
+    c = 299792458
+    wavelength = c / (frequency_ghz * 1e9)
+    k = 2 * np.pi / wavelength
+    
+    for i, theta in enumerate(theta_vals):
+        theta_rad = np.radians(theta)
+        u = np.array([np.sin(theta_rad), 0, np.cos(theta_rad)])
+        phases = k * np.dot(element_positions, u)
+        af[i] = np.sum(weights * np.exp(1j * phases))
+    
+    return theta_vals, np.abs(af)
+
+# Example: 8-element linear array beamforming
+print("Electronic Beam Steering Example")
+print("=" * 60)
+
+freq = 12.0  # GHz
+wavelength = 299792458 / (freq * 1e9)
+n_elements = 8
+spacing = 0.5  # wavelengths
+
+# Create array
+positions = create_ula(n_elements, spacing * wavelength)
+
+print(f"\nArray Configuration:")
+print(f"  Elements: {n_elements}")
+print(f"  Frequency: {freq} GHz")
+print(f"  Spacing: {spacing}λ = {spacing * wavelength * 1000:.2f} mm")
+
+# Compute steering vectors for different angles
+print(f"\n1. Phase Shifts for Different Steering Angles")
+print("-" * 60)
+print(f"  {'Angle':>8} | {'Phase shifts (degrees)':>45}")
+print("-" * 60)
+
+for theta in [0, 15, 30, 45]:
+    sv = compute_steering_vector(positions, theta, 0, freq)
+    phases = np.angle(sv, deg=True)
+    phase_str = " ".join([f"{p:6.1f}" for p in phases])
+    print(f"  {theta:>6}° | {phase_str}")
+
+# Phase shifter resolution impact
+print(f"\n2. Phase Shifter Resolution Impact")
+print("-" * 60)
+
+def quantize_phases(phases, bits):
+    """Quantize phases to given resolution."""
+    levels = 2 ** bits
+    step = 360 / levels
+    return np.round(phases / step) * step
+
+theta_target = 30  # degrees
+sv_ideal = compute_steering_vector(positions, theta_target, 0, freq)
+phases_ideal = np.angle(sv_ideal, deg=True) % 360
+
+print(f"  Target angle: {theta_target}°")
+print(f"  {'Bits':>6} {'Levels':>8} {'Max error':>12} {'Pointing error':>15}")
+
+for bits in [2, 3, 4, 5, 6]:
+    phases_quant = quantize_phases(phases_ideal, bits)
+    max_error = np.max(np.abs(phases_ideal - phases_quant))
+    # Approximate pointing error
+    pointing_err = max_error / 30  # rough approximation
+    print(f"  {bits:>6} {2**bits:>8} {max_error:>10.1f}° {pointing_err:>13.2f}°")
+
+# Beamwidth calculation
+print(f"\n3. Beamwidth Analysis")
+print("-" * 60)
+
+for n in [4, 8, 16, 32]:
+    pos = create_ula(n, spacing * wavelength)
+    aperture = (n - 1) * spacing * wavelength
+    beamwidth = np.degrees(0.886 * wavelength / aperture)
+    gain = 10 * np.log10(n) + 5  # approximate
+    print(f"  {n:>3} elements: BW = {beamwidth:>5.1f}°, Gain ≈ {gain:.1f} dBi")
+
+# Steering speed requirements
+print(f"\n4. LEO Tracking Update Rate")
+print("-" * 60)
+
+sat_altitude_km = 550
+orbital_velocity_km_s = 7.5
+angular_rate_deg_s = np.degrees(orbital_velocity_km_s / sat_altitude_km)
+
+for bw in [0.5, 1.0, 2.0, 5.0]:
+    update_period_ms = (bw / angular_rate_deg_s) * 1000
+    print(f"  Beamwidth {bw:>4.1f}°: update every {update_period_ms:>6.0f} ms")
+```
+
+**Technology comparison:**
+
+| Architecture | RF chains | Beams | Power | Cost | Use case |
+|--------------|-----------|-------|-------|------|----------|
+| Analog | 1 | 1 | Low | Low | Consumer ESA |
+| Hybrid | N/M | M | Medium | Medium | 5G, maritime |
+| Full digital | N | Many | High | High | Gateway, radar |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Phase shifter resolution.** 4-bit (16 levels) minimum for good beam pointing; 6-bit for low sidelobes.
+
+2. **Quantization lobes.** Coarse phase resolution creates additional sidelobes that waste power.
+
+3. **Calibration drift.** Temperature changes can shift phase by degrees; continuous cal needed.
+
+4. **Mutual coupling.** Elements affect each other; ignore this and beams point wrong.
+
+5. **Processing latency.** Digital BF needs fast DSP; latency matters for LEO tracking.
+
+6. **Power consumption.** Digital BF eats power; thermal management critical.
+
+7. **Complexity vs reliability.** More digital = more compute, more failure modes.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Van Trees, H. "Optimum Array Processing"
+- Mailloux, R. "Phased Array Antenna Handbook"
+- IEEE 802.11ad/ay beamforming standards
+- 3GPP TR 38.900 (5G massive MIMO)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Mechanical Tracking](/en/space/space-ground-link-antenna-perspective/mechanical-tracking/) — traditional approach
+- [Gateway Antennas](/en/space/space-ground-link-antenna-perspective/gateway-antennas/) — large ground stations
+- [Link Budget](/en/space/link-budget-master-class/) — applying antenna gains
+
+</section>

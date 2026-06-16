@@ -1,24 +1,257 @@
 ---
-id: core-network-n0-why-telcos-build-differently-01-carrier-grade-requirements-vi
+id: core-network-n1-why-telcos-build-differently-01-carrier-grade-requirements-vi
 slug: carrier-grade-requirements
 lang: vi
-parityId: core-network-n0-why-telcos-build-differently-01-carrier-grade-requirements
+parityId: core-network-n1-why-telcos-build-differently-01-carrier-grade-requirements
 domain: core-network
-track: n0
+track: n1
 unit: why-telcos-build-differently
 order: 1
 level: L1
-estimatedReadingMinutes: 5
-title: "Yeu cau cap nha mang"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-osi-tcpip-backend-perspective-01-osi-layers"]
+spiralRevisits: ["core-network-n2-5g-core-sba-01-service-based-architecture"]
+title: "Yêu cầu cấp nhà mạng"
+description: "Tại sao hệ thống viễn thông được xây dựng khác biệt — các yêu cầu không thể thương lượng định hình mọi quyết định thiết kế, và cách 5G đạt được chúng với công cụ cloud-native."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["TL 9000", "NEBS GR-63", "ETSI NFV", "3GPP TS 23.501"]
+tags: ["carrier-grade", "telecom", "reliability", "availability", "5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Yeu cau cap nha mang
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+Startup của bạn có thể chịu được vài phút downtime. Mạng viễn thông thì không.
+
+Khi dịch vụ cloud sập, người dùng phàn nàn trên mạng xã hội. Khi mạng viễn thông fail, cuộc gọi khẩn cấp không kết nối được, bệnh viện mất kết nối, điều phối xe cứu thương thất bại, và hệ thống thanh toán tài chính dừng lại. Sự khác biệt về hậu quả định hình mọi quyết định kiến trúc, từ lựa chọn phần cứng đến quy trình triển khai phần mềm.
+
+Hiểu yêu cầu carrier-grade giúp bạn đánh giá tại sao hệ thống viễn thông có vẻ "quá kỹ" — thực ra không phải. Chúng được thiết kế phù hợp cho miền failure của chúng. Và khi 5G chuyển sang hạ tầng cloud-native, kỹ sư cloud hiểu những ràng buộc này có thể xây dựng hệ thống đáp ứng chúng.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+**Carrier-grade** có nghĩa: "phù hợp để sử dụng trong mạng viễn thông công cộng."
+
+Các yêu cầu cốt lõi:
+
+| Yêu cầu | Mục tiêu | Cloud tương đương |
+|---------|----------|-------------------|
+| Availability | 99.999% (5 nines) | 99.9% (3 nines) |
+| Downtime hàng năm | Dưới 5.26 phút | Dưới 8.76 giờ |
+| Failover time | Dưới 50ms | Giây đến phút |
+| Bảo trì có kế hoạch | Zero downtime | Maintenance window |
+| Tuổi thọ | 15-20 năm | 3-5 năm |
+
+**Con số quan trọng.** Với 99.9% availability, bạn có khoảng 8 giờ downtime mỗi năm. Với 99.999%, bạn có khoảng 5 phút. Đáng tin cậy hơn 100 lần.
+
+**Mental model:** Hãy nghĩ về hạ tầng viễn thông như lưới điện hoặc hệ thống nước — dịch vụ thiết yếu mà failure có tác động xã hội lan rộng. Lưới điện không lên lịch maintenance window cắt điện bệnh viện. Mạng viễn thông không lên lịch window làm rớt cuộc gọi khẩn cấp.
+
+### Bản năng của kỹ sư cloud vs. thực tế telecom
+
+Kỹ sư cloud học các pattern tích cực nguy hiểm trong telecom:
+
+| Bản năng cloud | Thực tế telecom |
+|----------------|----------------|
+| "Cứ restart pod lại" | Restart làm rớt cuộc gọi đang active của tất cả user trên node đó |
+| "Circuit breaker để shed load" | Bỏ traffic voice hoặc khẩn cấp bị cấm theo pháp luật |
+| "Eventually consistent là ổn" | Billing phải exactly-once; eventual = mất doanh thu |
+| "Maintenance window lúc 2 giờ sáng" | 2 giờ sáng ở California là giờ cao điểm ở châu Á-Thái Bình Dương |
+| "Canary deploy với 1% traffic" | Không thể A/B test trên cuộc gọi khẩn cấp thực |
+| "Health check restart pod không healthy" | Pod restart giữa cuộc gọi làm rớt cuộc gọi |
+
+Đây không phải chỉ trích cloud pattern — chúng xuất sắc trong miền của chúng. Sự khác biệt là miền telecom có hậu quả khác nhau khi failure.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### Năm Trụ Cột của Carrier-Grade
+
+#### 1. High Availability (HA)
+
+**Mục tiêu:** 99.999% uptime = 5.26 phút downtime/năm
+
+**Cách đạt được:**
+- **Redundancy ở mọi nơi:** Mọi component có backup đang chạy tích cực
+- **Không có single point of failure (SPOF):** Mất bất kỳ component nào không gây mất dịch vụ
+- **Phân bố địa lý:** Site ở các vị trí khác nhau survive thảm họa khu vực
+- **Hot standby:** Hệ thống backup đang chạy và có thể tiếp quản trong dưới 50ms
+
+**Ví dụ thực tế:** 5G core có nhiều AMF instance trên các data center. Nếu một AMF fail, traffic failover sang AMF khác trong dưới 50ms. Người dùng không nhận ra vì SCTP association đến gNB tự động re-associate.
+
+**Cách 5G đạt được điều này với cloud-native:** 5G core dùng stateless NF design — mỗi AMF instance không lưu trữ session state cục bộ. UE context được lưu trong UDSF (Unstructured Data Storage Function) chia sẻ hoặc external cache. Bất kỳ AMF instance nào cũng có thể xử lý request của bất kỳ UE nào. Đây là pattern microservices áp dụng vào telecom, được quy định trong 3GPP TS 23.501 điều 4.2.
+
+#### 2. Fault Tolerance
+
+**Mục tiêu:** Dịch vụ tiếp tục dù có failure, với graceful degradation khi quá tải
+
+**Kỹ thuật:**
+- **Active-active clustering:** Nhiều instance chia tải; bất kỳ instance nào cũng xử lý được request
+- **Active-standby:** Backup chờ, tiếp quản khi primary fail (dùng cho component stateful)
+- **N+1 redundancy:** Cho N component cần thiết, deploy N+1
+- **Graceful degradation:** Khi quá tải, bỏ traffic ưu tiên thấp thay vì crash
+- **Overload control:** NF phải implement overload protection theo 3GPP TS 29.500 để ngăn cascade failure
+
+**Ví dụ thực tế:** Một signaling link fail. Cơ chế multi-homing SCTP phát hiện trong millisecond, chuyển sang path backup, và reroute traffic. Không cuộc gọi nào bị drop. Điều này khác cơ bản so với TCP connection drop, yêu cầu reconnect hoàn toàn.
+
+**Vấn đề cascade overload:** Trong telecom, overload lan truyền lên trên. Nếu một AMF bị overload và bắt đầu reject request, tất cả gNB kết nối với nó bắt đầu retry — tạo ra thêm tải. Cơ chế overload control 3GPP (NF load information trong NRF, explicit overload signal qua HTTP 503 với Retry-After header) phá vỡ cascade này.
+
+#### 3. Hitless Upgrade (In-Service Software Upgrade — ISSU)
+
+**Mục tiêu:** Zero gián đoạn dịch vụ khi cập nhật phần mềm
+
+**Cách thực hiện:**
+- **Rolling upgrade:** Cập nhật node từng cái một trong khi các node khác xử lý traffic
+- **State synchronization:** Instance mới nhận state session active trước khi tiếp quản
+- **Backward compatibility:** Version mới phải giao tiếp được với version cũ trong quá trình chuyển đổi
+- **Graceful handover:** Session hiện tại được migrate, không bị terminate
+
+**Ví dụ thực tế:** Một SMF được upgrade từ v1.2 lên v1.3. Kubernetes rolling update khởi động pod SMF mới (v1.3) cùng với pod cũ. NRF phản ánh cả hai version. Request session mới đến v1.3. Session hiện tại hoàn thành trên v1.2. Khi v1.2 đã drain hết session, nó được terminate. Zero tác động người dùng.
+
+**Nơi Kubernetes mặc định bị lỗi:** Kubernetes rolling update mặc định terminate pod cũ trước khi verify đầy đủ pod mới. Cho telecom, bạn cần `preStop` hook để drain session, `minReadySeconds` đủ dài cho migration session, và explicit session drain qua PFCP hoặc NF management interface trước khi terminate pod.
+
+#### 4. Scalability
+
+**Mục tiêu:** Xử lý tăng trưởng traffic mà không cần thiết kế lại kiến trúc
+
+**Đặc điểm:**
+- **Horizontal scaling:** Thêm nhiều instance, không phải instance lớn hơn
+- **Stateless design:** Bất kỳ instance nào cũng xử lý được request (state externalized)
+- **Load balancing:** Traffic phân phối qua các instance
+- **Elastic scaling:** Tự động thêm/bớt capacity dựa trên nhu cầu
+
+**Ví dụ thực tế:** Trong sự kiện lớn (Giao thừa, chung kết World Cup), mạng tự động scale up capacity SMF và UPF khi tốc độ thiết lập session tăng đột biến. Sau sự kiện, nó scale down lại. Đây là Kubernetes Horizontal Pod Autoscaler áp dụng cho 5G NF.
+
+**Thách thức scaling đặc thù 5G:** UPF scaling phức tạp hơn stateless NF scaling. UPF giữ GTP tunnel state cho PDU session đang active. Scale UPF cần: (a) session mới đến UPF instance mới trong khi session cũ ở trên instance cũ (asymmetric scaling), hoặc (b) session migration qua SMF-coordinated PFCP session re-establishment (tốn kém nhưng sạch).
+
+#### 5. Security và Compliance
+
+**Mục tiêu:** Bảo vệ hạ tầng quan trọng và đáp ứng yêu cầu quy định
+
+**Yêu cầu:**
+- **Lawful interception (LI):** Bắt buộc bởi pháp luật ở hầu hết các nước. Tất cả cuộc gọi và data session phải intercept được theo lệnh tòa án, minh bạch với người dùng.
+- **Data sovereignty:** Dữ liệu người dùng phải ở trong biên giới địa lý (EU GDPR, luật quốc gia khác nhau)
+- **Encryption:** Tất cả traffic được mã hóa khi transit (TLS trên SBI, NAS security qua SEAF/AUSF) và at rest
+- **Network slicing isolation:** Slice A không được truy cập traffic của Slice B (3GPP TS 33.501)
+- **Access control:** Xác thực dựa trên OAuth 2.0 token nghiêm ngặt giữa NF trên SBI
+- **Audit logging:** Mọi hành động quản trị được ghi lại với logging chống giả mạo
+
+**Kiến trúc lawful interception:** IMS-ALG hoặc IMS-SBC intercept voice. AMF và SMF có interface LI trigger. Khi được kích hoạt cho IMSI cụ thể, mạng nhân bản traffic một cách minh bạch đến cơ quan thực thi pháp luật (LEA) qua interface chuyên dụng. Điều này được quy định trong 3GPP TS 33.127 và không được hiển thị với người dùng mục tiêu.
+
+### Tại Sao Pattern Cloud Không Dịch Trực Tiếp
+
+| Pattern cloud | Tại sao fail cho telecom |
+|---------------|--------------------------|
+| "Cứ restart lại" | Restart drop cuộc gọi. Người dùng nhận ra. |
+| Circuit breaker | Drop traffic không chấp nhận được cho voice/khẩn cấp. |
+| Eventually consistent | Billing phải exactly-once; "eventual" nghĩa là mất doanh thu. |
+| Maintenance window | 3 AM là giờ cao điểm ở đâu đó trong mạng. |
+| A/B testing | Không thể test trên cuộc gọi khẩn cấp thực. |
+| Readiness probe mặc định | Nếu probe fail giữa cuộc gọi, pod bị kill, tất cả cuộc gọi rớt. |
+| Kubernetes PDB mặc định | PodDisruptionBudget mặc định cho phép kill pod đồng thời. |
+
+### Chi Phí của Carrier-Grade
+
+Đạt 99.999% tốn đáng kể hơn 99.9%:
+
+- **Hardware:** Server enterprise-grade, nguồn redundant (A+B feed), mạng redundant (NIC kép, bonding)
+- **Software:** Quản lý state phức tạp, integration testing rộng rãi, ràng buộc backward compatibility
+- **Operations:** NOC 24/7, monitoring tự động, runbook cho mọi failure mode, ban quản lý thay đổi
+- **Facilities:** Data center Tier III+, máy phát backup, HVAC redundant, bảo mật vật lý
+
+**Nguyên tắc:** Mỗi "nine" thêm vào tốn khoảng 10 lần hơn. Nỗ lực engineering để đi từ 99.99% lên 99.999% không phải tăng dần — thường cần thiết kế lại kiến trúc.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+### Đánh giá claim carrier-grade
+
+Khi vendor claim "carrier-grade," hãy hỏi:
+
+1. **Availability đo được là bao nhiêu?** Không phải designed, không phải targeted — measured trong triển khai production ở quy mô tương đương.
+2. **Failover time là bao nhiêu?** Dưới 50ms cho stateful connection là benchmark. Yêu cầu demo.
+3. **Có upgrade được mà không downtime không?** Yêu cầu họ demo ISSU trực tiếp với session đang active.
+4. **MTBF và MTTR là gì?** Mean time between failures, mean time to repair. Lấy dữ liệu, không phải tờ marketing.
+5. **State được replicate như thế nào?** Synchronous hay asynchronous? RPO/RTO là gì?
+6. **Overload control hoạt động như thế nào?** Điều gì xảy ra khi hệ thống ở 110% capacity?
+
+### Mapping carrier-grade sang cloud-native
+
+| Khái niệm carrier-grade | Kubernetes/cloud tương đương | Gap cần giải quyết |
+|------------------------|------------------------------|-------------------|
+| Active-active | Multi-replica Deployment với PodAntiAffinity | Rolling update mặc định không hitless |
+| ISSU | Rolling update với preStop drain + readinessProbe | Cần session drain logic |
+| State sync | UDSF / Redis / etcd với replication | Latency của external state access thêm RTT |
+| Geo-redundancy | Multi-region deployment với global load balancer | Xử lý network partition |
+| Traffic engineering | Istio, weighted routing, NRF-based discovery | SCP thêm routing intelligence tập trung |
+| Overload control | HPA + KEDA + custom metrics | Phải implement 3GPP overload signaling |
+
+### Checklist trước khi deploy 5G NF
+
+- [ ] `PodDisruptionBudget` đặt cho phép tối đa 1 replica không available
+- [ ] `preStop` hook implement session drain (PFCP, NF deregistration từ NRF)
+- [ ] `minReadySeconds` đặt theo ước tính thời gian drain
+- [ ] Anti-affinity rule phân tán replica qua các availability zone
+- [ ] Liveness probe không kill pod khi tải cao (dùng startupProbe cho khởi động chậm)
+- [ ] External state store (Redis, UDSF) có cấu hình HA riêng
+- [ ] Overload control metric được expose cho autoscaler
+- [ ] TLS certificate được rotate mà không restart (hot reload)
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Nhầm high availability với disaster recovery.** HA xử lý component failure (giây đến millisecond). DR xử lý site failure (phút đến giờ). Cả hai đều cần. Triển khai 5G với HA xuất sắc nhưng không có geo-redundancy sẽ fail hoàn toàn khi data center mất điện.
+
+2. **Giả định redundancy nghĩa là reliability.** Hệ thống redundant share cùng failure mode (cùng bug phần mềm, cùng nguồn điện, cùng switch mạng) không thực sự redundant. Đây gọi là common-cause failure hay correlated failure. Trong 5G, bug phần mềm trong tất cả AMF instance làm fail toàn bộ mạng.
+
+3. **Bỏ qua yếu tố con người.** Dữ liệu ngành nhất quán cho thấy phần lớn outage lớn do lỗi cấu hình và failure quản lý thay đổi, không phải hardware failure. Carrier-grade bao gồm quản lý thay đổi nghiêm ngặt, peer review thay đổi, và quy trình rollout có giai đoạn.
+
+4. **Over-engineering cho metric sai.** 99.999% availability vô nghĩa nếu latency không chấp nhận được cho use case. Mạng luôn up nhưng thêm 200ms latency fail yêu cầu chất lượng voice. Cân bằng availability, latency, và throughput.
+
+5. **Coi carrier-grade là binary.** Đó là spectrum. Billing system có yêu cầu khác voice system real-time. Management plane có yêu cầu khác data plane. Thiết kế theo SLA thực tế của từng component.
+
+6. **Bỏ qua Kubernetes default.** Behavior Kubernetes mặc định — pod restart khi liveness fail, rolling update với brief unavailability, không session drain — không tương thích với carrier-grade. Mọi 5G NF deploy trên Kubernetes cần override cấu hình carrier-grade rõ ràng.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- TL 9000 Quality Management System, QuEST Forum
+- NEBS GR-63-CORE, "Network Equipment-Building System (NEBS) Requirements"
+- ETSI NFV ISG, "Network Functions Virtualisation — Reliability"
+- ITU-T E.800, "Terms and definitions related to quality of service"
+- 3GPP TS 23.501, "System architecture for 5G System" (stateless NF design, điều 4.2)
+- 3GPP TS 29.500, "Technical Realization of Service Based Architecture" (overload control)
+- 3GPP TS 33.127, "Lawful interception architecture"
+- Beyer et al., *Site Reliability Engineering*, O'Reilly, 2016
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [Five nines availability](/vi/core-network/why-telcos-build-differently/five-nines-availability/) — toán học và engineering đằng sau 99.999%
+- [Bối cảnh quy định viễn thông](/vi/core-network/why-telcos-build-differently/telco-regulatory-context/) — tại sao compliance định hình kiến trúc
+- [Nguyên tắc thiết kế SBA](/vi/core-network/why-sba-architectural-shift/sba-design-principles/) — cách 5G đạt carrier-grade với cloud-native
+
+</section>

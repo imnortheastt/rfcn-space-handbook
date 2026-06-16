@@ -8,17 +8,481 @@ track: n6
 unit: ric-xapps-rapps
 order: 4
 level: L5
-estimatedReadingMinutes: 5
-title: "rApp"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n6-ric-xapps-rapps-02-non-rt-ric"]
+spiralRevisits: []
+title: "rApps"
+description: "Ung dung Non-RT RIC: kien truc, quan ly chinh sach A1, vong doi mo hinh ML, va mau trien khai."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG2.Non-RT-RIC-RAPP"]
+tags: ["o-ran", "ric", "rapps", "a1", "quy-trinh-ml"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# rApp
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+rApps la cac dong co tri tue cua Non-RT RIC. Chung hoat dong tren thang thoi gian >1 giay, thuc hien phan tich, huan luyen mo hinh ML, va tao chinh sach huong dan xApps.
+
+Hieu phat trien rApp cho phep xay dung "bo nao" toi uu hanh vi RAN o cap do chien luoc.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Kien truc rApp
+
+```
+Kien truc rApp trong Non-RT RIC:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nen tang SMO / Non-RT RIC                              │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  ┌──────────────────────────────────────────────┐ │  │
+│  │  │               Container rApp                  │ │  │
+│  │  │                                               │ │  │
+│  │  │  ┌─────────────────────────────────────────┐ │ │  │
+│  │  │  │         Logic Ung dung                  │ │ │  │
+│  │  │  │  - Dong co phan tich                    │ │ │  │
+│  │  │  │  - Huan luyen / suy luan ML             │ │ │  │
+│  │  │  │  - Tao chinh sach                       │ │ │  │
+│  │  │  │  - Quy hoach mang                       │ │ │  │
+│  │  │  └─────────────────────────────────────────┘ │ │  │
+│  │  │                     │                        │ │  │
+│  │  │  ┌─────────────────────────────────────────┐ │ │  │
+│  │  │  │           Framework rApp                │ │ │  │
+│  │  │  │  - Client giao dien R1                  │ │ │  │
+│  │  │  │  - APIs truy cap du lieu                │ │ │  │
+│  │  │  │  - Quan ly cau hinh                     │ │ │  │
+│  │  │  │  - Log / So lieu                        │ │ │  │
+│  │  │  └─────────────────────────────────────────┘ │ │  │
+│  │  │                                               │ │  │
+│  │  └──────────────────────────────────────────────┘ │  │
+│  │                                                    │  │
+│  │  Dich vu Nen tang (nha cung cap R1):              │  │
+│  │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐      │  │
+│  │  │  A1    │ │  Data  │ │   ML   │ │ Lam    │      │  │
+│  │  │ Policy │ │  Mgmt  │ │ Train  │ │ giau   │      │  │
+│  │  └────────┘ └────────┘ └────────┘ └────────┘      │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Giao dien R1
+
+```
+Giao dien R1 (rApp ↔ Dich vu Non-RT RIC):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Cac Loai Dich vu R1:                                   │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Quan ly Chinh sach A1 (R1-AP)                   │    │
+│  │ - Tao / Cap nhat / Xoa chinh sach               │    │
+│  │ - Lay trang thai chinh sach tu Near-RT RIC      │    │
+│  │ - Kham pha loai chinh sach                      │    │
+│  │ - Endpoint: /a1-p/policy-types, /policies       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Quan ly Du lieu (R1-DM)                         │    │
+│  │ - Dang ky du lieu PM/FM/CM                      │    │
+│  │ - Truy cap thong tin lam giau                   │    │
+│  │ - Truy van du lieu lich su                      │    │
+│  │ - Endpoint: /data-consumer, /enrichment-info    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Quan ly Mo hinh ML (R1-ML)                      │    │
+│  │ - Tai len mo hinh da huan luyen                 │    │
+│  │ - Trien khai mo hinh den Near-RT RIC            │    │
+│  │ - Giam sat hieu suat mo hinh                    │    │
+│  │ - Endpoint: /ml-models, /deployments            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Thong tin Lam giau (R1-EI)                      │    │
+│  │ - Cung cap du lieu lam giau cho Near-RT RIC     │    │
+│  │ - Dang ky nhu nha san xuat EI                   │    │
+│  │ - Day du lieu ngu canh (du doan luu luong)      │    │
+│  │ - Endpoint: /ei-producer, /ei-job               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac loai rApp pho bien
+
+```
+Truong hop Su dung rApp Pho bien:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Du doan Luu luong                               │    │
+│  │ - Huan luyen mo hinh ML tren du lieu PM lich su │    │
+│  │ - Du doan mau luu luong tuong lai               │    │
+│  │ - Xuat ban du doan nhu thong tin lam giau       │    │
+│  │ - Cho phep cap phat tai nguyen chu dong         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Quy hoach Mang                                  │    │
+│  │ - Phan tich vung phu va dung luong              │    │
+│  │ - Khuyen nghi thay doi tham so cell             │    │
+│  │ - Tao chinh sach A1 de toi uu                   │    │
+│  │ - Phoi hop voi OSS/BSS                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Dam bao SLA Slice                               │    │
+│  │ - Giam sat KPIs slice                           │    │
+│  │ - Phat hien vi pham SLA                         │    │
+│  │ - Tao chinh sach khac phuc                      │    │
+│  │ - Phoi hop voi bo dieu phoi slice               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Phat hien Bat thuong                            │    │
+│  │ - Huan luyen tren hanh vi mang binh thuong      │    │
+│  │ - Phat hien sai lech (nhieu, loi)               │    │
+│  │ - Kich hoat canh bao hoac chinh sach khac phuc  │    │
+│  │ - Tich hop voi cac chuc nang SON                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Toi uu Nang luong                               │    │
+│  │ - Phan tich luu luong vs tieu thu nang luong    │    │
+│  │ - Tao lich ngu/danh thuc cell                   │    │
+│  │ - Day chinh sach den ES xApp                    │    │
+│  │ - Can bang tiet kiem nang luong vs QoS          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Quy trinh ML
+
+```
+Vong doi Mo hinh ML trong rApp:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Thu thap Du lieu                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ rApp dang ky du lieu PM qua R1-DM               │    │
+│  │                                                  │    │
+│  │ data_subscription = {                           │    │
+│  │   "filter": {                                   │    │
+│  │     "nf_type": "o-du",                          │    │
+│  │     "counters": ["PRBUsage.*", "UECount.*"]     │    │
+│  │   },                                            │    │
+│  │   "reporting_interval": "15min",                │    │
+│  │   "retention": "30days"                         │    │
+│  │ }                                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  2. Huan luyen Mo hinh                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Ky thuat dac trung tu du lieu thu thap        │    │
+│  │ - Huan luyen mo hinh (LSTM, XGBoost, v.v.)      │    │
+│  │ - Xac thuc tren tap du lieu giu lai             │    │
+│  │ - Dong goi mo hinh voi metadata                 │    │
+│  │                                                  │    │
+│  │ model_package = {                               │    │
+│  │   "model_id": "traffic-pred-v2",                │    │
+│  │   "framework": "onnx",                          │    │
+│  │   "input_schema": {...},                        │    │
+│  │   "output_schema": {...},                       │    │
+│  │   "artifact_url": "s3://models/traffic-v2.onnx" │    │
+│  │ }                                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  3. Trien khai Mo hinh                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Tai len danh muc ML cua Non-RT RIC              │    │
+│  │ Trien khai den dich vu suy luan Near-RT RIC     │    │
+│  │                                                  │    │
+│  │ POST /r1/ml-models                              │    │
+│  │ POST /r1/deployments                            │    │
+│  │   { "model_id": "traffic-pred-v2",              │    │
+│  │     "target": "near-rt-ric-1",                  │    │
+│  │     "xapp_consumer": "ts-xapp" }                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  4. Giam sat & Huan luyen lai                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Giam sat do chinh xac du doan                 │    │
+│  │ - Phat hien mo hinh troi                        │    │
+│  │ - Kich hoat pipeline huan luyen lai             │    │
+│  │ - Kiem thu A/B phien ban mo hinh moi            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Tao chinh sach
+
+```
+Luong Tao Chinh sach A1:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  rApp                                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. Phan tich du lieu (PM, du doan, ngu canh)   │    │
+│  │           │                                     │    │
+│  │           ▼                                     │    │
+│  │  2. Tao ban thuc thi chinh sach                 │    │
+│  │                                                  │    │
+│  │  policy = {                                     │    │
+│  │    "policy_type_id": "ORAN_MLB_1.0",            │    │
+│  │    "policy_id": "mlb-policy-001",               │    │
+│  │    "scope": {                                   │    │
+│  │      "cell_ids": ["cell-001", "cell-002"]       │    │
+│  │    },                                           │    │
+│  │    "policy_data": {                             │    │
+│  │      "load_threshold": 75,                      │    │
+│  │      "target_load_distribution": "balanced",    │    │
+│  │      "max_handover_rate": 0.1                   │    │
+│  │    }                                            │    │
+│  │  }                                              │    │
+│  │           │                                     │    │
+│  │           ▼                                     │    │
+│  │  3. PUT /r1/a1-p/policies/{policy_id}           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                       │                                 │
+│                       ▼                                 │
+│  Quan ly Chinh sach A1 Non-RT RIC                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  - Xac thuc chinh sach voi schema               │    │
+│  │  - Luu trong kho chinh sach                     │    │
+│  │  - Chuyen tiep den Near-RT RIC qua A1           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                       │                                 │
+│                       ▼                                 │
+│  Near-RT RIC                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  - A1 Mediator nhan chinh sach                  │    │
+│  │  - Dinh tuyen den xApp da dang ky (MLB)         │    │
+│  │  - xApp ap dung chinh sach trong vong dieu khien│    │
+│  │  - Tra ve trang thai qua A1                     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Mo ta rApp
+
+```
+Mo ta rApp (rapp-descriptor.json):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  {                                                      │
+│    "rapp_name": "traffic-prediction-rapp",              │
+│    "version": "1.0.0",                                  │
+│    "vendor": "acme-telecom",                            │
+│                                                          │
+│    "containers": [{                                     │
+│      "name": "predictor",                               │
+│      "image": "registry.example.com/tp-rapp:1.0.0",     │
+│      "resources": {                                     │
+│        "cpu": "2",                                      │
+│        "memory": "4Gi",                                 │
+│        "gpu": "1"                                       │
+│      }                                                  │
+│    }],                                                  │
+│                                                          │
+│    "r1_services": {                                     │
+│      "consumes": [                                      │
+│        { "service": "data-management", "version": "1.0"}│
+│      ],                                                 │
+│      "produces": [                                      │
+│        { "service": "enrichment-info",                  │
+│          "info_type": "traffic-prediction",             │
+│          "schema": "traffic-pred-schema.json" }         │
+│      ]                                                  │
+│    },                                                   │
+│                                                          │
+│    "policy_types": ["ORAN_TrafficSteer_1.0"],           │
+│                                                          │
+│    "config": {                                          │
+│      "training_interval": "24h",                        │
+│      "prediction_horizon": "1h",                        │
+│      "min_data_points": 1000                            │
+│    }                                                    │
+│  }                                                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Ngan xep phat trien rApp:**
+
+| Thanh phan | Tuy chon |
+|------------|----------|
+| Ngon ngu | Python (ML), Go, Java |
+| Framework ML | TensorFlow, PyTorch, scikit-learn |
+| Dinh dang Mo hinh | ONNX (di dong), SavedModel |
+| Container | Docker, Kubernetes |
+| Truy cap Du lieu | Kafka, REST APIs |
+
+**Vi du rApp du doan luu luong (Python):**
+
+```python
+from rapp_sdk import RAppFramework, R1Client
+import pandas as pd
+from sklearn.ensemble import GradientBoostingRegressor
+import onnx
+
+class TrafficPredictionRApp:
+    def __init__(self, config):
+        self.r1 = R1Client()
+        self.model = None
+        self.config = config
+    
+    def start(self):
+        # Dang ky du lieu PM
+        self.r1.subscribe_data(
+            data_type="pm",
+            filter={"counters": ["PRBUsageDL", "PRBUsageUL"]},
+            callback=self.on_data
+        )
+        
+        # Dang ky nhu nha san xuat EI
+        self.r1.register_ei_producer(
+            info_type="traffic-prediction",
+            schema=self.prediction_schema
+        )
+    
+    def on_data(self, data):
+        # Tich luy du lieu de huan luyen
+        self.data_buffer.append(data)
+        
+        if len(self.data_buffer) >= self.config['min_data_points']:
+            self.train_model()
+    
+    def train_model(self):
+        df = pd.DataFrame(self.data_buffer)
+        X = self.extract_features(df)
+        y = df['target_load']
+        
+        self.model = GradientBoostingRegressor()
+        self.model.fit(X, y)
+        
+        # Xuat sang ONNX va trien khai
+        onnx_model = self.to_onnx(self.model)
+        self.r1.upload_model(
+            model_id="traffic-pred-v2",
+            artifact=onnx_model
+        )
+    
+    def generate_predictions(self):
+        predictions = self.model.predict(self.current_features)
+        
+        # Xuat ban nhu thong tin lam giau
+        self.r1.publish_ei(
+            info_type="traffic-prediction",
+            data={"predictions": predictions.tolist()}
+        )
+
+if __name__ == "__main__":
+    app = RAppFramework()
+    rapp = TrafficPredictionRApp(app.config)
+    app.run(rapp)
+```
+
+**Lenh trien khai:**
+
+```bash
+# Dong goi rApp thanh Helm chart
+helm package ./charts/traffic-pred-rapp
+
+# Trien khai den Non-RT RIC
+curl -X POST http://rappmgr:8080/r1/rapps \
+  -F "descriptor=@rapp-descriptor.json" \
+  -F "chart=@traffic-pred-rapp-1.0.0.tgz"
+
+# Kiem tra trang thai rApp
+curl http://rappmgr:8080/r1/rapps/traffic-pred-rapp
+
+# Xem mo hinh da trien khai
+curl http://rappmgr:8080/r1/ml-models
+
+# Kiem tra EI jobs
+curl http://rappmgr:8080/r1/ei-producer/jobs
+
+# Xem log rApp
+kubectl logs -n nonrtric -l app=traffic-pred-rapp -f
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Huan luyen tren du lieu cu.** Du lieu PM tu nhieu tuan truoc co the khong phan anh mang hien tai. Trien khai kiem tra do moi du lieu.
+
+2. **Xung dot chinh sach.** Nhieu rApps tao chinh sach xung dot. Su dung dich vu phoi hop chinh sach.
+
+3. **Troi mo hinh khong phat hien.** Du doan suy giam theo thoi gian. Trien khai giam sat va kich hoat huan luyen lai.
+
+4. **Qua tai A1.** Qua nhieu cap nhat chinh sach lam bao hoa giao dien A1. Gom nhom thay doi chinh sach.
+
+5. **Do tre EI qua cao.** Thong tin lam giau den sau quyet dinh xApp. Tinh toan truoc va cache du doan.
+
+6. **Dich vu R1 khong kha dung.** Dich vu Non-RT RIC khoi dong lai. Trien khai thu lai voi backoff.
+
+7. **Trien khai mo hinh lon.** Mo hinh ONNX qua lon cho Near-RT RIC. Luong tu hoa hoac cat tia mo hinh.
+
+8. **Khong khop schema.** Schema chinh sach thay doi giua cac phien ban. Quan ly phien ban loai chinh sach can than.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- O-RAN Alliance WG2, "Non-RT RIC Architecture"
+- O-RAN Alliance WG2, "A1 Interface Specification"
+- O-RAN SC, "Non-RT RIC rApp Developer Guide"
+- O-RAN Alliance, "AI/ML Workflow Description"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [xApps](/vi/core-network/ric-xapps-rapps/xapps/) — Ung dung Near-RT RIC
+- [Non-RT RIC](/vi/core-network/ric-xapps-rapps/non-rt-ric/) — kien truc nen tang
+- [Near-RT RIC](/vi/core-network/ric-xapps-rapps/near-rt-ric/) — vong dieu khien
+
+</section>

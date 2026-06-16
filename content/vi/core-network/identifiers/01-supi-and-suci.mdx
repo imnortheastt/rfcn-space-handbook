@@ -8,17 +8,331 @@ track: n3
 unit: identifiers
 order: 1
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n1-5g-core-functions-02-ausf-and-udm"]
+spiralRevisits: ["core-network-n4-security-02-5g-aka"]
 title: "SUPI va SUCI"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Subscription Permanent Identifier va Subscription Concealed Identifier — danh tinh trong 5G."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 23.003", "3GPP TS 33.501"]
+tags: ["supi", "suci", "identity", "5g", "privacy"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# SUPI va SUCI
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Trong 4G, IMSI cua ban bay qua song o dang cleartext. Bat ky ai co tram goc gia co the bat duoc no va theo doi ban.
+
+5G sua dieu nay voi **SUCI** — phien ban ma hoa cua danh tinh ban. Hieu SUPI va SUCI la can thiet cho bao mat 5G va troubleshooting authentication.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### SUPI la gi?
+
+**SUPI (Subscription Permanent Identifier)** la danh tinh vinh vien, duy nhat toan cau cua nguoi dung trong 5G. No giong nhu IMSI cua ban, nhung khong bao gio gui qua song o dang cleartext.
+
+```
+Cau truc SUPI:
+
+┌─────────────────────────────────────────────────────────┐
+│                        SUPI                              │
+│                                                          │
+│  Dua tren IMSI:  IMSI = MCC + MNC + MSIN                │
+│                  Vi du: 310260123456789                 │
+│                         │││││                           │
+│                         │││││                           │
+│                         │││└─ MSIN (ID thue bao)        │
+│                         │└── MNC (ma mang)              │
+│                         └─── MCC (ma quoc gia)          │
+│                                                          │
+│  Dua tren NAI:   user@realm                             │
+│                  Vi du: user@example.com                │
+│                  (cho truy cap non-3GPP, IoT)           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**SUPI la:**
+- Luu trong UDM (Unified Data Management)
+- Mang chu biet
+- Khong bao gio truyen qua giao dien vo tuyen
+- Dung noi bo de quan ly thue bao
+
+### SUCI la gi?
+
+**SUCI (Subscription Concealed Identifier)** la dang ma hoa cua SUPI, gui qua song trong qua trinh authentication.
+
+```
+Xay dung SUCI:
+
+SUPI: 310260123456789
+        │
+        ▼
+┌───────────────────────────────────────┐
+│         Ma hoa ECIES                   │
+│  (Public Key cua mang chu)            │
+└───────────────────────────────────────┘
+        │
+        ▼
+SUCI: suci-0-310-260-0-0-0-<MSIN_ma_hoa>
+      │     │    │   │ │ │
+      │     │    │   │ │ └─ MSIN da ma hoa
+      │     │    │   │ └─── ID protection scheme
+      │     │    │   └───── ID public key mang chu
+      │     │    └───────── Routing indicator
+      │     └────────────── MCC-MNC (cleartext de routing)
+      └──────────────────── Tien to SUCI
+```
+
+**Insight quan trong:** MCC va MNC gui o dang cleartext (can de routing den mang chu), nhung MSIN (xac dinh ban) duoc ma hoa.
+
+### SUPI vs SUCI vs IMSI
+
+| Identifier | Mang | Dung o dau | Qua song? | Ma hoa? |
+|------------|------|------------|-----------|---------|
+| IMSI | 4G | Tat ca thu tuc | Co | Khong |
+| SUPI | 5G | Chi noi bo | Khong bao gio | N/A |
+| SUCI | 5G | Dang ky | Co | Co (phan MSIN) |
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Tao SUCI
+
+UE tao SUCI tu SUPI dung public key cua mang chu:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                         UE                               │
+│                                                          │
+│  USIM luu:                                              │
+│  ├── SUPI (danh tinh vinh vien)                         │
+│  ├── Public Key mang chu                                │
+│  ├── Protection Scheme ID                               │
+│  └── Routing Indicator                                  │
+│                                                          │
+│  SUCI = f(SUPI, HN_PubKey, Protection_Scheme)          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Protection scheme:**
+
+| Scheme ID | Ten | Mo ta |
+|-----------|-----|-------|
+| 0 | Null scheme | Khong ma hoa (chi test) |
+| 1 | Profile A | ECIES voi Curve25519 |
+| 2 | Profile B | ECIES voi secp256r1 |
+
+### Luong authentication
+
+```
+UE                      gNB                     AMF                     AUSF/UDM
+│                        │                       │                          │
+│   Registration Req     │                       │                          │
+│   (voi SUCI)           │                       │                          │
+│───────────────────────►│──────────────────────►│                          │
+│                        │                       │                          │
+│                        │                       │   Auth Request           │
+│                        │                       │   (voi SUCI)             │
+│                        │                       │─────────────────────────►│
+│                        │                       │                          │
+│                        │                       │        ┌─────────────────┤
+│                        │                       │        │ Giai ma SUCI    │
+│                        │                       │        │ de lay SUPI     │
+│                        │                       │        └─────────────────┤
+│                        │                       │                          │
+│                        │                       │   Auth Response          │
+│                        │                       │   (SUPI + Auth vector)   │
+│                        │                       │◄─────────────────────────│
+│                        │                       │                          │
+│   Authentication       │                       │                          │
+│   Challenge            │                       │                          │
+│◄──────────────────────────────────────────────│                          │
+```
+
+**Diem chinh:**
+1. UE gui SUCI (ma hoa)
+2. Mang route den AUSF/UDM cua mang chu dung MCC/MNC cleartext
+3. UDM giai ma SUCI de khoi phuc SUPI
+4. SUPI dung noi bo; khong bao gio gui lai qua vo tuyen
+
+### Phan tich cau truc SUCI
+
+```
+Dinh dang SUCI: suci-<type>-<MCC>-<MNC>-<routing_ind>-<protection_scheme_id>-<hn_pubkey_id>-<scheme_output>
+
+Vi du: suci-0-310-260-1234-1-2-<blob_ma_hoa>
+
+Phan tich:
+┌──────────────────────────────────────────────────────────────────┐
+│ Truong               │ Gia tri  │ Y nghia                        │
+├──────────────────────┼──────────┼────────────────────────────────┤
+│ SUPI type            │ 0        │ SUPI dua tren IMSI             │
+│ MCC                  │ 310      │ USA                            │
+│ MNC                  │ 260      │ T-Mobile                       │
+│ Routing indicator    │ 1234     │ Route den AUSF cu the          │
+│ Protection scheme    │ 1        │ Profile A (Curve25519)         │
+│ HN public key ID     │ 2        │ Public key nao duoc dung       │
+│ Scheme output        │ <blob>   │ MSIN da ma hoa                 │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+### Null scheme (testing)
+
+Cho testing, SUCI co the dung null scheme (khong ma hoa):
+
+```
+Null scheme SUCI:
+suci-0-310-260-0-0-0-123456789
+                │     │
+                │     └── MSIN o dang cleartext (!)
+                └──────── Scheme ID 0 = null
+```
+
+**Canh bao:** Null scheme vo hieu hoa bao ve quyen rieng tu. Chi dung cho test trong lab.
+
+### Cung cap key
+
+Public key cua mang chu phai duoc cung cap trong USIM:
+
+```
+Quan ly key:
+
+Mang chu (UDM)                  Cung cap USIM
+       │                               │
+       │  1. Tao cap key               │
+       │  ┌─────────────────┐          │
+       │  │ Private Key     │          │
+       │  │ (giu trong UDM) │          │
+       │  │                 │          │
+       │  │ Public Key      │──────────┼───► Nhung vao USIM
+       │  │ + Key ID        │          │     khi san xuat
+       │  └─────────────────┘          │
+       │                               │
+       │  2. Xoay key                  │
+       │  ┌─────────────────┐          │
+       │  │ Cap key moi     │          │
+       │  │ Key ID = N+1    │──────────┼───► Cap nhat OTA cho USIM
+       │  └─────────────────┘          │     (kho khan)
+       │                               │
+```
+
+**Thach thuc xoay key:** Thay doi public key doi hoi cap nhat tat ca USIM — mot tro ngai van hanh lon.
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Debug van de SUCI:**
+
+| Trieu chung | Nguyen nhan co the | Kiem tra |
+|-------------|--------------------| ---------|
+| Auth fail o UDM | Public key sai trong USIM | Xac nhan key ID khop UDM |
+| UE gui null-scheme | USIM chua cung cap | Kiem tra profile USIM |
+| Routing fail | Routing indicator sai | Xac nhan config routing AUSF |
+| Giai ma fail | Key khong khop | So sanh key ID |
+
+**Phan tich Wireshark:**
+
+```
+Trong ban tin NAS, tim:
+
+Registration Request:
+  5GS mobile identity
+    Type: SUCI
+    SUPI format: IMSI
+    Home network identifier: MCC=310, MNC=260
+    Routing indicator: 0
+    Protection scheme ID: 1
+    Home network public key ID: 1
+    Scheme output: <hex blob>
+```
+
+**Test SUCI:**
+
+```bash
+# Tao test SUCI (voi tool phu hop)
+# Input: SUPI, HN public key, scheme
+# Output: Chuoi SUCI
+
+# Xac nhan giai ma SUCI (tai UDM)
+# Input: SUCI, HN private key
+# Output: SUPI
+
+# Kich ban test pho bien:
+# 1. SUCI hop le voi Profile A
+# 2. SUCI hop le voi Profile B
+# 3. Null scheme (nen hoat dong o che do test)
+# 4. Key ID sai (nen fail)
+# 5. Scheme output hong (nen fail)
+```
+
+**Xem xet cho operator:**
+
+| Quyet dinh | Danh doi |
+|------------|----------|
+| Profile A vs B | A nhanh hon, B duoc ho tro rong hon |
+| Xoay key | Bao mat vs phuc tap van hanh |
+| Routing indicator | Ho tro nhieu AUSF vs don gian |
+| Null scheme trong test | Tien loi vs ve sinh bao mat |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Nghi SUCI cung cap an danh hoan toan.** MCC/MNC la cleartext. Ke tan cong biet mang chu cua ban, chi khong biet danh tinh cu the.
+
+2. **Dung null scheme trong production.** Null scheme gui MSIN o dang cleartext — khong hon 4G. Dam bao USIM production co key dung.
+
+3. **Logistics xoay key.** Thay doi public key mang chu nghia la cap nhat hang trieu USIM. Lap ke hoach can than.
+
+4. **Nhieu public key.** Ho tro xoay key nghia la UDM phai thu nhieu private key. Dam bao logic fallback dung.
+
+5. **SUCI linkability.** Cung SUPI tao SUCI khac nhau moi lan (ECIES ngau nhien), nhung implementation loi co the khong ngau nhien dung.
+
+6. **Phuc tap roaming.** Mang tham thi SUCI, route den mang chu. Dam bao routing mang chu duoc config dung.
+
+7. **USIM vs ME.** Tao SUCI xay ra trong USIM, khong phai baseband dien thoai. USIM phai ho tro authentication 5G.
+
+8. **Config test vs production.** USIM lab voi null scheme vo tinh trien khai ra production se khong co bao ve quyen rieng tu.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.003, "Numbering, addressing and identification"
+- 3GPP TS 33.501, "Security architecture and procedures for 5G System"
+- 3GPP TS 33.102, "3G Security; Security architecture"
+- GSMA, "5G Security Guidelines"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [GUTI va 5G-TMSI](/vi/core-network/identifiers/guti-and-5g-tmsi/) — identifier tam thoi
+- [5G-AKA authentication](/vi/core-network/security/5g-aka/) — thu tuc authentication day du
+- [AUSF va UDM](/vi/core-network/5g-core-functions/ausf-and-udm/) — noi SUCI duoc giai ma
+
+</section>

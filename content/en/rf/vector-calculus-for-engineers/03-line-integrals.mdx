@@ -8,12 +8,12 @@ track: r0
 unit: vector-calculus-for-engineers
 order: 3
 level: L2
-estimatedReadingMinutes: 8
+estimatedReadingMinutes: 13
 prerequisites: ["rf-r0-vector-calculus-for-engineers-01-vectors", "rf-r0-vector-calculus-for-engineers-02-gradient-divergence-curl"]
 spiralRevisits: []
 title: "Line integrals"
 description: "Integrating along a path — the math behind voltage and circulation."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,9 @@ status: published
 
 ## Why line integrals?
 
-Voltage between two points is not just the electric field at a single location — it is the accumulation of field contributions along the entire path. A line integral sums up a vector field along a curve, giving you quantities like voltage, work, and circulation.
+You already know that voltage is measured between two points. But what actually determines that voltage? It is not the field at a single location — it is the cumulative effect of the electric field along every infinitesimal step of a path connecting those two points. A line integral is the mathematical operation that accumulates a field's contribution along a curve.
 
-Every time you measure a voltage with a multimeter, you are implicitly computing a line integral of the electric field from one probe to the other.
+Every time you use a multimeter, you implicitly compute a line integral. When you apply Faraday's law to a wire loop, you compute a closed-path line integral. When Ampere's law gives you the magnetic field around a current-carrying wire, the left side is a line integral. These aren't abstract: they are how fields connect to the voltages, currents, and powers you measure every day in RF work.
 
 </section>
 
@@ -37,13 +37,29 @@ Every time you measure a voltage with a multimeter, you are implicitly computing
 
 ## Intuition
 
-Imagine walking through a windy field. At each step, you feel the wind pushing (or resisting) you. The total effort over your entire walk is the sum of all those little pushes — a line integral of the wind field along your path.
+### Walking through a vector field
 
-In electromagnetics:
-- **Voltage** is the line integral of electric field: how much energy per charge is gained or lost along a path.
-- **Circulation** is the line integral around a closed loop: does the field tend to push you around the loop, or does it cancel out?
+Picture yourself walking through a gusty wind. At each step, the wind either helps push you forward (aligns with your motion) or resists you (opposes your motion). The total work the wind does over your entire walk is the sum of all those tiny dot products — field strength times step length times $\cos\theta$ — accumulated from start to finish. That is a line integral.
 
-If circulation is zero for all loops, the field is **conservative** — like gravity. If circulation is nonzero, the field has curl — like the magnetic field around a wire.
+The key operation in every line integral is the dot product $\mathbf{F} \cdot d\mathbf{l}$: at each point along the path, you project the field onto the path's direction. Only the tangential component does work. The perpendicular component is irrelevant — it pushes you sideways but does not move you along the path.
+
+### Voltage as accumulated field
+
+Electric field points from high voltage to low voltage. If you walk in the direction the field points, you are moving downhill in potential — voltage decreases. The line integral $-\int_A^B \mathbf{E} \cdot d\mathbf{l}$ accumulates that decrease, giving you the voltage between points A and B.
+
+Why the minus sign? By convention, voltage is defined so that positive charges gain energy moving from high to low potential. Since $\mathbf{E}$ points in the direction of decreasing $V$, the integral of $\mathbf{E}$ along the field direction is negative. The minus sign converts that to the expected positive voltage drop.
+
+### Circulation: does the field push you around a loop?
+
+Close the path — make it a loop. Does the field push you systematically around the loop, or does it cancel out? The closed-path line integral $\oint \mathbf{F} \cdot d\mathbf{l}$ measures this "circulation." For a conservative field like electrostatics (no time-varying magnetics), circulation is exactly zero. For a non-conservative field — like the electric field induced by a changing magnetic flux — the circulation is nonzero, and that nonzero value is the EMF.
+
+This is Faraday's law in plain language: the EMF around a closed loop equals the rate of change of magnetic flux through the loop.
+
+### Path independence for conservative fields
+
+If the field is the gradient of some scalar — $\mathbf{F} = \nabla\phi$ — then the line integral depends only on the endpoint values of $\phi$, not on the path. You can take any route from A to B and get the same answer. This is why voltage between two nodes in a DC circuit is well-defined: it doesn't matter which path you trace through the network.
+
+When $\partial \mathbf{B}/\partial t \neq 0$, however, the electric field acquires curl and is no longer conservative. Voltage between two points becomes path-dependent. This is why measuring voltage across an inductor with leads forming different loop areas can give different readings — a classic RF lab puzzle.
 
 </section>
 
@@ -51,37 +67,57 @@ If circulation is zero for all loops, the field is **conservative** — like gra
 
 ## Mechanism
 
-### Definition
+### Formal definition
 
-For a vector field $\mathbf{F}$ and a curve $C$ parameterized by $\mathbf{r}(t)$ from $t=a$ to $t=b$:
+For a vector field $\mathbf{F}$ and a curve $C$ parameterized by $\mathbf{r}(t)$ from $t = a$ to $t = b$:
 
-$$\int_C \mathbf{F} \cdot d\mathbf{l} = \int_a^b \mathbf{F}(\mathbf{r}(t)) \cdot \frac{d\mathbf{r}}{dt}\, dt$$
+$$\int_C \mathbf{F} \cdot d\mathbf{l} = \int_a^b \mathbf{F}\!\left(\mathbf{r}(t)\right) \cdot \frac{d\mathbf{r}}{dt}\, dt$$
 
-The dot product picks out the component of $\mathbf{F}$ tangent to the path. Only the tangent component contributes; perpendicular components do no "work."
+The quantity $\frac{d\mathbf{r}}{dt}\,dt = d\mathbf{l}$ is the infinitesimal displacement vector — it points along the path and has magnitude equal to the arc-length element $ds$.
 
-### Voltage as a line integral
+**Steps to evaluate:**
+1. Parameterize the path: express $x(t), y(t), z(t)$ along the curve.
+2. Compute $d\mathbf{r}/dt$ — the tangent vector.
+3. Express $\mathbf{F}$ in terms of $t$.
+4. Form the dot product and integrate from $a$ to $b$.
 
-Voltage from point A to point B:
+### Voltage from A to B
 
 $$V_{AB} = -\int_A^B \mathbf{E} \cdot d\mathbf{l}$$
 
-The negative sign follows convention: voltage drops in the direction of $\mathbf{E}$.
+In a region where $\mathbf{E} = -\nabla V$ (conservative), this simplifies immediately to:
 
-### Circulation
+$$V_{AB} = V(A) - V(B)$$
 
-For a closed loop $C$ (starting and ending at the same point):
+which is just the potential difference — independent of path.
+
+### Closed-path integral (circulation)
 
 $$\oint_C \mathbf{F} \cdot d\mathbf{l}$$
 
-The circle on the integral sign denotes a closed path.
+The circle on the integral sign denotes that $C$ is a closed loop. Sign convention: positive circulation means the field tends to drive flow counterclockwise when viewed from above (using the right-hand rule with the normal).
 
-### Path independence
+### Fundamental theorem for line integrals
 
-If $\mathbf{F} = \nabla \phi$ (gradient of a scalar), then:
+If $\mathbf{F} = \nabla\phi$, then for any path from A to B:
 
 $$\int_A^B \mathbf{F} \cdot d\mathbf{l} = \phi(B) - \phi(A)$$
 
-The integral depends only on endpoints, not the path. This is why voltage between two points is unique in electrostatics.
+This is exact — no integration needed once you have $\phi$. It is the vector calculus analogue of the second fundamental theorem of calculus.
+
+**Consequence:** $\oint_C \nabla\phi \cdot d\mathbf{l} = 0$ for any closed loop. Conservative fields have zero circulation.
+
+### Faraday's law in integral form
+
+$$\oint_C \mathbf{E} \cdot d\mathbf{l} = -\frac{d}{dt}\iint_S \mathbf{B} \cdot d\mathbf{A} = -\frac{d\Phi_B}{dt}$$
+
+The left side is the EMF around loop $C$. The right side is the rate of change of magnetic flux through any surface $S$ bounded by $C$.
+
+### Ampere's law in integral form
+
+$$\oint_C \mathbf{H} \cdot d\mathbf{l} = I_\text{enc} + \frac{d\Phi_D}{dt}$$
+
+Circulation of $\mathbf{H}$ around a closed loop equals the enclosed conduction current plus the rate of change of electric flux (displacement current). This is the starting equation for finding $\mathbf{H}$ around wires, coaxes, and waveguide ports.
 
 </section>
 
@@ -89,23 +125,55 @@ The integral depends only on endpoints, not the path. This is why voltage betwee
 
 ## Apply
 
-**Example: Voltage in a uniform field**
+### Example 1: Voltage in a uniform electric field
 
-Electric field: $\mathbf{E} = 100\,\hat{\mathbf{x}}$ V/m (uniform, pointing in $+x$)
+Electric field: $\mathbf{E} = E_0\,\hat{\mathbf{x}}$ (uniform, pointing in $+x$).
 
-Path: straight line from $(0,0)$ to $(0.5, 0)$ (0.5 m along $x$-axis)
+Path: straight line from $(0, 0, 0)$ to $(d, 0, 0)$.
 
-$$V = -\int_0^{0.5} 100\, dx = -100 \times 0.5 = -50 \text{ V}$$
+Parameterize: $\mathbf{r}(t) = t\,\hat{\mathbf{x}}$ for $t \in [0, d]$, so $d\mathbf{l} = \hat{\mathbf{x}}\,dt$.
 
-Voltage drops by 50 V as you move in the direction of the field.
+$$V_{AB} = -\int_0^d E_0\,\hat{\mathbf{x}} \cdot \hat{\mathbf{x}}\, dt = -E_0 d$$
 
-**Example: Circulation around a current-carrying wire**
+The voltage drops by $E_0 d$ as you move a distance $d$ in the field direction. For a parallel-plate capacitor with plate separation $d$ and voltage $V_0$ across it: $E_0 = V_0/d$ — this is where that formula comes from.
 
-Ampere's law states:
+### Example 2: Magnetic field around a long wire (Ampere's law)
 
-$$\oint_C \mathbf{B} \cdot d\mathbf{l} = \mu_0 I_\text{enc}$$
+A straight wire carries DC current $I$ in the $+z$ direction. Choose a circular loop of radius $r$ centered on the wire, lying in the $xy$-plane.
 
-The circulation of the magnetic field around a closed loop equals $\mu_0$ times the enclosed current. This is why current creates circulating magnetic fields.
+By symmetry, $\mathbf{H} = H_\phi\,\hat{\boldsymbol{\phi}}$ and $H_\phi$ is constant around the loop. The path element is $d\mathbf{l} = \hat{\boldsymbol{\phi}}\,r\,d\phi$.
+
+$$\oint_C \mathbf{H} \cdot d\mathbf{l} = H_\phi \cdot 2\pi r = I$$
+
+$$\Rightarrow \quad H_\phi = \frac{I}{2\pi r}, \quad \mathbf{H} = \frac{I}{2\pi r}\,\hat{\boldsymbol{\phi}}$$
+
+This is the standard result. Note that it required zero actual integration — symmetry pulled $H_\phi$ outside the integral. Ampere's law in integral form is most powerful exactly when symmetry is present.
+
+### Example 3: EMF in a receiving loop antenna
+
+A circular loop of radius $a$ with $N$ turns sits in a uniform time-varying field $\mathbf{B} = B_0 \cos(\omega t)\,\hat{\mathbf{z}}$.
+
+Magnetic flux through one turn: $\Phi_B = B_0 \cos(\omega t) \cdot \pi a^2$.
+
+EMF by Faraday's law:
+
+$$\mathcal{E} = -N\frac{d\Phi_B}{dt} = N B_0 \omega \pi a^2 \sin(\omega t)$$
+
+**Peak EMF:** $\mathcal{E}_\text{peak} = N B_0 \omega \pi a^2$
+
+At 1 MHz ($\omega = 2\pi \times 10^6$ rad/s), $B_0 = 1\,\mu\text{T}$, $a = 5$ cm, $N = 10$:
+
+$$\mathcal{E}_\text{peak} = 10 \times 10^{-6} \times 2\pi \times 10^6 \times \pi \times (0.05)^2 \approx 4.9 \text{ mV}$$
+
+The EMF scales linearly with frequency — this is why loop antennas work best at lower frequencies where longer wavelengths intersect sizeable loop areas.
+
+### Example 4: Why oscilloscope probe placement changes the reading
+
+Place an oscilloscope probe across a resistor $R$ in a circuit with a nearby changing magnetic field. Two probe lead configurations enclosing different loop areas $A_1$ and $A_2$ pick up different induced EMFs:
+
+$$\Delta V = \frac{d\Phi_B}{dt} = \dot{B} \cdot \Delta A$$
+
+The "voltage" you read depends on the path your probe leads take — not just the nodes. This is not a measurement error: it is a correct consequence of Faraday's law in a non-conservative field region. The fix is to twist probe leads or minimize the loop area they enclose.
 
 </section>
 
@@ -113,13 +181,15 @@ The circulation of the magnetic field around a closed loop equals $\mu_0$ times 
 
 ## Pitfalls
 
-1. **Sign convention.** The direction you traverse the path matters. Reversing direction flips the sign of the integral.
+1. **Sign convention on voltage.** The voltage from A to B is $V_A - V_B = -\int_A^B \mathbf{E} \cdot d\mathbf{l}$. The order of limits and the minus sign together determine whether you get a positive or negative result. Reversing the path direction flips the sign of the integral.
 
-2. **Path dependence.** Only conservative fields (curl-free) have path-independent integrals. In the presence of changing magnetic fields, voltage between two points can depend on the path taken — this is the basis of electromagnetic induction.
+2. **Path dependence in non-conservative fields.** Only when $\nabla \times \mathbf{E} = 0$ (no time-varying $\mathbf{B}$) is voltage path-independent. Near inductors, transformers, and any RF circuit element, this condition fails at signal frequencies. Voltage around a loop is no longer zero.
 
-3. **Parameterization details.** You must consistently parameterize the curve. Check that $d\mathbf{l} = \frac{d\mathbf{r}}{dt}dt$ matches your path direction.
+3. **Choosing a poor parameterization.** A complicated parameterization makes the integral messy. Exploit symmetry first. For a straight path parallel to the field, the integral reduces to $F \cdot L$ immediately.
 
-4. **Closed vs. open paths.** Circulation (closed loop) and voltage (open path) are related but different quantities. Kirchhoff's voltage law says circulation is zero in DC circuits — but not when magnetic flux is changing.
+4. **Closed vs. open paths.** The circulation $\oint \mathbf{F} \cdot d\mathbf{l}$ requires a closed loop. The fundamental theorem applies to open paths. Mixing these up leads to incorrect zero-circulation claims.
+
+5. **Kirchhoff's voltage law and its limits.** KVL ($\sum V = 0$ around a loop) is the low-frequency, lumped-element limit of Faraday's law with $d\Phi_B/dt \approx 0$. At RF, significant magnetic flux threads circuit loops, and KVL breaks down without accounting for inductance. The full Faraday integral is the correct statement.
 
 </section>
 
@@ -127,7 +197,8 @@ The circulation of the magnetic field around a closed loop equals $\mu_0$ times 
 
 ## References
 
-- Griffiths, *Introduction to Electrodynamics*, Chapter 2 — voltage and line integrals in electrostatics.
-- Stewart, *Calculus*, Chapter 16 — mathematical treatment of line integrals.
+- Griffiths, *Introduction to Electrodynamics*, Chapter 2 — voltage and line integrals in electrostatics; Chapter 7 for Faraday's law.
+- Stewart, *Calculus*, Chapter 16 — mathematical treatment of line integrals with parameterization examples.
+- Lewin, *Electromagnetism* (MIT OCW) — famous lecture on path-dependent voltage measurement in circuits with inductors.
 
 </section>

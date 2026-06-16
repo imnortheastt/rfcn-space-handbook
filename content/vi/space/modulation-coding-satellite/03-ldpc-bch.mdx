@@ -8,17 +8,530 @@ track: s7
 unit: modulation-coding-satellite
 order: 3
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
 title: "Ma LDPC va BCH"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Sua loi gan gioi han Shannon cho thong tin ve tinh."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["ldpc", "bch", "fec", "sua-loi", "ma-hoa"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Ma LDPC va BCH
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+DVB-S2 hoat dong trong 1 dB cua gioi han Shannon—toc do du lieu toi da ly thuyet cho ty so tin hieu tren nhieu cho truoc. Thanh tuu dang chu y nay den tu ma LDPC (Kiem tra Chan le Mat do Thap), thay the ma Reed-Solomon/Convolutional noi tiep cua DVB-S. Ket hop voi ma BCH ben ngoai de bat loi con lai, so do ma hoa nay cho phep lien ket ve tinh hoat dong o SNR ma he thong cu se that bai hoan toan. Hieu LDPC va BCH la thiet yeu cho bat ky ai lam viec voi modem ve tinh hien dai hoac thiet ke ngan sach lien ket.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Tien hoa cua FEC ve tinh
+
+```
+Tien hoa Sua Loi Truyen:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DVB-S (1994): Ma Noi tiep                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  D.lieu → [Reed-Solomon] → [Xen kenh] → [Viterbi]    │         │
+│  │              ngoai          trai        trong         │         │
+│  │             (204,188)      burst       convolutional  │         │
+│  │                                                        │         │
+│  │  Khoang cach Shannon: ~3 dB                           │         │
+│  │  Do phuc tap: Vua phai                                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DVB-S2 (2005): LDPC + BCH                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  D.lieu → [BCH] → [LDPC]                              │         │
+│  │            ngoai    trong                              │         │
+│  │          (lam sach  (gan Shannon)                     │         │
+│  │           san)                                         │         │
+│  │                                                        │         │
+│  │  Khoang cach Shannon: ~0.7-1.2 dB                     │         │
+│  │  Do phuc tap: Cao hon (nhung silicon re bay gio)      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TAI SAO CAI THIEN?                                                 │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Shannon (1948): Gioi han ly thuyet ton tai           │         │
+│  │  Ma Turbo (1993): Ma dau tien trong 1 dB             │         │
+│  │  LDPC tai phat hien (1996): Gan hon, song song duoc  │         │
+│  │                                                        │         │
+│  │  Uu diem LDPC so voi Turbo:                          │         │
+│  │  • Song song hoa phan cung tot hon                   │         │
+│  │  • San loi thap hon                                   │         │
+│  │  • Linh hoat hon ve ty le/do dai                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Truc giac LDPC: kiem tra chan le thua
+
+```
+LDPC: Kiem tra Chan le Mat do Thap
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  HIEU BIET CHINH: Dung NHIEU kiem tra don gian, khong phai it phuc tap│
+│                                                                      │
+│  CHAN LE TRUYEN THONG (mot kiem tra):                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  [b1] [b2] [b3] [b4] [b5] [b6] [b7] [P]               │         │
+│  │   │    │    │    │    │    │    │    │                │         │
+│  │   └────┴────┴────┴────┴────┴────┴────┘                │         │
+│  │                    │                                   │         │
+│  │                  XOR = 0                               │         │
+│  │                                                        │         │
+│  │  Van de: Mot loi bat ky → biet co loi                │         │
+│  │          nhung khong dinh vi duoc bit nao             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LDPC (nhieu kiem tra thua):                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Bit:      b1  b2  b3  b4  b5  b6  b7  b8  b9  b10    │         │
+│  │            │       │   │       │           │          │         │
+│  │  K.tra 1:  ●───────●───●───────●                      │         │
+│  │                                                        │         │
+│  │            │   │           │       │   │              │         │
+│  │  K.tra 2:  ●───●───────────●───────●───●              │         │
+│  │                                                        │         │
+│  │                │   │       │   │           │          │         │
+│  │  K.tra 3:  ────●───●───────●───●───────────●          │         │
+│  │                                                        │         │
+│  │                    │           │   │   │   │          │         │
+│  │  K.tra 4:  ────────●───────────●───●───●───●          │         │
+│  │                                                        │         │
+│  │  "Mat do Thap": Moi k.tra chi lien quan it bit (~6)  │         │
+│  │                 Moi bit trong it k.tra (~3)           │         │
+│  │                                                        │         │
+│  │  Giai ma: Bit chia se thong tin qua cac kiem tra     │         │
+│  │           Tinh chinh xac suat lap di lap lai         │         │
+│  │           "Truyen tin nhan" hay "lan truyen niem tin"│         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### BCH: lam sach san loi
+
+```
+Tai sao BCH Sau LDPC?
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  VAN DE SAN LOI LDPC:                                               │
+│                                                                      │
+│  BER                                                                │
+│   │                                                                 │
+│   │ ╲                                                               │
+│   │  ╲                                                              │
+│   │   ╲  LDPC thac nuoc                                            │
+│   │    ╲ (giam manh)                                               │
+│   │     ╲                                                           │
+│   │      ╲___________  ← San loi (~10⁻⁷)                           │
+│   │                                                                 │
+│   └────────────────────────────── SNR                              │
+│                                                                      │
+│  O SNR cao, LDPC dat "san" khi BER ngung cai thien.                │
+│  Nguyen nhan: vong ngan trong do thi k.tra chan le (tap bay)       │
+│                                                                      │
+│  GIAI PHAP: Them ma BCH ben ngoai                                   │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  D.lieu → Ma hoa BCH → Ma hoa LDPC → [kenh]          │         │
+│  │                                                        │         │
+│  │  [kenh] → Giai ma LDPC → Giai ma BCH → D.lieu        │         │
+│  │                                                        │         │
+│  │  BCH sua vai loi con lai LDPC bo sot                 │         │
+│  │                                                        │         │
+│  │  Tham so BCH DVB-S2:                                  │         │
+│  │  • Sua t = 8, 10, hoac 12 loi (tuy ty le)            │         │
+│  │  • Them 128-192 bit chan le                          │         │
+│  │  • Bo giai ma dai so (xac dinh, khong lap)           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KET QUA: BER ket hop < 10⁻¹⁰ (gan nhu khong loi)                  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cau truc FEC DVB-S2
+
+```
+Luong Ma hoa FEC DVB-S2:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DAU VAO: Khung bang co so (BBFrame)                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │ BBHEADER │        TRUONG DU LIEU        │ DEM        │         │
+│  │  80 bit  │       Kbch - 80 bit          │            │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  BUOC 1: Ma hoa BCH                                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  BBFrame (Kbch bit) → BCH(Nbch, Kbch, t)             │         │
+│  │                                                        │         │
+│  │  Khung thuong: Nbch = 16200 hoac 64800 sau BCH       │         │
+│  │  Chan le BCH: 128-192 bit (t = 8-12 loi)             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  BUOC 2: Ma hoa LDPC                                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Dau ra BCH → LDPC(Nldpc, Kldpc)                     │         │
+│  │                                                        │         │
+│  │  Khung thuong: Nldpc = 64800 bit tong                │         │
+│  │  Khung ngan:   Nldpc = 16200 bit tong                │         │
+│  │                                                        │         │
+│  │  Ty le ma: 1/4, 1/3, 2/5, 1/2, 3/5, 2/3, 3/4,       │         │
+│  │            4/5, 5/6, 8/9, 9/10                        │         │
+│  │                                                        │         │
+│  │  Vi du (ty le 1/2, thuong):                          │         │
+│  │    Kldpc = 32400 bit thong tin                       │         │
+│  │    Nldpc = 64800 bit tong                            │         │
+│  │    Chan le = 32400 bit (50% overhead)                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  DAU RA: Khung FEC (san sang dieu che)                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  D.lieu da ma BCH  │       Chan le LDPC              │         │
+│  │    (Kldpc bit)     │    (Nldpc - Kldpc bit)          │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Van hanh bo giai ma LDPC
+
+```
+Giai ma Lap LDPC (Lan truyen Niem tin):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DO THI TANNER: Do thi hai phan cua bit va kiem tra                │
+│                                                                      │
+│  Nut bien (bit):       ○ ○ ○ ○ ○ ○ ○ ○ ○ ○                        │
+│                         │ │ │ │ │ │ │ │ │ │                         │
+│                        ─┼─┼─┼─┼─┼─┼─┼─┼─┼─┼─                       │
+│                         │ │ │ │ │ │ │ │ │ │                         │
+│  Nut kiem tra:         □   □   □   □   □                            │
+│                                                                      │
+│  VONG LAP 1:                                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Tin nhan Bien → Kiem tra:                         │         │
+│  │     "Dua tren kenh + k.tra khac, toi nghi toi la 0"  │         │
+│  │     Gui ty le log-likelihood (LLR) cho moi k.tra     │         │
+│  │                                                        │         │
+│  │  2. Tin nhan Kiem tra → Bien:                         │         │
+│  │     "Dua tren bit khac trong k.tra, ban nen la 1"    │         │
+│  │     Ket hop LLR den (quy tac tanh)                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  VONG LAP 2-50:                                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Lap lai truyen tin nhan                              │         │
+│  │  Moi vong: niem tin tro nen tu tin hon               │         │
+│  │                                                        │         │
+│  │  Ket thuc som: neu tat ca k.tra thoa man, dung       │         │
+│  │  (tiet kiem dien, thuong hoi tu trong 10-30 vong)    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  QUYET DINH CUOI:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Tong tat ca tin nhan cho moi bit                     │         │
+│  │  LLR > 0 → bit = 0                                   │         │
+│  │  LLR < 0 → bit = 1                                   │         │
+│  │                                                        │         │
+│  │  Neu k.tra van that bai sau toi da vong:             │         │
+│  │  → Loi khong sua duoc (hiem, BCH co the van sua)     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### So sanh hieu nang
+
+```
+So sanh Hieu nang FEC (BER = 10⁻⁵):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SO SANH QPSK:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Ma                     │ Eb/N0 Yeu cau│ K.cach Shannon│        │
+│  │  ───────────────────────┼──────────────┼──────────────│         │
+│  │  QPSK khong ma          │ 9.6 dB       │ N/A          │         │
+│  │  DVB-S (RS+Conv 1/2)    │ 4.5 dB       │ ~3.5 dB      │         │
+│  │  DVB-S2 (LDPC+BCH 1/2)  │ 1.0 dB       │ ~0.9 dB      │         │
+│  │  Gioi han Shannon (1/2) │ 0.1 dB       │ 0 dB         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DO LOI MA HOA THEO TY LE:                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  T.le │ DVB-S2 Eb/N0│ Shannon │ K.cach │ Do loi ma   │         │
+│  │  ─────┼─────────────┼─────────┼────────┼────────────  │         │
+│  │  1/4  │ -2.4 dB     │ -3.0 dB │ 0.6 dB │ 12 dB       │         │
+│  │  1/2  │  1.0 dB     │  0.1 dB │ 0.9 dB │ 8.6 dB      │         │
+│  │  2/3  │  3.1 dB     │  2.2 dB │ 0.9 dB │ 6.5 dB      │         │
+│  │  3/4  │  4.0 dB     │  3.2 dB │ 0.8 dB │ 5.6 dB      │         │
+│  │  5/6  │  4.7 dB     │  4.0 dB │ 0.7 dB │ 4.9 dB      │         │
+│  │  9/10 │  5.5 dB     │  4.9 dB │ 0.6 dB │ 4.1 dB      │         │
+│  │                                                        │         │
+│  │  Luu y: Ty le thap hon = nhieu du thua = hoat dong SNR thap hon │
+│  │         nhung cung = hieu suat pho thap hon           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Phan tich tham so LDPC/BCH:**
+
+```python
+import numpy as np
+
+# Tham so FEC DVB-S2
+MA_DVB_S2 = {
+    "thuong": {
+        "Nldpc": 64800,
+        "ty_le": {
+            "1/4":  {"Kldpc": 16200,  "t_bch": 12, "Kbch": 16008},
+            "1/3":  {"Kldpc": 21600,  "t_bch": 12, "Kbch": 21408},
+            "2/5":  {"Kldpc": 25920,  "t_bch": 12, "Kbch": 25728},
+            "1/2":  {"Kldpc": 32400,  "t_bch": 12, "Kbch": 32208},
+            "3/5":  {"Kldpc": 38880,  "t_bch": 12, "Kbch": 38688},
+            "2/3":  {"Kldpc": 43200,  "t_bch": 10, "Kbch": 43040},
+            "3/4":  {"Kldpc": 48600,  "t_bch": 12, "Kbch": 48408},
+            "4/5":  {"Kldpc": 51840,  "t_bch": 12, "Kbch": 51648},
+            "5/6":  {"Kldpc": 54000,  "t_bch": 10, "Kbch": 53840},
+            "8/9":  {"Kldpc": 57600,  "t_bch": 8,  "Kbch": 57472},
+            "9/10": {"Kldpc": 58320,  "t_bch": 8,  "Kbch": 58192},
+        }
+    },
+    "ngan": {
+        "Nldpc": 16200,
+        "ty_le": {
+            "1/4":  {"Kldpc": 4050,   "t_bch": 12, "Kbch": 3792},
+            "1/3":  {"Kldpc": 5400,   "t_bch": 12, "Kbch": 5232},
+            "1/2":  {"Kldpc": 8100,   "t_bch": 12, "Kbch": 7932},
+            "2/3":  {"Kldpc": 10800,  "t_bch": 12, "Kbch": 10632},
+            "3/4":  {"Kldpc": 12150,  "t_bch": 12, "Kbch": 11982},
+            "5/6":  {"Kldpc": 13500,  "t_bch": 12, "Kbch": 13332},
+        }
+    }
+}
+
+# Es/N0 yeu cau cho van hanh gan nhu khong loi (QEF)
+ES_N0_YEU_CAU = {
+    "1/4": -2.35, "1/3": -1.24, "2/5": -0.30, "1/2": 1.00,
+    "3/5": 2.23, "2/3": 3.10, "3/4": 4.03, "4/5": 4.68,
+    "5/6": 5.18, "8/9": 6.20, "9/10": 6.42
+}
+
+def gioi_han_shannon(ty_le):
+    """Gioi han Shannon cho kenh AWGN dau vao nhi phan (Eb/N0 theo dB)."""
+    return 10 * np.log10((2 ** (2 * ty_le) - 1) / (2 * ty_le))
+
+print("Phan tich Ma LDPC/BCH DVB-S2")
+print("=" * 70)
+
+print("\n1. Tham so Ma (Khung Thuong)")
+print("-" * 70)
+
+print(f"  {'T.le':<6} {'Kbch':<8} {'Kldpc':<8} {'Nldpc':<8} {'BCH t':<7} {'Chan le LDPC':<12}")
+print("-" * 70)
+
+for ty_le, tham_so in MA_DVB_S2["thuong"]["ty_le"].items():
+    Nldpc = MA_DVB_S2["thuong"]["Nldpc"]
+    chan_le_ldpc = Nldpc - tham_so["Kldpc"]
+    print(f"  {ty_le:<6} {tham_so['Kbch']:<8} {tham_so['Kldpc']:<8} {Nldpc:<8} {tham_so['t_bch']:<7} {chan_le_ldpc:<12}")
+
+print("\n2. Phan tich Hieu suat Ma")
+print("-" * 70)
+
+print(f"  {'T.le':<6} {'Bit t.tin':<10} {'Tong bit':<12} {'Overhead %':<12} {'T.le Thuc te':<12}")
+print("-" * 70)
+
+for ty_le, tham_so in MA_DVB_S2["thuong"]["ty_le"].items():
+    Nldpc = MA_DVB_S2["thuong"]["Nldpc"]
+    bit_thong_tin = tham_so["Kbch"] - 80  # Tru BBHeader
+    overhead = (Nldpc - bit_thong_tin) / bit_thong_tin * 100
+    ty_le_thuc = bit_thong_tin / Nldpc
+    print(f"  {ty_le:<6} {bit_thong_tin:<10} {Nldpc:<12} {overhead:<12.1f} {ty_le_thuc:<12.3f}")
+
+print("\n3. Khoang cach den Gioi han Shannon")
+print("-" * 70)
+
+print(f"  {'T.le':<6} {'Es/N0 y.cau':<12} {'Shannon':<10} {'K.cach (dB)':<10} {'Do loi ma':<12}")
+print("-" * 70)
+
+qpsk_khong_ma = 9.6  # dB cho BER = 10^-5
+
+for ty_le, es_n0 in ES_N0_YEU_CAU.items():
+    ty_le_so = eval(ty_le)
+    shannon = gioi_han_shannon(ty_le_so)
+    khoang_cach = es_n0 - shannon
+    do_loi_ma = qpsk_khong_ma - es_n0
+    print(f"  {ty_le:<6} {es_n0:<12.2f} {shannon:<10.2f} {khoang_cach:<10.2f} {do_loi_ma:<12.1f}")
+
+print("\n4. Do phuc tap Bo giai ma LDPC")
+print("-" * 70)
+
+vong_lap_dien_hinh = 25
+vong_lap_toi_da = 50
+
+for loai_khung in ["thuong", "ngan"]:
+    Nldpc = MA_DVB_S2[loai_khung]["Nldpc"]
+    
+    # Uoc tinh: ~10 phep toan moi bit moi vong
+    phep_toan_moi_khung = Nldpc * vong_lap_dien_hinh * 10
+    
+    # O 30 Msps voi QPSK (2 bit/ky hieu)
+    toc_do_ky_hieu = 30e6
+    bit_moi_ky_hieu = 2
+    khung_moi_giay = toc_do_ky_hieu * bit_moi_ky_hieu / Nldpc
+    
+    gops = phep_toan_moi_khung * khung_moi_giay / 1e9
+    
+    print(f"  Khung {loai_khung} ({Nldpc} bit):")
+    print(f"    Khung/giay o 30 Msps QPSK: {khung_moi_giay:.1f}")
+    print(f"    GOPS uoc tinh: {gops:.1f}")
+    print()
+
+print("5. Kha nang Sua loi BCH")
+print("-" * 70)
+
+print(f"  {'T.le':<6} {'BCH t':<8} {'Bit chan le BCH':<16} {'San loi':<15}")
+print("-" * 70)
+
+for ty_le, tham_so in MA_DVB_S2["thuong"]["ty_le"].items():
+    t = tham_so["t_bch"]
+    bit_chan_le = tham_so["Kldpc"] - tham_so["Kbch"]
+    san = f"< 10^-{7 + t//2}"
+    print(f"  {ty_le:<6} {t:<8} {bit_chan_le:<16} {san:<15}")
+
+print("\n6. Phan tich Do tre")
+print("-" * 70)
+
+toc_do_ky_hieu_msps = 30
+
+for loai_khung in ["thuong", "ngan"]:
+    Nldpc = MA_DVB_S2[loai_khung]["Nldpc"]
+    
+    # Do tre ma hoa (toan khung)
+    ky_hieu_ma_hoa = Nldpc / 2  # QPSK
+    thoi_gian_ma_hoa_us = ky_hieu_ma_hoa / toc_do_ky_hieu_msps
+    
+    # Do tre giai ma (vong lap)
+    thoi_gian_giai_ma_us = thoi_gian_ma_hoa_us + vong_lap_dien_hinh * 10
+    
+    print(f"  Khung {loai_khung}:")
+    print(f"    Thoi luong khung: {thoi_gian_ma_hoa_us:.0f} µs")
+    print(f"    Do tre ma hoa: ~{thoi_gian_ma_hoa_us:.0f} µs (mot khung)")
+    print(f"    Do tre giai ma: ~{thoi_gian_giai_ma_us:.0f} µs ({vong_lap_dien_hinh} vong)")
+    print()
+```
+
+**Thong so chinh:**
+
+| Tham so | Khung Thuong | Khung Ngan |
+|---------|-------------|------------|
+| Tong bit | 64,800 | 16,200 |
+| Ty le ma | 1/4 den 9/10 | 1/4 den 5/6 |
+| BCH t | 8-12 loi | 12 loi |
+| Vong lap dien hinh | 25 | 25 |
+| K.cach Shannon | 0.6-1.0 dB | 0.8-1.2 dB |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Bo qua overhead BCH.** BCH them 128-192 bit; tinh vao tinh toan ty le.
+
+2. **So vong lap co dinh.** Ket thuc som tiet kiem 30-50% dien. Kiem tra modem co ho tro.
+
+3. **Khung ngan kem hieu qua.** Khung ngan co hieu nang kem ~0.3 dB so voi khung thuong cung ty le.
+
+4. **San loi LDPC.** Khong co BCH, LDPC dat san o ~10⁻⁷ BER. BCH la thiet yeu cho van hanh QEF.
+
+5. **Thong luong bo giai ma.** LDPC can ~1-2 GOPS o 30 Msps. Xac minh FPGA/ASIC xu ly duoc.
+
+6. **Gia dinh xen kenh.** Bo xen kenh bit DVB-S2 khac theo dieu che. Dung trao doi bo xen QPSK/8PSK.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- ETSI EN 302 307-1 (Dac ta FEC DVB-S2)
+- Gallager, "Low-Density Parity-Check Codes" (1963, tai phat hien 1996)
+- Richardson & Urbanke, "Modern Coding Theory" (Cambridge, 2008)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [DVB-S2 va DVB-S2X](/vi/space/modulation-coding-satellite/dvb-s2-s2x/) — tieu chuan su dung cac ma nay
+- [MODCODs](/vi/space/modulation-coding-satellite/modcods/) — cach ty le ma ket hop voi dieu che
+- [ACM](/vi/space/modulation-coding-satellite/acm/) — thich ung ty le ma theo dieu kien kenh
+
+</section>

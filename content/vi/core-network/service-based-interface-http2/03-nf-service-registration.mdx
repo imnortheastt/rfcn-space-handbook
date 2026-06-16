@@ -8,17 +8,369 @@ track: n3
 unit: service-based-interface-http2
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "Dang ky dich vu NF voi NRF"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n3-service-based-interface-http2-01-sbi-overview"]
+spiralRevisits: ["core-network-n3-5g-core-architecture-network-functions-05-nrf-nssf-pcf-nef"]
+title: "Dang ky NF Service voi NRF"
+description: "Cach cac NF dang ky, heartbeat, va huy dang ky voi NRF — nen tang cua kham pha dich vu 5G."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 29.510", "3GPP TS 23.501"]
+tags: ["nrf", "5g", "sbi", "registration", "discovery"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Dang ky dich vu NF voi NRF
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Khi AMF can mot SMF, lam sao no biet co nhung SMF instance nao? Dia chi IP nao? Nhung slice nao chung phuc vu?
+
+NRF tra loi dieu nay. Moi NF dang ky voi NRF khi khoi dong, gui heartbeat khi chay, va huy dang ky khi tat. Khong co NRF, kien truc dich vu dong cua 5G se sup do.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### NRF nhu service registry
+
+```
+Vai tro NRF trong 5G Core:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ┌─────────────┐                      │
+│                    │     NRF     │                      │
+│                    │  ┌───────┐  │                      │
+│                    │  │Registry│ │                      │
+│                    │  └───────┘  │                      │
+│                    └──────┬──────┘                      │
+│                           │                             │
+│    ┌──────────────────────┼──────────────────────┐     │
+│    │                      │                      │     │
+│    ▼                      ▼                      ▼     │
+│  ┌───┐    Dang ky      ┌───┐    Dang ky      ┌───┐    │
+│  │AMF│ ◄─────────────► │SMF│ ◄─────────────► │UDM│    │
+│  └───┘    Heartbeat    └───┘    Heartbeat    └───┘    │
+│    │      Kham pha        │      Kham pha        │     │
+│    │                      │                      │     │
+│    └──────────────────────┴──────────────────────┘     │
+│                                                          │
+│  NRF biet:                                              │
+│  - Moi NF instance (IP, port, FQDN)                    │
+│  - Cac service moi NF cung cap                         │
+│  - Slice, DNN, TAI moi NF phuc vu                      │
+│  - Trang thai suc khoe hien tai                        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Vong doi NF
+
+```
+Vong doi NF voi NRF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Dang ky (khoi dong)                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ NF khoi dong → PUT /nnrf-nfm/v1/nf-instances/  │    │
+│  │                {id}                             │    │
+│  │              ← 201 Created                      │    │
+│  │ NF bay gio co the duoc kham pha boi NF khac    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  2. Heartbeat (dang chay)                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Moi 30-60 giay:                                 │    │
+│  │ PATCH /nnrf-nfm/v1/nf-instances/{id}           │    │
+│  │ (cap nhat heartbeatTimer)                      │    │
+│  │                                                  │    │
+│  │ Neu NRF mat heartbeat → NF danh dau khong khoe │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  3. Huy dang ky (tat)                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ NF dang tat:                                    │    │
+│  │ DELETE /nnrf-nfm/v1/nf-instances/{id}          │    │
+│  │ ← 204 No Content                                │    │
+│  │ NF khong con duoc kham pha                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cau truc NF profile
+
+```
+Noi dung NF Profile:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  {                                                      │
+│    "nfInstanceId": "3fa85f64-5717-4562-b3fc-...",      │
+│    "nfType": "SMF",                                    │
+│    "nfStatus": "REGISTERED",                           │
+│                                                          │
+│    "plmnList": [                                       │
+│      { "mcc": "310", "mnc": "001" }                    │
+│    ],                                                   │
+│                                                          │
+│    "sNssais": [                                        │
+│      { "sst": 1, "sd": "000001" }                      │
+│    ],                                                   │
+│                                                          │
+│    "nfServices": [                                     │
+│      {                                                 │
+│        "serviceName": "nsmf-pdusession",               │
+│        "versions": [                                   │
+│          { "apiVersionInUri": "v1",                    │
+│            "apiFullVersion": "1.0.0" }                 │
+│        ],                                              │
+│        "scheme": "https",                              │
+│        "nfServiceStatus": "REGISTERED",                │
+│        "ipEndPoints": [                                │
+│          { "ipv4Address": "10.0.0.5", "port": 29502 }  │
+│        ]                                               │
+│      }                                                 │
+│    ],                                                   │
+│                                                          │
+│    "smfInfo": {                                        │
+│      "sNssaiSmfInfoList": [...],                       │
+│      "taiList": [...],                                 │
+│      "accessType": ["3GPP_ACCESS"]                     │
+│    },                                                   │
+│                                                          │
+│    "heartBeatTimer": 30,                               │
+│    "load": 45                                          │
+│  }                                                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Luong dang ky
+
+```
+Chi tiet Dang ky NF:
+
+NF (SMF)                         NRF
+│                                 │
+│ PUT /nnrf-nfm/v1/nf-instances/ │
+│ {nfInstanceId}                  │
+│ Body: NF Profile               │
+│─────────────────────────────────►│
+│                                 │
+│                                 │ Xac thuc profile
+│                                 │ Luu vao registry
+│                                 │
+│ 201 Created                    │
+│ Location: /nf-instances/{id}   │
+│◄─────────────────────────────────│
+│                                 │
+│ [SMF bay gio co the kham pha]  │
+│                                 │
+│ Heartbeat dinh ky:             │
+│ PATCH /nnrf-nfm/v1/nf-instances│
+│ /{nfInstanceId}                │
+│ Body: {"nfStatus":"REGISTERED"}│
+│─────────────────────────────────►│
+│                                 │
+│ 200 OK                         │
+│◄─────────────────────────────────│
+│                                 │
+```
+
+### Luong kham pha service
+
+```
+Kham pha NF:
+
+AMF                              NRF                   SMF
+│                                 │                      │
+│ GET /nnrf-disc/v1/nf-instances │                      │
+│ ?nf-type=SMF                   │                      │
+│ &snssai={"sst":1}             │                      │
+│ &dnn=internet                  │                      │
+│─────────────────────────────────►│                      │
+│                                 │                      │
+│                                 │ Truy van registry    │
+│                                 │ Loc theo tieu chi    │
+│                                 │                      │
+│ 200 OK                         │                      │
+│ {                              │                      │
+│   "nfInstances": [             │                      │
+│     { SMF profile 1 },         │                      │
+│     { SMF profile 2 }          │                      │
+│   ]                            │                      │
+│ }                              │                      │
+│◄─────────────────────────────────│                      │
+│                                 │                      │
+│ [AMF chon SMF dua tren         │                      │
+│  load, locality, v.v.]         │                      │
+│                                 │                      │
+│ POST /nsmf-pdusession/v1/...   │                      │
+│─────────────────────────────────────────────────────────►│
+│                                 │                      │
+```
+
+### Dang ky nhan thong bao
+
+```
+Dang ky Trang thai NF:
+
+AMF                              NRF
+│                                 │
+│ POST /nnrf-nfm/v1/subscriptions│
+│ {                              │
+│   "nfStatusNotificationUri":   │
+│     "https://amf:29518/callback",
+│   "reqNfType": "SMF",          │
+│   "subscriptionCond": {...}    │
+│ }                              │
+│─────────────────────────────────►│
+│                                 │
+│ 201 Created                    │
+│ subscriptionId: "sub-123"      │
+│◄─────────────────────────────────│
+│                                 │
+│ [Sau do, SMF down]             │
+│                                 │
+│ POST https://amf:29518/callback│
+│ {                              │
+│   "event": "NF_DEREGISTERED",  │
+│   "nfInstanceUri": "...",      │
+│   "nfProfile": {...}           │
+│ }                              │
+│◄─────────────────────────────────│
+│                                 │
+│ [AMF xoa SMF khoi cache]       │
+│                                 │
+```
+
+### Tieu chi chon NF
+
+```
+Tham so Truy van Kham pha:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Tham so            │ Muc dich                          │
+│  ────────────────────┼─────────────────────────────────│
+│  nf-type             │ SMF, UDM, AUSF, PCF, v.v.       │
+│  snssai              │ Slice (SST + SD)                │
+│  dnn                 │ Ten Mang Du lieu                │
+│  tai                 │ Tracking Area Identity          │
+│  plmn                │ MCC + MNC                       │
+│  nf-instance-id      │ Instance cu the                 │
+│  service-name        │ vd: nsmf-pdusession             │
+│  target-plmn         │ Cho tinh huong roaming          │
+│  supi                │ Thue bao cu the (UDM)           │
+│  gpsi                │ ID thue bao cong khai           │
+│                                                          │
+│  Vi du: Tim SMF cho slice eMBB trong TAI 310001-123    │
+│  GET /nnrf-disc/v1/nf-instances                        │
+│      ?nf-type=SMF                                      │
+│      &snssai={"sst":1,"sd":"000001"}                  │
+│      &tai={"plmnId":{"mcc":"310","mnc":"001"},        │
+│            "tac":"000123"}                             │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cac truong NF profile quan trong theo loai NF:**
+
+| Loai NF | Truong Profile Quan trong |
+|---------|--------------------------|
+| SMF | smfInfo (sNssaiSmfInfoList, taiList, dnnList) |
+| AMF | amfInfo (amfSetId, amfRegionId, guamiList, taiList) |
+| UDM | udmInfo (supiRanges, gpsiRanges) |
+| AUSF | ausfInfo (supiRanges, groupId) |
+| PCF | pcfInfo (dnnList, supiRanges) |
+| UPF | upfInfo (sNssaiUpfInfoList, interfaceUpfInfoList) |
+
+**Debug dang ky:**
+
+```bash
+# Kiem tra dang ky NF
+curl -k "https://nrf.local:29510/nnrf-nfm/v1/nf-instances/{id}"
+
+# Liet ke tat ca NF da dang ky
+curl -k "https://nrf.local:29510/nnrf-nfm/v1/nf-instances"
+
+# Wireshark: dang ky/kham pha
+http2.header.path contains "nnrf-nfm" || http2.header.path contains "nnrf-disc"
+
+# Kiem tra loi heartbeat
+grep "heartbeat" /var/log/nrf/*.log | grep -i "fail\|timeout"
+```
+
+**Thoi gian heartbeat:**
+
+| Tinh huong | Timer Heartbeat | Phuc hoi |
+|------------|-----------------|----------|
+| Binh thuong | 30-60 giay | — |
+| HA cao | 10-20 giay | Failover nhanh |
+| Dung sai NRF | 2-3 lan mat | Danh dau NF khong khoe |
+| Huy dang ky | DELETE graceful | Xoa ngay lap tuc |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Timeout heartbeat.** Neu NF crash ma khong huy dang ky, NRF doi heartbeat timeout. Cau hinh timer ngan hon cho HA.
+
+2. **NRF diem loi duy nhat.** Trien khai NRF theo cum HA. Cac NF nen cache NF profile da kham pha.
+
+3. **Profile khong khop.** Neu NF profile khong khop chinh xac tieu chi truy van, se khong duoc kham pha. Kiem tra sNssai, DNN, TAI.
+
+4. **Cache kham pha cu.** Consumer cache NF profile. Neu producer thay doi, cache cu. Dang ky nhan thong bao.
+
+5. **Can bang tai.** NRF tra ve nhieu instance. Consumer phai implement logic chon (round-robin, least-load).
+
+6. **Thu lai dang ky.** Neu dang ky ban dau that bai, NF phai thu lai voi backoff. Dung lam ngap NRF.
+
+7. **Cap nhat profile.** Khi NF thay doi (service moi, IP moi), phai dang ky lai. Dung PUT de thay the hoac PATCH de cap nhat.
+
+8. **Tao UUID.** nfInstanceId phai duy nhat. Dung tao UUID dung, khong phai ID tuan tu.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 29.510, "Network Function Repository Services"
+- 3GPP TS 23.501, "System Architecture" (mo ta NRF)
+- 3GPP TS 29.500, "Technical Realization of SBA"
+- 3GPP TS 29.571, "Common Data Types"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [JSON va OpenAPI](/vi/core-network/service-based-interface-http2/json-and-openapi-in-5g/) — dinh nghia API
+- [NRF-NSSF-PCF-NEF](/vi/core-network/5g-core-architecture-network-functions/nrf-nssf-pcf-nef/) — vai tro NRF trong kien truc
+- [Tong quan SBI](/vi/core-network/service-based-interface-http2/sbi-overview/) — mo hinh service
+
+</section>

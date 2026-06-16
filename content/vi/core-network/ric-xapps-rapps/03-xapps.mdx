@@ -8,17 +8,459 @@ track: n6
 unit: ric-xapps-rapps
 order: 3
 level: L4
-estimatedReadingMinutes: 5
-title: "xApp"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n6-ric-xapps-rapps-01-near-rt-ric"]
+spiralRevisits: []
+title: "xApps"
+description: "Ung dung Near-RT RIC: kien truc, truong hop su dung pho bien, framework phat trien, va mau trien khai."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG3.RICAPP"]
+tags: ["o-ran", "ric", "xapps", "e2", "toi-uu-ran"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# xApp
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+xApps la cac dong co tri tue cua Near-RT RIC. Chung tieu thu du lieu RAN, ap dung thuat toan (bao gom ML), va phat hanh dong dieu khien — tat ca trong vong dieu khien 10ms den 1s.
+
+Hieu phat trien xApp la can thiet de xay dung cac giai phap tu dong hoa va toi uu O-RAN.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Kien truc xApp
+
+```
+Kien truc xApp:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nen tang Near-RT RIC                                   │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  ┌──────────────────────────────────────────────┐ │  │
+│  │  │               Container xApp                  │ │  │
+│  │  │                                               │ │  │
+│  │  │  ┌─────────────────────────────────────────┐ │ │  │
+│  │  │  │         Logic Ung dung                  │ │ │  │
+│  │  │  │  - Thuat toan / Mo hinh ML              │ │ │  │
+│  │  │  │  - Quy tac nghiep vu                    │ │ │  │
+│  │  │  │  - Dong co quyet dinh                   │ │ │  │
+│  │  │  └─────────────────────────────────────────┘ │ │  │
+│  │  │                     │                        │ │  │
+│  │  │  ┌─────────────────────────────────────────┐ │ │  │
+│  │  │  │           Framework xApp                │ │ │  │
+│  │  │  │  - RMR (RIC Message Router)             │ │ │  │
+│  │  │  │  - SDL (Shared Data Layer)              │ │ │  │
+│  │  │  │  - Quan ly cau hinh                     │ │ │  │
+│  │  │  │  - Log / So lieu                        │ │ │  │
+│  │  │  └─────────────────────────────────────────┘ │ │  │
+│  │  │                                               │ │  │
+│  │  └──────────────────────────────────────────────┘ │  │
+│  │                                                    │  │
+│  │  Dich vu Nen tang:                                │  │
+│  │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐      │  │
+│  │  │  E2    │ │  Sub   │ │ Conflict│ │  A1   │      │  │
+│  │  │  Term  │ │  Mgr   │ │  Mitig  │ │ Medtr │      │  │
+│  │  └────────┘ └────────┘ └────────┘ └────────┘      │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac loai xApp pho bien
+
+```
+Truong hop Su dung xApp Pho bien:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ MLB (Can bang Tai Di dong)                      │    │
+│  │ - Giam sat tai cell qua E2SM-KPM                │    │
+│  │ - Dieu chinh tham so chuyen giao                │    │
+│  │ - Can bang UE giua cac cell                     │    │
+│  │ - Dieu khien qua E2SM-RC                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ MRO (Toi uu Do ben Di dong)                     │    │
+│  │ - Phat hien loi chuyen giao                     │    │
+│  │ - Nhan dien HO qua som/qua muon                 │    │
+│  │ - Dieu chinh nguong HO                          │    │
+│  │ - Giam chuyen giao ping-pong                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ ES (Tiet kiem Nang luong)                       │    │
+│  │ - Giam sat mau luu luong                        │    │
+│  │ - Nhan dien giai doan su dung thap              │    │
+│  │ - Kich hoat ngu/danh thuc cell                  │    │
+│  │ - Phoi hop voi cac cell dung luong              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ TS (Dieu huong Luu luong)                       │    │
+│  │ - Dieu huong luu luong giua RATs/slices         │    │
+│  │ - Ap dung dinh tuyen nhan thuc QoS              │    │
+│  │ - Toi uu cho throughput hoac do tre             │    │
+│  │ - Thuc thi SLA slice                            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ QoE (Chat luong Trai nghiem)                    │    │
+│  │ - Giam sat KPIs ung dung                        │    │
+│  │ - Du doan suy giam QoE                          │    │
+│  │ - Cap phat tai nguyen chu dong                  │    │
+│  │ - Toi uu lay nguoi dung lam trung tam           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Nhan tin RMR
+
+```
+RIC Message Router (RMR):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  RMR la xuong song nhan tin cho xApps:                  │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Cac Loai Ban tin:                              │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ RIC_INDICATION (12050)                  │   │    │
+│  │  │ - E2 node gui du lieu den xApp          │   │    │
+│  │  │ - Chua payload E2SM                     │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ RIC_CONTROL_REQ (12040)                 │   │    │
+│  │  │ - xApp gui hanh dong den E2 node        │   │    │
+│  │  │ - Chua ban tin dieu khien E2SM          │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ RIC_CONTROL_ACK (12041)                 │   │    │
+│  │  │ - E2 node xac nhan hanh dong            │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ A1_POLICY_REQ/RESP (20010/20011)        │   │    │
+│  │  │ - Chinh sach tu Non-RT RIC              │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Dinh tuyen RMR:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  xApp dang ky loai ban tin no xu ly             │    │
+│  │                                                  │    │
+│  │  Vi du bang dinh tuyen:                         │    │
+│  │  mtype=12050 | subid=-1 | endpoint=xapp1:4560   │    │
+│  │  mtype=12050 | subid=100| endpoint=xapp2:4560   │    │
+│  │                                                  │    │
+│  │  RMR phan phoi dua tren mtype + ID dang ky      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Truy cap du lieu SDL
+
+```
+Shared Data Layer (SDL):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SDL cung cap luu tru ben vung cho xApps:               │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Namespaces:                                    │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ "rnib" - Co so TT Mang RAN              │   │    │
+│  │  │  - Cau hinh cell                        │   │    │
+│  │  │  - Kiem ke E2 node                      │   │    │
+│  │  │  - Kha nang chuc nang RAN               │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ "uenib" - Co so TT Mang UE              │   │    │
+│  │  │  - Ngu canh UE                          │   │    │
+│  │  │  - Thong tin bearer                     │   │    │
+│  │  │  - Cell phuc vu                         │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ "xapp-<name>" - Namespace rieng xApp    │   │    │
+│  │  │  - Trang thai xApp                      │   │    │
+│  │  │  - Tham so thuat toan                   │   │    │
+│  │  │  - Cache du lieu lich su                │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Cac thao tac:                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  sdl.Get(namespace, key) → value                │    │
+│  │  sdl.Set(namespace, key, value)                 │    │
+│  │  sdl.Remove(namespace, key)                     │    │
+│  │  sdl.GetAll(namespace) → map[key]value          │    │
+│  │  sdl.SetIf(namespace, key, oldVal, newVal)      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Mo ta xApp
+
+```
+Mo ta xApp (config-file.json):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  {                                                      │
+│    "xapp_name": "mlb-xapp",                             │
+│    "version": "1.0.0",                                  │
+│                                                          │
+│    "containers": [{                                     │
+│      "name": "mlb-xapp",                                │
+│      "image": {                                         │
+│        "registry": "registry.o-ran-sc.org",             │
+│        "name": "o-ran-sc/mlb-xapp",                     │
+│        "tag": "1.0.0"                                   │
+│      },                                                 │
+│      "command": ["./mlb-xapp"]                          │
+│    }],                                                  │
+│                                                          │
+│    "messaging": {                                       │
+│      "ports": [{                                        │
+│        "name": "rmr-data",                              │
+│        "container": "mlb-xapp",                         │
+│        "port": 4560,                                    │
+│        "rxMessages": ["RIC_INDICATION"],                │
+│        "txMessages": ["RIC_CONTROL_REQ"],               │
+│        "policies": []                                   │
+│      }]                                                 │
+│    },                                                   │
+│                                                          │
+│    "controls": {                                        │
+│      "mlb-threshold": {                                 │
+│        "type": "integer",                               │
+│        "default": 70,                                   │
+│        "description": "Nguong tai cho kich hoat MLB"   │
+│      }                                                  │
+│    }                                                    │
+│  }                                                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Luong phat trien xApp
+
+```
+Quy trinh Phat trien xApp:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Thiet lap                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Chon ngon ngu (Go, Python, C++)               │    │
+│  │ - Import xApp SDK                               │    │
+│  │ - Dinh nghia mo ta config-file.json             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  2. Khoi tao                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ xapp := xapp.NewXApp()                          │    │
+│  │ xapp.SetMessageCallback(handleMessage)          │    │
+│  │ xapp.Run()                                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  3. Dang ky                                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ subReq := SubscriptionRequest{                  │    │
+│  │   RanFunctionID: 1,                             │    │
+│  │   EventTrigger: KpmEventTrigger{Period: 100},   │    │
+│  │   Actions: []ActionDefinition{...}              │    │
+│  │ }                                               │    │
+│  │ subMgr.Subscribe(subReq)                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  4. Xu ly                                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ func handleMessage(msg *rmr.Message) {          │    │
+│  │   indication := DecodeE2smKpm(msg.Payload)      │    │
+│  │   metrics := ExtractMetrics(indication)         │    │
+│  │   decision := RunAlgorithm(metrics)             │    │
+│  │   if decision.ShouldAct() {                     │    │
+│  │     SendControlRequest(decision)                │    │
+│  │   }                                             │    │
+│  │ }                                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  5. Dieu khien                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ ctrlReq := ControlRequest{                      │    │
+│  │   RanFunctionID: 3,                             │    │
+│  │   ControlHeader: {...},                         │    │
+│  │   ControlMessage: RcControlMessage{             │    │
+│  │     RrcState: "Handover",                       │    │
+│  │     TargetCell: "cell-002"                      │    │
+│  │   }                                             │    │
+│  │ }                                               │    │
+│  │ e2.SendControl(ctrlReq)                         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cac tuy chon xApp SDK:**
+
+| Ngon ngu | SDK | Ghi chu |
+|----------|-----|---------|
+| Go | ric-plt/xapp-frame | Trien khai tham chieu |
+| Python | ric-plt/xapp-frame-py | Than thien voi ML |
+| C/C++ | ric-plt/xapp-frame-cpp | Yeu cau hieu nang cao |
+
+**Vi du MLB xApp (Go):**
+
+```go
+package main
+
+import (
+    "gerrit.o-ran-sc.org/r/ric-plt/xapp-frame/pkg/xapp"
+)
+
+type MLBXapp struct {
+    threshold int
+}
+
+func (m *MLBXapp) Consume(msg *xapp.RMRParams) error {
+    switch msg.Mtype {
+    case xapp.RIC_INDICATION:
+        return m.handleIndication(msg)
+    case xapp.A1_POLICY_REQ:
+        return m.handlePolicy(msg)
+    }
+    return nil
+}
+
+func (m *MLBXapp) handleIndication(msg *xapp.RMRParams) error {
+    // Giai ma KPM indication
+    kpm := DecodeKpmIndication(msg.Payload)
+    
+    // Kiem tra tai cell
+    for _, cell := range kpm.Cells {
+        if cell.PrbUtilDL > m.threshold {
+            // Tim cell dich de can bang tai
+            target := m.findLeastLoadedNeighbor(cell)
+            if target != nil {
+                m.triggerHandover(cell, target)
+            }
+        }
+    }
+    return nil
+}
+
+func main() {
+    mlb := &MLBXapp{threshold: 70}
+    xapp.SetMessageCallback(mlb)
+    xapp.Run()
+}
+```
+
+**Lenh trien khai:**
+
+```bash
+# Dong goi xApp thanh Helm chart
+helm package ./charts/mlb-xapp
+
+# Trien khai den Near-RT RIC
+curl -X POST http://appmgr:8080/ric/v1/xapps \
+  -F "config=@config-file.json" \
+  -F "controls=@controls.json"
+
+# Kiem tra trang thai xApp
+curl http://appmgr:8080/ric/v1/xapps/mlb-xapp
+
+# Xem log xApp
+kubectl logs -n ricxapp -l app=mlb-xapp -f
+
+# Kiem tra dang ky
+curl http://submgr:8080/ric/v1/subscriptions
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Chan callback RMR.** Xu ly dai trong callback chan hang doi ban tin. Dung async/goroutines.
+
+2. **Thieu don dep dang ky.** xApp crash khong huy dang ky. Subscription manager xu ly mo coi nhung kiem tra trang thai.
+
+3. **Mau truy cap SDL.** Doc nho thuong xuyen lam cham. Doc theo lo, cache cuc bo.
+
+4. **Tan suat dieu khien qua cao.** Gui qua nhieu ban tin dieu khien gay nghen E2. Trien khai gioi han tan suat.
+
+5. **Loi ma hoa E2SM.** Khong khop ma hoa ASN.1 giua xApp va E2 node. Xac minh tuong thich phien ban E2SM.
+
+6. **Cau hinh khong tai lai.** xApp khong nhan thay doi cau hinh. Trien khai theo doi cau hinh hoac khoi dong lai.
+
+7. **Ro ri bo nho.** Payload indication lon khong giai phong. Profiling su dung bo nho, dac biet cho xApp ML.
+
+8. **Xung dot voi xApps khac.** Nhieu xApps dieu khien cung tham so. Su dung dich vu giam thieu xung dot.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- O-RAN Alliance WG3, "Near-RT RIC xApp Architecture"
+- O-RAN SC, "xApp Developer Guide"
+- O-RAN SC, "RIC xApp Frame documentation"
+- O-RAN SC, "RMR Library Guide"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [rApps](/vi/core-network/ric-xapps-rapps/rapps/) — Ung dung Non-RT RIC
+- [Near-RT RIC](/vi/core-network/ric-xapps-rapps/near-rt-ric/) — kien truc nen tang
+- [Non-RT RIC](/vi/core-network/ric-xapps-rapps/non-rt-ric/) — chinh sach va ML
+
+</section>

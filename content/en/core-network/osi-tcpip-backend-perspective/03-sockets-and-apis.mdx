@@ -8,17 +8,444 @@ track: n0
 unit: osi-tcpip-backend-perspective
 order: 3
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 14
+prerequisites: ["core-network-n0-osi-tcpip-backend-perspective-02-tcp-ip-stack"]
+spiralRevisits: ["core-network-n3-http-grpc-websocket-01-http-versions"]
 title: "Sockets and APIs"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The programming interface to the network — POSIX sockets, SCTP for 5G N2/Xn/E1, DPDK bypass for UPF, and how Network Functions bind their interfaces."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["POSIX.1-2017", "RFC 4960", "3GPP TS 38.412", "3GPP TS 38.422"]
+tags: ["sockets", "networking", "api", "syscalls", "sctp", "dpdk", "5g", "nf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Sockets and APIs
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Every HTTP request, database query, and RPC call goes through sockets. When `requests.get()` works but your production service hangs, understanding sockets tells you why.
+
+Sockets are the API between your application and the TCP/IP stack. In 5G, the same POSIX socket API underpins every control-plane interface — but with one critical extension: SCTP. The N2 interface (gNB to AMF) does not use TCP. It uses SCTP sockets with multi-homing enabled. If you have never opened an SCTP socket, you cannot debug N2 association failures.
+
+Master sockets and you can debug connection pooling, understand why connections leak, reason about graceful shutdown, and trace why an AMF association drops.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+A **socket** is an endpoint for network communication — like a phone that can make or receive calls.
+
+Three socket types matter in telecom:
+
+| Type | Protocol | Behavior | 5G use case |
+|------|----------|----------|-------------|
+| SOCK_STREAM | TCP | Reliable byte stream | SBI HTTP/2, O1 management |
+| SOCK_DGRAM | UDP | Unreliable datagrams | GTP-U (N3/N9), DNS |
+| SOCK_SEQPACKET | SCTP | Reliable message stream | N2 (NGAP), Xn, E1, F1-C |
+
+**The socket lifecycle:**
+
+```
+Server:                          Client:
+socket() → create endpoint       socket() → create endpoint
+bind()   → assign address:port   
+listen() → mark as passive       
+accept() → wait for client    ←→ connect() → initiate connection
+recv()   ↔ send()                send() ↔ recv()
+close()  → terminate             close() → terminate
+```
+
+**Mental model:** A socket is a file descriptor. On Unix, everything is a file — including network connections. You `read()` and `write()` to sockets just like files. This is why `select()`, `poll()`, and `epoll` work on sockets.
+
+**Cloud analogy:** A socket is like a gRPC channel — a connection endpoint with a lifecycle (open, connected, data transfer, close). The difference is that gRPC is built on top of TCP sockets, which are built on top of the kernel socket API.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Creating a TCP socket
+
+```c
+int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+//                  ↑         ↑           ↑
+//                  IPv4      TCP         default protocol
+```
+
+**Address families:**
+- `AF_INET` — IPv4
+- `AF_INET6` — IPv6
+- `AF_UNIX` — Local (same machine, no network overhead — used for inter-process in same pod)
+
+**Socket types:**
+- `SOCK_STREAM` — TCP (reliable, ordered, connection-based)
+- `SOCK_DGRAM` — UDP (unreliable, unordered, connectionless)
+- `SOCK_SEQPACKET` — SCTP (reliable, message-boundary preserving)
+- `SOCK_RAW` — Raw IP packets (requires root; used by DPDK and packet generators)
+
+### Server: bind, listen, accept
+
+**bind()** — Associate socket with an address:
+
+```c
+struct sockaddr_in addr;
+addr.sin_family = AF_INET;
+addr.sin_port = htons(8080);           // Network byte order (big-endian)
+addr.sin_addr.s_addr = INADDR_ANY;     // 0.0.0.0 — all interfaces
+
+bind(sockfd, (struct sockaddr*)&addr, sizeof(addr));
+```
+
+**listen()** — Mark socket as passive (accepting connections):
+
+```c
+listen(sockfd, 128);  // backlog = 128 pending connections
+```
+
+The **backlog** is how many connections can queue while you are handling others. If full, new connections get `ECONNREFUSED`. In high-throughput NFs handling thousands of simultaneous sessions, this value must be tuned (`net.core.somaxconn`).
+
+**accept()** — Wait for and accept a connection:
+
+```c
+struct sockaddr_in client_addr;
+socklen_t len = sizeof(client_addr);
+int client_fd = accept(sockfd, (struct sockaddr*)&client_addr, &len);
+// client_fd is a NEW socket for this specific connection
+// sockfd continues listening for more connections
+```
+
+### Client: connect
+
+```c
+struct sockaddr_in server_addr;
+server_addr.sin_family = AF_INET;
+server_addr.sin_port = htons(8080);
+inet_pton(AF_INET, "10.0.0.5", &server_addr.sin_addr);
+
+connect(sockfd, (struct sockaddr*)&server_addr, sizeof(server_addr));
+// TCP 3-way handshake happens here
+```
+
+`connect()` blocks until the handshake completes (or fails with `ETIMEDOUT`, `ECONNREFUSED`, etc.).
+
+### Data transfer: send, recv
+
+**send()** — Write data to socket:
+
+```c
+char *msg = "GET / HTTP/1.1\r\n\r\n";
+ssize_t sent = send(sockfd, msg, strlen(msg), 0);
+// sent may be less than strlen(msg) — partial writes are normal with TCP
+```
+
+**recv()** — Read data from socket:
+
+```c
+char buf[4096];
+ssize_t received = recv(sockfd, buf, sizeof(buf), 0);
+// received = 0 means peer closed connection (EOF)
+// received = -1 means error (check errno)
+```
+
+**Critical insight:** TCP is a byte stream. `send(1000 bytes)` might arrive as multiple `recv()` calls. Your application must handle message framing — this is why HTTP uses `\r\n\r\n` to delimit headers and `Content-Length` for body length. SCTP preserves message boundaries — one `sendmsg()` arrives as one `recvmsg()`.
+
+### Closing: shutdown, close
+
+**close()** — Release the socket:
+
+```c
+close(sockfd);  // Both directions closed, resources freed
+```
+
+**shutdown()** — Partial close:
+
+```c
+shutdown(sockfd, SHUT_WR);   // Stop sending (FIN sent)
+shutdown(sockfd, SHUT_RD);   // Stop receiving
+shutdown(sockfd, SHUT_RDWR); // Both (like close, but fd still valid)
+```
+
+Use `shutdown(SHUT_WR)` to signal "I am done sending" while still receiving. This is the correct way to implement graceful shutdown in an NF — drain in-flight requests before closing.
+
+### Socket options
+
+**SO_REUSEADDR** — Reuse address immediately after close:
+
+```c
+int opt = 1;
+setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt));
+```
+
+Without this, binding to a recently-used port fails with `EADDRINUSE` (TIME_WAIT state). Always set this on server sockets.
+
+**SO_KEEPALIVE** — Detect dead connections:
+
+```c
+setsockopt(sockfd, SOL_SOCKET, SO_KEEPALIVE, &opt, sizeof(opt));
+// TCP sends probes after ~2 hours of silence by default
+// Override: TCP_KEEPIDLE, TCP_KEEPINTVL, TCP_KEEPCNT
+```
+
+In 5G, AMF and SMF use SO_KEEPALIVE on SBI HTTP/2 connections to detect when a peer NF has died.
+
+**TCP_NODELAY** — Disable Nagle's algorithm:
+
+```c
+setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+// Send small packets immediately (critical for URLLC latency)
+```
+
+Nagle's algorithm batches small packets into larger ones to improve throughput. For interactive or low-latency traffic — including 5G SBI messaging — disable it.
+
+### SCTP sockets for 5G control plane
+
+SCTP (Stream Control Transmission Protocol) is used for all 5G control-plane interfaces that need message framing, multi-homing, and multi-streaming:
+
+| Interface | Ports | Between |
+|-----------|-------|---------|
+| N2 (NGAP) | 38412 | AMF — gNB |
+| Xn-C | 38422 | gNB — gNB (inter-node) |
+| E1 | 38462 | CU-CP — CU-UP |
+| F1-C | 38472 | CU-CP — DU |
+
+**Creating an SCTP socket:**
+
+```c
+int sctp_fd = socket(AF_INET, SOCK_SEQPACKET, IPPROTO_SCTP);
+//                              ↑               ↑
+//                         message-based      explicit SCTP
+```
+
+**Key SCTP socket options:**
+
+```c
+struct sctp_initmsg initmsg;
+initmsg.sinit_num_ostreams = 10;    // outgoing streams
+initmsg.sinit_max_instreams = 10;   // incoming streams
+initmsg.sinit_max_attempts = 3;     // INIT retries
+setsockopt(sctp_fd, IPPROTO_SCTP, SCTP_INITMSG, &initmsg, sizeof(initmsg));
+```
+
+**Multi-homing: binding multiple addresses for redundancy:**
+
+```c
+// Primary path: control-plane VLAN 100
+struct sockaddr_in addr1;
+addr1.sin_addr.s_addr = inet_addr("10.100.0.1");  // eth0.100
+
+// Secondary path: redundant interface
+struct sockaddr_in addr2;
+addr2.sin_addr.s_addr = inet_addr("10.101.0.1");  // eth0.101
+
+// sctp_bindx binds both addresses to the same association
+struct sockaddr addrs[2];
+// ... populate addrs ...
+sctp_bindx(sctp_fd, addrs, 2, SCTP_BINDX_ADD_ADDR);
+```
+
+With multi-homing, if the primary path fails, SCTP automatically fails over to the secondary path without dropping the association. This is why N2 can survive a single NIC or link failure.
+
+**SCTP sendmsg with stream selection:**
+
+```c
+struct sctp_sndrcvinfo sinfo;
+memset(&sinfo, 0, sizeof(sinfo));
+sinfo.sinfo_stream = 2;   // Use stream 2 for this message
+sinfo.sinfo_ppid = htonl(NGAP_PPID);  // NGAP payload protocol ID = 60
+
+sendmsg(sctp_fd, &msg, 0);
+```
+
+Different NGAP message types are often sent on different SCTP streams to prevent head-of-line blocking between independent message exchanges.
+
+### epoll for high-concurrency NFs
+
+Modern 5G NFs handle thousands of concurrent sessions. `select()` and `poll()` do not scale. Linux `epoll` provides O(1) event notification:
+
+```c
+// Create epoll instance
+int epfd = epoll_create1(0);
+
+// Register socket for read events
+struct epoll_event ev;
+ev.events = EPOLLIN | EPOLLET;  // Edge-triggered (non-blocking)
+ev.data.fd = sockfd;
+epoll_ctl(epfd, EPOLL_CTL_ADD, sockfd, &ev);
+
+// Event loop
+struct epoll_event events[MAX_EVENTS];
+while (1) {
+    int n = epoll_wait(epfd, events, MAX_EVENTS, timeout_ms);
+    for (int i = 0; i < n; i++) {
+        if (events[i].data.fd == listen_fd) {
+            // New connection
+            int client = accept(listen_fd, NULL, NULL);
+            ev.data.fd = client;
+            epoll_ctl(epfd, EPOLL_CTL_ADD, client, &ev);
+        } else {
+            // Data ready on existing connection
+            handle_data(events[i].data.fd);
+        }
+    }
+}
+```
+
+This is how nginx, Node.js, and Go runtime handle tens of thousands of concurrent connections on a single thread. AMF processes use the same pattern to manage associations with hundreds of gNBs simultaneously.
+
+### DPDK and kernel bypass for UPF
+
+The UPF (User Plane Function) processes all user-plane packets — potentially millions per second at line rate. The Linux kernel socket API adds too much overhead for this workload.
+
+DPDK (Data Plane Development Kit) bypasses the kernel entirely:
+
+```
+Normal path (kernel socket):
+  NIC → kernel driver → socket buffer → kernel TCP/IP → recv() → userspace
+  Overhead: ~10-15 microseconds per packet
+
+DPDK path (kernel bypass):
+  NIC → DPDK PMD (Poll Mode Driver) → ring buffer → userspace directly
+  Overhead: ~1-2 microseconds per packet (7-10x faster)
+```
+
+DPDK replaces the socket API with its own packet processing API. Instead of `recv()`, you call `rte_eth_rx_burst()`. The tradeoff: DPDK dedicates CPU cores to busy-poll the NIC (no interrupts), which consumes CPU even when traffic is low.
+
+In Kubernetes, UPF pods typically request a `hugepages-1Gi` resource and use SRIOV or DPDK device plugin to get direct NIC access.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+### Minimal TCP server in Python
+
+```python
+import socket
+
+server = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+server.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+server.bind(('0.0.0.0', 8080))
+server.listen(128)
+
+while True:
+    client, addr = server.accept()
+    data = client.recv(4096)
+    client.send(b"HTTP/1.1 200 OK\r\n\r\nHello!")
+    client.close()
+```
+
+### Check SCTP associations in a 5G core
+
+```bash
+# Show SCTP associations (equivalent to ss for SCTP)
+ss -tnp | grep 38412    # N2 port (AMF)
+ss -tnp | grep 38422    # Xn port (gNB-gNB)
+
+# Detailed SCTP status
+cat /proc/net/sctp/assocs
+
+# SCTP statistics
+cat /proc/net/sctp/snmp
+
+# Capture N2 NGAP over SCTP
+tcpdump -i any sctp port 38412 -w n2-capture.pcap
+
+# Decode in Wireshark (NGAP dissector auto-applies to port 38412)
+```
+
+### Debugging socket state
+
+```bash
+# What sockets are in use
+ss -tlnp          # TCP listening
+ss -tnp           # TCP established
+ss -unp           # UDP (GTP-U will appear here)
+ss -Stnp          # SCTP connections
+
+# Socket options on a running process
+ss -ti dst 10.0.0.5   # Detailed TCP info including keepalive
+strace -e setsockopt ./amf_process
+
+# Watch connection attempts
+tcpdump -i any port 38412   # N2
+tcpdump -i any port 2152    # GTP-U (N3/N9)
+```
+
+### Common issues and fixes
+
+| Symptom | Check | Likely cause |
+|---------|-------|--------------|
+| `EADDRINUSE` on AMF start | `ss -tlnp` | Previous instance still in TIME_WAIT, add SO_REUSEADDR |
+| SCTP association fails | `tcpdump sctp port 38412` | Firewall blocking SCTP (IP protocol 132, not TCP/UDP) |
+| N2 drops intermittently | `cat /proc/net/sctp/snmp` | INIT_TIMEOUT too short, path MTU issue |
+| GTP-U packet loss | `ss -unp` + `ethtool -S` | UDP socket buffer overflow, increase `net.core.rmem_max` |
+| UPF high CPU | `top` + DPDK stats | Busy-poll cores fully utilized, expected behavior |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring partial sends/receives with TCP.** `send(1000)` might only send 500 bytes. Always loop:
+   ```c
+   size_t total = 0;
+   while (total < len) {
+       ssize_t n = send(sockfd, buf + total, len - total, 0);
+       if (n <= 0) break;
+       total += n;
+   }
+   ```
+   SCTP does not have this issue — `sendmsg()` sends the entire message atomically.
+
+2. **Using TCP for N2/Xn/E1.** These interfaces require SCTP per 3GPP specs. TCP does not provide message framing or multi-homing. If you test with TCP and it "works," the behavior diverges from spec under failure conditions.
+
+3. **Not handling EINTR.** Signals (including Kubernetes liveness probe signals) can interrupt system calls. Always retry:
+   ```c
+   while ((n = recv(sockfd, buf, len, 0)) == -1 && errno == EINTR);
+   ```
+
+4. **Forgetting SO_REUSEADDR.** Without it, restarting an AMF or SMF fails with `EADDRINUSE` for up to 4 minutes (2 × MSL) while sockets are in TIME_WAIT.
+
+5. **SCTP blocked by firewalls.** SCTP is IP protocol 132 — not TCP (6) or UDP (17). Many firewalls and cloud security groups block SCTP by default. N2 association failures with no errors in AMF logs often mean SCTP is firewall-blocked at the infrastructure layer.
+
+6. **Not setting TCP_NODELAY for SBI.** HTTP/2 multiplexes many streams over one TCP connection. If Nagle's algorithm is active, small SBI messages (NRF heartbeat, short responses) are delayed waiting for more data to batch. This adds latency to every NF-to-NF call.
+
+7. **Assuming connect() is synchronous in NFs.** In cloud-native NFs, `connect()` to peer NFs is retried with exponential backoff. A blocking connect with no timeout will stall the NF's event loop. Always use non-blocking sockets or async connection management.
+
+8. **Socket descriptor leak in NFs.** Containerized NFs have file descriptor limits (default 1024 per process in many Linux configurations). A connection leak — from missing `close()` after error paths — will exhaust the limit and cause `EMFILE` errors on new connections, making the NF appear unhealthy to its liveness probe.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Stevens et al., *Unix Network Programming, Vol. 1*, Addison-Wesley, 2003
+- Kerrisk, *The Linux Programming Interface*, No Starch Press, 2010
+- POSIX.1-2017, "System Interfaces"
+- RFC 4960, "Stream Control Transmission Protocol"
+- 3GPP TS 38.412, "NG signalling transport" (SCTP on N2)
+- 3GPP TS 38.422, "Xn signalling transport" (SCTP on Xn)
+- DPDK Documentation, "Getting Started Guide for Linux", dpdk.org
+- `man 7 socket`, `man 7 tcp`, `man 7 sctp`
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [TCP/IP stack](/en/core-network/osi-tcpip-backend-perspective/tcp-ip-stack/) — the protocols beneath the socket API
+- [HTTP versions](/en/core-network/http-grpc-websocket/http-versions/) — protocols built on top of sockets
+- [SBI overview](/en/core-network/service-based-interface-http2/sbi-overview/) — how 5G NFs communicate over HTTP/2 sockets
+
+</section>

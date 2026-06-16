@@ -9,16 +9,555 @@ unit: reference-frames-and-time-systems
 order: 3
 level: L3
 estimatedReadingMinutes: 5
-title: "He quy chieu quy dao dia phuong RIC/RSW"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "He Quy dao Dia phuong RIC/RSW"
+description: "Cac he tam ve tinh cho chuyen dong tuong doi, van hanh can ke, va tranh va cham."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["ric", "rsw", "lvlh", "chuyen-dong-tuong-doi", "van-hanh-can-ke"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# He quy chieu quy dao dia phuong RIC/RSW
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Khi hai ve tinh tiep can nhau — de cap ben, tranh va cham, hoac bay theo doi hinh — vi tri tuyet doi cua chung trong ECI khong cho thong tin truc giac. "Muc tieu o phia truoc 500 km" co y nghia ngay lap tuc; "muc tieu tai [X, Y, Z] trong J2000" can tinh toan. Cac he quy dao dia phuong nhu RIC (Radial-In-track-Cross-track) va RSW (Radial-Along-track-Normal) dat tam tai mot tau vu tru va dinh huong cac truc theo chuyen dong quy dao cua no. Cac he nay lam dong luc tuong doi truc giac, lap ke hoach co dong don gian, va sang loc giao hoi co y nghia.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Tai sao he quy dao dia phuong ton tai
+
+```
+Van de voi ECI cho Van hanh Can ke:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TINH HUONG: Hai ve tinh trong quy dao tuong tu                    │
+│                                                                      │
+│  GOC NHIN ECI (khong huu ich):   GOC NHIN QUY DAO DIA PHUONG:      │
+│                                                                      │
+│  ┌─────────────────────────┐   ┌─────────────────────────┐         │
+│  │                         │   │                         │         │
+│  │  Ca hai ve tinh tai     │   │  "Chaser o phia sau 2km,│         │
+│  │  [X,Y,Z] ≈ 7000 km      │   │   50 m duoi, va 100 m  │         │
+│  │  Chenh lech khong ro    │   │   ben phai cua         │         │
+│  │                         │   │   Muc tieu"             │         │
+│  │     ╭────╮ ←🛰️A         │   │                         │         │
+│  │    ╱      ╲             │   │        Muc tieu 🛰️      │         │
+│  │   ╱   🌍   ╲🛰️B          │   │           ↓ R (huong tam)│        │
+│  │  ╱          ╲           │   │  ← C     ┼ → I         │         │
+│  │                         │   │  (vuong goc) (doc quy dao)│       │
+│  │                         │   │        🛰️ Chaser       │         │
+│  │  B o dau so voi A?      │   │                         │         │
+│  │  Kho ma biet!           │   │  "2 km sau, 50 m       │         │
+│  │                         │   │   duoi" - hanh dong duoc!│        │
+│  │                         │   │                         │         │
+│  └─────────────────────────┘   └─────────────────────────┘         │
+│                                                                      │
+│  HE DIA PHUONG CHO:                                                 │
+│  • Vi tri tuong doi truc giac                                      │
+│  • Lap ke hoach co dong truc tiep (ΔV moi truc)                    │
+│  • Dong luc tu nhien (phuong trinh Clohessy-Wiltshire)             │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Ten goi RIC vs RSW vs LVLH
+
+```
+Cung Khai niem, Cac Ten Khac nhau:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Ba quy uoc dat ten cho cung khai niem he quy chieu:               │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Truc      │ RIC        │ RSW          │ LVLH         │         │
+│  │  ──────────┼────────────┼──────────────┼──────────────│         │
+│  │            │            │              │              │         │
+│  │  Huong tam │ R (ra)     │ R (ra)       │ +Z (xuong)   │         │
+│  │  (nadir/   │ +R = xa    │ +R = xa      │ +Z = huong   │         │
+│  │  zenith)   │ Trai Dat   │ Trai Dat     │ TD (nadir)   │         │
+│  │            │            │              │              │         │
+│  │  Doc quy   │ I (In-track│ S (doc quy   │ +X (huong    │         │
+│  │  dao       │ /van toc)  │ dao/"Süd")   │ van toc)     │         │
+│  │            │            │              │              │         │
+│  │  Vuong goc │ C (cross-  │ W (ngoai     │ +Y (phap     │         │
+│  │  quy dao   │ track,     │ mat phang,   │ tuyen quy    │         │
+│  │            │ hoan thanh)│ "West")      │ dao, co the  │         │
+│  │            │            │              │ thay doi)    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CANH BAO: Quy uoc dau thay doi theo to chuc!                      │
+│                                                                      │
+│  • NASA: Thuong dung LVLH voi +Z la nadir                          │
+│  • CCSDS/18th Space Control: Dung RSW voi +R la zenith             │
+│  • ESA: Thuong dung RIC hoac TNW                                   │
+│                                                                      │
+│  LUON KIEM TRA TAI LIEU VE QUY UOC DAU                             │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Dinh nghia he quy chieu
+
+```
+Dinh nghia He RIC (tam tai tau vu tru Muc tieu):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                                                                      │
+│                        C (Vuong goc quy dao)                        │
+│                         ↑                                            │
+│                         │   Ngoai mat phang quy dao                 │
+│                         │   (vuong goc voi quy dao)                 │
+│                         │                                            │
+│                         │                                            │
+│           I ←───────────┼───────────→ -I                            │
+│        (Doc quy dao)    │            (phia sau)                     │
+│        (huong van toc)  │                                            │
+│                         │                                            │
+│                         │                                            │
+│                         ↓                                            │
+│                        -R (huong Trai Dat / nadir)                  │
+│                                                                      │
+│                   🛰️ Muc tieu tai goc toa do                        │
+│                                                                      │
+│  DINH NGHIA TRUC:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  R (Huong tam):                                       │         │
+│  │  R̂ = r / |r|                                         │         │
+│  │  Chi tu tam Trai Dat qua ve tinh (zenith)            │         │
+│  │                                                        │         │
+│  │  C (Vuong goc quy dao):                               │         │
+│  │  Ĉ = (r × v) / |r × v| = ĥ                           │         │
+│  │  Phap tuyen quy dao (huong momen dong luong)         │         │
+│  │                                                        │         │
+│  │  I (Doc quy dao):                                     │         │
+│  │  Î = Ĉ × R̂                                           │         │
+│  │  Gan huong van toc (chinh xac cho quy dao tron)      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LUU Y: Voi quy dao tron, I thang hang voi van toc.                │
+│  Voi quy dao elip, I vuong goc voi R trong mat phang quy dao.     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Chuyen doi ECI sang RIC
+
+```
+Chuyen doi tu ECI sang RIC:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Cho: Trang thai Muc tieu (r_t, v_t) va Chaser (r_c, v_c) trong ECI│
+│                                                                      │
+│  BUOC 1: Xay dung ma tran quay RIC tu trang thai Muc tieu         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  R̂ = r_t / |r_t|           (vector don vi huong tam)  │         │
+│  │  ĥ = (r_t × v_t) / |r_t × v_t|  (phap tuyen quy dao)  │         │
+│  │  Î = ĥ × R̂                  (vector don vi doc quy dao)│        │
+│  │                                                        │         │
+│  │  Ma tran quay ECI→RIC:                                │         │
+│  │                                                        │         │
+│  │       ┌         ┐                                     │         │
+│  │       │ R̂ᵀ      │                                     │         │
+│  │  M =  │ Îᵀ      │   (cac hang la vector don vi)      │         │
+│  │       │ Ĉᵀ      │                                     │         │
+│  │       └         ┘                                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  BUOC 2: Chuyen doi vi tri tuong doi                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Δr_eci = r_c - r_t        (vi tri tuong doi ECI)    │         │
+│  │  Δr_ric = M · Δr_eci       (vi tri tuong doi RIC)    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  BUOC 3: Chuyen doi van toc tuong doi (bao gom quay)              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ω = h / |r_t|²           (toc do goc quy dao)       │         │
+│  │  Ω = ω · Ĉ                (vector van toc goc)       │         │
+│  │                                                        │         │
+│  │  Δv_eci = v_c - v_t                                   │         │
+│  │  Δv_ric = M · Δv_eci - Ω × Δr_ric                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Dong luc chuyen dong tuong doi (phuong trinh CW)
+
+```
+Phuong trinh Clohessy-Wiltshire (Quy dao Tham chieu Tron):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Cho khoang cach tuong doi nho trong quy dao tron:                 │
+│                                                                      │
+│  ẍ = 3n²x + 2nẏ           (huong tam)                              │
+│  ÿ = -2nẋ                  (doc quy dao)                            │
+│  z̈ = -n²z                  (vuong goc quy dao)                     │
+│                                                                      │
+│  Trong do n = √(μ/a³) = mean motion (rad/s)                        │
+│                                                                      │
+│  NHAN XET QUAN TRONG:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Vuong goc (z) TACH ROI                            │         │
+│  │     → Dao dong dieu hoa don gian tai chu ky quy dao  │         │
+│  │     → Day vuong goc chi anh huong vuong goc          │         │
+│  │                                                        │         │
+│  │  2. Huong tam va doc quy dao GHEP COUPLE              │         │
+│  │     → Lech huong tam gay troi doc quy dao            │         │
+│  │     → Van toc doc quy dao tao dao dong huong tam     │         │
+│  │                                                        │         │
+│  │  3. Chuyen dong tu nhien tao ELIP                    │         │
+│  │     → Ty le 2:1 doc quy dao tren huong tam           │         │
+│  │     → Quy dao tuong doi tu do = hinh san van dong   │         │
+│  │                                                        │         │
+│  │  4. Toc do troi: Δẏ ≈ -1.5n · Δx                     │         │
+│  │     → 1 km duoi = troi ~2.3 km/quy dao ve phia truoc│         │
+│  │     → (cho LEO voi chu ky 90 phut)                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TRUC QUAN TROI TU NHIEN:                                           │
+│                                                                      │
+│        y (doc quy dao)                                              │
+│            ↑                                                        │
+│            │    ╭──────────────╮                                    │
+│            │   ╱                ╲                                   │
+│            │  │                  │ ← elip 2:1                      │
+│            │  │     Muc tieu     │                                  │
+│  ──────────┼──│────── 🛰️ ───────│──────────→ x (huong tam)         │
+│            │  │                  │                                  │
+│            │   ╲                ╱                                   │
+│            │    ╰──────────────╯                                    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Cac mau van hanh can ke pho bien
+
+```
+Quy dao Tiep can Chuan:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TIEP CAN V-BAR (doc theo vector van toc):                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │   An toan: Dong luc tu nhien day chaser ra neu huy bo│         │
+│  │                                                        │         │
+│  │        Muc tieu 🛰️ ←──────────── 🛰️ Chaser          │         │
+│  │                    (tiep can tu phia sau)             │         │
+│  │                                                        │         │
+│  │   Diem giu: -2 km, -500 m, -200 m, -50 m             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TIEP CAN R-BAR (doc theo vector huong tam):                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │   Yeu cau day lien tuc de duy tri                    │         │
+│  │   (chong lai troi tu nhien)                          │         │
+│  │                                                        │         │
+│  │              Muc tieu 🛰️                             │         │
+│  │                  ↑                                    │         │
+│  │                  │                                    │         │
+│  │              Chaser 🛰️ (tiep can tu phia duoi)       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  QUY DAO BONG DA (giu tram tu nhien):                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │   An toan thu dong: Chaser quay quanh Muc tieu tu nhien│        │
+│  │                                                        │         │
+│  │        y (doc quy dao)                                │         │
+│  │            ↑      ╭──────╮                            │         │
+│  │            │     ╱        ╲                           │         │
+│  │   ─────────┼────│ 🛰️Muc tieu│──→ x (huong tam)       │         │
+│  │            │     ╲   🛰️C  ╱                           │         │
+│  │            │      ╰──────╯                            │         │
+│  │                                                        │         │
+│  │   Elip 2:1, khong can ΔV de duy tri                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tinh toan he RIC:**
+
+```python
+import numpy as np
+
+MU_TRAI_DAT = 398600.4418  # km³/s²
+
+def eci_sang_ric(r_muc_tieu, v_muc_tieu, r_chaser, v_chaser):
+    """Chuyen doi trang thai chaser tu ECI sang RIC tuong doi voi muc tieu."""
+    # Tinh cac vector don vi RIC
+    r_mag = np.linalg.norm(r_muc_tieu)
+    
+    r_hat = r_muc_tieu / r_mag                    # Huong tam (R)
+    h = np.cross(r_muc_tieu, v_muc_tieu)          # Momen dong luong
+    h_mag = np.linalg.norm(h)
+    c_hat = h / h_mag                             # Vuong goc quy dao (C)
+    i_hat = np.cross(c_hat, r_hat)                # Doc quy dao (I)
+    
+    # Ma tran quay ECI -> RIC
+    R_eci_sang_ric = np.array([r_hat, i_hat, c_hat])
+    
+    # Vi tri tuong doi trong ECI
+    delta_r_eci = r_chaser - r_muc_tieu
+    
+    # Chuyen sang RIC
+    delta_r_ric = R_eci_sang_ric @ delta_r_eci
+    
+    # Van toc tuong doi (tinh ca quay he quy chieu)
+    omega = h_mag / r_mag**2  # Toc do goc quy dao
+    omega_vec = omega * c_hat
+    
+    delta_v_eci = v_chaser - v_muc_tieu
+    delta_v_ric = R_eci_sang_ric @ delta_v_eci - np.cross(omega_vec, delta_r_ric)
+    
+    return delta_r_ric, delta_v_ric, R_eci_sang_ric
+
+def lan_truyen_cw(r0_ric, v0_ric, t, n):
+    """Lan truyen trang thai tuong doi dung phuong trinh Clohessy-Wiltshire."""
+    x0, y0, z0 = r0_ric
+    vx0, vy0, vz0 = v0_ric
+    
+    nt = n * t
+    cos_nt = np.cos(nt)
+    sin_nt = np.sin(nt)
+    
+    # Vi tri
+    x = (4 - 3*cos_nt)*x0 + sin_nt/n*vx0 + 2/n*(1 - cos_nt)*vy0
+    y = 6*(sin_nt - nt)*x0 + y0 - 2/n*(1 - cos_nt)*vx0 + (4*sin_nt - 3*nt)/n*vy0
+    z = z0*cos_nt + vz0/n*sin_nt
+    
+    # Van toc
+    vx = 3*n*sin_nt*x0 + cos_nt*vx0 + 2*sin_nt*vy0
+    vy = 6*n*(cos_nt - 1)*x0 + 2*sin_nt*vx0 + (4*cos_nt - 3)*vy0
+    vz = -z0*n*sin_nt + vz0*cos_nt
+    
+    return np.array([x, y, z]), np.array([vx, vy, vz])
+
+def toc_do_troi(lech_huong_tam, n):
+    """Tinh toc do troi doc quy dao do lech huong tam."""
+    return -1.5 * n * lech_huong_tam
+
+def khoang_cach_truot(r_ric):
+    """Tinh khoang cach truot (tong khoang cach tuong doi)."""
+    return np.linalg.norm(r_ric)
+
+print("Vi du He Quy dao Dia phuong RIC/RSW")
+print("=" * 70)
+
+# Vi du: ISS va tau tham quan
+print("\n1. Chuyen doi ECI sang RIC")
+print("-" * 70)
+
+# ISS (muc tieu) trong ECI
+r_iss = np.array([-2436.45, -2436.45, 6891.04])  # km
+v_iss = np.array([-5.654, 4.830, 2.312])          # km/s
+
+# Tau tham quan (chaser) - 2 km sau, 100 m duoi
+r_chaser = np.array([-2434.45, -2434.45, 6889.04])  # km (gan dung)
+v_chaser = np.array([-5.654, 4.830, 2.312])          # km/s (van toc khop)
+
+delta_r, delta_v, R_mat = eci_sang_ric(r_iss, v_iss, r_chaser, r_chaser)
+
+print("  Trang thai Muc tieu (ISS):")
+print(f"    Vi tri: [{r_iss[0]:.2f}, {r_iss[1]:.2f}, {r_iss[2]:.2f}] km")
+print(f"    Van toc: [{v_iss[0]:.3f}, {v_iss[1]:.3f}, {v_iss[2]:.3f}] km/s")
+
+print("\n  Trang thai tuong doi Chaser trong RIC:")
+print(f"    Huong tam (R):      {delta_r[0]*1000:.1f} m")
+print(f"    Doc quy dao (I):    {delta_r[1]*1000:.1f} m")
+print(f"    Vuong goc (C):      {delta_r[2]*1000:.1f} m")
+print(f"    Khoang cach truot:  {khoang_cach_truot(delta_r)*1000:.1f} m")
+
+# Tham so quy dao
+print("\n2. Tham so Quy dao")
+print("-" * 70)
+
+r_mag = np.linalg.norm(r_iss)
+v_mag = np.linalg.norm(v_iss)
+a = 1 / (2/r_mag - v_mag**2/MU_TRAI_DAT)  # Ban truc lon
+n = np.sqrt(MU_TRAI_DAT / a**3)            # Mean motion
+chu_ky = 2 * np.pi / n / 60                # Chu ky theo phut
+
+print(f"  Ban truc lon: {a:.2f} km")
+print(f"  Mean motion (n): {n:.6f} rad/s")
+print(f"  Chu ky quy dao: {chu_ky:.1f} phut")
+
+# Tinh toan troi
+print("\n3. Phan tich Troi Tu nhien")
+print("-" * 70)
+
+lech_huong_tam = [-100, -50, 0, 50, 100]  # met
+
+print("  Lech huong tam → Toc do troi doc quy dao:")
+print()
+for lech_m in lech_huong_tam:
+    lech_km = lech_m / 1000
+    toc_do_troi_m_s = toc_do_troi(lech_km, n) * 1000  # m/s
+    troi_moi_vong = toc_do_troi_m_s * chu_ky * 60    # m/vong
+    print(f"    {lech_m:+5.0f} m huong tam → {toc_do_troi_m_s*1000:+6.2f} mm/s "
+          f"({troi_moi_vong/1000:+6.2f} km/vong)")
+
+# Lan truyen CW
+print("\n4. Lan truyen Chuyen dong Tuong doi (CW)")
+print("-" * 70)
+
+# Trang thai ban dau: 1 km sau, 50 m duoi, khong van toc tuong doi
+r0 = np.array([-0.050, -1.0, 0.0])  # km (R, I, C)
+v0 = np.array([0.0, 0.0, 0.0])       # km/s
+
+print(f"  Vi tri ban dau: R={r0[0]*1000:.0f}m, I={r0[1]*1000:.0f}m, C={r0[2]*1000:.0f}m")
+print(f"  Van toc ban dau: vR={v0[0]*1000:.1f}m/s, vI={v0[1]*1000:.1f}m/s, vC={v0[2]*1000:.1f}m/s")
+print()
+
+thoi_gian_phut = [0, 15, 30, 45, 60, 90]
+
+print(f"  {'TG (phut)':<12} {'R (m)':<10} {'I (m)':<12} {'C (m)':<10} {'K.cach (m)'}")
+print("-" * 60)
+
+for t_phut in thoi_gian_phut:
+    t_giay = t_phut * 60
+    r_t, v_t = lan_truyen_cw(r0, v0, t_giay, n)
+    kc = np.linalg.norm(r_t)
+    print(f"  {t_phut:<12} {r_t[0]*1000:<10.1f} {r_t[1]*1000:<12.1f} "
+          f"{r_t[2]*1000:<10.1f} {kc*1000:<.1f}")
+
+# Phan tich giao hoi
+print("\n5. Vi du Sang loc Giao hoi")
+print("-" * 70)
+
+# Hai manh rac voi vi tri khong chac chan
+kc_truot_tca = 150  # met
+sigma_r = 50   # m bat dinh huong tam
+sigma_i = 200  # m bat dinh doc quy dao
+sigma_c = 30   # m bat dinh vuong goc
+
+print("  Danh gia giao hoi:")
+print(f"    Khoang cach truot TCA: {kc_truot_tca} m")
+print(f"    Bat dinh vi tri (1σ):")
+print(f"      Huong tam:      {sigma_r} m")
+print(f"      Doc quy dao:    {sigma_i} m")
+print(f"      Vuong goc:      {sigma_c} m")
+
+# Hiep phuong sai ket hop (don gian hoa)
+sigma_ket_hop = np.sqrt(sigma_r**2 + sigma_i**2 + sigma_c**2)
+xac_suat_va_cham = np.exp(-(kc_truot_tca**2) / (2 * sigma_ket_hop**2))
+
+print(f"\n    Bat dinh ket hop 1σ: {sigma_ket_hop:.1f} m")
+print(f"    Khoang cach truot / σ: {kc_truot_tca/sigma_ket_hop:.2f}")
+
+if kc_truot_tca / sigma_ket_hop < 3:
+    print("    ⚠️  GIAO HOI DANG LO NGAI (truot < 3σ)")
+else:
+    print("    ✓  Xac suat va cham thap")
+
+# So sanh he quy chieu
+print("\n6. So sanh Quy uoc Dat ten He")
+print("-" * 70)
+
+print("""
+  ┌─────────────┬────────────┬─────────────────────────────────────┐
+  │ Huong       │ Ten Truc   │ Ghi chu                             │
+  ├─────────────┼────────────┼─────────────────────────────────────┤
+  │ Huong tam   │ R, x       │ +R thuong = zenith (xa Trai Dat)    │
+  │ Doc quy dao │ I, S, y    │ Doc van toc cho quy dao tron        │
+  │ Vuong goc   │ C, W, z    │ Phap tuyen quy dao (huong h)        │
+  ├─────────────┼────────────┼─────────────────────────────────────┤
+  │ LVLH        │ X, Y, Z    │ +Z thuong = nadir (huong Trai Dat)  │
+  │             │            │ Can than voi quy uoc dau!           │
+  └─────────────┴────────────┴─────────────────────────────────────┘
+""")
+```
+
+**Quan he RIC chinh:**
+
+| Khai niem | Cong thuc/Gia tri |
+|-----------|-------------------|
+| Troi tu lech huong tam | ẏ ≈ -1.5n·x |
+| Hinh dang quy dao tuong doi tu nhien | Elip doc quy dao:huong tam 2:1 |
+| Mean motion (LEO) | n ≈ 0.001 rad/s |
+| Toc do troi (1 km duoi, LEO) | ~2.3 km/vong ve truoc |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Nham quy uoc dau.** RIC +R la zenith; LVLH +Z thuong la nadir. Luon xac minh.
+
+2. **Quen quay he quy chieu.** Van toc RIC bao gom quay he. Dung chuyen doi day du.
+
+3. **Phuong trinh CW cho quy dao elip.** CW gia dinh quy dao tham chieu tron. Dung Tschauner-Hempel cho do lech tam.
+
+4. **Khoang cach lon.** CW duoc tuyen tinh hoa cho Δr nho. Voi >10 km, dung lan truyen phi tuyen day du.
+
+5. **Tron cac he.** Vi tri trong RIC voi van toc trong RSW cho ket qua rac. Giu moi thu trong mot he.
+
+6. **Bo qua J2 cho dai han.** RIC bo qua nhieu loan quy dao. Cho gio-den-ngay, them hieu ung J2.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Clohessy & Wiltshire, "Terminal Guidance System for Satellite Rendezvous" (1960)
+- CCSDS 508.0-B-1 Chuan Thong diep Du lieu Giao hoi
+- Vallado, "Fundamentals of Astrodynamics and Applications"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [He ECI](/vi/space/reference-frames-and-time-systems/eci-frame/) — he tuyet doi cho dinh nghia quy dao
+- [Chuyen doi He](/vi/space/reference-frames-and-time-systems/frame-transformations/) — chuyen doi giua tat ca cac he
+- [Tranh Va cham](/vi/space/orbital-mechanics/collision-avoidance/) — su dung RIC cho danh gia giao hoi
+
+</section>

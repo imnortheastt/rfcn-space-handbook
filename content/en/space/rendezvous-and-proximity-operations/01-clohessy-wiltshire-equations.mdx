@@ -8,17 +8,519 @@ track: s1
 unit: rendezvous-and-proximity-operations
 order: 1
 level: L4
-estimatedReadingMinutes: 5
-title: "Clohessy-Wiltshire (CW) equations"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: ["leo"]
+spiralRevisits: []
+title: "Clohessy-Wiltshire Equations — Relative Motion in Orbit"
+description: "Understanding linearized equations of motion for proximity operations, station-keeping, and rendezvous planning."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["cw-equations", "hill-equations", "relative-motion", "rpod", "rendezvous"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Clohessy-Wiltshire (CW) equations
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+When a spacecraft approaches the ISS or a servicing vehicle closes on a satellite, pilots don't think in absolute coordinates—they think in relative motion. The Clohessy-Wiltshire (CW) equations describe how a "chaser" moves relative to a "target" in nearby circular orbit. This linearized model is the foundation of all proximity operations, from Gemini-era docking to modern satellite servicing.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The LVLH frame
+
+```
+Local Vertical Local Horizontal (LVLH) Frame:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  COORDINATE SYSTEM (centered on target):                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │                    ↑ z (out-of-plane)                 │         │
+│  │                    │   "H-bar" (normal)               │         │
+│  │                    │                                  │         │
+│  │                    │      Target                      │         │
+│  │         y ←────────●────────→ x (velocity direction) │         │
+│  │     "V-bar"        │         "R-bar"                 │         │
+│  │    (behind)        │         (in front)              │         │
+│  │                    │                                  │         │
+│  │                    ↓ -z (toward nadir)               │         │
+│  │                                                        │         │
+│  │  x: Radial (R-bar) — along radius vector             │         │
+│  │  y: Along-track (V-bar) — in velocity direction      │         │
+│  │  z: Cross-track (H-bar) — orbit normal               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  THE KEY INSIGHT:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  In inertial frame: both spacecraft follow Keplerian │         │
+│  │  orbits around Earth                                 │         │
+│  │                                                        │         │
+│  │  In LVLH frame: chaser appears to follow curved paths│         │
+│  │  around target, even with no thrusting!              │         │
+│  │                                                        │         │
+│  │  Why? The frame rotates with target's orbital motion │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  VIEW FROM TARGET:                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │               🌍 Earth                                │         │
+│  │                 │                                     │         │
+│  │                 │ Nadir                               │         │
+│  │                 ↓                                     │         │
+│  │    V-bar ←──── Target ────→ R-bar                    │         │
+│  │   (trailing)     │       (leading)                   │         │
+│  │                 │                                     │         │
+│  │             Velocity                                  │         │
+│  │             direction →                               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Counterintuitive motion
+
+```
+Why Orbital Rendezvous is Tricky:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  INTUITION FAILS:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  "To catch up, thrust forward" — WRONG!               │         │
+│  │                                                        │         │
+│  │  If chaser thrusts prograde (forward):                │         │
+│  │  • Velocity increases → orbit raises                 │         │
+│  │  • Higher orbit = longer period                      │         │
+│  │  • Chaser falls BEHIND target!                       │         │
+│  │                                                        │         │
+│  │                    Target                             │         │
+│  │         ←─────────●─────────                         │         │
+│  │                   │                                   │         │
+│  │                   │ Chaser thrusts forward →         │         │
+│  │                   │                                   │         │
+│  │                   ● Chaser                           │         │
+│  │                   │                                   │         │
+│  │                   ↓ ...ends up drifting back         │         │
+│  │                   ●                                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CORRECT APPROACH:                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  To catch up to target ahead:                        │         │
+│  │  1. Thrust RETROGRADE (slow down)                    │         │
+│  │  2. Drop to lower orbit                              │         │
+│  │  3. Faster period → gain on target                   │         │
+│  │  4. Thrust prograde to raise back up when close      │         │
+│  │                                                        │         │
+│  │  This is called a "Hohmann-like" phasing maneuver    │         │
+│  │                                                        │         │
+│  │                    Target                             │         │
+│  │         ←─────────●─────────                         │         │
+│  │                         ╲                             │         │
+│  │                          ╲ Chaser drops down         │         │
+│  │                           ●                           │         │
+│  │                          ╱ ...speeds up              │         │
+│  │                         ╱                             │         │
+│  │         ←─────────●────●                              │         │
+│  │                Target  Chaser catches up!            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### The CW equations
+
+```
+Clohessy-Wiltshire Equations:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ASSUMPTIONS:                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Target in circular orbit (eccentricity = 0)       │         │
+│  │  2. Chaser close to target (|r_rel| << R_orbit)       │         │
+│  │  3. No perturbations (two-body problem)               │         │
+│  │  4. No thrust (free drift) — can add later           │         │
+│  │                                                        │         │
+│  │  Under these assumptions, motion is LINEAR            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  EQUATIONS OF MOTION:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Let n = √(μ/a³) = mean motion of target orbit       │         │
+│  │                                                        │         │
+│  │  ẍ − 3n²x − 2nẏ = aₓ/m   (radial)                    │         │
+│  │  ÿ + 2nẋ = aᵧ/m          (along-track)              │         │
+│  │  z̈ + n²z = aᵤ/m          (cross-track)              │         │
+│  │                                                        │         │
+│  │  Where:                                               │         │
+│  │  • (x, y, z) = position relative to target           │         │
+│  │  • (ẍ, ÿ, z̈) = acceleration in LVLH                  │         │
+│  │  • (aₓ, aᵧ, aᵤ) = thrust accelerations               │         │
+│  │  • n = orbital rate (rad/s)                          │         │
+│  │                                                        │         │
+│  │  Notice: x-y are COUPLED, z is INDEPENDENT           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  FREE-DRIFT SOLUTION (no thrust):                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  x(t) = (4−3cos(nt))x₀ + sin(nt)ẋ₀/n + 2(1−cos(nt))ẏ₀/n│       │
+│  │                                                        │         │
+│  │  y(t) = 6(sin(nt)−nt)x₀ + y₀                         │         │
+│  │         − 2(1−cos(nt))ẋ₀/n + (4sin(nt)−3nt)ẏ₀/n     │         │
+│  │                                                        │         │
+│  │  z(t) = z₀cos(nt) + ż₀sin(nt)/n                      │         │
+│  │                                                        │         │
+│  │  Cross-track: simple harmonic motion (period = orbit) │         │
+│  │  In-plane: complex coupled oscillation + secular drift│         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Natural motion patterns
+
+```
+Relative Motion Patterns (Free Drift):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  FOOTBALL (closed ellipse in y-x plane):                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Condition: x₀ = ẏ₀ = 0, ẋ₀ ≠ 0                       │         │
+│  │                                                        │         │
+│  │      y (along-track)                                  │         │
+│  │      ↑                                                │         │
+│  │      │    ╭───────╮                                   │         │
+│  │      │   ╱         ╲                                  │         │
+│  │      │  │     ●     │  Target at origin              │         │
+│  │      │   ╲         ╱   Chaser orbits in 2:1 ellipse  │         │
+│  │      │    ╰───────╯                                   │         │
+│  │      └──────────────→ x (radial)                     │         │
+│  │                                                        │         │
+│  │  Aspect ratio: 2:1 (y-extent = 2 × x-extent)         │         │
+│  │  Period: one orbit                                   │         │
+│  │  Energy: no net delta-V to maintain                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  V-BAR HOP (oscillation along velocity vector):                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Condition: On V-bar, small radial impulse           │         │
+│  │                                                        │         │
+│  │      y ↑                                              │         │
+│  │        │   Start                                      │         │
+│  │        │     ●────╮                                   │         │
+│  │        │          │                                   │         │
+│  │   ─────●──────────│─────→ x                          │         │
+│  │      Target       ↓                                   │         │
+│  │                   ╰────●                              │         │
+│  │                      End                              │         │
+│  │                                                        │         │
+│  │  Hop distance: Δy = 3πΔx (for small Δx)              │         │
+│  │  Time: half orbit                                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SECULAR DRIFT (unbounded along-track motion):                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Condition: Chaser in slightly different orbit       │         │
+│  │             (altitude or velocity mismatch)          │         │
+│  │                                                        │         │
+│  │      y ↑                                              │         │
+│  │        │                    ●                         │         │
+│  │        │                  ╱                           │         │
+│  │        │                ╱   Chaser drifts             │         │
+│  │        │              ╱     away over time            │         │
+│  │        │            ╱                                 │         │
+│  │   ─────●──────────●─────→ x                          │         │
+│  │      Target      Start                                │         │
+│  │                                                        │         │
+│  │  Drift rate: proportional to x₀ (radial offset)      │         │
+│  │  Must correct to prevent collision or loss           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Station-keeping conditions
+
+```
+Relative Station-Keeping (Zero Drift):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  FOR NO SECULAR DRIFT in along-track:                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  The y-drift term is: −6n x₀ t                       │         │
+│  │                                                        │         │
+│  │  To eliminate: x₀ = 0 (stay on target's orbit plane) │         │
+│  │  OR: compensate with initial velocity                │         │
+│  │                                                        │         │
+│  │  For bounded motion: ẏ₀ = −2n x₀                     │         │
+│  │                                                        │         │
+│  │  This creates a closed "football" orbit              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SAFE HOLD POINTS:                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  V-bar hold (y-axis, x=0):                           │         │
+│  │  • Naturally stable in x                             │         │
+│  │  • Small perturbations → football orbit around hold  │         │
+│  │  • ISS: approach from V-bar at ~200m                 │         │
+│  │                                                        │         │
+│  │  R-bar hold (x-axis, y=0):                           │         │
+│  │  • Requires velocity to match: ẏ = −2n x             │         │
+│  │  • Unstable without correction                       │         │
+│  │  • But provides line-of-sight to nadir               │         │
+│  │                                                        │         │
+│  │      y ↑                                              │         │
+│  │        │      V-bar hold                              │         │
+│  │        │         ●                                    │         │
+│  │        │                                              │         │
+│  │   ─────●─────────●─────→ x                           │         │
+│  │      Target    R-bar hold                             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Clohessy-Wiltshire equations implementation:**
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Constants
+MU_EARTH = 398600.4418  # km³/s²
+
+def cw_state_transition(t, n):
+    """Compute CW state transition matrix Φ(t).
+    
+    State vector: [x, y, z, ẋ, ẏ, ż]
+    """
+    s = np.sin(n * t)
+    c = np.cos(n * t)
+    
+    # 6x6 state transition matrix
+    phi = np.array([
+        [4 - 3*c,      0, 0,     s/n,        2*(1-c)/n,    0],
+        [6*(s - n*t),  1, 0,    -2*(1-c)/n,  (4*s - 3*n*t)/n, 0],
+        [0,            0, c,     0,          0,            s/n],
+        [3*n*s,        0, 0,     c,          2*s,          0],
+        [-6*n*(1-c),   0, 0,    -2*s,        4*c - 3,      0],
+        [0,            0, -n*s,  0,          0,            c]
+    ])
+    
+    return phi
+
+def propagate_cw(state0, t, n):
+    """Propagate state using CW equations."""
+    phi = cw_state_transition(t, n)
+    return phi @ state0
+
+def compute_mean_motion(altitude_km):
+    """Compute orbital mean motion."""
+    r = 6371 + altitude_km  # km
+    return np.sqrt(MU_EARTH / r**3)  # rad/s
+
+def simulate_relative_motion(state0, n, duration_orbits=2, dt=60):
+    """Simulate relative motion trajectory."""
+    T = 2 * np.pi / n  # orbital period
+    t_span = np.arange(0, duration_orbits * T, dt)
+    
+    trajectory = np.array([propagate_cw(state0, t, n) for t in t_span])
+    
+    return t_span, trajectory
+
+def delta_v_for_rendezvous(r0, v0, r_target, t_transfer, n):
+    """Calculate delta-V for two-impulse rendezvous.
+    
+    From current position r0 with velocity v0,
+    reach r_target in time t_transfer.
+    """
+    phi = cw_state_transition(t_transfer, n)
+    
+    # Partition state transition matrix
+    phi_rr = phi[:3, :3]
+    phi_rv = phi[:3, 3:]
+    phi_vr = phi[3:, :3]
+    phi_vv = phi[3:, 3:]
+    
+    # Required velocity at start
+    v_required = np.linalg.inv(phi_rv) @ (r_target - phi_rr @ r0)
+    
+    # Delta-V at departure
+    dv1 = v_required - v0
+    
+    # Velocity at arrival
+    v_arrival = phi_vr @ r0 + phi_vv @ v_required
+    
+    # Delta-V at arrival (to stop relative motion)
+    dv2 = -v_arrival
+    
+    return dv1, dv2, np.linalg.norm(dv1) + np.linalg.norm(dv2)
+
+# Example: ISS proximity operations
+print("Clohessy-Wiltshire Analysis")
+print("=" * 60)
+
+# ISS orbit
+altitude = 420  # km
+n = compute_mean_motion(altitude)
+T = 2 * np.pi / n
+print(f"\nISS Orbit:")
+print(f"  Altitude: {altitude} km")
+print(f"  Mean motion: {n*1000:.4f} mrad/s")
+print(f"  Orbital period: {T/60:.1f} minutes")
+
+# Scenario 1: Football orbit
+print("\n" + "-" * 60)
+print("Scenario 1: Closed 'Football' Orbit")
+x0, y0, z0 = 100, 0, 0  # Start 100m in front
+# For bounded motion: ẏ₀ = -2n x₀
+vx0, vy0, vz0 = 0, -2*n*x0, 0  # m/s converted
+state_football = np.array([x0, y0, z0, vx0, vy0, vz0]) / 1000  # km
+
+t, traj = simulate_relative_motion(state_football, n, duration_orbits=1.5)
+print(f"  Initial: x={x0}m, ẏ={vy0*1000:.3f} m/s")
+print(f"  Motion: bounded ellipse, 2:1 aspect ratio")
+print(f"  Max y-excursion: {np.max(np.abs(traj[:,1]))*1000:.1f} m")
+
+# Scenario 2: V-bar approach
+print("\n" + "-" * 60)
+print("Scenario 2: V-bar Approach (from behind)")
+# Start on V-bar (x=0), 500m behind
+state_vbar = np.array([0, -0.5, 0, 0, 0, 0])  # km, km/s
+
+# Calculate delta-V to reach origin in half orbit
+t_transfer = T / 2
+dv1, dv2, total_dv = delta_v_for_rendezvous(
+    state_vbar[:3], state_vbar[3:], 
+    np.array([0, 0, 0]), 
+    t_transfer, n
+)
+print(f"  Start: 500m behind on V-bar")
+print(f"  Transfer time: {t_transfer/60:.1f} min (half orbit)")
+print(f"  Delta-V 1: {np.linalg.norm(dv1)*1000:.2f} m/s")
+print(f"  Delta-V 2: {np.linalg.norm(dv2)*1000:.2f} m/s")
+print(f"  Total delta-V: {total_dv*1000:.2f} m/s")
+
+# Scenario 3: R-bar hop
+print("\n" + "-" * 60)
+print("Scenario 3: R-bar Hop (radial maneuver)")
+# Start at origin, apply small radial delta-V
+dvx = 0.001  # 1 m/s radial
+state_hop = np.array([0, 0, 0, dvx, 0, 0])
+t_hop, traj_hop = simulate_relative_motion(state_hop, n, duration_orbits=0.5)
+final_y = traj_hop[-1, 1] * 1000  # m
+print(f"  Initial delta-V: {dvx*1000:.1f} m/s (radial)")
+print(f"  After half orbit:")
+print(f"    y displacement: {final_y:.1f} m")
+print(f"    Theoretical (3π × Δv/n): {3*np.pi*dvx/n*1000:.1f} m")
+
+# Station-keeping delta-V estimate
+print("\n" + "-" * 60)
+print("Station-Keeping at 200m V-bar:")
+sk_distance = 0.2  # km
+# Typical perturbation from drag difference: ~1 mm/s/orbit
+# Correction every orbit: ~few mm/s
+print(f"  Typical station-keeping: 1-5 mm/s per orbit")
+print(f"  Annual delta-V: ~10-50 m/s")
+```
+
+**Key CW relationships:**
+
+| Pattern | Condition | Result |
+|---------|-----------|--------|
+| Football | ẏ₀ = -2nx₀ | Bounded 2:1 ellipse |
+| V-bar drift | x₀ = 0, Δv_y | Linear approach |
+| R-bar hop | Δv_x impulse | y = 3π(Δv_x/n) after ½ orbit |
+| Secular drift | x₀ ≠ 0, ẏ₀ ≠ -2nx₀ | y grows linearly with time |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Circular orbit assumption.** CW equations break down for eccentric target orbits; use Tschauner-Hempel equations instead.
+
+2. **Linearity limit.** Only valid when chaser is much closer than orbital radius (~1% of altitude).
+
+3. **Perturbations ignored.** Differential drag, J2 effects, and solar pressure cause real trajectories to deviate.
+
+4. **Coordinate confusion.** LVLH frame rotates; converting to/from inertial frames requires care.
+
+5. **Thruster fuel costs.** CW solutions are kinematic—actual maneuvers require finite burns and fuel mass.
+
+6. **Time-varying n.** If target orbit changes (maneuvers, decay), mean motion n must be updated.
+
+7. **Safety margins.** Theoretical rendezvous trajectories need buffers for sensor errors and thruster failures.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Clohessy & Wiltshire (1960), "Terminal Guidance System for Satellite Rendezvous"
+- Vallado, "Fundamentals of Astrodynamics and Applications"
+- NASA JSC proximity operations training materials
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [RPOD Operations](/en/space/rendezvous-and-proximity-operations/rpod-operations/) — applying CW to real missions
+- [Docking Safety Zones](/en/space/rendezvous-and-proximity-operations/docking-safety-zones/) — operational constraints
+- [Delta-V Budget](/en/space/maneuvers-and-delta-v/delta-v-budget/) — fuel planning for rendezvous
+
+</section>

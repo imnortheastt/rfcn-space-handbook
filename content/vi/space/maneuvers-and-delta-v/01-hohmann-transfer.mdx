@@ -8,17 +8,341 @@ track: s1
 unit: maneuvers-and-delta-v
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "Chuyen quy dao Hohmann"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 11
+prerequisites: ["space-s1-two-body-problem-05-vis-viva-equation"]
+spiralRevisits: []
+title: "Chuyen Hohmann — Thay doi Quy dao Tiet kiem Nhien lieu"
+description: "Co dong hai lan dot co dien de chuyen giua cac quy dao tron dong phang — suy dien, so lieu cu the, ngan sach nhien lieu, va diem giao nhau voi chuyen bi-elliptic."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-04"
+standards: []
+tags: ["hohmann", "co-hoc-quy-dao", "delta-v", "quy-dao-chuyen", "vis-viva", "tsiolkovsky", "gto", "leo-len-geo"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Chuyen quy dao Hohmann
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Chuyen Hohmann la cach tiet kiem nhien lieu nhat de di chuyen giua hai quy dao tron dong phang chi bang hai lan dot xung. Walter Hohmann mo ta no vao nam 1925 — truoc ca khi cac ten lua co kha nang dat quy dao ton tai — nhung no van la co dong chu luc cho viec chen vao GEO, bao tri chom sao GPS, va thiet ke nhiem vu lien hanh tinh.
+
+LEO len GEO ton khoang 3.9 km/s tong delta-v. Voi mot ve tinh nang 5000 kg dung dong co hoa chat hai thanh phan (Isp = 320 s), dieu do co nghia la 60% khoi luong phong la nhien lieu — chi rieng cho viec nang quy dao. Tinh sai dieu nay va ban se het nhien lieu hoac de lai tai trong o quy dao sai.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Khai niem co ban
+
+Chuyen Hohmann ket noi hai quy dao tron bang mot hinh ellipse tiep xuc voi ca hai:
+
+```
+Hinh hoc Chuyen Hohmann
+
+                     Quy dao muc tieu (r2)
+              +──────────────────────────────+
+           /                                    \
+         /    Ellipse chuyen tiep                 \
+       /     +─────────────────────────+            \
+     /      /                           \             \
+    |      /   Quy dao ban dau (r1)      \             |
+    |     |    +──────────────+           |             |
+    |     |   /       *        \          |             |
+    |     |  |       Trai Dat   |         |             |
+    |     |   \               /           |             |
+    |     |    +──────────────+           |             |
+    |      \           ^ Dot 1 (+Dv1)   /              |
+     \      +──────────────────────────+              /
+       \          Dot 2 (+Dv2) ^                   /
+         \                                         /
+           +──────────────────────────────────────+
+```
+
+- **Dot 1** tai diem chua: tang toc de chen vao ellipse chuyen tiep
+- **Dot 2** tai diem vien: tang toc lai de tron hoa tai quy dao muc tieu
+- Ca hai dot deu theo huong thuan chieu (cho viec nang quy dao)
+
+### Tai sao no toi uu ve nhien lieu
+
+Voi cac chuyen giua hai quy dao tron co ty le ban kinh $r_2/r_1 < 11.94$, chuyen Hohmann toi thieu tong delta-v vi:
+
+1. **Dot chay tai diem tu** — van toc la hoan toan theo phuong tiep tuyen tai diem chua va diem vien, nen moi m/s delta-v deu dua thang vao thay doi nang luong quy dao, khong co thanh phan lang phi
+2. **Chuyen tiep tiep tuyen** — hinh ellipse tiep xuc voi ca hai vong tron, khong yeu cau thay doi mat phang
+3. **Chi hai lan dot** — bat ky lan dot trung gian them nao deu ton nhien lieu
+
+Voi $r_2/r_1 > 11.94$, chuyen bi-elliptic (ba lan dot qua diem vien trung gian rat cao) tro nen hieu qua hon — nhung mat nhieu thoi gian hon.
+
+### Cac so lieu can nho
+
+| Chuyen | Tong $\Delta v$ | Thoi gian |
+|--------|----------------|-----------|
+| LEO (400 km) → GEO | 3.93 km/s | 5.25 h |
+| LEO (400 km) → MEO GPS | 3.38 km/s | 3.38 h |
+| LEO (400 km) → MEO (20200 km) | 3.38 km/s | 3.38 h |
+| Quy dao Trai Dat → Quy dao Sao Hoa | 5.59 km/s | 8.5 thang |
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Co che hoat dong
+
+### Suy dien delta-v
+
+Cho ban kinh quy dao ban dau $r_1$ va ban kinh quy dao muc tieu $r_2$:
+
+**Ban truc lon ellipse chuyen tiep:**
+
+$$a_t = \frac{r_1 + r_2}{2}$$
+
+**Van toc** tu phuong trinh vis-viva $v = \sqrt{\mu(2/r - 1/a)}$:
+
+- Tron ban dau: $v_1 = \sqrt{\mu/r_1}$
+- Chuyen tiep tai diem chua: $v_{t1} = \sqrt{\mu(2/r_1 - 1/a_t)}$
+- Chuyen tiep tai diem vien: $v_{t2} = \sqrt{\mu(2/r_2 - 1/a_t)}$
+- Tron muc tieu: $v_2 = \sqrt{\mu/r_2}$
+
+**Cac gia tri delta-v:**
+
+$$\Delta v_1 = v_{t1} - v_1 = \sqrt{\frac{\mu}{r_1}}\left(\sqrt{\frac{2r_2}{r_1+r_2}} - 1\right)$$
+
+$$\Delta v_2 = v_2 - v_{t2} = \sqrt{\frac{\mu}{r_2}}\left(1 - \sqrt{\frac{2r_1}{r_1+r_2}}\right)$$
+
+Ca hai deu duong khi nang quy dao ($r_2 > r_1$). Khi ha quy dao, ca hai dot deu nguoc chieu (am, nhung cung do lon).
+
+**Thoi gian chuyen tiep** (nua chu ky cua ellipse chuyen tiep):
+
+$$t_{chuyen} = \pi\sqrt{\frac{a_t^3}{\mu}}$$
+
+### Vi du cu the: LEO len GEO
+
+$r_1 = 6778$ km (do cao 400 km), $r_2 = 42164$ km (GEO), $\mu = 398600.4418$ km³/s²
+
+$$a_t = (6778 + 42164)/2 = 24471 \text{ km}$$
+
+$$v_1 = \sqrt{398600/6778} = 7.667 \text{ km/s}$$
+
+$$v_{t1} = \sqrt{398600(2/6778 - 1/24471)} = 10.096 \text{ km/s}$$
+
+$$\Delta v_1 = 10.096 - 7.667 = 2.429 \text{ km/s}$$
+
+$$v_{t2} = \sqrt{398600(2/42164 - 1/24471)} = 1.597 \text{ km/s}$$
+
+$$v_2 = \sqrt{398600/42164} = 3.075 \text{ km/s}$$
+
+$$\Delta v_2 = 3.075 - 1.597 = 1.478 \text{ km/s}$$
+
+$$\Delta v_{tong} = 2.429 + 1.478 = 3.907 \text{ km/s}$$
+
+$$t_{chuyen} = \pi\sqrt{24471^3/398600} = 18896 \text{ s} = 5.25 \text{ h}$$
+
+### Tu delta-v den nhien lieu: Tsiolkovsky
+
+Phuong trinh ten lua lien he delta-v voi khoi luong nhien lieu:
+
+$$\Delta v = v_e \ln\left(\frac{m_0}{m_f}\right) = I_{sp} g_0 \ln\left(\frac{m_0}{m_f}\right)$$
+
+Trong do:
+- $v_e = I_{sp} \cdot g_0$ — van toc xa [$g_0 = 9.80665$ m/s²]
+- $m_0$ — khoi luong ban dau (uot, bao gom nhien lieu)
+- $m_f$ — khoi luong cuoi (kho, sau khi dot)
+- $I_{sp}$ — xung luc rieng [giay]
+
+**Ti le khoi luong** $m_0/m_f = e^{\Delta v / v_e}$
+
+**Ty le nhien lieu** $= 1 - 1/(m_0/m_f)$
+
+Voi LEO→GEO ($\Delta v = 3.907$ km/s):
+
+| Loai dong co | $I_{sp}$ [s] | $v_e$ [km/s] | Ti le khoi luong | Ty le nhien lieu |
+|-------------|-------------|-------------|------------------|-----------------|
+| Don thanh phan hydrazine | 220 | 2.157 | 6.13 | 83.7% |
+| Hai thanh phan (NTO/MMH) | 320 | 3.138 | 3.43 | 70.8% |
+| LOX/LH2 (lanh) | 450 | 4.413 | 2.41 | 58.5% |
+| Ion Hall | 1500 | 14.71 | 1.30 | 23.1% |
+| Ion luoi | 3000 | 29.42 | 1.14 | 12.3% |
+
+Dong luc ion dung it hon 5–7 lan khoi luong nhien lieu, nhung chuyen tiep mat hang thang thay vi hang gio do day xoan lien tuc co luc day thap (khong phai Hohmann dung nghia).
+
+### So sanh voi chuyen bi-elliptic
+
+Voi cac ty le ban kinh lon, chuyen ba lan dot bi-elliptic co the thang Hohmann:
+
+```
+Chuyen Bi-elliptic (3 lan dot):
+
+  Dot 1: Chen vao quy dao ellipse cao (diem vien >> r2)
+  Dot 2: Tai diem vien cao, nang diem chua len r2
+  Dot 3: Tron hoa tai r2
+
+  Diem giao nhau: r2/r1 = 11.94
+  Duoi 11.94: Hohmann toi uu hon
+  Tren 11.94: Bi-elliptic toi uu hon (it Dv hon, mat nhieu thoi gian hon)
+```
+
+LEO → GEO: $r_2/r_1 = 42164/6778 = 6.22$ — Hohmann toi uu.
+
+Quy dao Trai Dat sang quy dao Moc tinh: $r_2/r_1 = 778/149.6 = 5.2$ — van la Hohmann.
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cong cu tinh chuyen Hohmann day du:**
+
+```python
+import math
+
+MU_EARTH = 398600.4418   # km^3/s^2
+MU_SUN   = 1.32712440018e11  # km^3/s^2
+R_EARTH  = 6378.137      # km
+G0       = 9.80665e-3    # km/s^2
+
+def vis_viva(r: float, a: float, mu: float = MU_EARTH) -> float:
+    return math.sqrt(mu * (2/r - 1/a))
+
+def hohmann(r1: float, r2: float, mu: float = MU_EARTH) -> dict:
+    """
+    Chuyen Hohmann giua cac quy dao tron ban kinh r1 va r2.
+    Tra ve tat ca van toc, delta-v, va thoi gian chuyen tiep.
+    """
+    a_t = (r1 + r2) / 2
+    v1  = math.sqrt(mu / r1)
+    vt1 = vis_viva(r1, a_t, mu)
+    vt2 = vis_viva(r2, a_t, mu)
+    v2  = math.sqrt(mu / r2)
+    dv1 = vt1 - v1
+    dv2 = v2 - vt2
+    t_s = math.pi * math.sqrt(a_t**3 / mu)
+    return {
+        "a_t_km": a_t, "v1": v1, "vt1": vt1, "vt2": vt2, "v2": v2,
+        "dv1": dv1, "dv2": dv2, "dv_total": abs(dv1) + abs(dv2),
+        "thoi_gian_s": t_s, "thoi_gian_h": t_s / 3600,
+    }
+
+def tsiolkovsky(dv_km_s: float, isp_s: float) -> tuple:
+    """
+    Phuong trinh ten lua Tsiolkovsky.
+    Tra ve (ti_le_khoi_luong m0/mf, ty_le_nhien_lieu).
+    """
+    ve = isp_s * G0
+    mr = math.exp(dv_km_s / ve)
+    return mr, 1 - 1/mr
+
+def khoi_luong_nhien_lieu(khoi_luong_kho_kg: float,
+                           dv_km_s: float, isp_s: float) -> float:
+    """Khoi luong nhien lieu (kg) cho khoi luong kho va delta-v cho truoc."""
+    mr, _ = tsiolkovsky(dv_km_s, isp_s)
+    return khoi_luong_kho_kg * (mr - 1)
+
+# --- LEO len GEO ---
+r1 = R_EARTH + 400
+r2 = R_EARTH + 35786
+h = hohmann(r1, r2)
+print("Chuyen Hohmann LEO (400 km) len GEO")
+print("="*50)
+print(f"  r1 = {r1:.1f} km,  r2 = {r2:.1f} km")
+print(f"  a_chuyen_tiep = {h['a_t_km']:.1f} km")
+print(f"  v1 (LEO tron)               = {h['v1']:.4f} km/s")
+print(f"  vt1 (diem chua chuyen tiep) = {h['vt1']:.4f} km/s")
+print(f"  Dv1                         = {h['dv1']:.4f} km/s")
+print(f"  vt2 (diem vien chuyen tiep) = {h['vt2']:.4f} km/s")
+print(f"  v2 (GEO tron)               = {h['v2']:.4f} km/s")
+print(f"  Dv2                         = {h['dv2']:.4f} km/s")
+print(f"  TONG Dv                     = {h['dv_total']:.4f} km/s")
+print(f"  Thoi gian chuyen tiep       = {h['thoi_gian_h']:.2f} h")
+
+# --- Ngan sach nhien lieu cho 3000 kg kho ---
+kho = 3000  # kg
+print(f"\nNhien lieu can cho {kho} kg khoi luong kho:")
+for dong_co, isp in [("Hai thanh phan (Isp=320s)", 320),
+                      ("Ion Hall (Isp=1500s)", 1500)]:
+    mp = khoi_luong_nhien_lieu(kho, h['dv_total'], isp)
+    mr, pf = tsiolkovsky(h['dv_total'], isp)
+    print(f"  {dong_co}: {mp:.0f} kg nhien lieu  "
+          f"(ti le khoi luong {mr:.2f}, {pf*100:.1f}%)")
+
+# --- Bang so sanh ---
+print("\nCac chuyen Hohmann pho bien (trung tam Trai Dat)")
+print(f"  {'Chuyen':<35} {'Dv1':>6} {'Dv2':>6} {'Tong':>7} {'Tg(h)':>7}")
+print("-"*65)
+truong_hop = [
+    ("LEO 400km → ISS 420km",     R_EARTH+400,   R_EARTH+420),
+    ("LEO 400km → MEO GPS",       R_EARTH+400,   R_EARTH+20180),
+    ("LEO 400km → GEO",           R_EARTH+400,   R_EARTH+35786),
+]
+for ten, ra, rb in truong_hop:
+    t = hohmann(ra, rb)
+    print(f"  {ten:<35} {t['dv1']:>6.3f} {t['dv2']:>6.3f} "
+          f"{t['dv_total']:>7.3f} {t['thoi_gian_h']:>7.2f}")
+
+# --- Lien hanh tinh ---
+print("\nHohmann lien hanh tinh (trung tam Mat Troi, don gian hoa)")
+r_trai_dat = 149.598e6   # km (1 AU)
+r_sao_hoa  = 227.936e6   # km (1.524 AU)
+ip = hohmann(r_trai_dat, r_sao_hoa, MU_SUN)
+print(f"  Trai Dat → Sao Hoa: Dv_tong = {ip['dv_total']:.3f} km/s, "
+      f"thoi gian = {ip['thoi_gian_s']/86400/30:.1f} thang")
+```
+
+**Bang tham chieu — cac chuyen Hohmann chinh:**
+
+| Chuyen | $\Delta v_1$ [km/s] | $\Delta v_2$ [km/s] | Tong [km/s] | Thoi gian |
+|--------|---------------------|---------------------|-------------|-----------|
+| LEO → ISS | 0.011 | 0.011 | 0.022 | 4 phut |
+| LEO → MEO GPS | 2.195 | 1.184 | 3.379 | 3.38 h |
+| LEO → GEO | 2.429 | 1.477 | 3.906 | 5.25 h |
+| Trai Dat → Sao Hoa | 2.943 | 2.651 | 5.594 | 8.5 thang |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Nhung bay an
+
+1. **Gia dinh dong phang.** Hohmann gia dinh hai quy dao cung mat phang. Viec thay doi mat phang ket hop voi thay doi do cao ton them nhieu hon: thay doi mat phang 28.5° tai do cao GEO can ~2.8 km/s rieng. Luon tach hoac ket hop thay doi mat phang tai diem hieu qua nhat (thuong la diem vien cua ellipse chuyen tiep noi van toc thap nhat).
+
+2. **Gia dinh quy dao tron.** Cong thuc gia dinh quy dao ban dau va cuoi la tron. Chuyen tu hoac den quy dao elliptic yeu cau dung vis-viva tai diem chuyen tiep thuc te, khong phai van toc tron.
+
+3. **Xap xi dot xung.** Dong co thuc su dot chay trong nhieu phut. Mo hinh "xung" chi chinh xac khi thoi gian dot chay ngan hon nhieu so voi chu ky quy dao. Dong co ion luc day thap xoan ra ngoai lien tuc — cong thuc Hohmann cho ngan sach delta-v dung nhung quy dao trong nhu xoan oc, khong phai hai dot.
+
+4. **Ban kinh Trai Dat trong chuyen doi do cao thanh ban kinh.** Dung $R_E = 6378.137$ km, khong phai 6371 km (ban kinh trung binh). Ban kinh xich dao la dung cho tinh toan quy dao.
+
+5. **Ti le ban kinh cho tinh toi uu.** Voi $r_2/r_1 > 11.94$, chuyen bi-elliptic ton it delta-v hon. Voi hoat dong ve tinh Trai Dat thong thuong (LEO len GEO: ti le 6.2), Hohmann la toi uu.
+
+6. **Sai su dung phuong trinh Tsiolkovsky.** Phuong trinh ten lua ap dung cho tung dot dot rieng biet, hoac ban co the ap dung cho tong delta-v chi khi $I_{sp}$ la nhu nhau cho ca hai dot. Neu dot 1 dung dong co hoa hoc va dot 2 dung dong co ion, hay tinh nhien lieu rieng cho moi dot.
+
+7. **Bo qua thoi gian chuyen tiep.** 5.25 gio cho LEO→GEO la on voi ve tinh khong co nguoi. Nhung tau co nguoi bi phoi nhiem buc xa trong vung dai Van Allen. Apollo dung chuyen tiep nhanh hon (diem chua thap hon) de giam thoi gian qua vung dai.
+
+8. **Goc pha can thiet.** De den mot vi tri quy dao muc tieu cu the (vi du hoi tu voi ve tinh khac), thoi diem phong phai chinh xac. Muc tieu phai o goc pha dung vao thoi diem dot 1. Day la "bai toan pha" — tach biet voi tinh toan delta-v Hohmann.
+
+</section>
+
+<section class="lesson-references">
+
+## Tai lieu tham khao
+
+- Hohmann, W., "Die Erreichbarkeit der Himmelskörper" (1925) — bai bao goc
+- Vallado, D., "Fundamentals of Astrodynamics and Applications", ban 4 — muc 6.3
+- Curtis, H., "Orbital Mechanics for Engineering Students", ban 3 — muc 6.3
+- Bate, Mueller, White, "Fundamentals of Astrodynamics" — muc 3.3
+
+</section>
+
+<section class="lesson-bridge">
+
+## Buoc tiep theo
+
+- [Chuyen Bi-elliptic](/vi/space/maneuvers-and-delta-v/bi-elliptic-transfer/) — khi Hohmann khong toi uu (ti le ban kinh > 11.94)
+- [Thay doi Mat phang](/vi/space/maneuvers-and-delta-v/plane-change/) — thay doi do nghieng va co dong ket hop
+- [Ngan sach Delta-V](/vi/space/maneuvers-and-delta-v/delta-v-budget/) — ke hoach nhien lieu toan bo nhiem vu
+- [Phuong trinh Vis-Viva](/vi/space/two-body-problem/vis-viva-equation/) — toan hoc nen tang moi phep tinh dot
+
+</section>

@@ -8,16 +8,16 @@ track: r2
 unit: propagation-in-real-environments
 order: 2
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 14
 prerequisites: ["rf-r2-propagation-in-real-environments-01-reflection-refraction-diffraction"]
 spiralRevisits: []
 title: "Two-ray model"
-description: "Ground reflection creates distance-dependent fading patterns."
-authors: ["tindang"]
+description: "Ground reflection creates distance-dependent fading patterns and steeper path loss."
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
-tags: ["two-ray", "ground-reflection", "path-loss", "propagation"]
+tags: ["two-ray", "ground-reflection", "path-loss", "propagation", "breakpoint-distance"]
 widgets: []
 license: CC-BY-SA-4.0
 status: published
@@ -27,7 +27,11 @@ status: published
 
 ## Why the two-ray model?
 
-Free-space path loss predicts signal falls as 1/d². But measurements over flat ground show 1/d⁴ beyond a breakpoint distance. The two-ray model explains this: direct wave plus ground-reflected wave interfere, creating alternating peaks and nulls, transitioning to steeper loss at long range.
+Free-space path loss predicts signal power falls as $1/d^2$ — 20 dB per decade. But measurements over flat ground consistently show $1/d^4$ beyond a certain distance. A cell at 2 km sees roughly 6 dB more loss than free space would predict; at 5 km the discrepancy is over 10 dB. Ignoring this error wipes out half your link margin before you deploy a single site.
+
+The two-ray model explains this discrepancy precisely: a ground-reflected wave interferes with the direct path. Near the transmitter the two paths alternately add and cancel, creating oscillating signal strength. Beyond the **breakpoint distance** the reflected wave is nearly 180° out of phase with the direct path and partially cancels it — transitioning to the steeper $1/d^4$ law.
+
+This matters for every terrestrial link: macrocell base stations, point-to-point microwave hops, and air-to-ground links all operate in regimes where two-ray geometry is the dominant propagation mechanism.
 
 </section>
 
@@ -35,69 +39,112 @@ Free-space path loss predicts signal falls as 1/d². But measurements over flat 
 
 ## Intuition
 
-Imagine two paths: direct line-of-sight and a bounce off the ground. Near the transmitter, these paths have different lengths and phases — they can add or cancel. Far away, both paths become nearly horizontal, the phase difference stabilizes at 180°, and they partially cancel — giving the 1/d⁴ law.
+### Two paths, one receiver
+
+Picture a transmitter on a tower and a receiver on the ground separated by distance $d$. Two paths exist:
+
+1. **Direct path**: straight line from TX to RX, length $d_1$.
+2. **Ground-reflected path**: bounces off the ground, length $d_2 > d_1$.
+
+Because the ground reflection coefficient at grazing incidence is approximately $-1$ (180° phase flip, as derived in the reflection lesson), the reflected wave arrives inverted. The direct and reflected waves superimpose at the receiver.
+
+**Close to the transmitter** ($d \ll d_b$): the path length difference $\Delta = d_2 - d_1$ is large relative to wavelength. As the receiver moves, $\Delta$ changes rapidly relative to $\lambda$, causing the two waves to alternately add (constructive) and cancel (destructive). Signal strength oscillates by ±20 dB or more over distances of a few wavelengths.
+
+**Far from the transmitter** ($d \gg d_b$): both paths are nearly horizontal. The path difference $\Delta \approx 2h_t h_r / d$ becomes much smaller than $\lambda$. The phase difference $\Delta\phi = 2\pi\Delta/\lambda \approx 4\pi h_t h_r / (\lambda d)$ approaches zero as $d$ increases — but since the reflection inverts the wave (adds $\pi$ radians), the total phase difference between direct and reflected approaches $\pi$. The two waves nearly cancel. The cancellation worsens as $d$ increases, giving the steeper $1/d^4$ decay.
+
+```
+Two-Ray Geometry:
+
+TX (height ht)          RX (height hr)
+      |                      |
+      |     Direct path d1   |
+      |----------------------|
+      |                      |
+      |  d'  |     d''       |
+      |______ground__________|
+             reflected path d2 > d1
+
+Path difference: Δ = d2 - d1 ≈ 2·ht·hr / d  (far field)
+Phase difference: Δφ = (2π/λ)·Δ + π (π from reflection)
+```
+
+The $\pi$ from reflection means that as $d$ grows and $\Delta \to 0$, the total phase difference approaches $\pi$ — destructive interference. The two-ray cancellation gets worse with distance, not better.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How it works
 
-### Geometry
+### Geometry and path lengths
 
-TX at height $h_t$, RX at height $h_r$, separated by distance d.
+TX at height $h_t$, RX at height $h_r$, horizontal separation $d$.
 
-Direct path length:
+Direct path (exact):
 $$d_1 = \sqrt{d^2 + (h_t - h_r)^2} \approx d + \frac{(h_t - h_r)^2}{2d}$$
 
-Reflected path length:
+Reflected path (via image point at $-h_t$):
 $$d_2 = \sqrt{d^2 + (h_t + h_r)^2} \approx d + \frac{(h_t + h_r)^2}{2d}$$
 
 Path difference:
 $$\Delta = d_2 - d_1 \approx \frac{2h_t h_r}{d}$$
 
-Phase difference:
-$$\Delta\phi = \frac{2\pi}{\lambda}\Delta = \frac{4\pi h_t h_r}{\lambda d}$$
+Phase difference due to path length plus 180° from reflection:
+$$\Delta\phi_{total} = \frac{4\pi h_t h_r}{\lambda d} + \pi$$
 
-### Received power
+### Received power — two-ray interference formula
 
-Including ground reflection coefficient Γ ≈ -1:
+Including ground reflection coefficient $\Gamma \approx -1$:
 
-$$P_r = P_t G_t G_r \left(\frac{\lambda}{4\pi d}\right)^2 \left|1 + \Gamma e^{-j\Delta\phi}\right|^2$$
+$$P_r = P_t G_t G_r \left(\frac{\lambda}{4\pi d}\right)^2 \left|1 - e^{-j\frac{4\pi h_t h_r}{\lambda d}}\right|^2$$
 
-The interference term $|1 - e^{-j\Delta\phi}|^2 = 4\sin^2(\Delta\phi/2)$.
+The interference term $\left|1 - e^{-j\psi}\right|^2 = 4\sin^2(\psi/2)$ where $\psi = 4\pi h_t h_r / (\lambda d)$.
 
-### Two regimes
+**Near field** ($\psi$ large, many oscillations): received power swings between 0 and $4 \times$ the free-space value — a 6 dB peak above Friis and complete nulls.
 
-**Near field (d < d_c):**
+**Far field** ($\psi \ll 1$, $\sin(\psi/2) \approx \psi/2$):
 
-$$P_r \propto \frac{1}{d^2} \times \text{oscillations}$$
+$$P_r \approx P_t G_t G_r \left(\frac{\lambda}{4\pi d}\right)^2 \cdot \psi^2 = P_t G_t G_r \frac{h_t^2 h_r^2}{d^4}$$
 
-Alternating constructive/destructive interference.
+Note: $\lambda$ cancels out entirely. The far-field two-ray power depends only on heights and distance, **not on frequency**.
 
-**Far field (d > d_c):**
+### Breakpoint (crossover) distance
 
-When $\Delta\phi << 1$: $\sin(\Delta\phi/2) \approx \Delta\phi/2$
+The transition from oscillating to monotone $1/d^4$ occurs at:
 
-$$P_r = P_t G_t G_r \frac{h_t^2 h_r^2}{d^4}$$
+$$d_b = \frac{4 h_t h_r}{\lambda}$$
 
-Fourth-power law — 40 dB/decade.
+Equivalently, $d_b$ is where $\psi = \pi$ (first null of the oscillation), or where the first Fresnel zone just touches the ground.
 
-### Crossover distance
+At the breakpoint the two-ray and free-space predictions agree (to first order). Beyond $d_b$ two-ray gives more loss; the additional loss vs. free-space grows as $20\log_{10}(d/d_b)$ dB.
 
-Transition occurs when first Fresnel zone touches ground:
+### Two-ray path loss formula (beyond breakpoint)
 
-$$d_c = \frac{4 h_t h_r}{\lambda}$$
+$$L_{2ray}[\text{dB}] = 40\log_{10}(d) - 20\log_{10}(h_t) - 20\log_{10}(h_r)$$
 
-Or equivalently, when $\Delta\phi = \pi/2$.
+Key properties:
+- **40 dB/decade** of distance (vs. 20 dB/decade for free space)
+- **No frequency dependence** — frequency effects disappear in the far field
+- **Height dependence**: raising both antennas by factor $k$ reduces path loss by $40\log_{10}(k)$ — e.g., doubling both heights gives 12 dB improvement
 
-### Path loss equation
+### Breakpoint distance reference table
 
-Beyond crossover:
+| Frequency | $h_t = 30$ m, $h_r = 1.5$ m | $h_t = 10$ m, $h_r = 1.5$ m |
+|-----------|-----------------------------|-----------------------------|
+| 900 MHz | 545 m | 182 m |
+| 1.8 GHz | 1090 m | 363 m |
+| 2.1 GHz | 1273 m | 424 m |
+| 28 GHz | 16,800 m | 5600 m |
 
-$$L = 40\log_{10}(d) - 20\log_{10}(h_t) - 20\log_{10}(h_r)$$
+Note: at 28 GHz with typical macro heights, $d_b$ exceeds typical cell sizes — mmWave microcells often operate in the free-space regime, which is one reason mmWave path loss behaves closer to $n=2$ than $n=4$ within cells.
 
-Note: no frequency dependence in far-field two-ray.
+### Complete picture: near field vs. far field
+
+$$L(d) = \begin{cases} L_{fs}(d) + \text{oscillations} & d < d_b \\ 40\log_{10}(d) - 20\log_{10}(h_t) - 20\log_{10}(h_r) & d > d_b \end{cases}$$
+
+For careful work, the oscillation peaks in the near field can be found by setting $\psi = 2\pi k$ (constructive) and $\psi = (2k-1)\pi$ (destructive), giving peak/null distances:
+
+$$d_{peak,k} = \frac{4h_t h_r}{(2k-1)\lambda}, \quad d_{null,k} = \frac{4h_t h_r}{2k\lambda}$$
 
 </section>
 
@@ -105,53 +152,57 @@ Note: no frequency dependence in far-field two-ray.
 
 ## Apply
 
-**Example: Cellular tower**
+### Example 1: Macrocell at 900 MHz — transition from free space to two-ray
 
-Frequency: 900 MHz (λ = 0.33 m)
-Tower height: 30 m
-Mobile height: 1.5 m
+Tower $h_t = 30$ m, mobile $h_r = 1.5$ m, 900 MHz ($\lambda = 0.333$ m).
 
-Crossover distance:
-$$d_c = \frac{4 \times 30 \times 1.5}{0.33} = 545 \text{ m}$$
+$$d_b = \frac{4 \times 30 \times 1.5}{0.333} = 540 \text{ m}$$
 
-At 100 m (< dc): free-space-like with oscillations.
-At 1 km (> dc): two-ray 1/d⁴ applies.
+Path loss at 500 m (just inside $d_b$): use FSPL.
+$$L_{fs} = 32.45 + 20\log_{10}(0.5) + 20\log_{10}(900) = 32.45 - 6 + 59.1 = 85.5 \text{ dB}$$
 
-Path loss at 1 km:
-$$L = 40\log_{10}(1000) - 20\log_{10}(30) - 20\log_{10}(1.5) = 120 - 29.5 - 3.5 = 87 \text{ dB}$$
+Path loss at 2 km (well beyond $d_b$): use two-ray.
+$$L_{2ray} = 40\log_{10}(2000) - 20\log_{10}(30) - 20\log_{10}(1.5) = 132 - 29.5 - 3.5 = 99 \text{ dB}$$
 
-**Example: Wi-Fi across parking lot**
+FSPL at 2 km: $32.45 + 20\log_{10}(2) + 59.1 = 97.6$ dB.
 
-2.4 GHz, both antennas at 2 m height.
+Two-ray adds 1.4 dB at 2 km. At 5 km: two-ray = $40\log_{10}(5000) - 33 = 146 - 33 = 113$ dB; FSPL = $97.6 + 8 = 105.6$ dB. Difference: 7.4 dB. The gap widens with distance.
 
-$$d_c = \frac{4 \times 2 \times 2}{0.125} = 128 \text{ m}$$
+### Example 2: Effect of tower height on coverage
 
-Under 128 m: expect nulls and peaks.
-Over 128 m: two-ray loss dominates.
+Same scenario. Compare $h_t = 30$ m vs. $h_t = 60$ m at 5 km (both beyond $d_b$).
 
-At 50 m (before dc): null spacing ≈ $\frac{\lambda d}{2h_t h_r} = \frac{0.125 \times 50}{2 \times 4} = 0.78$ m.
+$$L_{30m} = 40\log_{10}(5000) - 20\log_{10}(30) - 20\log_{10}(1.5) = 146 - 29.5 - 3.5 = 113 \text{ dB}$$
+$$L_{60m} = 40\log_{10}(5000) - 20\log_{10}(60) - 20\log_{10}(1.5) = 146 - 35.6 - 3.5 = 106.9 \text{ dB}$$
 
-Moving 0.78 m can swing signal by 20+ dB.
+Doubling tower height saves 6 dB in path loss — equivalent to 4× increase in transmit power, or a 40% increase in coverage radius.
 
-**Example: Air-to-ground**
+### Example 3: Wi-Fi across a parking lot at 2.4 GHz
 
-Aircraft at 3000 m, ground terminal at 10 m, 1 GHz.
+Both antennas at $h = 2$ m, 2.4 GHz ($\lambda = 0.125$ m).
 
-$$d_c = \frac{4 \times 3000 \times 10}{0.3} = 400 \text{ km}$$
+$$d_b = \frac{4 \times 2 \times 2}{0.125} = 128 \text{ m}$$
 
-Within 400 km: two-ray doesn't apply, use free-space.
+Within 128 m: signal oscillates. Null spacing at 50 m:
+$$\Delta d_{null} = \frac{\lambda d}{2h_t h_r} = \frac{0.125 \times 50}{2 \times 2 \times 2} = 0.78 \text{ m}$$
 
-**Example: Path loss comparison**
+Moving less than 1 m can swing received power by 20 dB — explaining the "dead spots" in parking lot Wi-Fi.
 
-At 2 km, 30 m tower, 1.5 m mobile:
+### Example 4: Air-to-ground link — two-ray doesn't apply
 
-Free-space (900 MHz): $32.4 + 20\log(0.9) + 20\log(2) = 32.4 - 0.9 + 6 = 37.5$ dB? 
+Aircraft at $h_t = 3000$ m, ground terminal at $h_r = 10$ m, 1 GHz.
 
-Correct: $20\log(4\pi \times 2000/0.33) = 20\log(76000) = 97.6$ dB
+$$d_b = \frac{4 \times 3000 \times 10}{0.3} = 400{,}000 \text{ m} = 400 \text{ km}$$
 
-Two-ray: $40\log(2000) - 20\log(30) - 20\log(1.5) = 132 - 29.5 - 3.5 = 99$ dB
+Within 400 km: two-ray model does not apply — use free-space Friis. This is why air-to-ground links at medium-to-high altitudes are well modeled by simple FSPL within their operational range.
 
-Two-ray predicts ~1.5 dB more loss — close match confirms two-ray region.
+### Example 5: Satellite to ground — always free space
+
+LEO satellite at 600 km altitude. Even at $h_r = 100$ m (elevated ground terminal):
+
+$$d_b = \frac{4 \times 600000 \times 100}{0.15} = 1.6 \times 10^9 \text{ m} \gg 600 \text{ km}$$
+
+Satellite links are firmly in the free-space regime. Ground reflection is only relevant for very low elevation angles (below ~5°), where the reflected wave and direct wave path lengths converge.
 
 </section>
 
@@ -159,15 +210,17 @@ Two-ray predicts ~1.5 dB more loss — close match confirms two-ray region.
 
 ## Pitfalls
 
-1. **Applying two-ray too close.** Below crossover distance, use free-space with oscillations, not 1/d⁴.
+1. **Applying two-ray before the breakpoint.** The $1/d^4$ law only holds beyond $d_b$. Below the breakpoint, use free-space with oscillation corrections. Naively applying two-ray at short distances predicts far too little loss.
 
-2. **Forgetting ground imperfection.** Real ground isn't flat or perfectly reflecting. Roughness scatters energy.
+2. **Assuming Gamma = -1 always.** Real ground reflection coefficients depend on soil type, moisture, frequency, and polarization. Wet soil has $|\Gamma| \to 1$ (good approximation). Dry sand: $|\Gamma| \approx 0.5$. Using $\Gamma = -1$ for dry ground overestimates the cancellation effect.
 
-3. **Assuming Γ = -1.** Ground reflection coefficient depends on frequency, polarization, and soil type. Range: -0.3 to -1.
+3. **Ignoring rough surface scattering.** Real ground is not flat — it has surface roughness. The Rayleigh criterion $\sigma_h > \lambda / (8\cos\theta_i)$ determines when roughness matters. At higher frequencies (>3 GHz), ground roughness disperses the reflection into a wide lobe rather than a specular reflection, weakening the two-ray cancellation. The true exponent becomes closer to $n = 3$ than $n = 4$.
 
-4. **Ignoring multipath.** Two-ray is minimum complexity. Real environments have buildings, trees, terrain.
+4. **Using two-ray indoors.** Indoors, dozens of reflections from walls, floor, and ceiling dominate. Two-ray is an outdoor, flat-earth, single-reflection model. Applying it indoors is incorrect — use statistical indoor path loss models.
 
-5. **Using two-ray indoors.** Multiple reflections dominate. Two-ray is an outdoor flat-earth model.
+5. **Forgetting frequency cancellation.** The surprising result that two-ray path loss has no frequency dependence in the far field misleads some engineers into thinking antenna height is all that matters. This is true only beyond $d_b$. Below $d_b$, frequency strongly affects both the oscillation pattern and the path loss.
+
+6. **Misinterpreting "no frequency dependence."** The statement refers to **received power for given antenna gains**. If you compare isotropic antennas at different frequencies, the different effective apertures reintroduce frequency dependence. The two-ray result assumes the same $G_t$ and $G_r$ regardless of frequency.
 
 </section>
 
@@ -175,8 +228,9 @@ Two-ray predicts ~1.5 dB more loss — close match confirms two-ray region.
 
 ## References
 
-- Rappaport, *Wireless Communications*, Chapter 4.
-- Goldsmith, *Wireless Communications*, Chapter 2.
-- Parsons, *The Mobile Radio Propagation Channel*, Chapter 3.
+- Rappaport, T.S., *Wireless Communications*, 2nd ed., Chapter 3 — two-ray model derivation and numerical examples.
+- Goldsmith, A., *Wireless Communications*, Chapter 2 — concise treatment of the breakpoint distance and far-field behavior.
+- Parsons, J.D., *The Mobile Radio Propagation Channel*, 2nd ed., Chapter 3 — ground reflection physics and practical implications.
+- 3GPP TR 38.901 — includes a dual-slope model (analogous to two-ray) for UMa and UMi scenarios.
 
 </section>

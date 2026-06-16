@@ -8,17 +8,404 @@ track: n6
 unit: fronthaul-interface
 order: 2
 level: L4
-estimatedReadingMinutes: 5
-title: "O-RAN fronthaul specification"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n6-fronthaul-interface-01-ecpri-overview"]
+spiralRevisits: []
+title: "O-RAN Fronthaul Specification"
+description: "O-RAN WG4 Control, User, Synchronization, and Management Plane specifications for Open Fronthaul."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG4.CUS", "O-RAN.WG4.MP"]
+tags: ["o-ran", "5g", "fronthaul", "cus", "m-plane"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# O-RAN fronthaul specification
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+eCPRI defines the transport. O-RAN WG4 defines what goes inside — the section structures, timing parameters, compression formats, and management interfaces.
+
+Understanding the O-RAN fronthaul spec is essential for multi-vendor interoperability. This is where the interop details live.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### O-RAN fronthaul planes
+
+```
+O-RAN Open Fronthaul Planes:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Four planes defined by O-RAN WG4:                      │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ C-Plane (Control Plane)                         │    │
+│  │ - Scheduling information                         │    │
+│  │ - Section descriptions (PRB allocation)          │    │
+│  │ - Beamforming information                        │    │
+│  │ - Sent before U-Plane data                       │    │
+│  │ Protocol: eCPRI message type 0x02               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ U-Plane (User Plane)                            │    │
+│  │ - IQ sample data                                │    │
+│  │ - Frequency domain (after DFT)                  │    │
+│  │ - Compressed (BFP, modulation compression)      │    │
+│  │ Protocol: eCPRI message type 0x00               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ S-Plane (Synchronization Plane)                 │    │
+│  │ - Timing synchronization                         │    │
+│  │ - Phase alignment                                │    │
+│  │ Protocol: PTP (IEEE 1588), SyncE               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ M-Plane (Management Plane)                      │    │
+│  │ - Configuration                                  │    │
+│  │ - Performance monitoring                         │    │
+│  │ - Fault management                               │    │
+│  │ Protocol: NETCONF/YANG                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### CUS message flow
+
+```
+C-Plane and U-Plane Message Sequence:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  DU                                    RU                │
+│  │                                     │                │
+│  │ C-Plane (scheduling for slot N)     │                │
+│  │ - Section type 1 (DL data)          │                │
+│  │ - PRB allocation                     │                │
+│  │ - Beam ID / weights                  │                │
+│  │─────────────────────────────────────►│                │
+│  │                                     │ Store C-Plane  │
+│  │                                     │                │
+│  │ U-Plane (IQ data for slot N)        │                │
+│  │ - Symbol 0, PRBs 0-50               │                │
+│  │─────────────────────────────────────►│                │
+│  │                                     │                │
+│  │ U-Plane (IQ data for slot N)        │                │
+│  │ - Symbol 0, PRBs 51-100             │                │
+│  │─────────────────────────────────────►│                │
+│  │                                     │                │
+│  │ ... more U-Plane messages ...       │                │
+│  │─────────────────────────────────────►│                │
+│  │                                     │                │
+│  │                                     │ Apply C-Plane  │
+│  │                                     │ to U-Plane     │
+│  │                                     │                │
+│  │                                     │ IFFT + TX      │
+│  │                                     │─────────────►  │
+│  │                                     │     Air        │
+│                                                          │
+│  Timing: C-Plane arrives T2a before slot boundary       │
+│          U-Plane arrives Ta3 before symbol boundary     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### C-Plane section structure
+
+```
+O-RAN C-Plane Section Format:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Application Layer Header:                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ dataDirection (1 bit): 0=UL, 1=DL               │    │
+│  │ payloadVersion (3 bits): 001 for current        │    │
+│  │ filterIndex (4 bits): Identifies filter set     │    │
+│  │ frameId (8 bits): Radio frame number mod 256    │    │
+│  │ subframeId (4 bits): 0-9                        │    │
+│  │ slotId (6 bits): Slot within subframe           │    │
+│  │ startSymbolId (6 bits): Starting symbol         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Section Header (per section):                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ sectionId (12 bits): Identifies section         │    │
+│  │ rb (1 bit): Resource block indicator            │    │
+│  │ symInc (1 bit): Symbol increment mode           │    │
+│  │ startPrbc (10 bits): Starting PRB               │    │
+│  │ numPrbc (8 bits): Number of PRBs (0=all)        │    │
+│  │ reMask (12 bits): Which REs in PRB              │    │
+│  │ numSymbol (4 bits): Number of symbols           │    │
+│  │ ef (1 bit): Extension flag                      │    │
+│  │ beamId (15 bits): Beam identifier               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Section Extensions (optional, ef=1):                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ extType 1: Beamforming weights                  │    │
+│  │ extType 2: BFW compression parameters           │    │
+│  │ extType 3: Time/frequency offset                │    │
+│  │ extType 4: Modulation compression parameters    │    │
+│  │ extType 5: Codebook index                       │    │
+│  │ ...more extension types...                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### U-Plane IQ format
+
+```
+O-RAN U-Plane IQ Data Format:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Application Layer Header:                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ dataDirection, payloadVersion, filterIndex      │    │
+│  │ frameId, subframeId, slotId, symbolId           │    │
+│  │ (Same as C-Plane header)                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Section Header:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ sectionId: Must match C-Plane section           │    │
+│  │ rb, symInc, startPrbc, numPrbc, reMask          │    │
+│  │                                                  │    │
+│  │ udCompHdr (if compression used):                │    │
+│  │ - udIqWidth: IQ bit width (e.g., 9 bits)        │    │
+│  │ - udCompMeth: Compression method                │    │
+│  │   0: No compression                             │    │
+│  │   1: Block floating point                       │    │
+│  │   2: Block scaling                              │    │
+│  │   3: µ-law                                      │    │
+│  │   4: Modulation compression                     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  IQ Sample Data (per PRB):                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ [exponent (4 bits if BFP)]                      │    │
+│  │ [I0, Q0], [I1, Q1], ..., [I11, Q11]            │    │
+│  │ (12 subcarriers per PRB)                        │    │
+│  │                                                  │    │
+│  │ BFP format (9-bit example):                     │    │
+│  │ ┌─────────────────────────────────────────────┐ │    │
+│  │ │ Exp │ I0 (9b) │ Q0 (9b) │ ... │ I11 │ Q11 │ │    │
+│  │ │ 4b  │         │         │     │      │     │ │    │
+│  │ └─────────────────────────────────────────────┘ │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### M-Plane YANG models
+
+```
+O-RAN M-Plane Configuration (NETCONF/YANG):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Key YANG Modules:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ o-ran-hardware.yang                             │    │
+│  │ - Hardware inventory                            │    │
+│  │ - Component status                              │    │
+│  │                                                  │    │
+│  │ o-ran-software-management.yang                  │    │
+│  │ - Software slots                                │    │
+│  │ - Firmware upgrade                              │    │
+│  │                                                  │    │
+│  │ o-ran-uplane-conf.yang                          │    │
+│  │ - Carrier configuration                         │    │
+│  │ - Antenna mapping                               │    │
+│  │ - Compression settings                          │    │
+│  │                                                  │    │
+│  │ o-ran-delay-management.yang                     │    │
+│  │ - T2a_min, T2a_max parameters                  │    │
+│  │ - Ta3_min, Ta3_max parameters                  │    │
+│  │                                                  │    │
+│  │ o-ran-compression-factors.yang                  │    │
+│  │ - IQ bit width                                  │    │
+│  │ - Compression method                            │    │
+│  │                                                  │    │
+│  │ o-ran-beamforming.yang                          │    │
+│  │ - Beam capabilities                             │    │
+│  │ - Codebook configuration                        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  M-Plane Architectures:                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ Hierarchical: DU manages RU directly            │    │
+│  │ ┌───────┐ NETCONF ┌───────┐                     │    │
+│  │ │  DU   │─────────│  RU   │                     │    │
+│  │ └───────┘         └───────┘                     │    │
+│  │                                                  │    │
+│  │ Hybrid: SMO and DU share management             │    │
+│  │ ┌───────┐         ┌───────┐                     │    │
+│  │ │  SMO  │─────────│  RU   │ (config, SW)        │    │
+│  │ └───────┘         └───────┘                     │    │
+│  │     │                 │                          │    │
+│  │ ┌───────┐─────────────┘ (runtime params)        │    │
+│  │ │  DU   │                                       │    │
+│  │ └───────┘                                       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### S-Plane timing
+
+```
+S-Plane Synchronization:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  PTP Profile: ITU-T G.8275.1                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Full timing support (FTS)                       │    │
+│  │ Every switch is a boundary clock               │    │
+│  │ Target: ±1.5 µs at air interface               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Timing Chain:                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  GPS/GNSS ──► Grand Master ──► T-BC ──► T-BC   │    │
+│  │  (source)     (DU/router)     (switch) (switch)│    │
+│  │                                   │             │    │
+│  │                                   ▼             │    │
+│  │                                  RU             │    │
+│  │                              (slave clock)      │    │
+│  │                                                  │    │
+│  │  Each hop adds error budget                     │    │
+│  │  Total budget: ~1.5 µs for all hops            │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  SyncE for Frequency:                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Physical layer frequency sync                   │    │
+│  │ Requirement: ±50 ppb (±16 ppb for wide area)   │    │
+│  │ All switches must support and enable SyncE     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Key O-RAN WG4 documents:**
+
+| Document | Content |
+|----------|---------|
+| O-RAN.WG4.CUS.0-v09.00 | C/U/S-Plane specification |
+| O-RAN.WG4.MP.0-v09.00 | M-Plane specification |
+| O-RAN.WG4.IOT | Interoperability test spec |
+| O-RAN.WG4.CONF | Conformance test spec |
+
+**NETCONF operations:**
+
+```bash
+# Get RU capabilities
+netconf-cli get --filter "<o-ran-module-cap/>"
+
+# Configure carrier
+netconf-cli edit-config --target running <<EOF
+<config>
+  <user-plane-configuration xmlns="urn:o-ran:uplane-conf:1.0">
+    <tx-array-carriers>
+      <name>cc0</name>
+      <absolute-frequency-center>3600000</absolute-frequency-center>
+      <channel-bandwidth>100000</channel-bandwidth>
+      <active>true</active>
+    </tx-array-carriers>
+  </user-plane-configuration>
+</config>
+EOF
+
+# Check timing parameters
+netconf-cli get --filter "<delay-management/>"
+
+# View alarms
+netconf-cli get --filter "<alarms/>"
+```
+
+**Timing parameter reference:**
+
+| Parameter | Typical | Units | Direction |
+|-----------|---------|-------|-----------|
+| T2a_min_cp | 285 | µs | C-Plane DL |
+| T2a_max_cp | 429 | µs | C-Plane DL |
+| Ta3_min | 25 | µs | U-Plane DL |
+| Ta3_max | 131 | µs | U-Plane DL |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Section ID mismatch.** U-Plane sectionId must match C-Plane. Mismatch causes data loss.
+
+2. **Timing parameter incompatibility.** DU and RU must agree on T2a/Ta3 values. Negotiate via M-Plane.
+
+3. **Compression mismatch.** udIqWidth and udCompMeth must match configuration. Wrong settings corrupt IQ data.
+
+4. **YANG model version.** Different O-RAN spec versions have different YANG. Verify compatibility.
+
+5. **M-Plane connectivity.** Hierarchical vs hybrid architecture must match deployment. Wrong model breaks management.
+
+6. **Extension parsing.** Optional extensions (ef=1) must be parsed correctly. Unknown extensions should be skipped.
+
+7. **PTP profile mismatch.** O-RAN requires G.8275.1. Wrong profile (e.g., G.8265.1) gives wrong accuracy.
+
+8. **Symbol timing drift.** RU clock must stay synchronized. Drift causes symbol boundary misalignment.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- O-RAN Alliance WG4, "Management Plane Specification"
+- O-RAN Alliance WG4, "Fronthaul Interoperability Test Specification"
+- ITU-T G.8275.1, "PTP Profile for Phase/Time Synchronization"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Transport requirements](/en/core-network/fronthaul-interface/transport-requirements/) — network design
+- [Option 7-2x](/en/core-network/functional-splits/option-7-2x/) — split details
+- [O-RU](/en/core-network/o-ran-architecture/o-ru/) — Radio Unit
+
+</section>

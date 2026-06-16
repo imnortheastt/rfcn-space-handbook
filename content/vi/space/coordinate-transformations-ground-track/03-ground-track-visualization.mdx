@@ -8,17 +8,400 @@ track: s1
 unit: coordinate-transformations-ground-track
 order: 3
 level: L2
-estimatedReadingMinutes: 5
-title: "Truc quan hoa vet duong (widget Three.js)"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Truc quan hoa Vet mat dat"
+description: "Phep chieu ban do, ky thuat ve va hien thi tuong tac."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["truc-quan-hoa", "phep-chieu-ban-do", "mercator", "ve-bieu-do"]
+widgets: ["OrbitVisualizer"]
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Truc quan hoa vet duong (widget Three.js)
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Bieu do vet mat dat bien doi co hoc quy dao truu tuong thanh hinh anh truc tiep: ve tinh dang o dau, dang di dau, va tram mat dat nao co the nhin thay no. Lua chon phep chieu ban do anh huong den cach vet xuat hien—vet hinh sin tren ban do Mercator trong rat khac tren phep chieu cuc. Hieu cac truc quan hoa nay giup ban dien giai ban do phu song, lap ke hoach cac lan di qua, va truyen dat hinh hoc nhiem vu cho cac ben lien quan.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Cac phep chieu ban do cho vet mat dat
+
+```
+Cac Phep chieu Pho bien cho Vet mat dat Ve tinh:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. DANG HINH CHU NHAT (Plate Carrée)                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Don gian: x = λ, y = φ                             │         │
+│  │  • Giu luoi lat/lon la hinh chu nhat                 │         │
+│  │  • Tot cho: truc quan nhanh, trao doi du lieu        │         │
+│  │  • Bien dang: hinh dang va dien tich gan cuc         │         │
+│  │                                                        │         │
+│  │  +90° ┬─────────────────────────────────────┬        │         │
+│  │       │    ∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿         │        │         │
+│  │   0°  │─∿─────────∿─────────∿─────────∿────│        │         │
+│  │       │    ∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿         │        │         │
+│  │  -90° ┴─────────────────────────────────────┴        │         │
+│  │       -180°              0°             +180°        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  2. MERCATOR                                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Dang giac: bao toan goc cuc bo                    │         │
+│  │  • x = λ, y = ln(tan(45° + φ/2))                    │         │
+│  │  • Tot cho: dan duong, ban do web                   │         │
+│  │  • Bien dang: dien tich dang ke gan cuc             │         │
+│  │  • Luu y: vet mat dat bi "keo gian" o vi do cao     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  3. CHIEU NHI GOI CUC                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Nhin tu cuc xuong                                 │         │
+│  │  • Tot cho: quy dao cuc, phan tich phu cuc          │         │
+│  │  • Quy dao tron xuat hien nhu... duong tron!        │         │
+│  │                                                        │         │
+│  │           ___________                                 │         │
+│  │         /     ●     \    ← cuc o tam                │         │
+│  │        /   ╭─────╮   \                               │         │
+│  │       │   ╱       ╲   │   ← vet quy dao             │         │
+│  │       │  │         │  │                              │         │
+│  │        \  ╲       ╱  /                               │         │
+│  │         \  ╰─────╯  /                                │         │
+│  │          \_________/                                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  4. DIA CAU 3D (WebGL/Three.js)                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Khong bien dang phep chieu                        │         │
+│  │  • Xoay va phong to tuong tac                       │         │
+│  │  • Hien vi tri ve tinh trong khong gian 3D          │         │
+│  │  • Tot nhat cho: hieu hinh hoc                      │         │
+│  │  • Thach thuc: hien toan bo vet trong mot goc nhin  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Xu ly diem gian doan
+
+```
+Van de Wrap-Around Kinh do:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SAI: Ve duong tu +179° den -179°                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ←───────────────────────────────────────────────────→│         │
+│  │  (duong di ngang qua toan bo ban do — sai thi giac!) │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DUNG: Ngat duong tai ranh gioi ±180°                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ──→│                                             │←──│         │
+│  │     │                                             │   │         │
+│  │  (hai doan duong rieng biet)                         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  THUAT TOAN:                                                        │
+│  ┌────────────────────────────────────────────────────┐            │
+│  │                                                     │            │
+│  │  for i in range(1, len(vet)):                      │            │
+│  │      lon_truoc, lon_hientai = vet[i-1][0], vet[i][0]│            │
+│  │                                                     │            │
+│  │      if abs(lon_hientai - lon_truoc) > 180:        │            │
+│  │          # Phat hien wrap-around!                  │            │
+│  │          # Ket thuc doan hien tai, bat dau moi    │            │
+│  │          ngat_duong_tai_day()                      │            │
+│  │                                                     │            │
+│  └────────────────────────────────────────────────────┘            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cac yeu to truc quan hoa
+
+```
+Hien thi Vet mat dat Hoan chinh:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                               │   │
+│  │  +90° ┬───────────────────────────────────────────────────┐  │   │
+│  │       │    ○ = tram mat dat      ★ = vi tri hien tai      │  │   │
+│  │       │         ○ Moscow                                   │  │   │
+│  │       │              ↗∿∿∿∿∿★                              │  │   │
+│  │   0°  │─∿∿∿∿∿∿∿∿∿↗─────────────↘∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿───────│  │   │
+│  │       │       ○ Singapore                                 │  │   │
+│  │       │                    ↘∿∿∿∿∿∿∿∿∿∿∿∿∿∿↗               │  │   │
+│  │  -90° └───────────────────────────────────────────────────┘  │   │
+│  │       -180°              0°             +180°                │   │
+│  │                                                               │   │
+│  │  ───── vet qua khu    ═════ vet tuong lai    ⋯⋯⋯ tam nhin   │   │
+│  │                                                               │   │
+│  │  Chu giai:                                                    │   │
+│  │  • Nut di len: ↗ (di ve phia bac)                            │   │
+│  │  • Nut di xuong: ↘ (di ve phia nam)                          │   │
+│  │  • Vung phu: vong tron net dut hien vung phu song            │   │
+│  │                                                               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  CHU THICH CAN BAO GOM:                                             │
+│  ┌────────────────────────────────────────────────────┐            │
+│  │                                                     │            │
+│  │  • Vi tri hien tai cua ve tinh (★)                 │            │
+│  │  • Tram mat dat (○) voi non tam nhin              │            │
+│  │  • Chi bao huong di len/xuong                     │            │
+│  │  • Nhan thoi gian doc theo vet (UTC hoac gio NV)  │            │
+│  │  • Duong phan ngay/dem (tuy chon)                 │            │
+│  │  • Do rong dai quet (cho ve tinh chup anh)        │            │
+│  │                                                     │            │
+│  └────────────────────────────────────────────────────┘            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Truc quan hoa do phu
+
+```
+Vung phu Ve tinh va Tam nhin:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  VUNG PHU (dien tich ve tinh co the "nhin thay"):                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │            ★ Ve tinh o do cao h                       │         │
+│  │           /│\                                         │         │
+│  │          / │ \                                        │         │
+│  │         /  │  \   ← nua goc ρ                        │         │
+│  │        /   │   \                                      │         │
+│  │       /    │    \                                     │         │
+│  │  ────●─────┼─────●──── Be mat Trai dat               │         │
+│  │      ↑     ↑     ↑                                    │         │
+│  │    rìa  thien de  rìa                                 │         │
+│  │                                                        │         │
+│  │  Ban kinh goc Trai dat: ρ = arcsin(R_E / (R_E + h))  │         │
+│  │  Cho h = 400 km: ρ ≈ 70°                             │         │
+│  │  Cho h = 35786 km (GEO): ρ ≈ 8.7°                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  VONG TAM NHIN:                                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Goc nang toi thieu ε_min = 5° den 10° thong thuong  │         │
+│  │                                                        │         │
+│  │  Ban kinh tam nhin:                                   │         │
+│  │  θ = 90° - ε_min - arcsin((R_E/(R_E+h)) cos(ε_min)) │         │
+│  │                                                        │         │
+│  │  Cho LEO (400 km), ε_min=10°: tam nhin ≈ 2400 km    │         │
+│  │  Cho GEO, ε_min=5°: tam nhin ≈ 17000 km             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Ve vet mat dat voi matplotlib:**
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+
+# Tai su dung cac ham lan truyen tu bai truoc
+WGS84_A = 6378137.0
+WGS84_E2 = 0.00669437999014
+MU = 3.986004418e14
+R_TRAI_DAT = 6371e3  # ban kinh trung binh (m)
+
+def gmst_rad(dt):
+    jd = (dt - datetime(2000, 1, 1, 12, 0, 0)).total_seconds() / 86400.0 + 2451545.0
+    T = (jd - 2451545.0) / 36525.0
+    gmst_do = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + 0.000387933 * T**2
+    return np.radians(gmst_do % 360.0)
+
+def lan_truyen_tron(a, nghieng, raan, epoch, t_tu):
+    """Lan truyen quy dao tron don gian."""
+    n = np.sqrt(MU / a**3)
+    nu = n * t_tu
+    
+    r = a
+    x_qd = r * np.cos(nu)
+    y_qd = r * np.sin(nu)
+    
+    cos_raan, sin_raan = np.cos(raan), np.sin(raan)
+    cos_i, sin_i = np.cos(nghieng), np.sin(nghieng)
+    
+    x = cos_raan * x_qd - sin_raan * cos_i * y_qd
+    y = sin_raan * x_qd + cos_raan * cos_i * y_qd
+    z = sin_i * y_qd
+    
+    return np.array([x, y, z])
+
+def eci_sang_latlon(r_eci, dt):
+    """Chuyen ECI sang lat/lon."""
+    theta = gmst_rad(dt)
+    c, s = np.cos(theta), np.sin(theta)
+    x = c * r_eci[0] + s * r_eci[1]
+    y = -s * r_eci[0] + c * r_eci[1]
+    z = r_eci[2]
+    
+    lon = np.degrees(np.arctan2(y, x))
+    lat = np.degrees(np.arctan2(z, np.sqrt(x**2 + y**2)))
+    
+    return lon, lat
+
+def tinh_vet_mat_dat(a, nghieng, raan, epoch, gio, dt_phut=1):
+    """Tinh vet mat dat tra ve cac doan rieng biet."""
+    cac_doan = []
+    doan_hien_tai = []
+    
+    n_diem = int(gio * 60 / dt_phut)
+    lon_truoc = None
+    
+    for k in range(n_diem + 1):
+        t_giay = k * dt_phut * 60
+        thoi_gian_ht = epoch + timedelta(seconds=t_giay)
+        
+        r_eci = lan_truyen_tron(a, nghieng, raan, epoch, t_giay)
+        lon, lat = eci_sang_latlon(r_eci, thoi_gian_ht)
+        
+        if lon_truoc is not None and abs(lon - lon_truoc) > 180:
+            if doan_hien_tai:
+                cac_doan.append(doan_hien_tai)
+            doan_hien_tai = []
+        
+        doan_hien_tai.append((lon, lat))
+        lon_truoc = lon
+    
+    if doan_hien_tai:
+        cac_doan.append(doan_hien_tai)
+    
+    return cac_doan
+
+def ban_kinh_vung_phu_do(do_cao_m, goc_nang_min_do=5):
+    """Tinh ban kinh vong tam nhin tinh bang do."""
+    h = do_cao_m
+    eps = np.radians(goc_nang_min_do)
+    rho = np.arcsin(R_TRAI_DAT / (R_TRAI_DAT + h))
+    
+    theta = np.pi/2 - eps - np.arcsin((R_TRAI_DAT / (R_TRAI_DAT + h)) * np.cos(eps))
+    
+    return np.degrees(theta)
+
+# Vi du truc quan hoa
+print("Truc quan hoa Vet mat dat")
+print("=" * 60)
+
+# Tham so giong ISS
+do_cao = 400e3
+a = R_TRAI_DAT + do_cao
+nghieng = np.radians(51.6)
+raan = np.radians(0)
+epoch = datetime(2026, 6, 3, 0, 0, 0)
+
+# Tinh vet 3 gio (khoang 2 quy dao)
+cac_doan = tinh_vet_mat_dat(a, nghieng, raan, epoch, gio=3, dt_phut=1)
+
+print(f"Quy dao: do cao {do_cao/1e3:.0f} km, do nghieng {np.degrees(nghieng):.1f}°")
+print(f"Thoi luong vet: 3 gio")
+print(f"So doan: {len(cac_doan)} (ngat tai ±180°)")
+
+# Thong tin vung phu
+bk_vung_phu = ban_kinh_vung_phu_do(do_cao)
+print(f"\nBan kinh vung phu: {bk_vung_phu:.1f}°")
+print(f"Duong kinh vung phu: {2 * bk_vung_phu * 111:.0f} km (tai xich dao)")
+
+# Thong ke tom tat
+tat_ca_lat = [p[1] for doan in cac_doan for p in doan]
+print(f"\nPham vi vi do: {min(tat_ca_lat):.1f}° den {max(tat_ca_lat):.1f}°")
+print(f"(khop voi do nghieng {np.degrees(nghieng):.1f}°)")
+```
+
+**Danh sach kiem tra truc quan hoa:**
+
+| Yeu to | Muc dich | Cach thuc hien |
+|--------|----------|----------------|
+| Duong vet | Hien duong di | Tach tai ±180° |
+| Vi tri hien tai | Trang thai truc tiep | Dau + vung phu |
+| Nhan thoi gian | Lap ke hoach di qua | Moi N phut |
+| Tram mat dat | Cua so lien lac | Vong tron + tam nhin |
+| Ngay/dem | Dieu kien chieu sang | Duong phan gioi |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Sai phep chieu cho nhiem vu.** Dung phep chieu cuc cho quy dao cuc, Mercator cho dan duong.
+
+2. **Bo qua wrap-around.** Luon kiem tra vuot ±180°; neu khong duong se di ngang qua ban do.
+
+3. **Kich thuoc vung phu co dinh.** Vung phu phu thuoc do cao; GEO rat lon, LEO nho.
+
+4. **Nham dai quet va vung phu.** Dai quet la dac thu cam bien; vung phu la tam nhin hinh hoc.
+
+5. **Hien thi thoi gian tinh.** Vet mat dat di chuyen; hien thi dong hoac nhan thoi gian de lap ke hoach.
+
+6. **Khong co mat na goc nang.** Tam nhin thuc can goc nang toi thieu (5-10°), khong phai duong chan troi.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Snyder, J.P. "Map Projections: A Working Manual" (USGS)
+- Cong cu truc quan hoa CelesTrak
+- Tai lieu Three.js cho dia cau WebGL
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Bien doi Toa do](/vi/space/coordinate-transformations-ground-track/coordinate-transformation-math/) — nen tang toan hoc
+- [Tinh toan Vet mat dat](/vi/space/coordinate-transformations-ground-track/ground-track-computation/) — thuat toan
+- [Ngan sach Lien ket](/vi/space/link-budget-master-class/eirp/) — phan tich do phu
+
+</section>

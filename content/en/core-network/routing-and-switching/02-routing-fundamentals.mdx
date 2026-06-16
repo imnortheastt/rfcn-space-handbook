@@ -8,17 +8,316 @@ track: n0
 unit: routing-and-switching
 order: 2
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-routing-and-switching-01-switching-fundamentals"]
+spiralRevisits: ["core-network-n0-routing-and-switching-03-routing-protocols-overview"]
 title: "Routing fundamentals"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "How routers forward packets at Layer 3, the routing table, and longest prefix match."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["RFC 791", "RFC 1812"]
+tags: ["routing", "ip", "layer-3", "networking"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Routing fundamentals
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Switches connect devices on the same network. But how does a packet travel from your phone to a server on the other side of the world?
+
+Routing. Routers read the destination IP address, consult their routing table, and forward the packet toward its destination — one hop at a time, across networks.
+
+Every telecom network depends on routing. Understanding it is non-negotiable.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What a router does
+
+A router connects different networks. It receives packets on one interface and forwards them out another interface, based on the destination IP address.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                        Router                            │
+│                                                          │
+│  eth0 (10.0.0.0/24)              eth1 (192.168.1.0/24)  │
+│         │                                  │             │
+└─────────┼──────────────────────────────────┼─────────────┘
+          │                                  │
+          ▼                                  ▼
+    Network A                           Network B
+    (10.0.0.x)                         (192.168.1.x)
+```
+
+**Key insight:** A router operates at Layer 3. It reads IP addresses, not MAC addresses. Every hop through a router changes the Layer 2 header but preserves the Layer 3 header.
+
+### The routing table
+
+Every router maintains a **routing table** — a list of destinations and how to reach them.
+
+```
+Destination        Next Hop         Interface    Metric
+10.0.0.0/24        Connected        eth0         0
+192.168.1.0/24     Connected        eth1         0
+172.16.0.0/16      10.0.0.254       eth0         10
+0.0.0.0/0          192.168.1.1      eth1         100
+```
+
+**Key fields:**
+- **Destination:** Network prefix (IP address + subnet mask)
+- **Next hop:** Where to send packets for this destination
+- **Interface:** Which physical/logical interface to use
+- **Metric:** Cost of this route (lower is better)
+
+### Longest prefix match
+
+What if a packet matches multiple routes?
+
+```
+Routing table:
+10.0.0.0/8       → Next hop A
+10.0.0.0/16      → Next hop B
+10.0.0.0/24      → Next hop C
+
+Packet destination: 10.0.0.5
+```
+
+**Answer:** The router uses **longest prefix match**. The most specific route (longest mask) wins.
+
+In this case: `/24` is more specific than `/16` is more specific than `/8`. Packet goes to Next hop C.
+
+**Why this matters:** This is how default routes work. `0.0.0.0/0` matches everything but loses to any more specific route.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Packet forwarding process
+
+```
+┌─────────────────────────────────────────┐
+│       Packet arrives on interface        │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│    Decrement TTL (Time to Live)          │
+│    If TTL = 0, drop and send ICMP        │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│    Extract destination IP address        │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│    Look up in routing table              │
+│    (longest prefix match)                │
+└───────────────────┬─────────────────────┘
+                    │
+           ┌────────┴────────┐
+           │                 │
+           ▼                 ▼
+    ┌──────────┐      ┌──────────────┐
+    │  Match   │      │  No match    │
+    └────┬─────┘      └──────┬───────┘
+         │                   │
+         ▼                   ▼
+┌─────────────────┐  ┌─────────────────┐
+│ Forward via     │  │ Drop packet,    │
+│ next hop/iface  │  │ send ICMP       │
+└─────────────────┘  │ unreachable     │
+                     └─────────────────┘
+```
+
+### TTL and routing loops
+
+**TTL (Time to Live)** prevents packets from circulating forever if routing is misconfigured.
+
+1. Sender sets initial TTL (typically 64 or 128)
+2. Each router decrements TTL by 1
+3. If TTL reaches 0, router drops packet and sends ICMP Time Exceeded
+
+**Traceroute** exploits this: it sends packets with TTL=1, TTL=2, TTL=3... and collects the ICMP replies to map the path.
+
+### Connected routes
+
+When you configure an IP address on an interface, a **connected route** is automatically added.
+
+```
+Interface eth0: 10.0.0.1/24
+
+Routing table gets:
+10.0.0.0/24    Connected    eth0
+```
+
+This means: "I can reach 10.0.0.0/24 directly through eth0, no next hop needed."
+
+### Static routes
+
+Manually configured routes that don't change unless you change them.
+
+```
+ip route add 172.16.0.0/16 via 10.0.0.254
+```
+
+**Use cases:**
+- Simple networks with stable topology
+- Default gateway configuration
+- Backup routes (floating static routes with higher metric)
+
+### Dynamic routes
+
+Routes learned from routing protocols (OSPF, BGP, IS-IS). The router automatically learns and updates routes based on network state.
+
+More on this in the next lesson.
+
+### Route selection
+
+When multiple sources provide routes to the same destination, the router uses **administrative distance** to choose.
+
+| Source | Administrative Distance |
+|--------|------------------------|
+| Connected | 0 |
+| Static | 1 |
+| OSPF | 110 |
+| IS-IS | 115 |
+| BGP (external) | 20 |
+| BGP (internal) | 200 |
+
+Lower is better. A connected route always wins over a learned route.
+
+### ARP and next hop resolution
+
+Once the router knows the next hop IP, it needs the next hop's MAC address to build the Layer 2 header.
+
+**ARP (Address Resolution Protocol):**
+1. Router checks ARP cache for next hop MAC
+2. If not found, sends ARP request: "Who has 10.0.0.254?"
+3. Next hop replies: "10.0.0.254 is at AA:BB:CC:DD:EE:FF"
+4. Router caches the mapping and forwards the packet
+
+```
+Original packet:
+┌────────────────────────────────────────────────────┐
+│ L2: Src=RouterMAC, Dst=NextHopMAC                  │
+│ L3: Src=OriginalSrcIP, Dst=FinalDstIP              │
+│ Payload                                            │
+└────────────────────────────────────────────────────┘
+```
+
+**Key insight:** L2 addresses change at each hop. L3 addresses stay the same end-to-end.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Reading a routing table:**
+
+```
+$ ip route show
+default via 192.168.1.1 dev eth0 proto static metric 100
+10.0.0.0/8 via 10.255.255.1 dev tun0 proto static metric 50
+192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.100
+```
+
+- `default` = `0.0.0.0/0` — matches everything
+- `proto kernel` = connected route
+- `proto static` = manually configured
+- `metric` = cost (lower wins for same destination)
+
+**Troubleshooting routing:**
+
+1. **Packet not reaching destination:**
+   - Check routing table: `ip route show`
+   - Does a route exist for the destination?
+   - Is the next hop reachable?
+
+2. **Asymmetric routing:**
+   - Forward path differs from return path
+   - Common with multiple uplinks
+   - Can break stateful firewalls
+
+3. **Black hole:**
+   - Route exists but next hop is unreachable
+   - Packets silently dropped
+   - Check next hop connectivity
+
+4. **Routing loop:**
+   - Packets bounce between routers
+   - TTL eventually expires
+   - Check for conflicting routes
+
+**Useful commands:**
+
+```bash
+# Show routing table
+ip route show
+
+# Show route to specific destination
+ip route get 8.8.8.8
+
+# Trace path to destination
+traceroute 8.8.8.8
+
+# Show ARP cache
+ip neigh show
+
+# Add static route
+ip route add 10.0.0.0/8 via 192.168.1.254
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing switching with routing.** Switching = Layer 2, MAC addresses, same network. Routing = Layer 3, IP addresses, different networks.
+
+2. **Forgetting return path.** Packets need a route back. Just because A can reach B doesn't mean B can reach A.
+
+3. **Ignoring metric.** Two routes to the same destination? The one with lower metric wins. Misconfigured metrics cause suboptimal paths.
+
+4. **Not checking next hop reachability.** A route to 10.0.0.0/8 via 192.168.1.254 is useless if you can't reach 192.168.1.254.
+
+5. **Assuming routes are symmetric.** Internet routing is often asymmetric. Your packets might take a different path than the replies.
+
+6. **Forgetting about ARP.** No ARP entry = no forwarding, even if the route exists. ARP timeout can cause brief outages.
+
+7. **TTL exhaustion in production.** If TTL is too low and path is too long, packets never arrive. Standard TTL of 64 handles most cases.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- RFC 791, "Internet Protocol"
+- RFC 1812, "Requirements for IP Version 4 Routers"
+- RFC 826, "Address Resolution Protocol"
+- Doyle & Carroll, *Routing TCP/IP, Volume 1*, Cisco Press, 2016
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Routing protocols overview](/en/core-network/routing-and-switching/routing-protocols-overview/) — OSPF, BGP, IS-IS
+- [MPLS basics](/en/core-network/mpls-vlan-vrf/mpls-basics/) — label-based forwarding
+- [VRF](/en/core-network/mpls-vlan-vrf/vrf/) — virtual routing tables
+
+</section>

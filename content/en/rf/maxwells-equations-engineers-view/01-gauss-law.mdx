@@ -8,12 +8,12 @@ track: r0
 unit: maxwells-equations-engineers-view
 order: 1
 level: L2
-estimatedReadingMinutes: 6
+estimatedReadingMinutes: 13
 prerequisites: []
 spiralRevisits: []
 title: "Gauss's law"
 description: "Electric flux relates to enclosed charge."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,7 +27,11 @@ status: published
 
 ## Why Gauss's law?
 
-Every electromagnetic phenomenon starts with charges. Gauss's law is the first Maxwell equation — it tells you how electric fields originate from charges. For RF engineers, this law explains why antennas need charge separation to radiate, why transmission lines have capacitance, and how shielding works.
+Every electromagnetic phenomenon starts with charges. Gauss's law is the first Maxwell equation — it describes how electric fields originate from charges and why they behave the way they do in every medium.
+
+For RF engineers, this law is not abstract: it explains why transmission lines have capacitance per unit length, why coaxial cables confine their field to the dielectric region, why grounded metal enclosures (Faraday cages) block external fields, and why antenna feed points require careful impedance matching. It also gives the fastest derivation of electric field for any geometry with sufficient symmetry — a technique you'll use throughout microwave engineering.
+
+Gauss's law is always true, even for time-varying fields. It is not a static approximation.
 
 </section>
 
@@ -35,9 +39,33 @@ Every electromagnetic phenomenon starts with charges. Gauss's law is the first M
 
 ## Intuition
 
-Electric field lines start on positive charges and end on negative charges. Gauss's law says: count the net field lines leaving a closed surface, and you've counted the net charge inside.
+### Field lines as flux
 
-More charges → more field lines → more flux.
+Draw electric field lines starting on positive charges and ending on negative charges. The density of these lines represents field strength. Now surround some region with an imaginary closed surface (a "Gaussian surface"). Count the net number of lines piercing outward through the surface.
+
+Gauss's law says: that net count is proportional to the total charge inside the surface.
+
+- More positive charge inside → more lines leaving → more outward flux.
+- Equal positive and negative charge inside → lines entering and leaving cancel → zero net flux.
+- Zero charge inside → every line that enters also exits → zero net flux.
+
+The shape of the surface doesn't matter. A sphere, a cube, an irregular blob around the same charge gives the same total flux. This is the power of Gauss's law: topology wins over geometry.
+
+### The D-field and why it exists
+
+In vacuum, $\mathbf{D} = \varepsilon_0 \mathbf{E}$. In a dielectric material, the molecular dipoles inside the material partially align with the applied field, reducing the net effect. The $\mathbf{D}$ field ("electric displacement") is defined precisely to eliminate this complication: $\mathbf{D}$ counts only the free charges you control, not the bound charges inside the dielectric.
+
+This is why engineers prefer $\mathbf{D}$ for Gauss's law: $\oint \mathbf{D} \cdot d\mathbf{A} = Q_\text{free}$ works identically in vacuum, dielectrics, and across material interfaces. Using $\mathbf{E}$ instead requires tracking bound charges explicitly, which is inconvenient.
+
+### Why symmetry unlocks Gauss's law
+
+Gauss's law is always true but not always useful for calculation. It becomes powerful only when symmetry makes the field constant (in magnitude) over the chosen surface, so you can pull $D$ outside the integral:
+
+$$\oint \mathbf{D} \cdot d\mathbf{A} = D \cdot A_\text{surface} = Q_\text{enc}$$
+
+$$\Rightarrow \quad D = \frac{Q_\text{enc}}{A_\text{surface}}$$
+
+The three symmetries that work: spherical (sphere surface), cylindrical (cylinder surface), planar (pillbox surface). These cover point charges, line charges, and sheet charges — the building blocks of most RF structures.
 
 </section>
 
@@ -45,59 +73,61 @@ More charges → more field lines → more flux.
 
 ## Mechanism
 
-### Integral form
+### Integral form (what you apply to surfaces)
 
-$$\oint_S \mathbf{D} \cdot d\mathbf{S} = Q_{enc}$$
+$$\oint_S \mathbf{D} \cdot d\mathbf{A} = Q_\text{enc}$$
 
-The total electric flux through any closed surface equals the enclosed free charge.
+Total electric displacement flux through any closed surface equals the enclosed free charge.
 
 - $\mathbf{D}$ = electric displacement field (C/m²)
-- $Q_{enc}$ = total free charge inside surface
+- $Q_\text{enc}$ = total free charge inside surface (C)
 
-### Differential form
+### Differential form (what Maxwell actually wrote)
 
 $$\nabla \cdot \mathbf{D} = \rho_v$$
 
-Divergence of D equals volume charge density at every point.
+Divergence of $\mathbf{D}$ equals volume charge density at every point.
 
 - $\rho_v$ = free charge density (C/m³)
+- Zero divergence where no charges exist — field lines neither start nor stop.
 
-### E vs. D
+### Relationship between D and E
 
-$$\mathbf{D} = \epsilon \mathbf{E} = \epsilon_0 \epsilon_r \mathbf{E}$$
+In a linear, isotropic medium:
 
-- $\mathbf{E}$ = electric field (V/m)
-- $\epsilon_0$ = 8.854 × 10⁻¹² F/m (free space permittivity)
-- $\epsilon_r$ = relative permittivity (dielectric constant)
+$$\mathbf{D} = \varepsilon \mathbf{E} = \varepsilon_0 \varepsilon_r \mathbf{E}$$
 
-In free space: $\nabla \cdot \mathbf{E} = \rho_v / \epsilon_0$.
+- $\varepsilon_0 = 8.854 \times 10^{-12}$ F/m (free space permittivity)
+- $\varepsilon_r$ = relative permittivity (dimensionless; 1 for air, 2.1 for PTFE, 4.4 for FR4)
 
-### Key insight: no magnetic charges
+In free space: $\nabla \cdot \mathbf{E} = \rho_v / \varepsilon_0$.
 
-Gauss's law for magnetism:
+### Gauss's law for magnetism (the partner equation)
 
-$$\nabla \cdot \mathbf{B} = 0$$
+$$\nabla \cdot \mathbf{B} = 0 \quad \Leftrightarrow \quad \oint_S \mathbf{B} \cdot d\mathbf{A} = 0$$
 
-Magnetic field lines always close on themselves — no magnetic monopoles.
+No magnetic charges exist. Magnetic field lines always close on themselves. Every flux line that enters a closed surface also exits. This is why magnets always have both poles, and why you cannot isolate a north or south pole.
 
-### Symmetry exploitation
+### Boundary condition derived from Gauss's law
 
-Gauss's law is most useful when symmetry is present:
-
-| Geometry | Gaussian surface | Result |
-|----------|------------------|--------|
-| Point charge | Sphere | $E = Q/(4\pi\epsilon r^2)$ |
-| Infinite line | Cylinder | $E = \lambda/(2\pi\epsilon r)$ |
-| Infinite plane | Pillbox | $E = \sigma/(2\epsilon)$ |
-| Charged sphere | Sphere | $E = 0$ inside (hollow), $E \propto r$ (solid) |
-
-### Boundary condition
-
-At a surface with charge density $\sigma_s$:
+Apply Gauss's law to a thin pillbox spanning a material interface. Taking the limit as thickness goes to zero:
 
 $$D_{n1} - D_{n2} = \sigma_s$$
 
-Normal component of D jumps by the surface charge.
+The normal component of $\mathbf{D}$ jumps by the surface charge density $\sigma_s$ (C/m²). At a metal-dielectric interface with surface charge $\sigma_s$:
+
+$$D_n = \varepsilon E_n = \sigma_s \quad \text{(just outside the metal)}$$
+
+This boundary condition determines the charge distribution on conductor surfaces and, through it, the capacitance of any structure.
+
+### Symmetry table for using Gauss's law
+
+| Charge geometry | Gaussian surface | Field result |
+|-----------------|-----------------|--------------|
+| Point charge $q$ | Sphere radius $r$ | $E = q/(4\pi\varepsilon r^2)$ |
+| Infinite line charge $\lambda$ (C/m) | Coaxial cylinder, radius $r$, length $L$ | $E = \lambda/(2\pi\varepsilon r)$ |
+| Infinite sheet charge $\sigma$ (C/m²) | Pillbox, area $A$ | $E = \sigma/(2\varepsilon)$ |
+| Solid sphere (uniform $\rho$), radius $R$ | Sphere radius $r < R$ | $E = \rho r/(3\varepsilon)$ |
 
 </section>
 
@@ -105,39 +135,68 @@ Normal component of D jumps by the surface charge.
 
 ## Apply
 
-**Example: Coaxial cable capacitance**
+### Example 1: Capacitance per unit length of a coaxial cable
 
-Inner conductor radius $a$, outer radius $b$, dielectric $\epsilon_r$.
+Inner conductor radius $a$, outer conductor radius $b$, dielectric with permittivity $\varepsilon = \varepsilon_0 \varepsilon_r$.
 
-Using Gauss's law with cylindrical surface:
+**Step 1:** Place charge $+\lambda$ (C/m) on the inner conductor. By symmetry, $\mathbf{D}$ points radially outward.
 
-$$E = \frac{\lambda}{2\pi \epsilon r}$$
+**Step 2:** Choose a cylindrical Gaussian surface at radius $a < r < b$, length $L$. Gauss's law:
 
-Voltage: $V = \int_a^b E\, dr = \frac{\lambda}{2\pi\epsilon} \ln(b/a)$
+$$D \cdot 2\pi r L = \lambda L \quad \Rightarrow \quad D = \frac{\lambda}{2\pi r}, \quad E = \frac{\lambda}{2\pi\varepsilon r}$$
 
-Capacitance per unit length:
+**Step 3:** Voltage between conductors:
 
-$$C = \frac{\lambda}{V} = \frac{2\pi\epsilon}{\ln(b/a)}$$
+$$V = \int_a^b E\, dr = \frac{\lambda}{2\pi\varepsilon} \ln(b/a)$$
 
-For RG-58 ($a = 0.5$ mm, $b = 1.5$ mm, $\epsilon_r = 2.3$):
+**Step 4:** Capacitance per unit length:
 
-$C = 2\pi \times 2.3 \times 8.854 \times 10^{-12} / \ln(3) = 116$ pF/m.
+$$C' = \frac{\lambda}{V} = \frac{2\pi\varepsilon}{\ln(b/a)}$$
 
-**Example: Parallel plate capacitor**
+**Numerical example — RG-58:** $a = 0.45$ mm, $b = 1.47$ mm, $\varepsilon_r = 2.3$:
 
-Plate separation $d$, area $A$, charge $Q$.
+$$C' = \frac{2\pi \times 2.3 \times 8.854 \times 10^{-12}}{\ln(1.47/0.45)} \approx 101 \text{ pF/m}$$
 
-Field between plates: $E = \sigma/\epsilon = Q/(\epsilon A)$.
+This is the origin of the ~100 pF/m capacitance specification you see in RF cable datasheets.
 
-Capacitance: $C = \epsilon A / d$.
+### Example 2: Parallel plate capacitor — field and energy
 
-RF relevance: this is the fringe field that couples between traces.
+Plates of area $A$, separation $d$, charge $+Q$ on top plate, $-Q$ on bottom.
 
-**Example: Shielding effectiveness**
+Surface charge density: $\sigma = Q/A$.
 
-A metal enclosure with a hole. Gauss's law says fields inside depend on induced charges on the inner surface. Any net charge outside creates corresponding image charges.
+Field from each plate: $E_\text{one plate} = \sigma/(2\varepsilon_0)$ (pointing away from positive plate).
 
-A complete shield has $E = 0$ inside (Faraday cage). Holes allow field leakage proportional to hole area.
+Between plates, both fields add:
+
+$$E = \frac{\sigma}{\varepsilon_0} = \frac{Q}{\varepsilon_0 A}$$
+
+Capacitance: $C = \varepsilon_0 A/d$.
+
+Stored energy: $U = Q^2/(2C) = \varepsilon_0 E^2 A d/2 = \frac{1}{2}\varepsilon_0 E^2 \cdot V_\text{vol}$.
+
+The energy density $u_E = \frac{1}{2}\varepsilon_0 E^2$ applies everywhere — this is the formula for electric energy storage per cubic meter, used in antenna near-field energy calculations.
+
+### Example 3: Why a Faraday cage works
+
+A closed metal shell is at some potential $V_0$ with no internal charges.
+
+**Inside:** Apply Gauss's law to any surface inside the shell. No free charges inside → $Q_\text{enc} = 0$ → $\oint \mathbf{D} \cdot d\mathbf{A} = 0$. By symmetry, $\mathbf{E} = 0$ everywhere inside.
+
+**External field blocking:** An external field induces charges on the outer surface that exactly cancel the external field inside. The conductor surface charge redistributes to enforce $E = 0$ inside.
+
+**Practical limit:** Openings or seams allow fringing flux to penetrate. The shielding effectiveness degrades when the opening size approaches a significant fraction of a wavelength. At 1 GHz ($\lambda = 30$ cm), a 3 mm slot ($\lambda/100$) provides ~40 dB shielding; a 30 mm slot ($\lambda/10$) provides only ~20 dB.
+
+### Example 4: Dielectric boundary — field bending at substrate edge
+
+FR4 substrate ($\varepsilon_r = 4.4$) next to air. No surface charge at the interface.
+
+Normal $\mathbf{D}$ is continuous (no free surface charge):
+$$D_{n,\text{FR4}} = D_{n,\text{air}} \quad \Rightarrow \quad \varepsilon_{r,\text{FR4}} E_{n,\text{FR4}} = E_{n,\text{air}}$$
+
+$$E_{n,\text{air}} = 4.4 \times E_{n,\text{FR4}}$$
+
+The normal component of $\mathbf{E}$ jumps by 4.4× at the FR4-air boundary. This field concentration at substrate edges is why PCB traces fail at high voltages near corners — the enhanced field exceeds the air breakdown threshold even though the substrate itself is fine.
 
 </section>
 
@@ -145,15 +204,15 @@ A complete shield has $E = 0$ inside (Faraday cage). Holes allow field leakage p
 
 ## Pitfalls
 
-1. **Confusing D and E.** In dielectrics, $D = \epsilon E$. Use D for Gauss's law with free charges, E for boundary conditions and forces.
+1. **Confusing D and E.** In dielectrics, $\mathbf{D} = \varepsilon \mathbf{E}$; they are not the same. Use $\mathbf{D}$ for Gauss's law with free charges. Use $\mathbf{E}$ for force on charges ($\mathbf{F} = q\mathbf{E}$), for voltage calculation, and for boundary conditions involving tangential fields.
 
-2. **Applying to asymmetric geometries.** Gauss's law is true everywhere but only useful when symmetry lets you pull E out of the integral.
+2. **Applying Gauss's law without symmetry.** The law is always true: $\oint \mathbf{D} \cdot d\mathbf{A} = Q_\text{enc}$. But it is only useful for calculating $\mathbf{D}$ when symmetry makes $|\mathbf{D}|$ constant over the Gaussian surface. For a finite-length wire or an L-shaped conductor, you cannot pull $D$ outside the integral.
 
-3. **Forgetting polarization charges.** In dielectrics, bound charges contribute to P but not to free charge. Use D to avoid this complication.
+3. **Forgetting bound (polarization) charges.** A dielectric with non-uniform polarization has bound charge density $\rho_b = -\nabla \cdot \mathbf{P}$ inside it. The $\mathbf{D}$ field incorporates these automatically, but $\mathbf{E}$ alone does not. Using $\mathbf{E}$ in Gauss's law in a dielectric requires adding $\rho_b$ to $\rho_v$.
 
-4. **Surface vs. volume charges.** Real conductors have surface charges. Gauss's law with infinitesimal pillbox gives boundary conditions.
+4. **Surface vs. volume charges on conductors.** Real conductors have surface charges (zero volume charge inside, since free electrons redistribute instantly at DC). The boundary condition gives the surface charge from the normal $D$ just outside. Gauss's law with a pillbox surface at the conductor surface gives this correctly.
 
-5. **Dynamic fields.** Gauss's law holds for time-varying fields too, but doesn't tell the whole story — need Faraday and Ampere.
+5. **Gauss's law holds for time-varying fields too.** It is one of the four Maxwell equations and is not restricted to statics. The displacement field $\mathbf{D}$ at any instant satisfies $\nabla \cdot \mathbf{D} = \rho_v$ regardless of time variation.
 
 </section>
 
@@ -161,8 +220,8 @@ A complete shield has $E = 0$ inside (Faraday cage). Holes allow field leakage p
 
 ## References
 
-- Griffiths, *Introduction to Electrodynamics*, Chapter 2.
-- Pozar, *Microwave Engineering*, Chapter 1.
-- Cheng, *Field and Wave Electromagnetics*, Chapter 3.
+- Griffiths, *Introduction to Electrodynamics*, Chapter 2 — Gauss's law, boundary conditions, energy in fields.
+- Pozar, *Microwave Engineering*, Chapter 1 — Maxwell's equations with engineering notation.
+- Cheng, *Field and Wave Electromagnetics*, Chapter 3 — systematic treatment of electrostatics and dielectric boundary conditions.
 
 </section>

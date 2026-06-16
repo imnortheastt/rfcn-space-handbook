@@ -8,17 +8,511 @@ track: s7
 unit: frequency-bands-and-regulatory
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "Ku, Ka, Q, V, W bands"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["space-s7-frequency-bands-and-regulatory-01-l-s-c-x-bands"]
+spiralRevisits: []
+title: "Ku, Ka, Q, V, W Bands — Higher Frequencies for HTS"
+description: "Understanding high-frequency bands used in modern high-throughput satellite systems."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["ITU-R"]
+tags: ["ku-band", "ka-band", "q-band", "v-band", "w-band", "hts", "spectrum"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Ku, Ka, Q, V, W bands
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+High-throughput satellites (HTS) need bandwidth—lots of it. Ku, Ka, Q, V, and W bands (12-110 GHz) offer massive spectrum allocations that lower bands simply can't provide. Starlink, OneWeb, Viasat, and SES's O3b mPOWER all operate primarily in Ka-band. Understanding these higher frequencies—their capacity advantages and rain fade challenges—is essential for designing modern satellite broadband systems.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The bandwidth-propagation tradeoff
+
+```
+Higher Frequency = More Bandwidth BUT More Rain Fade:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  THE FUNDAMENTAL TRADEOFF:                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    BANDWIDTH                     RAIN FADE            │         │
+│  │    AVAILABLE                     SEVERITY             │         │
+│  │        ▲                             ▲                │         │
+│  │        │    ████ W                   │    ████ W      │         │
+│  │        │   █████ V                   │   █████ V      │         │
+│  │        │  ██████ Q                   │  ██████ Q      │         │
+│  │        │ ███████ Ka                  │ ███████ Ka     │         │
+│  │        │████████ Ku                  │████████ Ku     │         │
+│  │        └────────────►                └────────────►   │         │
+│  │         Frequency                    Frequency        │         │
+│  │                                                        │         │
+│  │  MORE BANDWIDTH = HIGHER CAPACITY                     │         │
+│  │  MORE RAIN FADE = LOWER AVAILABILITY                  │         │
+│  │                                                        │         │
+│  │  Engineering challenge: maximize capacity while       │         │
+│  │  maintaining acceptable availability (99.5%+)         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Band allocations overview
+
+```
+High-Frequency Satellite Bands:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  FREQUENCY SPECTRUM:                                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  12 GHz     18 GHz     30 GHz     50 GHz     75 GHz  │         │
+│  │  │          │          │          │          │        │         │
+│  │  ├────Ku────┼────Ka────┼────Q─────┼────V─────┼───W───┤         │
+│  │  │ 12-18 GHz│ 26-40 GHz│ 33-50 GHz│ 40-75 GHz│75-110 │         │
+│  │  │          │          │          │          │        │         │
+│  │  │ DTH TV   │ HTS      │ Feeder   │ Future   │ Future│         │
+│  │  │ VSAT     │ Starlink │ links    │ HTS      │ HTS   │         │
+│  │  │ SNG      │ O3b      │ Gateway  │ Backhaul │ Trunk │         │
+│  │  │          │ Viasat   │ only     │          │       │         │
+│  │  │          │          │          │          │        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TYPICAL ALLOCATIONS (Ka-band example):                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  User Terminal ←→ Satellite:                          │         │
+│  │    Downlink: 17.7-20.2 GHz (2.5 GHz bandwidth!)      │         │
+│  │    Uplink:   27.5-30.0 GHz (2.5 GHz bandwidth!)      │         │
+│  │                                                        │         │
+│  │  Gateway ←→ Satellite (feeder links):                │         │
+│  │    Downlink: 17.7-21.2 GHz                           │         │
+│  │    Uplink:   27.5-31.0 GHz                           │         │
+│  │                                                        │         │
+│  │  Compare to C-band: 500 MHz each direction           │         │
+│  │  Ka-band: 5x more bandwidth!                          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Ku-band (12-18 GHz)
+
+```
+Ku-Band Applications:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KU-BAND: 12-18 GHz (λ = 1.7-2.5 cm)                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  KEY CHARACTERISTICS:                                 │         │
+│  │  • Workhorse of consumer satellite (DTH, VSAT)       │         │
+│  │  • Small dish antennas (45-90 cm for consumers)      │         │
+│  │  • Moderate rain fade (manageable with margin)       │         │
+│  │  • Mature technology, widespread deployment          │         │
+│  │                                                        │         │
+│  │  ALLOCATIONS:                                         │         │
+│  │  ┌─────────────────────────────────────────────────┐ │         │
+│  │  │  Direction   │ Frequency     │ Bandwidth       │ │         │
+│  │  │  ────────────┼───────────────┼────────────────│ │         │
+│  │  │  Downlink    │ 10.7-12.75 GHz│ 2.05 GHz       │ │         │
+│  │  │  Uplink      │ 13.75-14.5 GHz│ 750 MHz        │ │         │
+│  │  └─────────────────────────────────────────────────┘ │         │
+│  │                                                        │         │
+│  │  APPLICATIONS:                                        │         │
+│  │  • Direct-to-Home TV (DirecTV, Dish Network, Sky)    │         │
+│  │  • Enterprise VSAT networks                          │         │
+│  │  • Satellite News Gathering (SNG trucks)             │         │
+│  │  • Maritime broadband (older systems)                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Ka-band (26-40 GHz)
+
+```
+Ka-Band — The HTS Workhorse:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KA-BAND: 26-40 GHz (λ = 0.75-1.15 cm)                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  KEY CHARACTERISTICS:                                 │         │
+│  │  • Primary band for HTS (High Throughput Satellite)  │         │
+│  │  • Very small user terminals possible                │         │
+│  │  • Significant rain fade (requires ACM)              │         │
+│  │  • Massive bandwidth enables Gbps+ throughput        │         │
+│  │                                                        │         │
+│  │  FREQUENCY PLAN:                                      │         │
+│  │  ┌─────────────────────────────────────────────────┐ │         │
+│  │  │                                                  │ │         │
+│  │  │   17.7 GHz         20.2 GHz                     │ │         │
+│  │  │   │                │                            │ │         │
+│  │  │   ├────User DL─────┤  (2.5 GHz)                │ │         │
+│  │  │                                                  │ │         │
+│  │  │   27.5 GHz         30.0 GHz                     │ │         │
+│  │  │   │                │                            │ │         │
+│  │  │   ├────User UL─────┤  (2.5 GHz)                │ │         │
+│  │  │                                                  │ │         │
+│  │  └─────────────────────────────────────────────────┘ │         │
+│  │                                                        │         │
+│  │  MAJOR SYSTEMS:                                       │         │
+│  │  • Starlink: User links in Ka-band                   │         │
+│  │  • Viasat-3: 1+ Tbps per satellite                   │         │
+│  │  • SES O3b mPOWER: MEO HTS constellation            │         │
+│  │  • HughesNet Gen5: Ka-band GEO broadband            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Q/V/W bands (33-110 GHz)
+
+```
+Future Bands — Q, V, and W:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Q-BAND: 33-50 GHz | V-BAND: 40-75 GHz | W-BAND: 75-110 GHz        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  PRIMARY USE CASE: Gateway/Feeder Links               │         │
+│  │  ┌─────────────────────────────────────────────────┐ │         │
+│  │  │                                                  │ │         │
+│  │  │         Q/V-band feeder links                   │ │         │
+│  │  │              ↓         ↓                        │ │         │
+│  │  │         ┌─────────────────┐                     │ │         │
+│  │  │         │   SATELLITE     │                     │ │         │
+│  │  │         └─────────────────┘                     │ │         │
+│  │  │         ↓    ↓    ↓    ↓                        │ │         │
+│  │  │         Ka-band user beams                      │ │         │
+│  │  │         ↓    ↓    ↓    ↓                        │ │         │
+│  │  │     [User] [User] [User] [User]                │ │         │
+│  │  │                                                  │ │         │
+│  │  └─────────────────────────────────────────────────┘ │         │
+│  │                                                        │         │
+│  │  WHY USE Q/V FOR GATEWAYS:                            │         │
+│  │  • Gateways can have large antennas (13m+)           │         │
+│  │  • Gateways can have powerful transmitters           │         │
+│  │  • Gateway sites chosen for low rain probability     │         │
+│  │  • Frees Ka-band spectrum for more user capacity     │         │
+│  │                                                        │         │
+│  │  RAIN FADE REALITY:                                   │         │
+│  │  ┌─────────────────────────────────────────────────┐ │         │
+│  │  │  Band  │ Rain @ 25 mm/hr │ Margin needed       │ │         │
+│  │  │  ──────┼─────────────────┼────────────────────│ │         │
+│  │  │  Ka    │ ~8-15 dB        │ 10-20 dB           │ │         │
+│  │  │  Q     │ ~15-25 dB       │ 20-30 dB           │ │         │
+│  │  │  V     │ ~25-40 dB       │ Site diversity!    │ │         │
+│  │  │  W     │ ~40-60 dB       │ Site diversity!    │ │         │
+│  │  └─────────────────────────────────────────────────┘ │         │
+│  │                                                        │         │
+│  │  Solution: Gateway site diversity (2+ sites          │         │
+│  │  separated by 50+ km so rain cell doesn't hit both) │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Rain fade mitigation
+
+```
+Adaptive Coding and Modulation (ACM):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ACM ADAPTS DATA RATE TO CHANNEL CONDITIONS:                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Clear sky:  32APSK 9/10 → 150 Mbps                  │         │
+│  │  Light rain: 16APSK 3/4 → 80 Mbps                    │         │
+│  │  Moderate:   QPSK 1/2  → 25 Mbps                     │         │
+│  │  Heavy rain: QPSK 1/4  → 10 Mbps (but link survives) │         │
+│  │                                                        │         │
+│  │  TIME SERIES:                                         │         │
+│  │  ┌─────────────────────────────────────────────────┐ │         │
+│  │  │                                                  │ │         │
+│  │  │  Data rate                                      │ │         │
+│  │  │     ▲                                           │ │         │
+│  │  │ 150 │████████          ████████████████        │ │         │
+│  │  │  80 │        ████                      ████    │ │         │
+│  │  │  25 │            ████                      ████│ │         │
+│  │  │  10 │                ████                      │ │         │
+│  │  │     └────────────────────────────────────►     │ │         │
+│  │  │                    Rain event        Time      │ │         │
+│  │  │                                                  │ │         │
+│  │  └─────────────────────────────────────────────────┘ │         │
+│  │                                                        │         │
+│  │  DVB-S2X supports 28+ ModCods for fine-grained ACM   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**High-frequency band comparison and rain fade calculator:**
+
+```python
+import numpy as np
+
+C = 299792458  # Speed of light (m/s)
+
+def wavelength_cm(frequency_ghz):
+    """Calculate wavelength in centimeters."""
+    return (C / (frequency_ghz * 1e9)) * 100
+
+def fspl_db(frequency_ghz, distance_km):
+    """Free space path loss in dB."""
+    return 20 * np.log10(distance_km) + 20 * np.log10(frequency_ghz) + 92.45
+
+def rain_attenuation_itu_r838(frequency_ghz, rain_rate_mm_hr, 
+                               elevation_deg=30, polarization='H'):
+    """
+    ITU-R P.838 rain attenuation model (simplified).
+    Returns specific attenuation in dB/km.
+    """
+    f = frequency_ghz
+    
+    # Simplified ITU-R P.838 coefficients (horizontal polarization)
+    if f < 2.9:
+        k = 0.0000387 * f ** 0.912
+        alpha = 0.912
+    elif f < 54:
+        k = 0.0000998 * f ** 1.276
+        alpha = 1.021 + 0.0048 * f
+    else:
+        k = 0.0002 * f ** 1.175
+        alpha = 1.1
+    
+    # Specific attenuation (dB/km)
+    gamma_r = k * (rain_rate_mm_hr ** alpha)
+    
+    return gamma_r
+
+def effective_path_length_km(rain_rate_mm_hr, elevation_deg, altitude_km=5):
+    """
+    ITU-R P.618 effective path length through rain (simplified).
+    """
+    # Rain height (simplified model)
+    h_r = 4.0  # km, typical mid-latitude rain height
+    
+    # Slant path length
+    L_s = (h_r - altitude_km * 0) / np.sin(np.radians(elevation_deg))
+    L_s = max(L_s, 0)
+    
+    # Horizontal reduction factor (simplified)
+    L_g = L_s * np.cos(np.radians(elevation_deg))
+    r = 1 / (1 + 0.045 * L_g)
+    
+    return L_s * r
+
+def total_rain_fade_db(frequency_ghz, rain_rate_mm_hr, elevation_deg=30):
+    """
+    Total rain fade for slant path.
+    """
+    gamma = rain_attenuation_itu_r838(frequency_ghz, rain_rate_mm_hr)
+    L_eff = effective_path_length_km(rain_rate_mm_hr, elevation_deg)
+    return gamma * L_eff
+
+# Band definitions
+hf_bands = [
+    ("Ku-band", 14.0, 12.0, 18.0),
+    ("Ka-band DL", 20.0, 17.7, 20.2),
+    ("Ka-band UL", 28.5, 27.5, 30.0),
+    ("Q-band", 42.0, 33.0, 50.0),
+    ("V-band", 55.0, 40.0, 75.0),
+    ("W-band", 85.0, 75.0, 110.0),
+]
+
+print("High-Frequency Satellite Band Analysis")
+print("=" * 75)
+
+# Basic properties
+print("\n1. Band Properties Comparison")
+print("-" * 75)
+print(f"{'Band':<12} {'Center':>8} {'λ':>10} {'FSPL @36Mm':>12} {'FSPL @550km':>12}")
+print(f"{'':<12} {'(GHz)':>8} {'(cm)':>10} {'GEO (dB)':>12} {'LEO (dB)':>12}")
+print("-" * 75)
+
+for name, center, low, high in hf_bands:
+    wl = wavelength_cm(center)
+    fspl_geo = fspl_db(center, 36000)
+    fspl_leo = fspl_db(center, 550)
+    print(f"{name:<12} {center:>8.1f} {wl:>10.3f} {fspl_geo:>12.1f} {fspl_leo:>12.1f}")
+
+# Rain fade comparison
+print("\n2. Rain Fade Comparison (30° elevation)")
+print("-" * 75)
+print(f"{'Band':<12} {'Light rain':>12} {'Moderate':>12} {'Heavy':>12} {'Tropical':>12}")
+print(f"{'':<12} {'5 mm/hr':>12} {'15 mm/hr':>12} {'25 mm/hr':>12} {'50 mm/hr':>12}")
+print("-" * 75)
+
+for name, center, low, high in hf_bands:
+    fade_5 = total_rain_fade_db(center, 5)
+    fade_15 = total_rain_fade_db(center, 15)
+    fade_25 = total_rain_fade_db(center, 25)
+    fade_50 = total_rain_fade_db(center, 50)
+    print(f"{name:<12} {fade_5:>12.1f} {fade_15:>12.1f} {fade_25:>12.1f} {fade_50:>12.1f}")
+
+# Bandwidth comparison
+print("\n3. Typical Bandwidth Allocations")
+print("-" * 75)
+bandwidths = {
+    "Ku-band": (2050, "DTH TV, VSAT, SNG"),
+    "Ka-band DL": (2500, "HTS user downlink"),
+    "Ka-band UL": (2500, "HTS user uplink"),
+    "Q-band": (5000, "Gateway feeder links"),
+    "V-band": (7000, "Gateway feeder links"),
+    "W-band": (10000, "Future trunk links"),
+}
+
+print(f"{'Band':<12} {'Bandwidth':>12} {'Primary Use':>30}")
+print(f"{'':<12} {'(MHz)':>12} {'':>30}")
+print("-" * 75)
+
+for name, center, low, high in hf_bands:
+    bw, use = bandwidths.get(name, (0, "Various"))
+    print(f"{name:<12} {bw:>12} {use:>30}")
+
+# ACM capacity under rain
+print("\n4. ACM Capacity vs Rain (Ka-band 28 GHz example)")
+print("-" * 75)
+
+modcods = [
+    ("32APSK 9/10", 4.40, 14.0),  # (name, bits/symbol, required C/N)
+    ("16APSK 3/4", 3.00, 10.2),
+    ("8PSK 2/3", 2.00, 7.8),
+    ("QPSK 1/2", 1.00, 3.0),
+    ("QPSK 1/4", 0.50, -0.3),
+]
+
+symbol_rate_msps = 250  # 250 Msym/s
+clear_sky_cn = 20  # dB
+
+print(f"Symbol rate: {symbol_rate_msps} Msym/s")
+print(f"Clear-sky C/N: {clear_sky_cn} dB")
+print("-" * 75)
+print(f"{'Rain rate':>12} {'Fade':>8} {'Eff C/N':>10} {'ModCod':>15} {'Throughput':>12}")
+print(f"{'(mm/hr)':>12} {'(dB)':>8} {'(dB)':>10} {'':>15} {'(Mbps)':>12}")
+print("-" * 75)
+
+for rain_rate in [0, 5, 10, 15, 25, 40]:
+    fade = total_rain_fade_db(28.0, rain_rate)
+    effective_cn = clear_sky_cn - fade
+    
+    # Select best ModCod
+    best_modcod = None
+    best_rate = 0
+    for modcod_name, bits_per_sym, required_cn in modcods:
+        if effective_cn >= required_cn:
+            rate = bits_per_sym * symbol_rate_msps
+            if rate > best_rate:
+                best_rate = rate
+                best_modcod = modcod_name
+    
+    if best_modcod is None:
+        best_modcod = "OUTAGE"
+        best_rate = 0
+    
+    print(f"{rain_rate:>12} {fade:>8.1f} {effective_cn:>10.1f} {best_modcod:>15} {best_rate:>12.0f}")
+
+# System comparison
+print("\n5. Real-World HTS Systems")
+print("-" * 75)
+systems = [
+    ("Starlink Gen2", "Ka", "LEO 550km", "~20 Tbps total"),
+    ("Viasat-3", "Ka", "GEO", "1+ Tbps/sat"),
+    ("O3b mPOWER", "Ka", "MEO 8000km", "10+ Gbps/beam"),
+    ("HughesNet", "Ka", "GEO", "~300 Gbps"),
+    ("SES-17", "Ka", "GEO", "200+ Gbps"),
+    ("Telesat Lightspeed", "Ka", "LEO", "Q/V feeders"),
+]
+
+print(f"{'System':<20} {'Band':>6} {'Orbit':>12} {'Capacity':>20}")
+print("-" * 75)
+for system, band, orbit, capacity in systems:
+    print(f"{system:<20} {band:>6} {orbit:>12} {capacity:>20}")
+```
+
+**Band selection decision matrix:**
+
+| Application | Best Band | Why |
+|-------------|-----------|-----|
+| Consumer DTH TV | Ku | Small dish, established ecosystem |
+| HTS broadband | Ka | Bandwidth, small terminals |
+| Gateway feeders | Q/V | Frees Ka for users |
+| Military SATCOM | Ka (gov) | Dedicated allocations |
+| Future trunk | W | Massive bandwidth |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring rain fade.** Ka-band can lose 20+ dB in heavy rain; design for 99.5% availability requires significant margin.
+
+2. **Assuming fixed throughput.** ACM means throughput varies with weather; capacity planning must account for rain statistics.
+
+3. **Gateway bottleneck.** Q/V feeder links need site diversity or the gateway becomes single point of failure.
+
+4. **Elevation angle.** Low elevation = longer slant path through rain = more fade. Tropical locations doubly impacted.
+
+5. **Atmospheric absorption.** 60 GHz oxygen absorption (V-band) creates "windows" and "walls" in spectrum.
+
+6. **Terminal size assumptions.** Higher frequency needs higher antenna gain; "same size dish" doesn't mean same performance.
+
+7. **Interference.** Ka-band increasingly congested; coordination with other operators essential.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU-R P.618-14 (Propagation data for earth-space links)
+- ITU-R P.838-3 (Rain attenuation model)
+- DVB-S2X Implementation Guidelines (ETSI TR 102 376-2)
+- FCC Ka-band Spectrum Allocations
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [ITU-R Allocations](/en/space/frequency-bands-and-regulatory/itu-r-allocations/) — regulatory framework
+- [Licensing Process](/en/space/frequency-bands-and-regulatory/licensing-process/) — getting spectrum access
+- [Link Budget Master Class](/en/space/link-budget-master-class/) — applying bands to calculations
+
+</section>

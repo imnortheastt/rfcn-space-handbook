@@ -8,17 +8,408 @@ track: n3
 unit: policy-and-charging
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "CHF overview"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-policy-and-charging-01-pcf-overview"]
+spiralRevisits: ["core-network-n3-session-management-deep-dive-03-pdu-session-release"]
+title: "CHF Overview"
+description: "Charging in 5G — how CHF tracks usage, interacts with billing systems, and enables converged charging."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 32.240", "3GPP TS 32.255", "3GPP TS 29.594"]
+tags: ["chf", "5g", "charging", "billing", "ocs"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# CHF overview
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+CHF is how operators get paid. It tracks every byte, every minute, every service used — then feeds that data to billing systems.
+
+Without CHF, there's no way to charge prepaid users in real-time or generate postpaid bills accurately.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What CHF does
+
+```
+CHF Functions:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Usage Tracking:                                        │
+│  ├── Data volume (bytes UL/DL)                         │
+│  ├── Duration (session time)                           │
+│  ├── Events (SMS sent, calls made)                     │
+│  └── Service-specific (video minutes, roaming MB)      │
+│                                                          │
+│  Charging Control:                                      │
+│  ├── Grant quotas (prepaid)                            │
+│  ├── Report usage (postpaid)                           │
+│  ├── Trigger policy changes (data cap)                 │
+│  └── Reject service (no credit)                        │
+│                                                          │
+│  CDR Generation:                                        │
+│  ├── Create Charging Data Records                      │
+│  ├── Forward to billing/mediation                      │
+│  └── Support offline processing                        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### CHF interfaces
+
+```
+CHF in 5G Architecture:
+
+              ┌─────────┐
+              │   PCF   │
+              │  N28    │ (spending limits)
+              └────┬────┘
+                   │
+          ┌────────────────┐
+          │      CHF       │
+          │                │
+          │  Converged     │
+          │  Charging      │
+          └───────┬────────┘
+        ┌─────────┼─────────┐
+        │         │         │
+        ▼         ▼         ▼
+   ┌─────────┐ ┌─────────┐ ┌─────────┐
+   │   SMF   │ │   SMSF  │ │   NEF   │
+   │  Nchf   │ │  Nchf   │ │  Nchf   │
+   └─────────┘ └─────────┘ └─────────┘
+   
+   Data usage   SMS events   API usage
+   
+              ┌─────────┐
+              │ Billing │
+              │ /OFCS   │
+              └─────────┘
+              CDRs, offline
+```
+
+### From OCS/OFCS to CHF
+
+```
+4G vs 5G Charging:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  4G (EPC):                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  OCS (Online Charging System)                    │    │
+│  │  - Gy interface from PGW (Diameter)             │    │
+│  │  - Real-time credit control                     │    │
+│  │                                                  │    │
+│  │  OFCS (Offline Charging System)                 │    │
+│  │  - Gz interface from PGW (Diameter)             │    │
+│  │  - CDR collection for postpaid                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  5G (5GC):                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  CHF (Converged Charging Function)              │    │
+│  │  - Nchf interface (HTTP/2)                      │    │
+│  │  - Combines online + offline                    │    │
+│  │  - Unified interface for all NFs                │    │
+│  │  - Session-based and event-based               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Key change: One function handles both real-time        │
+│  credit control (prepaid) and CDR generation (postpaid) │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Charging session lifecycle
+
+```
+Data Session Charging Flow:
+
+SMF                    CHF                    Billing
+│                       │                       │
+│ Nchf_Converged       │                       │
+│ Charging_Create      │                       │
+│ (SUPI, DNN, S-NSSAI) │                       │
+│──────────────────────►│                       │
+│                       │                       │
+│                       │ Check subscriber     │
+│                       │ account, apply       │
+│                       │ rating               │
+│                       │                       │
+│ Charging_Create_Resp │                       │
+│ (quota granted,      │                       │
+│  or unlimited)       │                       │
+│◄──────────────────────│                       │
+│                       │                       │
+│                       │                       │
+│ ... traffic flows... │                       │
+│                       │                       │
+│                       │                       │
+│ Nchf_Converged       │                       │
+│ Charging_Update      │                       │
+│ (used volume,        │                       │
+│  request more quota) │                       │
+│──────────────────────►│                       │
+│                       │                       │
+│                       │ Deduct from balance  │
+│                       │ or accumulate CDR    │
+│                       │                       │
+│ Charging_Update_Resp │                       │
+│ (new quota or        │                       │
+│  final action)       │                       │
+│◄──────────────────────│                       │
+│                       │                       │
+│ ... session ends ... │                       │
+│                       │                       │
+│ Nchf_Converged       │                       │
+│ Charging_Release     │                       │
+│ (final usage)        │                       │
+│──────────────────────►│                       │
+│                       │                       │
+│                       │ Generate CDR         │
+│                       │──────────────────────►│
+│                       │                       │
+```
+
+### Online vs offline charging
+
+```
+Charging Modes:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Online Charging (Prepaid):                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. SMF requests quota before session           │    │
+│  │  2. CHF checks balance, grants quota           │    │
+│  │  3. SMF tracks usage against quota              │    │
+│  │  4. Before quota exhausted, request more       │    │
+│  │  5. If no balance, session throttled/released  │    │
+│  │                                                  │    │
+│  │  Real-time balance check, immediate deduction   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Offline Charging (Postpaid):                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. SMF notifies CHF of session start           │    │
+│  │  2. SMF periodically reports usage              │    │
+│  │  3. CHF accumulates usage data                  │    │
+│  │  4. Session ends, CHF creates CDR               │    │
+│  │  5. CDR sent to billing for invoicing           │    │
+│  │                                                  │    │
+│  │  No real-time check, billed later               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Quota management
+
+```
+Quota Grant and Tracking:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Subscriber balance: 500 MB                             │
+│                                                          │
+│  Step 1: Session start                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ SMF → CHF: Create charging session              │    │
+│  │ CHF → SMF: Grant 100 MB quota                   │    │
+│  │ Remaining: 500 MB (reserved 100 MB)             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Step 2: After 80 MB used (threshold reached)          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ SMF → CHF: Report 80 MB used, request more      │    │
+│  │ CHF → SMF: Deduct 80 MB, grant 100 MB more     │    │
+│  │ Remaining: 420 MB (reserved 100 MB)             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Step 3: Balance exhausted                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ SMF → CHF: Request more quota                   │    │
+│  │ CHF → SMF: No quota (balance = 0)               │    │
+│  │ SMF: Apply final unit action (redirect/block)  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Rating and tariffs
+
+```
+Rating Logic:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Inputs to Rating:                                      │
+│  ├── Service type (data, voice, SMS)                   │
+│  ├── Subscriber plan (premium, basic)                  │
+│  ├── Time of day (peak, off-peak)                      │
+│  ├── Location (home, roaming)                          │
+│  ├── Network slice                                      │
+│  └── Content type (video, social media)                │
+│                                                          │
+│  Rating Rules Example:                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Rule 1: Home data                              │    │
+│  │  - Rate: $0.01/MB                               │    │
+│  │  - Apply: location=home, service=data           │    │
+│  │                                                  │    │
+│  │  Rule 2: Roaming data                           │    │
+│  │  - Rate: $0.50/MB                               │    │
+│  │  - Apply: location=roaming, service=data        │    │
+│  │                                                  │    │
+│  │  Rule 3: Video streaming (zero-rated)           │    │
+│  │  - Rate: $0.00/MB                               │    │
+│  │  - Apply: sponsor=Netflix, service=video        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### CDR structure
+
+```
+Charging Data Record Fields:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Subscriber Info:                                       │
+│  ├── SUPI / GPSI                                       │
+│  ├── Subscription ID                                   │
+│  └── PLMN ID                                           │
+│                                                          │
+│  Session Info:                                          │
+│  ├── PDU session ID                                    │
+│  ├── DNN                                               │
+│  ├── S-NSSAI                                           │
+│  ├── UPF ID                                            │
+│  └── UE IP address                                     │
+│                                                          │
+│  Usage Data:                                            │
+│  ├── Volume (UL bytes, DL bytes)                       │
+│  ├── Duration (seconds)                                │
+│  ├── Start time, end time                              │
+│  └── Per-QoS-flow breakdown                            │
+│                                                          │
+│  Charging Info:                                         │
+│  ├── Charging ID                                       │
+│  ├── Rating group                                      │
+│  ├── Charged amount                                    │
+│  └── Charging method (online/offline)                  │
+│                                                          │
+│  Location:                                              │
+│  ├── Cell ID / TAI                                     │
+│  └── User location info                                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Common charging scenarios:**
+
+| Scenario | CHF Behavior | Result |
+|----------|--------------|--------|
+| Prepaid video call | Grant voice quota, track minutes | Deduct from balance |
+| Postpaid roaming | Accumulate roaming CDRs | Bill at month end |
+| Data cap trigger | Notify PCF at threshold | Policy throttles speed |
+| Zero-rating | Don't charge sponsor content | Usage tracked, not billed |
+| Enterprise slice | Apply enterprise rate | Different pricing |
+
+**Debugging charging:**
+
+```bash
+# Wireshark: CHF service operations
+http2.header.path contains "nchf-convergedcharging"
+
+# Charging create/update/release
+http2.header.method == "POST" && http2.header.path contains "chargingData"
+
+# Check quota grants
+grep "grantedUnit" /var/log/smf/*.log
+
+# CDR output
+ls -la /var/spool/chf/cdr/
+```
+
+**Key API operations:**
+
+| Operation | Purpose |
+|-----------|---------|
+| ChargingDataCreate | Start charging session |
+| ChargingDataUpdate | Report usage, get more quota |
+| ChargingDataRelease | End session, final usage |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **CHF unavailable.** If CHF is down, prepaid users can't connect. Need fallback policy (limited quota, emergency only).
+
+2. **Quota exhaustion race.** User may exceed quota between update and enforcement. Allow small over-usage tolerance.
+
+3. **Rating errors.** Wrong tariff applied = billing disputes. Validate rating rules thoroughly.
+
+4. **CDR loss.** CDRs must be reliably stored. Losing them = revenue loss. Use persistent storage, replication.
+
+5. **Roaming charging.** Home vs visited charging depends on roaming agreement. Complex mediation needed.
+
+6. **Multi-slice charging.** Different slices may have different rates. Ensure slice context in charging request.
+
+7. **Converged charging complexity.** Combining online+offline in one function increases complexity. Clear separation of logic needed.
+
+8. **Latency impact.** Online charging adds latency to session setup. Optimize CHF performance.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 32.240, "Charging Architecture and Principles"
+- 3GPP TS 32.255, "5G Data Connectivity Charging"
+- 3GPP TS 29.594, "Nchf Services"
+- 3GPP TS 32.291, "5G Charging Data Record Format"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Online/offline charging](/en/core-network/policy-and-charging/online-offline-charging/) — detailed comparison
+- [Policy rules](/en/core-network/policy-and-charging/policy-and-charging-rules/) — how PCC rules work with charging
+- [PCF overview](/en/core-network/policy-and-charging/pcf-overview/) — policy side of PCC
+
+</section>

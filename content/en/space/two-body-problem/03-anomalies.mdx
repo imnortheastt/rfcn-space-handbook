@@ -8,17 +8,399 @@ track: s1
 unit: two-body-problem
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "True, eccentric and mean anomaly"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 8
+prerequisites: ["space-s1-two-body-problem-02-orbital-elements"]
+spiralRevisits: []
+title: "True, Eccentric, and Mean Anomaly"
+description: "Three ways to describe position in an orbit: the physical angle, the geometric angle, and the time-based angle."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["anomaly", "true-anomaly", "eccentric-anomaly", "mean-anomaly", "kepler-equation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# True, eccentric and mean anomaly
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Satellites don't move at constant speed in elliptical orbits—they speed up at periapsis and slow down at apoapsis. The three anomalies (true, eccentric, mean) are different ways to track position that handle this varying speed. Understanding them is essential for orbit propagation and timing.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The three anomalies
+
+```
+Three Ways to Measure Position:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TRUE ANOMALY (ν or θ)                                  │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  The ACTUAL angle from periapsis to satellite,    │  │
+│  │  measured at the focus (central body).            │  │
+│  │                                                    │  │
+│  │              Satellite                            │  │
+│  │                  ●                                │  │
+│  │                 ╱                                 │  │
+│  │                ╱                                  │  │
+│  │               ╱ ν (true anomaly)                  │  │
+│  │     Focus ☉──○────────────────                    │  │
+│  │              Periapsis                            │  │
+│  │                                                    │  │
+│  │  - Physical position in space                     │  │
+│  │  - Does NOT vary linearly with time              │  │
+│  │  - What you actually measure                      │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ECCENTRIC ANOMALY (E)                                  │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  Angle measured from CENTER of ellipse, using     │  │
+│  │  an auxiliary circle of radius a.                 │  │
+│  │                                                    │  │
+│  │          Auxiliary circle (r = a)                 │  │
+│  │              ╱───○───╲                            │  │
+│  │             ╱    │    ╲   Point on circle         │  │
+│  │            │     │     │  (projects to satellite) │  │
+│  │     Focus ☉──●───┼───── Center                    │  │
+│  │              │   E                                │  │
+│  │              Satellite                            │  │
+│  │                                                    │  │
+│  │  - Geometric construction                         │  │
+│  │  - Bridge between ν and M                         │  │
+│  │  - Used in Kepler's equation                      │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  MEAN ANOMALY (M)                                       │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  A fictitious angle that increases linearly with  │  │
+│  │  time. Represents position on a circular orbit.   │  │
+│  │                                                    │  │
+│  │  M = n × (t - t₀)                                 │  │
+│  │                                                    │  │
+│  │  where:                                           │  │
+│  │    n = √(μ/a³) = mean motion (rad/s)              │  │
+│  │    t = current time                               │  │
+│  │    t₀ = time of periapsis passage                 │  │
+│  │                                                    │  │
+│  │  - Varies linearly with time                      │  │
+│  │  - Easy to propagate: M = M₀ + n×Δt              │  │
+│  │  - NOT a physical angle                           │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Relationship visualization
+
+```
+Comparing the Three Anomalies:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  At PERIAPSIS:   ν = E = M = 0°                         │
+│  At APOAPSIS:    ν = E = M = 180°                       │
+│                                                          │
+│  In between: they differ (especially for high e)        │
+│                                                          │
+│         Periapsis            Apoapsis                   │
+│             ○─────────────────────○                     │
+│             │                     │                     │
+│     ν = 0°  │    ν leads E        │  ν = 180°           │
+│     E = 0°  │    E leads M        │  E = 180°           │
+│     M = 0°  │                     │  M = 180°           │
+│                                                          │
+│  EXAMPLE (e = 0.5, M = 90°):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  M = 90.00°  (input, varies linearly with time) │    │
+│  │  E = 113.02° (solved from Kepler's equation)    │    │
+│  │  ν = 132.35° (true position in space)           │    │
+│  │                                                  │    │
+│  │  ν > E > M near periapsis                       │    │
+│  │  (satellite moves faster, covers more angle)    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Kepler's equation
+
+```
+The Central Equation of Orbital Mechanics:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  KEPLER'S EQUATION:                                     │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │         M = E - e × sin(E)                        │  │
+│  │                                                    │  │
+│  │  where:                                           │  │
+│  │    M = mean anomaly (rad)                         │  │
+│  │    E = eccentric anomaly (rad)                    │  │
+│  │    e = eccentricity                               │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  THE PROBLEM:                                           │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  Given M (from time), find E                      │  │
+│  │  → Transcendental equation, no closed-form        │  │
+│  │  → Must solve iteratively!                        │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  NEWTON-RAPHSON SOLUTION:                               │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  f(E) = E - e×sin(E) - M = 0                      │  │
+│  │  f'(E) = 1 - e×cos(E)                             │  │
+│  │                                                    │  │
+│  │  E_{n+1} = E_n - f(E_n)/f'(E_n)                   │  │
+│  │          = E_n - (E_n - e×sin(E_n) - M)           │  │
+│  │                  ─────────────────────            │  │
+│  │                    (1 - e×cos(E_n))               │  │
+│  │                                                    │  │
+│  │  Initial guess: E₀ = M (works well for e < 0.8)   │  │
+│  │  Converges in 3-5 iterations typically            │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Converting between anomalies
+
+```
+Anomaly Conversion Formulas:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  M → E (solve Kepler's equation iteratively)            │
+│                                                          │
+│  E → ν:                                                 │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  tan(ν/2) = √((1+e)/(1-e)) × tan(E/2)             │  │
+│  │                                                    │  │
+│  │  Or equivalently:                                 │  │
+│  │  cos(ν) = (cos(E) - e) / (1 - e×cos(E))           │  │
+│  │  sin(ν) = (√(1-e²)×sin(E)) / (1 - e×cos(E))       │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ν → E:                                                 │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  tan(E/2) = √((1-e)/(1+e)) × tan(ν/2)             │  │
+│  │                                                    │  │
+│  │  Or equivalently:                                 │  │
+│  │  cos(E) = (e + cos(ν)) / (1 + e×cos(ν))           │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  E → M:                                                 │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  M = E - e×sin(E)                                 │  │
+│  │                                                    │  │
+│  │  (Direct calculation, no iteration needed)        │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  WORKFLOW:                                              │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  Time → M (linear) → E (iterate) → ν (direct)     │  │
+│  │                                                    │  │
+│  │  This is how orbit propagators find position!     │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Position from anomaly
+
+```
+Getting Cartesian Coordinates:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  RADIUS FROM TRUE ANOMALY:                              │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  r = a(1 - e²) / (1 + e×cos(ν))                   │  │
+│  │                                                    │  │
+│  │  This is the orbit equation (conic section)       │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  RADIUS FROM ECCENTRIC ANOMALY:                         │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  r = a(1 - e×cos(E))                              │  │
+│  │                                                    │  │
+│  │  Sometimes more convenient computationally        │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  POSITION IN ORBITAL PLANE (perifocal frame):           │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  From true anomaly:                               │  │
+│  │  x = r×cos(ν)                                     │  │
+│  │  y = r×sin(ν)                                     │  │
+│  │                                                    │  │
+│  │  From eccentric anomaly:                          │  │
+│  │  x = a×(cos(E) - e)                               │  │
+│  │  y = a×√(1-e²)×sin(E)                             │  │
+│  │                                                    │  │
+│  │  Then rotate to ECI using i, Ω, ω                 │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Solving Kepler's equation:**
+
+```python
+import numpy as np
+
+def solve_kepler(M, e, tol=1e-10, max_iter=50):
+    """
+    Solve Kepler's equation: M = E - e*sin(E)
+    Returns eccentric anomaly E in radians
+    """
+    # Initial guess
+    if e < 0.8:
+        E = M
+    else:
+        E = np.pi
+    
+    # Newton-Raphson iteration
+    for _ in range(max_iter):
+        f = E - e * np.sin(E) - M
+        f_prime = 1 - e * np.cos(E)
+        E_new = E - f / f_prime
+        
+        if abs(E_new - E) < tol:
+            return E_new
+        E = E_new
+    
+    return E  # May not have converged
+
+def E_to_nu(E, e):
+    """Convert eccentric anomaly to true anomaly"""
+    nu = 2 * np.arctan2(
+        np.sqrt(1 + e) * np.sin(E / 2),
+        np.sqrt(1 - e) * np.cos(E / 2)
+    )
+    return nu
+
+def propagate_orbit(M0, n, dt, e):
+    """
+    Propagate orbit by time dt
+    M0: initial mean anomaly (rad)
+    n: mean motion (rad/s)
+    dt: time step (s)
+    e: eccentricity
+    Returns true anomaly (rad)
+    """
+    M = M0 + n * dt
+    M = M % (2 * np.pi)  # Keep in [0, 2π]
+    E = solve_kepler(M, e)
+    nu = E_to_nu(E, e)
+    return nu
+
+# Example: GTO with e = 0.73
+e = 0.73
+M = np.radians(90)  # Mean anomaly = 90°
+E = solve_kepler(M, e)
+nu = E_to_nu(E, e)
+print(f"M = {np.degrees(M):.2f}°")
+print(f"E = {np.degrees(E):.2f}°")
+print(f"ν = {np.degrees(nu):.2f}°")
+```
+
+**Quick reference:**
+
+| Quantity | Formula |
+|----------|---------|
+| Mean motion | n = √(μ/a³) |
+| Mean anomaly | M = n(t - t₀) |
+| Kepler's equation | M = E - e·sin(E) |
+| Radius | r = a(1 - e·cos(E)) |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Angle units.** Kepler's equation uses radians. Convert degrees carefully.
+
+2. **Quadrant ambiguity.** Use atan2() for correct quadrant when converting anomalies.
+
+3. **High eccentricity.** Newton-Raphson may need better initial guess for e > 0.8.
+
+4. **Parabolic/hyperbolic.** Kepler's equation is for ellipses only. Use different forms for e ≥ 1.
+
+5. **Wrapping.** Keep M in [0, 2π] or [-π, π] for consistency.
+
+6. **Tolerance.** Set appropriate convergence tolerance for Kepler solver.
+
+7. **Sign conventions.** Anomalies increase in direction of motion (counterclockwise when viewed from north).
+
+8. **Time reference.** M = 0 at periapsis passage. Track t₀ carefully.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Vallado, D., "Fundamentals of Astrodynamics and Applications"
+- Battin, R., "An Introduction to the Mathematics and Methods of Astrodynamics"
+- Curtis, H., "Orbital Mechanics for Engineering Students"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Orbit Propagation](/en/space/two-body-problem/orbit-propagation/) — using anomalies to predict position
+- [Vis-Viva Equation](/en/space/two-body-problem/vis-viva-equation/) — velocity relationships
+- [Orbital Elements](/en/space/two-body-problem/orbital-elements/) — complete orbit description
+
+</section>

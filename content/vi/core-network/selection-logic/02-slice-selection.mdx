@@ -8,17 +8,414 @@ track: n3
 unit: selection-logic
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "Lua chon network slice"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n3-selection-logic-01-nssf-overview"]
+spiralRevisits: []
+title: "Lua chon Network Slice"
+description: "Thuat toan lua chon slice: cach NSSF xac dinh allowed NSSAI tu requested, subscribed, va slice kha dung."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 29.531"]
+tags: ["5g", "nssf", "lua-chon-slice", "nssai"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Lua chon network slice
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+NSSF khong chon slice ngau nhien. Co thuat toan xac dinh xem xet nhung gi UE muon, goi cuoc cho phep gi, va nhung gi kha dung tai vi tri hien tai.
+
+Hieu thuat toan nay la can thiet de go loi that bai lua chon slice va cau hinh trien khai da slice.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Dau vao lua chon slice
+
+```
+Dau vao Lua chon Slice NSSF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Dau vao 1: Requested NSSAI (tu UE)               │  │
+│  │                                                   │  │
+│  │ Nhung gi UE muon dung:                           │  │
+│  │ [SST=1], [SST=2, SD=0x000001], [SST=128]         │  │
+│  │                                                   │  │
+│  │ Nguon: Ban tin Yeu cau Dang ky                   │  │
+│  └───────────────────────────────────────────────────┘  │
+│                     │                                   │
+│                     ▼                                   │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Dau vao 2: Subscribed S-NSSAIs (tu UDM)          │  │
+│  │                                                   │  │
+│  │ Nhung gi goi cuoc cho phep:                      │  │
+│  │ Mac dinh: [SST=1], [SST=2]                       │  │
+│  │ Theo TAI: {TAI-1: [SST=1, SST=3]}                │  │
+│  │                                                   │  │
+│  │ Nguon: Du lieu goi cuoc UDM                      │  │
+│  └───────────────────────────────────────────────────┘  │
+│                     │                                   │
+│                     ▼                                   │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Dau vao 3: Configured S-NSSAIs (chinh sach cuc bo)│  │
+│  │                                                   │  │
+│  │ Nhung gi nha mang ho tro theo TAI:               │  │
+│  │ TAI-1: [SST=1], [SST=2], [SST=3]                 │  │
+│  │ TAI-2: chi [SST=1]                               │  │
+│  │                                                   │  │
+│  │ Nguon: Cau hinh NSSF                             │  │
+│  └───────────────────────────────────────────────────┘  │
+│                     │                                   │
+│                     ▼                                   │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Dau ra: Allowed NSSAI                            │  │
+│  │                                                   │  │
+│  │ Giao ma UE thuc su co the dung:                  │  │
+│  │ [SST=1], [SST=2]                                 │  │
+│  │                                                   │  │
+│  │ Gui trong: Chap nhan Dang ky                     │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cay quyet dinh lua chon
+
+```
+Luong Quyet dinh Lua chon Slice:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Voi moi S-NSSAI trong Requested NSSAI:                 │
+│                                                          │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │                                                   │   │
+│  │  Buoc 1: S-NSSAI co trong Subscribed S-NSSAIs?   │   │
+│  │  ┌─────────────────────────────────────────────┐ │   │
+│  │  │ KHONG → Tu choi S-NSSAI nay                 │ │   │
+│  │  │ CO    → Tiep tuc Buoc 2                     │ │   │
+│  │  └─────────────────────────────────────────────┘ │   │
+│  │                   │                               │   │
+│  │                   ▼                               │   │
+│  │  Buoc 2: S-NSSAI duoc cau hinh cho TAI nay?      │   │
+│  │  ┌─────────────────────────────────────────────┐ │   │
+│  │  │ KHONG → Tu choi (slice khong o vung nay)    │ │   │
+│  │  │ CO    → Tiep tuc Buoc 3                     │ │   │
+│  │  └─────────────────────────────────────────────┘ │   │
+│  │                   │                               │   │
+│  │                   ▼                               │   │
+│  │  Buoc 3: Co AMF phuc vu S-NSSAI nay?             │   │
+│  │  ┌─────────────────────────────────────────────┐ │   │
+│  │  │ KHONG → Tu choi (khong co dung luong)       │ │   │
+│  │  │ CO    → Them vao Allowed NSSAI              │ │   │
+│  │  └─────────────────────────────────────────────┘ │   │
+│  │                                                   │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                          │
+│  Kiem tra cuoi: Allowed NSSAI rong?                     │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │ CO    → Ap dung slice mac dinh (neu cau hinh)    │   │
+│  │ KHONG → Tra ve Allowed NSSAI                     │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Thuat toan lua chon
+
+```
+Thuat toan Lua chon Chi tiet:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  function selectSlices(request):                        │
+│                                                          │
+│    requestedNssai = request.requestedNssai              │
+│    subscribedNssai = request.subscribedNssai            │
+│    tai = request.tai                                    │
+│                                                          │
+│    allowedNssai = []                                    │
+│    rejectedNssai = []                                   │
+│                                                          │
+│    for each sNssai in requestedNssai:                   │
+│                                                          │
+│      // Kiem tra goi cuoc                               │
+│      if sNssai not in subscribedNssai:                  │
+│        rejectedNssai.add({sNssai, cause: "NOT_SUBSCR"}) │
+│        continue                                         │
+│                                                          │
+│      // Kiem tra kha dung TAI                           │
+│      taiConfig = getConfiguredNssai(tai)                │
+│      if sNssai not in taiConfig:                        │
+│        rejectedNssai.add({sNssai, cause: "NOT_AVAIL"})  │
+│        continue                                         │
+│                                                          │
+│      // Kiem tra kha dung AMF                           │
+│      amfSet = findAmfSet(sNssai, tai)                   │
+│      if amfSet is empty:                                │
+│        rejectedNssai.add({sNssai, cause: "NO_SERVING"}) │
+│        continue                                         │
+│                                                          │
+│      // Slice duoc phep                                 │
+│      allowedNssai.add({sNssai, amfSet: amfSet})         │
+│                                                          │
+│    // Ap dung mac dinh neu rong                         │
+│    if allowedNssai.isEmpty() and hasDefaultSlice():     │
+│      allowedNssai.add(getDefaultSlice(tai))             │
+│                                                          │
+│    return {allowedNssai, rejectedNssai, targetAmfSet}   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Logic dinh tuyen lai AMF
+
+```
+Lua chon va Dinh tuyen lai AMF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Kich ban: UE yeu cau [SST=1, SST=2]                    │
+│            AMF ban dau chi phuc vu [SST=1]              │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Phuong an A: Mot AMF co the phuc vu ca hai     │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ NSSF tra ve:                            │   │    │
+│  │  │ allowedNssai: [SST=1, SST=2]            │   │    │
+│  │  │ targetAmfSet: null (o lai AMF hien tai) │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  Phuong an B: Can AMF khac cho SST=2             │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ NSSF tra ve:                            │   │    │
+│  │  │ allowedNssai: [SST=1, SST=2]            │   │    │
+│  │  │ targetAmfSet: "amf-set-urllc"           │   │    │
+│  │  │                                          │   │    │
+│  │  │ AMF hien tai dinh tuyen lai den AMF dich│   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  Phuong an C: Khong AMF nao phuc vu ca hai       │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ NSSF tra ve:                            │   │    │
+│  │  │ allowedNssai: [SST=1] (cap mot phan)    │   │    │
+│  │  │ rejectedNssai: [SST=2, cause: NO_AMF]   │   │    │
+│  │  │ targetAmfSet: null                      │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cau hinh slice theo TAI
+
+```
+Kha dung Slice Theo TAI:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Trien khai Slice Theo Dia ly:                          │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │        TAI-1 (Do thi)    TAI-2 (Cong nghiep)    │    │
+│  │       ┌─────────────┐   ┌─────────────┐         │    │
+│  │       │ SST=1 (eMBB)│   │ SST=1 (eMBB)│         │    │
+│  │       │ SST=2 (URLLC)│  │ SST=2 (URLLC)│        │    │
+│  │       │ SST=3 (mMTC)│   │             │         │    │
+│  │       │ SST=128     │   │             │         │    │
+│  │       │  (Gaming)   │   │             │         │    │
+│  │       └─────────────┘   └─────────────┘         │    │
+│  │                                                  │    │
+│  │        TAI-3 (Nong thon)  TAI-4 (Nha may)       │    │
+│  │       ┌─────────────┐   ┌─────────────┐         │    │
+│  │       │ SST=1 (eMBB)│   │ SST=2 (URLLC)│        │    │
+│  │       │             │   │ SST=2,SD=fac│         │    │
+│  │       │             │   │  (rieng)    │         │    │
+│  │       └─────────────┘   └─────────────┘         │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  UE di chuyen tu TAI-1 den TAI-3:                       │
+│  - Da co: [SST=1, SST=2, SST=128]                       │
+│  - Duoc: chi [SST=1]                                    │
+│  - SST=2, SST=128 bi tu choi                            │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Nguyen nhan tu choi
+
+```
+Nguyen nhan Tu choi Lua chon Slice:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Ma Nguyen nhan          Y nghia                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ S-NSSAI_NOT_AVAILABLE                           │    │
+│  │ - Slice khong trien khai trong TAI nay          │    │
+│  │ - Co the kha dung o vung khac                   │    │
+│  │                                                  │    │
+│  │ S-NSSAI_NOT_AVAILABLE_IN_PLMN                   │    │
+│  │ - Slice khong trien khai bat ky dau trong PLMN  │    │
+│  │ - Khong khop goi cuoc                           │    │
+│  │                                                  │    │
+│  │ S-NSSAI_NOT_AVAILABLE_DUE_TO_SUB                │    │
+│  │ - Nguoi dung khong dang ky slice nay            │    │
+│  │ - Han che cuoc phi hoac chinh sach              │    │
+│  │                                                  │    │
+│  │ DEFAULT_CONFIGURED_NSSAI_USED                   │    │
+│  │ - Khong slice yeu cau nao kha dung              │    │
+│  │ - Du phong ve mac dinh nha mang                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Phan hoi bao gom:                                      │
+│  {                                                      │
+│    "rejectedNssaiInTa": [                               │
+│      {"sst": 2, "cause": "S-NSSAI_NOT_AVAILABLE"}       │
+│    ],                                                   │
+│    "rejectedNssaiInPlmn": [                             │
+│      {"sst": 128, "cause": "S-NSSAI_NOT_AVAILABLE_IN_PL"}│
+│    ]                                                    │
+│  }                                                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Quy tac uu tien lua chon:**
+
+| Uu tien | Quy tac |
+|---------|---------|
+| 1 | Slice UE yeu cau khop voi goi cuoc |
+| 2 | Slice UE yeu cau kha dung trong TAI |
+| 3 | S-NSSAI mac dinh goi cuoc cho TAI |
+| 4 | S-NSSAI mac dinh nha mang |
+
+**Vi du cau hinh (NSSF):**
+
+```yaml
+# Cau hinh slice NSSF
+nssaiConfiguration:
+  plmnId:
+    mcc: "001"
+    mnc: "01"
+  taiConfiguration:
+    - tai:
+        tac: "0001"
+      supportedSnssaiList:
+        - sst: 1
+        - sst: 2
+        - sst: 3
+      defaultSnssai:
+        sst: 1
+    - tai:
+        tac: "0002"
+      supportedSnssaiList:
+        - sst: 1
+      defaultSnssai:
+        sst: 1
+
+amfSetConfiguration:
+  - amfSetId: "amf-set-embb"
+    supportedSnssaiList:
+      - sst: 1
+  - amfSetId: "amf-set-urllc"
+    supportedSnssaiList:
+      - sst: 2
+  - amfSetId: "amf-set-all"
+    supportedSnssaiList:
+      - sst: 1
+      - sst: 2
+      - sst: 3
+```
+
+**Lenh go loi:**
+
+```bash
+# Kiem tra quyet dinh lua chon NSSF
+kubectl logs -l app=nssf | grep -E "(allowedNssai|rejectedNssai)"
+
+# Xac minh cau hinh TAI
+curl http://nssf:8080/internal/config/tai | jq
+
+# Kiem tra lua chon cu the
+curl -X POST http://nssf:8080/nnssf-nsselection/v1/network-slice-info \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nfType": "AMF",
+    "sliceInfoRequestForRegistration": {
+      "requestedNssai": [{"sst": 1}, {"sst": 2}],
+      "tai": {"plmnId": {"mcc": "001", "mnc": "01"}, "tac": "0001"}
+    }
+  }' | jq '.allowedNssai, .rejectedNssaiInTa'
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Khong khop TAI trong yeu cau.** NSSF dung TAI de xac dinh kha dung cuc bo. TAI sai cho ket qua sai.
+
+2. **Subscribed NSSAI khong co trong yeu cau.** AMF phai bao gom subscribed NSSAI tu UDM. Du lieu thieu gay tu choi.
+
+3. **Slice mac dinh khong cau hinh.** Neu khong slice yeu cau nao kha dung va khong co mac dinh, UE khong nhan duoc gi.
+
+4. **AMF set khong dang ky.** NSSF biet slice nhung khong biet AMF nao phuc vu. Dang ky kha dung AMF.
+
+5. **SD bi bo qua khi so khop.** SST=1 va SST=1,SD=abc la khac nhau. Can khop chinh xac.
+
+6. **Thieu anh xa NSSAI roaming.** PLMN khach dung gia tri S-NSSAI khac. Cau hinh bang anh xa.
+
+7. **Du lieu goi cuoc cu.** NSSF cache goi cuoc. Thay doi trong UDM khong phan anh. Kiem tra TTL cache.
+
+8. **Du phong mot slice bat ngo.** UE yeu cau nhieu, chi nhan mot. Kiem tra neu cac slice khac bi tu choi hoac AMF khong the phuc vu.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.501, "System Architecture" clause 5.15
+- 3GPP TS 29.531, "NSSF Services" clause 5.2
+- 3GPP TS 24.501, "NAS Protocol" clause 9.11
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Tieu chi lua chon NF](/vi/core-network/selection-logic/nf-selection-criteria/) — lua chon NF chung
+- [Tong quan NSSF](/vi/core-network/selection-logic/nssf-overview/) — co ban NSSF
+- [AMF](/vi/core-network/network-functions-overview/amf/) — dang ky nhan thuc slice
+
+</section>

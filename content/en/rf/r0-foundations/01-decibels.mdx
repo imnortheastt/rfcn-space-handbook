@@ -8,25 +8,20 @@ track: r0
 unit: r0-foundations
 order: 1
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
 prerequisites: []
 spiralRevisits: []
 title: "Decibels"
 description: "Why dB and how to use them."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-05-28"
 lastVerified: "2026-05-28"
-standards:
-  - id: "IEEE 145-2013"
-    cite: "ieee-145-2013"
+standards: []
 tags: ["decibel", "dB", "logarithmic"]
-widgets: ["PolarPlot"]
+widgets: []
 license: CC-BY-SA-4.0
 status: published
 ---
-
-import { PolarPlot } from '@rfcn-space-handbook/widgets';
-import { Cite } from '@rfcn-space-handbook/citations';
 
 <section class="lesson-hook">
 
@@ -34,7 +29,9 @@ import { Cite } from '@rfcn-space-handbook/citations';
 
 You are multiplying gains across five stages. Instead of multiplying five numbers together, you add five numbers. That is the entire reason the decibel exists.
 
-A decibel is a logarithmic unit expressing a ratio. Because adding is easier than multiplying, and because signal chains are long, every RF engineer thinks in dB by default.
+A decibel is a logarithmic unit expressing a ratio. Because signal chains are long and power levels span twelve orders of magnitude — from a picowatt at a receiver input to a kilowatt at a broadcast transmitter — every RF engineer thinks in dB by default. Once you internalize three reference points (×2 ≈ +3 dB, ×10 = +10 dB, ×0.5 ≈ −3 dB), you can decompose any link budget in your head.
+
+Think of it exactly like a distributed system's latency budget. Each service hop adds milliseconds; you sum them. Each RF stage adds or subtracts dB; you sum them. The math is the same: logarithms turn a chain of multiplications into a chain of additions.
 
 </section>
 
@@ -42,9 +39,31 @@ A decibel is a logarithmic unit expressing a ratio. Because adding is easier tha
 
 ## Intuition
 
-Doubling power adds roughly 3 dB. Halving power subtracts 3 dB. Multiplying power by 10 adds 10 dB. These three reference points let you reason about most link budgets mentally.
+```
+Signal power journey from transmitter to receiver:
 
-The glossary term **decibel** pops up everywhere in RF because it compresses five orders of magnitude into a manageable single-digit number.
+  TX amp       Cable      Antenna     Free space    Antenna     LNA
+  +30 dBm  →  −2 dB   →  +12 dBi  →  −120 dB   →  +8 dBi  →  −1 dB  →  RX
+
+  Linear:  1 W × 0.63 × 15.8 × 10^{-12} × 6.3 × 0.79  ≈  ?   (painful)
+  dB:      30  −  2   +  12  −  120      +  8  −  1   = −73 dBm  (trivial)
+```
+
+The three mental anchors that cover 90 % of link budget arithmetic:
+
+```
+  Power change   |  Ratio  |  dB value
+  ───────────────┼─────────┼──────────
+  Double         |   2 ×   |  +3 dB
+  Half           |  0.5 ×  |  −3 dB
+  Ten times      |  10 ×   |  +10 dB
+  One tenth      |  0.1 ×  |  −10 dB
+  Four times     |   4 ×   |  +6 dB  (= double twice)
+  One hundred    | 100 ×   |  +20 dB (= 10 × 10)
+  One million    |  10^6 × |  +60 dB (= 6 × 10 dB)
+```
+
+A 5G base station transmits at 43 dBm (20 W). A phone receiver's sensitivity is −100 dBm (10 femtowatts). The link must survive a 143 dB budget — fourteen orders of magnitude. In linear arithmetic that's a ratio of $10^{14.3}$. In dB it's just 143. That's the entire point.
 
 </section>
 
@@ -52,17 +71,66 @@ The glossary term **decibel** pops up everywhere in RF because it compresses fiv
 
 ## Mechanism
 
-The formula for power ratio in dB:
+### The definition
 
-$$L_\text{dB} = 10 \log_{10}(P/P_\text{ref})$$
+The decibel expresses the ratio of two power quantities:
 
-For voltage ratios (impedance must be equal), the factor changes to 20:
+$$L_\text{dB} = 10 \log_{10}\!\left(\frac{P}{P_\text{ref}}\right)$$
 
-$$L_\text{dB} = 20 \log_{10}(V/V_\text{ref})$$
+Because power is proportional to voltage squared ($P \propto V^2$), for voltage ratios the factor becomes 20:
 
-Here is a polar plot scaled to illustrate relative dB levels across angles — placeholder data showing a simple directional profile:
+$$L_\text{dB} = 20 \log_{10}\!\left(\frac{V}{V_\text{ref}}\right)$$
 
-<PolarPlot data={[1,3,5,10,5,3,1]} client:visible ariaLabel="Demo polar plot of dB scale" />
+The factor-of-2 difference matters enormously. A voltage gain of 10 is 20 dB; a power gain of 10 is only 10 dB. Mixing them up produces a systematic 6 dB error — a classic bug that makes a passing test fail in the field.
+
+### Absolute references — the suffixes
+
+A bare "dB" is a dimensionless ratio. To express an absolute level, the suffix pins the reference:
+
+```
+  Suffix  |  Reference  |  Formula                      |  Where used
+  ────────┼─────────────┼───────────────────────────────┼──────────────────────
+  dBm     |  1 mW       |  10 log10(P / 1 mW)           |  RF power levels
+  dBW     |  1 W        |  10 log10(P / 1 W)            |  Satellite, broadcast
+  dBi     |  isotropic  |  10 log10(G / G_isotropic)    |  Antenna gain
+  dBd     |  dipole     |  dBi − 2.15                   |  Antenna datasheets
+  dBc     |  carrier    |  10 log10(P_spur / P_carrier) |  Phase noise, spurs
+  dBHz    |  1 Hz BW    |  10 log10(noise density)      |  PSD specs
+```
+
+The relationship between dBm and dBW: since 1 W = 1000 mW, $\text{dBm} = \text{dBW} + 30$.
+
+### Converting between linear and dB
+
+To go from a linear ratio $r$ to dB: $10 \log_{10}(r)$.
+
+To go from dB back to linear: $r = 10^{L/10}$.
+
+Common values worth memorizing:
+
+$$0\ \text{dBm} = 1\ \text{mW}, \quad 30\ \text{dBm} = 1\ \text{W}, \quad -30\ \text{dBm} = 1\ \mu\text{W}$$
+
+### Why you cannot add dBm values
+
+dBm encodes a logarithm of power. Adding two dBm numbers produces a logarithm of a product, not of a sum. When two equal signals combine:
+
+$$10\ \text{dBm} + 10\ \text{dBm} \neq 20\ \text{dBm}$$
+
+The correct procedure:
+
+1. Convert each to milliwatts: $10^{10/10} = 10\ \text{mW}$ each.
+2. Add linearly: $10 + 10 = 20\ \text{mW}$.
+3. Convert back: $10 \log_{10}(20) = 13\ \text{dBm}$.
+
+The answer is 13 dBm, not 20 dBm. Coherent signal addition is a different story — but that requires phase information, not just power.
+
+### The EIRP computation
+
+Effective isotropic radiated power (EIRP) is the workhorse of link budgets:
+
+$$\text{EIRP}_\text{dBm} = P_\text{TX,dBm} - L_\text{cable,dB} + G_\text{antenna,dBi}$$
+
+It is the power a hypothetical isotropic antenna would need to produce the same field strength in the direction of maximum gain. Every link budget starts here.
 
 </section>
 
@@ -70,13 +138,47 @@ Here is a polar plot scaled to illustrate relative dB levels across angles — p
 
 ## Apply
 
-A transmitter outputs 1 W (0 dBW). After a cable loss of 3 dB, the power reaching the antenna is 0.5 W (−3 dBW). The antenna has a gain of 10 dB. The effective isotropic radiated power (EIRP) is:
+### Walking a real link budget
+
+A small-cell base station: TX power 24 dBm, cable + connector loss 1.5 dB, antenna gain 14 dBi.
 
 ```
-EIRP = 0 dBW − 3 dB + 10 dB = 7 dBW ≈ 5 W
+  EIRP = 24 dBm − 1.5 dB + 14 dBi = 36.5 dBm
 ```
 
-Adding and subtracting. No multiplication needed.
+Free-space path loss at 3.5 GHz over 200 m (urban micro):
+
+$$L_\text{FSPL} = 20 \log_{10}(d) + 20 \log_{10}(f) + 92.4\ \text{dB}$$
+
+$$= 20 \log_{10}(0.2) + 20 \log_{10}(3500) + 92.4 = -14 + 70.9 + 92.4 = 149.3\ \text{dB}$$
+
+Received power at UE (0 dBi antenna):
+
+```
+  P_RX = 36.5 − 149.3 + 0 = −112.8 dBm
+```
+
+UE sensitivity for 5G NR QPSK: typically −110 dBm. Link margin = −112.8 − (−110) = −2.8 dB. The link is tight — add a wall loss or move to cell edge and it fails. This is the moment where dB thinking pays off: you instantly see which term to improve (increase EIRP by 3 dB, pick a closer site, or accept narrower MCS).
+
+### Mental math trick: the 3-10 rule
+
+Any ratio can be approximated by combining 3 dB steps and 10 dB steps:
+
+```
+  Want to know: what power ratio is 7 dB?
+  7 = 10 − 3
+  10 dB = ×10, −3 dB = ×0.5
+  So 7 dB ≈ 10 × 0.5 = 5 ×  (exact: 5.01 ×)
+
+  Want to know: what power ratio is 13 dB?
+  13 = 10 + 3
+  10 dB = ×10, +3 dB = ×2
+  So 13 dB ≈ 20 ×  (exact: 19.95 ×)
+```
+
+### The AWS/cloud analogy
+
+Think of dB like decibels in a request-tracing system where each service has a "latency gain" (added ms) or "latency loss" (optimization). The total end-to-end latency is the sum of all contributions. dB in RF is identically structured — the end-to-end SNR is the algebraic sum of all gains and losses along the chain. The tooling differs; the arithmetic is the same.
 
 </section>
 
@@ -85,8 +187,16 @@ Adding and subtracting. No multiplication needed.
 ## Pitfalls
 
 1. **dB vs dBm.** dB is a dimensionless ratio. dBm references 1 milliwatt. Saying "the power is 10 dB" is meaningless without a reference. Say "10 dBm" or "10 dBW."
-2. **10 log vs 20 log.** Power ratios use factor 10. Voltage or field-amplitude ratios use factor 20. Mixing them up produces a 6 dB error — common and embarrassing.
-3. **Reference must be stated.** dBi references an isotropic radiator. dBd references a dipole. dBc references the carrier. Always specify.
+
+2. **10 log vs 20 log.** Power ratios use factor 10. Voltage or field-amplitude ratios use factor 20. A voltage gain of 10 × is 20 dB, not 10 dB. Mixing them up produces a 6 dB error — common and embarrassing.
+
+3. **Adding dBm values.** You can subtract dBm values (to get a dB ratio), but you cannot add them meaningfully. Two −90 dBm noise sources sum to −87 dBm, not −180 dBm.
+
+4. **dBi vs dBd.** An antenna spec saying "12 dBd" is actually 14.15 dBi. Always check which reference the datasheet uses; 2.15 dB matters when your link margin is 3 dB.
+
+5. **Reference must be stated.** dBi references an isotropic radiator. dBd references a dipole. dBc references the carrier. Always specify.
+
+6. **Negative dB is not negative power.** −30 dBm means $10^{-3}$ mW = 1 µW. It does not mean the signal is absent or negative. A signal at −100 dBm is very weak but very real.
 
 </section>
 
@@ -94,6 +204,8 @@ Adding and subtracting. No multiplication needed.
 
 ## References
 
-<Cite id="ieee-145-2013" /> — authoritative definitions for antenna and RF terminology.
+- IEEE 145-2013 — authoritative definitions for antenna and RF terminology.
+- Friis, H.T., "A Note on a Simple Transmission Formula," *Proceedings of the IRE*, 1946 — origin of the free-space link budget.
+- Rappaport, *Wireless Communications: Principles and Practice*, Chapter 3 — path loss and link budget fundamentals.
 
 </section>

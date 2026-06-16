@@ -8,12 +8,12 @@ track: r0
 unit: maxwells-equations-engineers-view
 order: 3
 level: L2
-estimatedReadingMinutes: 6
+estimatedReadingMinutes: 14
 prerequisites: ["rf-r0-maxwells-equations-engineers-view-02-faraday-law"]
 spiralRevisits: []
 title: "Ampere's law"
 description: "Currents and changing electric flux create magnetic field."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,11 @@ status: published
 
 ## Why Ampere's law?
 
-Ampere's law connects currents to magnetic fields. Maxwell's genius was adding the displacement current — changing E also creates B. This correction completed electromagnetism and predicted electromagnetic waves.
+Ampere's original law said: current creates magnetic field. Maxwell's genius was recognizing this was incomplete. In a capacitor with AC across it, no current crosses the gap — yet a magnetic field circles around the outside as if current were flowing. Maxwell added a term: changing electric field (displacement current) also creates magnetic field.
 
-For RF, the displacement current explains how signals cross capacitor gaps and how antennas radiate.
+This single addition was one of the most consequential modifications in physics history. It completed the symmetry of Maxwell's equations, predicted that light is an electromagnetic wave, and established the theoretical foundation for all of radio, radar, and wireless communications.
+
+For the RF engineer: Ampere's law explains magnetic field distributions in coaxial cables and waveguides, the origin of skin effect, how antennas radiate in free space (displacement current in the far field), and why inductance is a meaningful concept for lumped elements at low frequencies but must be replaced by distributed models at RF.
 
 </section>
 
@@ -37,9 +39,30 @@ For RF, the displacement current explains how signals cross capacitor gaps and h
 
 ## Intuition
 
-Current creates magnetic field circles around the wire. But what happens in a capacitor where no charges flow through the gap? Maxwell realized that changing E acts like a current — the "displacement current."
+### Current circles: the original Ampere's law
 
-Together, conduction current and displacement current create magnetic fields. This symmetry with Faraday's law enables wave propagation.
+A straight wire carrying current $I$ creates a magnetic field that circles the wire. The field strength decreases with distance: $H = I/(2\pi r)$. Double the distance, halve the field. The field lines are closed circles — they neither start nor end anywhere.
+
+This is the classical result. It works perfectly for any DC or low-frequency circuit where you can define a clear "conduction current."
+
+### The capacitor problem: where does the current go?
+
+Now put a capacitor in the circuit. AC current flows in the wire leading to the capacitor, and flows in the wire leaving the other side. But through the gap itself — nothing conducts. If you draw a flat surface between the capacitor plates and try to apply Ampere's law, you find $I_\text{enc} = 0$ even though a magnetic field clearly exists around the circuit.
+
+The resolution: between the plates, the electric field is changing rapidly. Specifically, $\partial \mathbf{D}/\partial t = \varepsilon \partial \mathbf{E}/\partial t \neq 0$. Maxwell called this the **displacement current density** $\mathbf{J}_D = \partial \mathbf{D}/\partial t$.
+
+The displacement current between the capacitor plates equals the conduction current in the wires. The magnetic field is continuous — no break at the capacitor. Kirchhoff's current law holds, not because charge crosses the gap, but because displacement current makes up the difference.
+
+### Symmetry and wave propagation
+
+The completed Ampere's law is the mirror of Faraday's law:
+
+- Faraday: changing $\mathbf{B}$ creates curl in $\mathbf{E}$
+- Ampere-Maxwell: changing $\mathbf{D}$ (or $\mathbf{E}$) creates curl in $\mathbf{H}$
+
+These two equations chase each other. A disturbance in $\mathbf{E}$ creates a curl in $\mathbf{H}$ (Ampere). The resulting $\mathbf{H}$ change creates a curl in $\mathbf{E}$ (Faraday). That $\mathbf{E}$ change creates a curl in $\mathbf{H}$ again... The disturbance propagates outward at speed $c = 1/\sqrt{\mu_0\varepsilon_0}$. This is a radio wave.
+
+In the far field of an antenna, there is no conduction current — the wave propagates entirely through the interplay of displacement current and Faraday induction.
 
 </section>
 
@@ -49,51 +72,55 @@ Together, conduction current and displacement current create magnetic fields. Th
 
 ### Integral form
 
-$$\oint_C \mathbf{H} \cdot d\mathbf{l} = I_{enc} + \frac{d\Phi_D}{dt}$$
+$$\oint_C \mathbf{H} \cdot d\mathbf{l} = I_\text{enc} + \frac{d\Phi_D}{dt} = I_\text{enc} + \iint_S \frac{\partial \mathbf{D}}{\partial t} \cdot d\mathbf{A}$$
 
-Magnetic circulation equals enclosed conduction current plus rate of change of electric flux.
+The magnetic field circulation around any closed loop equals the enclosed conduction current plus the rate of change of electric flux.
 
-- $I_{enc}$ = conduction current through surface
-- $\Phi_D = \int_S \mathbf{D} \cdot d\mathbf{S}$ = electric flux
+- $I_\text{enc}$ = conduction current through any surface bounded by the loop
+- $\Phi_D = \iint_S \mathbf{D} \cdot d\mathbf{A}$ = electric displacement flux
 
 ### Differential form
 
 $$\nabla \times \mathbf{H} = \mathbf{J} + \frac{\partial \mathbf{D}}{\partial t}$$
 
-- $\mathbf{J}$ = conduction current density (A/m²)
-- $\partial \mathbf{D}/\partial t$ = displacement current density
+- $\mathbf{J}$ = conduction current density (A/m²) — charges physically moving
+- $\partial \mathbf{D}/\partial t$ = displacement current density (A/m²) — no charge movement required
 
-### Displacement current
+### Displacement current density
 
-$$\mathbf{J}_D = \frac{\partial \mathbf{D}}{\partial t} = \epsilon \frac{\partial \mathbf{E}}{\partial t}$$
+$$\mathbf{J}_D = \frac{\partial \mathbf{D}}{\partial t} = \varepsilon \frac{\partial \mathbf{E}}{\partial t}$$
 
-No charges move, but changing E creates the same magnetic effect as current.
+In free space: $\mathbf{J}_D = \varepsilon_0 \partial \mathbf{E}/\partial t$
+
+Displacement current has the same effect on $\mathbf{H}$ as conduction current. It does not involve charge movement — it is purely the consequence of a time-varying electric field.
 
 ### H vs. B
 
 $$\mathbf{B} = \mu \mathbf{H} = \mu_0 \mu_r \mathbf{H}$$
 
-- $\mathbf{H}$ = magnetic field intensity (A/m)
-- $\mathbf{B}$ = magnetic flux density (T)
-- $\mu_0$ = 4π × 10⁻⁷ H/m
-- $\mu_r$ = relative permeability
+- $\mathbf{H}$ = magnetic field intensity (A/m) — used in Ampere's law; accounts only for free currents
+- $\mathbf{B}$ = magnetic flux density (T) — used in Faraday's law and force equations
+- $\mu_0 = 4\pi \times 10^{-7}$ H/m; $\mu_r = 1$ for air, 1000–100,000 for ferrites
 
-### Symmetry with Faraday
+### Phasor domain
 
-| Faraday | Ampere-Maxwell |
-|---------|----------------|
-| $\nabla \times \mathbf{E} = -\partial \mathbf{B}/\partial t$ | $\nabla \times \mathbf{H} = \mathbf{J} + \partial \mathbf{D}/\partial t$ |
-| Changing B → E | Changing D → H |
+For $e^{j\omega t}$ time dependence:
 
-This symmetry is why electromagnetic waves exist.
+$$\nabla \times \tilde{\mathbf{H}} = \tilde{\mathbf{J}} + j\omega\tilde{\mathbf{D}} = \tilde{\mathbf{J}} + j\omega\varepsilon\tilde{\mathbf{E}}$$
 
-### Boundary condition
+In a lossy dielectric with conductivity $\sigma$:
 
-At a surface carrying surface current $\mathbf{K}$:
+$$\nabla \times \tilde{\mathbf{H}} = (\sigma + j\omega\varepsilon)\tilde{\mathbf{E}} = j\omega\varepsilon_c\,\tilde{\mathbf{E}}$$
 
-$$\hat{n} \times (\mathbf{H}_1 - \mathbf{H}_2) = \mathbf{K}$$
+where the complex permittivity $\varepsilon_c = \varepsilon' - j\varepsilon'' = \varepsilon(1 - j\tan\delta)$ encodes both energy storage ($\varepsilon'$) and loss ($\varepsilon''$). The loss tangent $\tan\delta = \sigma/(\omega\varepsilon)$ is the key material parameter in RF substrate selection.
 
-Tangential H jumps by the surface current density.
+### Boundary condition from Ampere's law
+
+Apply Ampere's law to a thin rectangular loop straddling an interface, taking the limit as loop height → 0:
+
+$$\hat{\mathbf{n}} \times (\mathbf{H}_1 - \mathbf{H}_2) = \mathbf{K}$$
+
+Tangential $\mathbf{H}$ jumps by the surface current density $\mathbf{K}$ (A/m). At a perfect conductor surface (where $\mathbf{H} = 0$ inside), the entire tangential $\mathbf{H}$ just outside is supported by surface current: $K = H_t$.
 
 </section>
 
@@ -101,41 +128,79 @@ Tangential H jumps by the surface current density.
 
 ## Apply
 
-**Example: Capacitor in AC circuit**
+### Example 1: Magnetic field in a coaxial cable
 
-Parallel plate capacitor, area A, separation d, applied voltage $V = V_0 \sin(\omega t)$.
+A coaxial cable carries current $I$ on the inner conductor (radius $a$) and return current $-I$ on the outer conductor (inner radius $b$, outer radius $c$). Find $\mathbf{H}$ in each region.
 
-Electric field: $E = V/d$.
+**Region 1: $r < a$ (inside inner conductor, uniformly distributed current)**
 
-Displacement current density: $J_D = \epsilon \frac{dE}{dt} = \epsilon \frac{\omega V_0}{d} \cos(\omega t)$.
+Ampere's law with circular loop radius $r$:
 
-Total displacement current: $I_D = J_D \times A = \omega \epsilon A V_0 / d \times \cos(\omega t) = \omega C V_0 \cos(\omega t)$.
+$$H \cdot 2\pi r = I \frac{\pi r^2}{\pi a^2} = I\frac{r^2}{a^2}$$
 
-This equals $I = C \frac{dV}{dt}$ — Kirchhoff's law holds even through the gap.
+$$H = \frac{Ir}{2\pi a^2}$$
 
-**Example: Coaxial cable field**
+Field increases linearly with $r$ inside the conductor.
 
-Inner conductor carries current I.
+**Region 2: $a < r < b$ (dielectric, no current)**
 
-By Ampere's law: $H \times 2\pi r = I$.
+$$H \cdot 2\pi r = I \quad \Rightarrow \quad H = \frac{I}{2\pi r}$$
 
-$$H = \frac{I}{2\pi r}$$
+Field falls as $1/r$ — the familiar coaxial field. This is the field that stores magnetic energy and creates inductance per unit length $L' = (\mu_0/2\pi)\ln(b/a)$.
 
-This is the standard result for wire fields.
+**Region 3: $b < r < c$ (outer conductor, return current)**
 
-**Example: Why RF flows on conductor surface**
+Enclosed current decreases from $I$ to $0$ as $r$ increases from $b$ to $c$.
 
-At high frequency, displacement current in conductor is negligible compared to conduction.
+**Region 4: $r > c$ (outside both conductors)**
 
-But changing B induces E that opposes current flow inside — skin effect pushes current to surface.
+Total enclosed current: $I + (-I) = 0 \Rightarrow H = 0$.
 
-**Example: Antenna radiation**
+This is why coaxial cables confine their magnetic field: outside the outer conductor, the fields exactly cancel. No external magnetic field means no coupling to adjacent cables — coax is self-shielding.
 
-In the far field, no conduction current — only displacement current.
+### Example 2: Displacement current in a capacitor
 
-The wave propagates because $\partial E/\partial t$ creates H, and $\partial B/\partial t$ creates E.
+Parallel plate capacitor, area $A = 10$ cm² = $10^{-3}$ m², separation $d = 1$ mm, driven by $V(t) = V_0 \sin(\omega t)$ at $f = 1$ GHz, $V_0 = 1$ V.
 
-Self-sustaining oscillation through space.
+Electric field between plates: $E(t) = V(t)/d = V_0 \sin(\omega t)/d$
+
+Displacement current density:
+
+$$J_D = \varepsilon_0 \frac{\partial E}{\partial t} = \varepsilon_0 \frac{V_0 \omega}{d} \cos(\omega t)$$
+
+Total displacement current:
+
+$$I_D = J_D \cdot A = \frac{\varepsilon_0 \omega V_0 A}{d} \cos(\omega t) = \omega C V_0 \cos(\omega t)$$
+
+With $C = \varepsilon_0 A/d = 8.854 \times 10^{-12} \times 10^{-3}/10^{-3} = 8.854$ pF:
+
+$$I_{D,\text{peak}} = 2\pi \times 10^9 \times 8.854 \times 10^{-12} \times 1 \approx 55.6 \text{ mA}$$
+
+This equals $I = C \cdot dV/dt$ — exactly as Kirchhoff's current law requires. The displacement current in the gap is indistinguishable magnetically from a 55.6 mA conduction current.
+
+### Example 3: Why antennas radiate — displacement current in free space
+
+Consider a half-wave dipole antenna. At the tip of the antenna, the conduction current is zero — the end of the wire has nowhere for charge to go. Yet the antenna radiates efficiently.
+
+In the near field of the antenna tip, a time-varying charge accumulates and creates a time-varying $\mathbf{E}$. By Ampere's law, this $\partial \mathbf{E}/\partial t$ creates a circulating $\mathbf{H}$. That $\mathbf{H}$ change creates $\mathbf{E}$ via Faraday's law. This chain reaction propagates outward — radiation.
+
+The transition from near-field (quasi-static, reactive, $E \gg H$) to far-field (propagating wave, $E/H = 377\,\Omega$) occurs at approximately $r \approx \lambda/(2\pi)$, where $\lambda$ is the wavelength. Inside this distance, displacement current dominates; beyond it, radiation fields dominate.
+
+### Example 4: Skin effect revisited via Ampere's law
+
+Inside a conductor with conductivity $\sigma$, Ampere's law gives:
+
+$$\nabla \times \mathbf{H} = \sigma \mathbf{E} + \varepsilon \frac{\partial \mathbf{E}}{\partial t} \approx \sigma \mathbf{E} \quad \text{(good conductor: } \sigma \gg \omega\varepsilon\text{)}$$
+
+Combining with Faraday ($\nabla \times \mathbf{E} = -\mu \partial \mathbf{H}/\partial t$) and taking the curl:
+
+$$\nabla^2 \mathbf{H} = \mu\sigma \frac{\partial \mathbf{H}}{\partial t}$$
+
+This is a diffusion equation. The solution for a planar surface at $z = 0$ is:
+
+$$H(z,t) = H_0 e^{-z/\delta} \cos(\omega t - z/\delta)$$
+
+where $\delta = \sqrt{2/(\omega\mu\sigma)}$ is the skin depth. The field (and current) decays exponentially with depth — driven purely by Ampere's law plus Faraday's law inside the conductor.
 
 </section>
 
@@ -143,15 +208,15 @@ Self-sustaining oscillation through space.
 
 ## Pitfalls
 
-1. **Forgetting displacement current.** In free space or dielectrics, conduction current is zero. Only displacement current maintains the magnetic field.
+1. **Forgetting displacement current.** In free space or dielectrics, $\mathbf{J} = 0$. Only the displacement current $\partial \mathbf{D}/\partial t$ drives the magnetic field. At high frequencies, this term dominates even in weakly lossy dielectrics. Omitting it gives zero magnetic field in regions where it clearly exists.
 
-2. **Confusing H and B.** Use H for Ampere's law; B for Faraday's law. In free space, B = μ₀H. In magnetic materials, relationship is more complex.
+2. **Confusing H and B.** Use $\mathbf{H}$ in Ampere's law (it accounts for free currents only). Use $\mathbf{B}$ in Faraday's law and force equations. In free space $\mathbf{B} = \mu_0\mathbf{H}$, but in magnetic materials the relationship is $\mathbf{B} = \mu_0(\mathbf{H} + \mathbf{M})$ where $\mathbf{M}$ is the magnetization.
 
-3. **Wrong surface choice.** Ampere's law works for any surface bounded by the loop. For a capacitor, choose a surface that passes through the dielectric.
+3. **Wrong surface choice.** Ampere's law works for any surface bounded by the loop. For a capacitor in a circuit, choose a surface that passes through the dielectric (displacing $\partial D/\partial t$) rather than the conductor. Both choices give the same answer if you include all terms — but only one avoids tracking which surface the wire passes through.
 
-4. **Ignoring J in conductors.** In good conductors, conduction current dominates. Displacement current matters in dielectrics and at high frequencies.
+4. **Ignoring conduction current in conductors.** In good conductors at RF, conduction current $\sigma \mathbf{E}$ vastly exceeds displacement current $\varepsilon\omega\mathbf{E}$ — the ratio is $\sigma/(\varepsilon\omega)$. For copper at 1 GHz: $\sigma/(\varepsilon_0\omega) \approx 10^9$. Displacement current is irrelevant inside copper; only conduction current matters there.
 
-5. **Sign conventions.** Right-hand rule: curl fingers along H circulation, thumb points in direction of J and ∂D/∂t.
+5. **Sign conventions and right-hand rule.** Curl the fingers of your right hand in the direction of $\mathbf{H}$ circulation; your thumb points in the direction of $\mathbf{J} + \partial\mathbf{D}/\partial t$. If the current goes into the page, $\mathbf{H}$ circles clockwise when viewed from the current's direction. Mixing up this convention gives fields pointing the wrong way.
 
 </section>
 
@@ -159,8 +224,8 @@ Self-sustaining oscillation through space.
 
 ## References
 
-- Griffiths, *Introduction to Electrodynamics*, Chapter 7.
-- Pozar, *Microwave Engineering*, Chapter 1.
-- Jackson, *Classical Electrodynamics*, Chapter 6.
+- Griffiths, *Introduction to Electrodynamics*, Chapter 7 — Ampere's law, displacement current, and Maxwell's extension.
+- Pozar, *Microwave Engineering*, Chapter 1 — complete Maxwell equations in engineering notation.
+- Jackson, *Classical Electrodynamics*, Chapter 6 — rigorous treatment of displacement current and radiation.
 
 </section>

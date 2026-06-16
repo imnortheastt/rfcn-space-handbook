@@ -8,17 +8,258 @@ track: n0
 unit: routing-and-switching
 order: 1
 level: L0
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: []
+spiralRevisits: ["core-network-n1-mpls-vlan-vrf-01-vlan"]
 title: "Switching fundamentals"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "How switches forward frames at Layer 2, the MAC address table, and why this matters for telecom networks."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["IEEE 802.1Q", "IEEE 802.1D"]
+tags: ["switching", "mac-address", "layer-2", "networking"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Switching fundamentals
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Every packet in a telecom network passes through switches. Understanding switching is foundational — it explains why VLANs exist, how broadcast storms happen, and why Layer 2 networks don't scale infinitely.
+
+Before you can understand MPLS, VXLAN, or segment routing, you need to understand the basic switch.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What a switch does
+
+A switch connects multiple devices on the same network segment. It receives frames on one port and forwards them out the correct port.
+
+```
+┌─────────────────────────────────────────┐
+│                 Switch                   │
+│                                          │
+│  Port 1    Port 2    Port 3    Port 4   │
+│    │         │         │         │      │
+└────┼─────────┼─────────┼─────────┼──────┘
+     │         │         │         │
+     ▼         ▼         ▼         ▼
+   PC-A      PC-B     Server    Router
+```
+
+**Key insight:** A switch operates at Layer 2. It doesn't care about IP addresses. It forwards based on **MAC addresses**.
+
+### The MAC address table
+
+Every switch maintains a **MAC address table** (also called CAM table or forwarding table).
+
+| MAC Address | Port | Age |
+|-------------|------|-----|
+| AA:BB:CC:DD:EE:01 | 1 | 30s |
+| AA:BB:CC:DD:EE:02 | 2 | 45s |
+| AA:BB:CC:DD:EE:03 | 3 | 10s |
+
+**How it's built:**
+1. Frame arrives on port 1 with source MAC AA:BB:CC:DD:EE:01
+2. Switch learns: "MAC AA:BB:CC:DD:EE:01 is on port 1"
+3. This is called **source MAC learning**
+
+**How it's used:**
+1. Frame arrives with destination MAC AA:BB:CC:DD:EE:02
+2. Switch looks up MAC in table → found on port 2
+3. Forward frame out port 2 only
+
+### Unknown unicast flooding
+
+What if the destination MAC isn't in the table?
+
+The switch **floods** the frame out all ports except the one it came in on. This is called **unknown unicast flooding**.
+
+```
+Frame arrives on Port 1
+Destination MAC: FF:FF:FF:FF:FF:FF (or unknown)
+
+     Port 1         Port 2         Port 3         Port 4
+        │              │              │              │
+        ▼              ▼              ▼              ▼
+   [Received]      [FLOOD]        [FLOOD]        [FLOOD]
+```
+
+**Broadcast frames** (destination FF:FF:FF:FF:FF:FF) always flood.
+
+**Why this matters:** Flooding consumes bandwidth. In large Layer 2 networks, excessive flooding kills performance. This is why we use VLANs to limit broadcast domains.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Frame forwarding logic
+
+```
+┌─────────────────────────────────────────┐
+│         Frame arrives on Port X          │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│    Learn source MAC → Port X mapping     │
+│    (update MAC table)                    │
+└───────────────────┬─────────────────────┘
+                    │
+                    ▼
+┌─────────────────────────────────────────┐
+│    Look up destination MAC in table      │
+└───────────────────┬─────────────────────┘
+                    │
+           ┌────────┴────────┐
+           │                 │
+           ▼                 ▼
+    ┌──────────┐      ┌──────────────┐
+    │  Found   │      │  Not found   │
+    └────┬─────┘      └──────┬───────┘
+         │                   │
+         ▼                   ▼
+┌─────────────────┐  ┌─────────────────┐
+│ Forward to that │  │  Flood to all   │
+│    port only    │  │   ports (−X)    │
+└─────────────────┘  └─────────────────┘
+```
+
+### Aging
+
+MAC table entries have a timer (typically 300 seconds). If no frame is received from that MAC within the timeout, the entry is removed.
+
+**Why aging matters:**
+- Devices move between ports
+- Stale entries cause misdirected traffic
+- Balance: short aging = more flooding, long aging = slow adaptation
+
+### Store-and-forward vs cut-through
+
+**Store-and-forward:** Switch receives entire frame, checks CRC, then forwards.
+- Advantage: Catches errors before forwarding
+- Disadvantage: Adds latency (frame size / line rate)
+
+**Cut-through:** Switch starts forwarding as soon as it reads destination MAC.
+- Advantage: Minimum latency (~2.1μs at 10G)
+- Disadvantage: Propagates corrupt frames
+
+**Fragment-free:** Wait for first 64 bytes (minimum frame size), then forward.
+- Catches runt frames (collision fragments)
+- Compromise between the two
+
+Most telecom switches use **store-and-forward** — correctness matters more than microseconds.
+
+### Spanning Tree Protocol (STP)
+
+Layer 2 networks can't have loops. A frame would circulate forever, consuming all bandwidth.
+
+**Spanning Tree Protocol** prevents loops by:
+1. Electing a **root bridge**
+2. Computing shortest path to root from each switch
+3. Blocking redundant ports
+
+```
+Without STP (bad):            With STP (good):
+
+    SW1 ─────── SW2               SW1 ─────── SW2
+     │    Loop!  │                 │           │
+     │           │                 │     [X]   │
+     └─── SW3 ───┘                 └─── SW3 ───┘
+                                       (blocked)
+```
+
+**STP states:**
+- **Blocking:** Port doesn't forward, doesn't learn MACs
+- **Listening:** Port participates in STP, doesn't forward
+- **Learning:** Port learns MACs, doesn't forward yet
+- **Forwarding:** Normal operation
+
+**Convergence time:** Classic STP takes 30-50 seconds to converge after a topology change. RSTP (Rapid STP) converges in seconds.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Capacity planning:**
+
+| Factor | Impact |
+|--------|--------|
+| MAC table size | Limits devices per switch (typically 8K-128K entries) |
+| Broadcast domain size | Flooding increases with more devices |
+| STP convergence | Network down during reconvergence |
+
+**Troubleshooting switching issues:**
+
+1. **Device unreachable:**
+   - Check MAC table: `show mac address-table`
+   - Is the entry present? Correct port?
+   - Check cable, port status
+
+2. **Intermittent connectivity:**
+   - Look for MAC flapping (MAC moves between ports)
+   - Possible loop or device with spoofed MAC
+   - Check STP topology changes
+
+3. **Broadcast storms:**
+   - Symptoms: CPU spike, slow network, dropped frames
+   - Check for loops (STP misconfiguration)
+   - Check for misbehaving device flooding broadcasts
+
+**Best practices:**
+
+- Enable storm control (limit broadcast/multicast rate)
+- Use RSTP instead of classic STP
+- Limit VLAN scope (smaller broadcast domains)
+- Monitor MAC table utilization
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Thinking switches are "smart."** A switch is a simple device. It doesn't understand IP, applications, or intent. It forwards frames based on MAC lookup. That's it.
+
+2. **Ignoring broadcast domain size.** Every device on the same VLAN shares a broadcast domain. 1000 devices = every broadcast hits 1000 devices. This doesn't scale.
+
+3. **Assuming STP is instant.** Classic STP takes 30-50 seconds to converge. That's an eternity for real-time traffic. Use RSTP or alternatives.
+
+4. **Not monitoring MAC table.** If the MAC table fills up, the switch starts flooding all unknown unicast. Performance tanks. Monitor utilization.
+
+5. **Creating loops during changes.** Connecting two cables between switches without STP configured = instant network outage. Always verify STP config before adding links.
+
+6. **Confusing switches with routers.** Switches operate at Layer 2 (MAC). Routers operate at Layer 3 (IP). They solve different problems.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- IEEE 802.1D, "Media Access Control Bridges"
+- IEEE 802.1Q, "Bridges and Bridged Networks"
+- IEEE 802.1w, "Rapid Spanning Tree Protocol"
+- Spurgeon & Zimmerman, *Ethernet: The Definitive Guide*, O'Reilly, 2014
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Routing fundamentals](/en/core-network/routing-and-switching/routing-fundamentals/) — Layer 3 forwarding
+- [VLANs](/en/core-network/mpls-vlan-vrf/vlan/) — segmenting broadcast domains
+- [MPLS basics](/en/core-network/mpls-vlan-vrf/mpls-basics/) — label-based forwarding
+
+</section>

@@ -8,17 +8,424 @@ track: n3
 unit: session-management-deep-dive
 order: 5
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 14
+prerequisites: ["core-network-n3-session-management-deep-dive-01-pdu-session-establishment"]
+spiralRevisits: ["core-network-n4-qos-01-5qi"]
 title: "Luong QoS"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Phan biet luu luong trong PDU session — 5QI, QFI, bo loc goi, va quan ly flow."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 23.503", "3GPP TS 24.501"]
+tags: ["qos", "5g", "5qi", "qfi", "gbr", "smf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Luong QoS
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Mot PDU session co the mang nhieu ung dung — duyet web, goi video, gaming, tai file. Moi loai co yeu cau do tre va bang thong khac nhau.
+
+**Luong QoS** cho phep mang xu ly chung khac nhau trong cung mot session. Khong co chung, moi thu deu duoc xu ly best-effort.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Luong QoS la gi
+
+```
+Khai niem Luong QoS:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  PDU Session (Dia chi IP: 10.0.0.5)                     │
+│  │                                                       │
+│  ├── Luong QoS 1 (QFI=1)                                │
+│  │   └── Luong mac dinh, best effort                    │
+│  │   └── Duyet web, email, nen                          │
+│  │                                                       │
+│  ├── Luong QoS 2 (QFI=2)                                │
+│  │   └── Goi video, GBR                                 │
+│  │   └── Dam bao 5 Mbps                                 │
+│  │                                                       │
+│  └── Luong QoS 3 (QFI=3)                                │
+│      └── Gaming, do tre thap                            │
+│      └── Muc tieu delay 20ms                            │
+│                                                          │
+│  Cung IP, xu ly khac nhau theo flow                     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### QFI vs 5QI
+
+```
+Moi quan he QFI va 5QI:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  QFI (QoS Flow Identifier):                             │
+│  - Dinh danh cuc bo trong PDU session                   │
+│  - Pham vi: 1-63                                        │
+│  - SMF gan                                              │
+│  - Dung trong header GTP-U de danh dau goi              │
+│                                                          │
+│  5QI (5G QoS Identifier):                               │
+│  - Dinh nghia dac tinh QoS                              │
+│  - Gia tri chuan hoa (1-255)                            │
+│  - Anh xa den uu tien, do tre, ty le loi               │
+│  - Co the la chuan hoa hoac do nha mang dinh nghia      │
+│                                                          │
+│  Moi quan he:                                           │
+│  QFI → tro den → 5QI + cac tham so bo sung              │
+│                                                          │
+│  Vi du:                                                 │
+│  QFI=2 → 5QI=2 (thoai) + GBR=64kbps + MBR=128kbps      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### GBR vs Non-GBR
+
+```
+Cac Loai Luong QoS:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  GBR (Guaranteed Bit Rate):                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  - Mang dat truoc bang thong                    │    │
+│  │  - Tham so: GBR, MBR, ngan sach delay goi       │    │
+│  │  - Kiem soat chap nhan: co the tu choi neu het  │    │
+│  │  - Su dung: thoai, video conference, thoi gian  │    │
+│  │    thuc                                          │    │
+│  │                                                  │    │
+│  │  Vi du 5QI: 1 (thoai), 2 (video), 65 (MCPTT)   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Non-GBR (Best Effort):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  - Khong dat truoc bang thong                   │    │
+│  │  - Tham so: uu tien, ngan sach delay goi        │    │
+│  │  - Luon duoc chap nhan (khong dam bao tai nguyen)│    │
+│  │  - Su dung: web, email, streaming, download     │    │
+│  │                                                  │    │
+│  │  Vi du 5QI: 5 (IMS signaling), 8, 9 (web)      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Delay-Critical GBR:                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  - GBR + do tre nghiem ngat                     │    │
+│  │  - Tham so: GBR + ngan sach delay goi (cung)    │    │
+│  │  - Su dung: V2X, AR/VR, phau thuat tu xa        │    │
+│  │                                                  │    │
+│  │  Vi du 5QI: 82 (V2X), 83 (dien luc)             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cac gia tri 5QI pho bien
+
+```
+Bang 5QI Chuan hoa (mot phan):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  │ 5QI │ Loai    │ Uu tien  │ Delay  │ Loi   │ Vi du   │
+│  │─────│─────────│──────────│────────│───────│─────────│
+│  │  1  │ GBR     │    20    │ 100ms  │ 10⁻²  │ Thoai   │
+│  │  2  │ GBR     │    40    │ 150ms  │ 10⁻³  │ Video   │
+│  │  3  │ GBR     │    30    │  50ms  │ 10⁻³  │ Gaming  │
+│  │  4  │ GBR     │    50    │ 300ms  │ 10⁻⁶  │ Buffered│
+│  │  5  │ Non-GBR │    10    │ 100ms  │ 10⁻⁶  │ IMS sig │
+│  │  6  │ Non-GBR │    60    │ 300ms  │ 10⁻⁶  │ Video   │
+│  │  7  │ Non-GBR │    70    │ 100ms  │ 10⁻³  │ Thoai   │
+│  │  8  │ Non-GBR │    80    │ 300ms  │ 10⁻⁶  │ Web     │
+│  │  9  │ Non-GBR │    90    │ 300ms  │ 10⁻⁶  │ Mac dinh│
+│  │ 65  │ GBR     │     7    │  75ms  │ 10⁻²  │ MCPTT   │
+│  │ 82  │ DC-GBR  │    19    │  10ms  │ 10⁻⁴  │ V2X     │
+│  │                                                      │
+│  So uu tien nho hon = uu tien cao hon                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Thiet lap luong QoS
+
+```
+Tao Luong QoS:
+
+SMF          UPF          gNB          UE
+│             │            │            │
+│ N4 Session  │            │            │
+│ Modification│            │            │
+│ (them QER,  │            │            │
+│  QFI=2)     │            │            │
+│────────────►│            │            │
+│             │            │            │
+│ N4 Response │            │            │
+│◄────────────│            │            │
+│             │            │            │
+│ N2 PDU Sess │            │            │
+│ Res Modify  │            │            │
+│ (QFI=2,     │            │            │
+│  5QI=2)     │            │            │
+│─────────────────────────►│            │
+│             │            │            │
+│             │            │ RRC Reconfig│
+│             │            │ (DRB moi   │
+│             │            │  cho QFI=2)│
+│             │            │───────────►│
+│             │            │            │
+│             │            │ RRC Complete│
+│             │            │◄───────────│
+│             │            │            │
+│ NAS: PDU    │            │            │
+│ Session     │            │            │
+│ Modification│            │            │
+│ Command     │            │            │
+│ (quy tac    │            │            │
+│  QoS)       │            │            │
+│─────────────────────────────────────►│
+│             │            │            │
+```
+
+### Bo loc goi va quy tac QoS
+
+```
+Quy tac QoS trong UE:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Quy tac QoS 1:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rule ID: 1                                       │    │
+│  │ QFI: 1 (mac dinh)                               │    │
+│  │ Bo loc Goi: match-all                           │    │
+│  │ Uu tien: 255 (thap nhat)                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Quy tac QoS 2:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rule ID: 2                                       │    │
+│  │ QFI: 2 (goi video)                              │    │
+│  │ Bo loc Goi:                                     │    │
+│  │   - Protocol: UDP                               │    │
+│  │   - Remote IP: 203.0.113.0/24                   │    │
+│  │   - Remote Port: 5060-5061, 16384-32767 (RTP)  │    │
+│  │ Uu tien: 100 (cao hon)                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Quy tac QoS 3:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rule ID: 3                                       │    │
+│  │ QFI: 3 (gaming)                                 │    │
+│  │ Bo loc Goi:                                     │    │
+│  │   - Protocol: UDP                               │    │
+│  │   - Remote IP: 198.51.100.10                    │    │
+│  │   - Remote Port: 3478-3479                      │    │
+│  │ Uu tien: 50 (cao nhat)                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Goi den → doi chieu voi quy tac theo uu tien           │
+│  Khop dau tien → dung QFI do → danh dau trong GTP-U     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Thuc thi QoS tai UPF
+
+```
+Thuc thi QoS tai UPF (qua PFCP):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  PDR (Packet Detection Rule):                           │
+│  - Doi chieu goi den                                    │
+│  - Phan loai thanh QFI dua tren bo loc SDF             │
+│                                                          │
+│  QER (QoS Enforcement Rule):                            │
+│  - Ap dung gioi han toc do                             │
+│  - Tham so:                                             │
+│    - Trang thai cong (mo/dong)                         │
+│    - MBR (Maximum Bit Rate)                            │
+│    - GBR (Guaranteed Bit Rate)                         │
+│    - QFI ap dung                                       │
+│                                                          │
+│  Vi du QER:                                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ QER ID: 1                                        │    │
+│  │ Cong: MO                                         │    │
+│  │ UL MBR: 10 Mbps                                 │    │
+│  │ DL MBR: 50 Mbps                                 │    │
+│  │ UL GBR: 5 Mbps                                  │    │
+│  │ DL GBR: 25 Mbps                                 │    │
+│  │ QFI: 2                                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Xu ly QoS tai RAN
+
+```
+Anh xa DRB va Luong QoS tai gNB:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Anh xa Luong QoS → DRB:                                │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  QFI=1 (best effort)  ───┐                      │    │
+│  │  QFI=9 (mac dinh)     ───┼──► DRB 1 (mac dinh) │    │
+│  │                           │                      │    │
+│  │  QFI=2 (video, GBR)   ───────► DRB 2 (GBR)     │    │
+│  │                                                  │    │
+│  │  QFI=3 (gaming)       ───────► DRB 3 (do tre   │    │
+│  │                               thap)             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  gNB quyet dinh anh xa dua tren:                        │
+│  - Dac tinh 5QI                                         │
+│  - Tai nguyen kha dung                                  │
+│  - Policy nha mang                                      │
+│                                                          │
+│  Nhieu luong QoS co the anh xa cung DRB neu tuong tu   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Reflective QoS
+
+```
+Reflective QoS (RQoS):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Van de: UE can quy tac QoS cho uplink                  │
+│  Giai phap: Suy ra tu luu luong downlink                │
+│                                                          │
+│  1. Mang gui goi DL voi QFI=2                           │
+│  2. UE thay: src=server:port, dst=ue:port, QFI=2        │
+│  3. UE tao quy tac reflective:                          │
+│     src=ue:port, dst=server:port → dung QFI=2          │
+│  4. Goi UL den cung server duoc QFI=2                   │
+│                                                          │
+│  Kich hoat qua:                                         │
+│  - RQI (Reflective QoS Indication) bit trong GTP-U     │
+│  - RQ timer (quy tac ton tai bao lau)                  │
+│                                                          │
+│  Truong hop:                                            │
+│  - Dich vu do mang khoi tao                            │
+│  - Khi UE khong biet dia chi server truoc              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Luong QoS theo ung dung:**
+
+| Ung dung | 5QI | Loai | Thiet lap Dien hinh |
+|----------|-----|------|---------------------|
+| Duyet web | 9 | Non-GBR | Luong mac dinh |
+| VoLTE | 1 | GBR | Bearer rieng, 64kbps |
+| Goi video | 2 | GBR | 2-10 Mbps |
+| Gaming | 3 | GBR | Do tre thap, 10-50ms |
+| Live streaming | 6 | Non-GBR | Uu tien hon web |
+| V2X | 82 | DC-GBR | Ngan sach 10ms |
+
+**Debug QoS:**
+
+```bash
+# Wireshark: loc theo QFI trong GTP-U
+gtp.ext.qos_flow_id == 2
+
+# Kiem tra quy tac QoS gui den UE
+nas-5gs.sm.qos_rule
+
+# PFCP QER trong thiet lap session
+pfcp.qer_id
+
+# Cau hinh DRB gNB
+grep "drb-ToAddMod" /var/log/gnb/*.log
+```
+
+**Xu ly su co:**
+
+| Van de | Kiem tra |
+|--------|----------|
+| Video giat | Luong GBR da thiet lap? Du bang thong? |
+| Gaming lag | 5QI do tre thap da dung? Lap lich DRB? |
+| Thoai reu | Luong QFI=1 hoat dong? Mat goi? |
+| Tat ca cham | AMBR mac dinh qua thap? UPF qua tai? |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Khong khop bo loc goi.** Neu UE gui goi khong khop quy tac QoS nao, no dung luong mac dinh. Thieu bo loc = QoS sai.
+
+2. **Trung uu tien.** Hai quy tac cung uu tien — hanh vi khong xac dinh. Luon gan uu tien duy nhat.
+
+3. **Chap nhan GBR that bai.** Mang co the tu choi luong GBR neu thieu tai nguyen. App phai xu ly giam cap nhe nhang.
+
+4. **Can QFI.** Chi co 63 gia tri QFI moi session. Kho xay ra nhung co the voi app phuc tap.
+
+5. **Anh xa DRB sai.** gNB anh xa luong QoS den DRB. Anh xa te = cac luong yeu cau khac nhau chia se DRB.
+
+6. **Timeout Reflective QoS.** RQ timer het han → UE xoa quy tac → goi UL di vao luong mac dinh. Server phai tiep tuc gui.
+
+7. **AMBR vs toc do flow.** Session AMBR gioi han tat ca flow cong lai. MBR flow don le co the vuot session AMBR nhung tong khong.
+
+8. **Lech policy.** PCF policy noi mot dang, SMF cau hinh khac. Kiem tra quyet dinh SM policy.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.501, "System Architecture for 5GS"
+- 3GPP TS 23.503, "Policy and Charging Control Framework"
+- 3GPP TS 24.501, "NAS protocol for 5GS"
+- 3GPP TS 38.300, "NR and NG-RAN Overall Description"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [5QI chi tiet](/vi/core-network/qos/5qi-parameters/) — bang 5QI day du va dac tinh
+- [Kiem soat policy](/vi/core-network/policy-and-charging/pcf-overview/) — ai quyet dinh QoS
+- [Sua doi session](/vi/core-network/session-management-deep-dive/pdu-session-modification/) — them/xoa flow
+
+</section>

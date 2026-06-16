@@ -1,24 +1,276 @@
 ---
-id: core-network-n0-4g-5g-not-like-aws-vpc-02-user-plane-control-plane-separation-en
+id: core-network-n1-4g-5g-not-like-aws-vpc-02-user-plane-control-plane-separation-en
 slug: user-plane-control-plane-separation
 lang: en
-parityId: core-network-n0-4g-5g-not-like-aws-vpc-02-user-plane-control-plane-separation
+parityId: core-network-n1-4g-5g-not-like-aws-vpc-02-user-plane-control-plane-separation
 domain: core-network
-track: n0
+track: n1
 unit: 4g-5g-not-like-aws-vpc
 order: 2
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n1-4g-5g-not-like-aws-vpc-01-telecom-vs-cloud-networking"]
+spiralRevisits: ["core-network-n2-5g-core-sba-03-upf-architecture"]
 title: "User plane / control plane separation"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Why telecom separates data from decisions — and how this enables edge computing and scaling."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 23.501", "3GPP TS 29.244"]
+tags: ["cups", "user-plane", "control-plane", "5g-architecture"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# User plane / control plane separation
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+In traditional routers, the same box decides where packets go and actually forwards them. In 5G, these jobs are split across different network functions — often in different locations.
+
+This separation (called CUPS: Control and User Plane Separation) is what enables edge computing, independent scaling, and flexible deployment. Understanding it is essential for anyone working with modern mobile networks.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The two planes
+
+**Control plane:** Makes decisions. "Where should this session's traffic go?" "Is this user allowed to connect?" "What QoS should apply?"
+
+**User plane:** Moves data. Takes packets from A to B based on rules established by the control plane.
+
+```
+┌─────────────────────────────────────────┐
+│              Control Plane               │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐     │
+│  │ AMF │──│ SMF │──│ UDM │──│ PCF │     │
+│  └─────┘  └─────┘  └─────┘  └─────┘     │
+│                 │                        │
+│                 │ N4 (rules)             │
+│                 ▼                        │
+└─────────────────────────────────────────┘
+┌─────────────────────────────────────────┐
+│               User Plane                 │
+│           ┌───────────┐                  │
+│  gNB ────►│    UPF    │────► Internet   │
+│           └───────────┘                  │
+│           (forwards data)                │
+└─────────────────────────────────────────┘
+```
+
+**Analogy:** The control plane is like air traffic control. It decides flight paths, assigns runways, manages conflicts. The user plane is the actual airspace where planes fly.
+
+### Why separate them?
+
+| Benefit | Explanation |
+|---------|-------------|
+| Independent scaling | Control plane handles signaling (bursty, low bandwidth). User plane handles data (steady, high bandwidth). Scale each independently. |
+| Flexible placement | Put user plane at the edge (low latency). Keep control plane centralized (easier to manage). |
+| Cost optimization | Use expensive compute for control decisions. Use cheap, fast hardware for packet forwarding. |
+| Resilience | Control plane failure doesn't immediately break active sessions. User plane can continue forwarding. |
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Control plane functions (5G)
+
+| Function | Role |
+|----------|------|
+| **AMF** (Access and Mobility Management) | Manages device registration, location tracking, authentication |
+| **SMF** (Session Management Function) | Creates sessions, selects UPF, configures QoS |
+| **UDM** (Unified Data Management) | Stores subscriber data, authentication credentials |
+| **PCF** (Policy Control Function) | Defines policies (QoS, charging rules) |
+| **NRF** (Network Repository Function) | Service discovery — finds other functions |
+| **AUSF** (Authentication Server Function) | Handles authentication protocols |
+
+These functions communicate via HTTP/2 over the **Service Based Interface (SBI)**.
+
+### User plane function (5G)
+
+The **UPF (User Plane Function)** does one job: forward packets.
+
+**UPF capabilities:**
+- **Packet forwarding:** Apply rules from SMF to route packets
+- **QoS enforcement:** Mark packets, police traffic
+- **Usage reporting:** Count bytes for billing
+- **Buffering:** Hold packets during handover
+- **Lawful interception:** Copy packets when required
+
+### The N4 interface
+
+The **N4 interface** connects SMF (control) to UPF (user plane).
+
+**Protocol:** PFCP (Packet Forwarding Control Protocol)
+
+**What flows over N4:**
+- Session establishment (create forwarding rules)
+- Session modification (update rules during handover)
+- Session deletion (tear down)
+- Usage reports (bytes transferred)
+
+**Example: Session setup**
+
+```
+┌─────┐                    ┌─────┐                    ┌─────┐
+│ UE  │                    │ SMF │                    │ UPF │
+└──┬──┘                    └──┬──┘                    └──┬──┘
+   │                          │                          │
+   │ ──── PDU Session Req ──► │                          │
+   │                          │                          │
+   │                          │ ──── PFCP Session Est ──►│
+   │                          │      (create rules)      │
+   │                          │                          │
+   │                          │ ◄─── PFCP Session Est ───│
+   │                          │         Response         │
+   │                          │                          │
+   │ ◄── PDU Session Accept ──│                          │
+   │                          │                          │
+   │ ════════════════════ Data flows through UPF ════════│
+```
+
+### Forwarding rules in UPF
+
+The SMF installs **PDRs (Packet Detection Rules)** and **FARs (Forwarding Action Rules)** in the UPF.
+
+**PDR:** "Match packets that look like this..."
+- Source/destination IP
+- Port numbers
+- QoS flow identifier
+
+**FAR:** "...and do this with them"
+- Forward to destination
+- Drop
+- Buffer
+- Duplicate (for lawful interception)
+
+**Example rules:**
+
+```
+PDR 1: Match traffic from UE IP 10.0.0.5
+FAR 1: Forward to Internet interface
+
+PDR 2: Match traffic to UE IP 10.0.0.5
+FAR 2: Forward to gNB via N3 tunnel
+
+PDR 3: Match traffic QFI=5 (voice)
+FAR 3: Forward with priority marking
+```
+
+### Edge deployment
+
+CUPS enables **edge computing** by allowing UPF placement close to users:
+
+```
+┌─────────────────────────────────────────┐
+│           Central Data Center            │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐     │
+│  │ AMF │──│ SMF │──│ UDM │──│ PCF │     │
+│  └─────┘  └─────┘  └─────┘  └─────┘     │
+└─────────────────────────────────────────┘
+              │                    │
+              │ N4                 │ N4
+              ▼                    ▼
+┌─────────────────────┐  ┌─────────────────────┐
+│     Edge Site A      │  │     Edge Site B      │
+│  ┌─────┐   ┌─────┐  │  │  ┌─────┐   ┌─────┐  │
+│  │ UPF │───│ App │  │  │  │ UPF │───│ App │  │
+│  └─────┘   └─────┘  │  │  └─────┘   └─────┘  │
+│      ▲              │  │      ▲              │
+│      │              │  │      │              │
+│    gNBs             │  │    gNBs             │
+└─────────────────────┘  └─────────────────────┘
+```
+
+**Result:**
+- User data stays at the edge (low latency)
+- Control decisions made centrally (consistent policy)
+- Scale UPFs independently based on local traffic
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Deciding where to place functions:**
+
+| Function | Placement | Reason |
+|----------|-----------|--------|
+| UPF | Edge | Low latency to users |
+| AMF | Regional | Balance between latency and coverage |
+| SMF | Central | Fewer instances, easier management |
+| UDM | Central | Single source of truth |
+| PCF | Central | Consistent policy |
+
+**Capacity planning:**
+
+- **Control plane:** Size by signaling rate (sessions/second, handovers/second)
+- **User plane:** Size by throughput (Gbps) and packet rate (pps)
+
+These scale differently:
+- A gaming event increases user plane load (data)
+- A train arriving increases control plane load (handovers)
+
+**Example: Stadium deployment**
+
+```
+Event: 50,000 people in stadium
+- User plane: Need 50 Gbps capacity (1 Mbps × 50K)
+- Control plane: 50K sessions, but relatively stable
+- Solution: Deploy UPF at stadium, share central control plane
+```
+
+**Debugging CUPS issues:**
+
+1. **Session won't establish:** Check N4 connectivity, PFCP messages
+2. **Data doesn't flow:** Check UPF rules (PDR/FAR installed?)
+3. **High latency:** Check UPF placement, routing
+4. **Billing incorrect:** Check usage reporting from UPF to SMF
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Thinking CUPS is optional.** In 5G, it's fundamental architecture. You can't deploy 5G core without understanding it.
+
+2. **Ignoring N4 latency.** If SMF and UPF are far apart, session setup is slow. N4 latency directly impacts user experience during handovers.
+
+3. **Over-distributing control plane.** Spreading AMF/SMF everywhere seems intuitive but creates operational complexity. Centralize where possible.
+
+4. **Under-sizing UPF for packet rate.** Throughput (Gbps) isn't the only metric. Small packets (VoIP) have high packet rate at low throughput.
+
+5. **Forgetting state synchronization.** Multiple SMF instances must share session state. This is hard in distributed deployments.
+
+6. **Assuming UPF is "just a router."** It has specific functions (buffering, usage reporting, QoS enforcement) that generic routers don't provide.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System architecture for the 5G System"
+- 3GPP TS 29.244, "Interface between the SMF and UPF (PFCP)"
+- 3GPP TR 23.799, "Control and User Plane Separation"
+- ETSI MEC, "Multi-access Edge Computing"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Mobility management concept](/en/core-network/4g-5g-not-like-aws-vpc/mobility-management-concept/) — how sessions survive movement
+- [UPF deep dive](/en/core-network/network-functions-overview/upf/) — detailed UPF architecture
+- [SMF deep dive](/en/core-network/network-functions-overview/smf/) — session management details
+
+</section>

@@ -8,17 +8,421 @@ track: s7
 unit: practical-link-budget-walkthroughs
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "Uplink IoT bang L len CubeSat"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: ["satcom-link-overview"]
+spiralRevisits: []
+title: "Duong len IoT L-band len CubeSat"
+description: "Ngan sach lien ket cho cam bien mat dat cong suat thap truyen len CubeSat 3U trong LEO."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["ngan-sach-lien-ket", "l-band", "iot", "cubesat", "lpwan"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Uplink IoT bang L len CubeSat
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+IoT ve tinh ket noi cam bien o vung xa xoi—phao dai duong, thiet bi theo doi dong vat hoang da, giam sat nong nghiep—noi mang mat dat khong co. Thach thuc: thiet bi mat dat chay pin voi milliwatt cong suat phai dong lien ket den CubeSat cach 600 km. Huong dan nay cho thay cach L-band va dang song bang hep lam dieu do kha thi.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Kich ban
+
+```
+Kich ban Duong len IoT L-band:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CUBESAT (3U, ~5 kg):                                               │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Do cao: 600 km LEO                                         │   │
+│  │  Anten: Helix trien khai, 6 dBi                            │   │
+│  │  Nhiet do he thong: 500 K (nhin Trai dat am)               │   │
+│  │  G/T: 6 - 27 = -21 dB/K (rat gioi han!)                    │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│                     🛰 (CubeSat 3U)                                  │
+│                      │                                              │
+│                      │  600-1000 km nghieng                        │
+│                      │  (goc nang 30-90°)                          │
+│                      │                                              │
+│                      │                                              │
+│                      ▼                                              │
+│                     📡 Cam bien IoT                                 │
+│                                                                      │
+│  CAM BIEN MAT DAT:                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Tan so: 401 MHz (L-band, phan bo cho IoT ve tinh)         │   │
+│  │  Cong suat phat: 100 mW (20 dBm = -10 dBW)                 │   │
+│  │  Anten: Roi 1/4 song, 0 dBi (dang huong)                   │   │
+│  │  EIRP: -10 dBW                                             │   │
+│  │  Tin nhan: 24 byte, moi gio mot lan                        │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Tai sao L-band hoat dong cho IoT
+
+```
+Uu diem L-band cho IoT:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LAN TRUYEN:                                                        │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  • Suy hao mua thap (~0.1 dB ngay ca mua nang)             │   │
+│  │  • Hap thu khi quyen toi thieu                             │   │
+│  │  • Co the xuyen qua tan la nhe                             │   │
+│  │  • Hoat dong voi anten da huong don gian                   │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  PHAN CUNG:                                                         │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  • Anten mat dat: roi don gian (λ/4 = 19 cm tai 400 MHz)   │   │
+│  │  • Anten CubeSat: helix hoac patch trien khai kha thi      │   │
+│  │  • Tan so thap hon → buoc song lon hon → de che tao hon    │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  DANH DOI:                                                          │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  • Bang thong co san han che (kHz, khong phai MHz)         │   │
+│  │  • Toc do du lieu thap: 100 bps - 10 kbps dien hinh        │   │
+│  │  • Hoan hao cho IoT: tin nhan nho, phat khong thuong xuyen │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Phan tich ngan sach lien ket
+
+```
+Ngan sach Duong len IoT (Mat dat → CubeSat):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Tham so                             Gia tri    Don vi   Ghi chu    │
+│  ═══════════════════════════════════════════════════════════════   │
+│                                                                      │
+│  PHIA PHAT (Cam bien IoT):                                          │
+│  ────────────────────────────────────────────────────────────────  │
+│  Cong suat phat (100 mW)             -10.0      dBW     Pin        │
+│  Khuech dai anten phat (roi)          +0.0      dBi     Omni       │
+│  Ton hao cap/dau noi                  -1.0      dB                 │
+│  ────────────────────────────────────────────────────────────────  │
+│  EIRP                                -11.0      dBW                │
+│                                                                      │
+│  DUONG TRUYEN:                                                      │
+│  ────────────────────────────────────────────────────────────────  │
+│  Tan so                              401        MHz     L-band     │
+│  Tam nghieng (goc nang 45°)          800        km                 │
+│  Ton hao khong gian tu do           -145.6      dB                 │
+│  Ton hao khi quyen                    -0.5      dB                 │
+│  Nhap nhay tang dien ly               -1.0      dB      Du tru     │
+│  Lech phan cuc                        -0.5      dB                 │
+│  ────────────────────────────────────────────────────────────────  │
+│  Tong ton hao duong truyen          -147.6      dB                 │
+│                                                                      │
+│  PHIA THU (CubeSat):                                                │
+│  ────────────────────────────────────────────────────────────────  │
+│  Khuech dai anten thu (helix)         +6.0      dBi                │
+│  Nhiet do nhieu he thong             500        K       Cao!       │
+│  10×log₁₀(T_sys)                      27.0      dB                 │
+│  G/T                                 -21.0      dB/K    Kem        │
+│  ────────────────────────────────────────────────────────────────  │
+│                                                                      │
+│  TINH TOAN LIEN KET:                                                │
+│  ────────────────────────────────────────────────────────────────  │
+│  Hang so Boltzmann                  +228.6      dBW/K/Hz          │
+│  C/N₀ = EIRP - L + G/T - k                                        │
+│       = -11.0 - 147.6 + (-21.0) + 228.6                          │
+│       = 49.0 dBHz                                                  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Lam cho 49 dBHz hoat dong
+
+```
+Chien luoc Dang song Bang hep:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  C/N₀ = 49 dBHz co ve thap. Kiem tra xem co dong khong:            │
+│                                                                      │
+│  PHUONG AN 1: Lien ket du lieu tieu chuan                           │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Tai 9600 bps: BW ≈ 10 kHz = 40 dBHz                       │   │
+│  │  C/N = C/N₀ - 10×log₁₀(BW) = 49 - 40 = 9 dB               │   │
+│  │  Yeu cau cho BPSK: ~10 dB tai BER 10⁻⁵                     │   │
+│  │  Du tru: 9 - 10 = -1 dB ❌ KHONG DONG                       │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  PHUONG AN 2: Dang song IoT bang hep                                │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Tai 400 bps: BW ≈ 500 Hz = 27 dBHz                        │   │
+│  │  C/N = C/N₀ - 10×log₁₀(BW) = 49 - 27 = 22 dB              │   │
+│  │  Yeu cau cho BPSK: ~10 dB                                   │   │
+│  │  Du tru: 22 - 10 = 12 dB ✓ DONG VOI DU TRU                 │   │
+│  │                                                              │   │
+│  │  Tin nhan: 24 byte = 192 bit                                │   │
+│  │  Thoi gian: 192 / 400 = 0.48 giay                          │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  PHUONG AN 3: Trai pho (kieu LoRa)                                  │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  He so trai SF=10: 10 dB xu ly tang ich                    │   │
+│  │  C/N₀ hieu dung: 49 + 10 = 59 dBHz                         │   │
+│  │  Bay gio 9.6 kbps co the hoat dong voi du tru              │   │
+│  │  Danh doi: Dung nhieu pho hon, thoi gian phat dai hon      │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Thach thuc may thu CubeSat
+
+```
+Tai sao G/T CubeSat Rat Kem:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KHUECH DAI ANTEN GIOI HAN:                                         │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  CubeSat 3U: 10×10×30 cm                                   │   │
+│  │  Anten toi da: ~30 cm trien khai                           │   │
+│  │  Tai 400 MHz (λ = 75 cm): khau do nho                      │   │
+│  │  Khuech dai dien hinh: 3-6 dBi (helix hoac turnstile)     │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  NHIET DO NHIEU CAO:                                                │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  🛰 CubeSat nhin XUONG Trai dat                             │   │
+│  │      │                                                      │   │
+│  │      ▼                                                      │   │
+│  │     🌍 Trai dat = nguon nhieu ~290K                        │   │
+│  │                                                              │   │
+│  │  Nhiet do anten: 200-290 K (Trai dat lap day)              │   │
+│  │  Nhiet do LNA: 100-300 K (linh kien COTS, khong lam lanh) │   │
+│  │  Nhiet do he thong: 300-600 K tong                         │   │
+│  │                                                              │   │
+│  │  G/T = 6 dBi - 27 dB = -21 dB/K                           │   │
+│  │                                                              │   │
+│  │  So sanh: G/T tram mat dat: +10 den +30 dB/K               │   │
+│  │  Chenh lech: kem hon 30-50 dB!                              │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  GIAI PHAP: Toc do du lieu thap + tang ich xu ly                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tinh toan ngan sach lien ket IoT hoan chinh:**
+
+```python
+import numpy as np
+
+def iot_cubesat_link_budget():
+    """
+    Ngan sach duong len IoT L-band (cam bien → CubeSat).
+    """
+    # Hinh hoc
+    altitude_km = 600
+    elevation_deg = 45
+    earth_radius_km = 6371
+    
+    el_rad = np.radians(elevation_deg)
+    r_sat = earth_radius_km + altitude_km
+    slant_range_km = np.sqrt(
+        r_sat**2 - (earth_radius_km * np.cos(el_rad))**2
+    ) - earth_radius_km * np.sin(el_rad)
+    
+    # Tan so
+    freq_mhz = 401
+    freq_ghz = freq_mhz / 1000
+    
+    # Ton hao khong gian tu do
+    fspl_db = 92.45 + 20 * np.log10(freq_ghz * slant_range_km)
+    
+    # Cam bien IoT (phat)
+    p_tx_mw = 100
+    p_tx_dbw = 10 * np.log10(p_tx_mw / 1000)  # -10 dBW
+    g_tx_dbi = 0.0  # anten roi
+    cable_loss_db = 1.0
+    eirp_dbw = p_tx_dbw + g_tx_dbi - cable_loss_db
+    
+    # Ton hao them
+    atm_loss_db = 0.5
+    iono_loss_db = 1.0
+    pol_loss_db = 0.5
+    total_add_loss_db = atm_loss_db + iono_loss_db + pol_loss_db
+    
+    # May thu CubeSat
+    g_rx_dbi = 6.0  # helix trien khai
+    t_sys_k = 500.0  # nhin Trai dat am
+    g_t_dbk = g_rx_dbi - 10 * np.log10(t_sys_k)
+    
+    # Ngan sach lien ket
+    total_loss_db = fspl_db + total_add_loss_db
+    k_dbw = -228.6
+    c_n0_dbhz = eirp_dbw - total_loss_db + g_t_dbk - k_dbw
+    
+    print("Ngan sach Lien ket Duong len IoT L-band")
+    print("=" * 60)
+    print(f"\n--- HINH HOC ---")
+    print(f"Do cao:          {altitude_km} km")
+    print(f"Goc nang:        {elevation_deg}°")
+    print(f"Tam nghieng:     {slant_range_km:.1f} km")
+    
+    print(f"\n--- PHAT (Cam bien IoT) ---")
+    print(f"Cong suat phat:  {p_tx_mw} mW = {p_tx_dbw:.1f} dBW")
+    print(f"Khuech dai anten: {g_tx_dbi:.1f} dBi (roi)")
+    print(f"Ton hao cap:     -{cable_loss_db} dB")
+    print(f"EIRP:            {eirp_dbw:.1f} dBW")
+    
+    print(f"\n--- DUONG TRUYEN ---")
+    print(f"Tan so:          {freq_mhz} MHz")
+    print(f"Ton hao KG tu do: {fspl_db:.1f} dB")
+    print(f"Ton hao them:    {total_add_loss_db:.1f} dB")
+    print(f"Tong ton hao:    {total_loss_db:.1f} dB")
+    
+    print(f"\n--- THU (CubeSat) ---")
+    print(f"Khuech dai anten: {g_rx_dbi:.1f} dBi")
+    print(f"Nhiet do HT:     {t_sys_k:.0f} K")
+    print(f"G/T:             {g_t_dbk:.1f} dB/K")
+    
+    print(f"\n--- KET QUA ---")
+    print(f"C/N₀:            {c_n0_dbhz:.1f} dBHz")
+    
+    # Cac tuy chon toc do du lieu
+    print(f"\n--- PHAN TICH TOC DO DU LIEU ---")
+    data_rates = [100, 400, 1200, 9600]  # bps
+    for rate in data_rates:
+        bw_hz = 1.2 * rate
+        c_n_db = c_n0_dbhz - 10 * np.log10(bw_hz)
+        required_cn = 10
+        margin = c_n_db - required_cn
+        status = "✓" if margin > 3 else "⚠" if margin > 0 else "✗"
+        print(f"  {rate:5d} bps: C/N = {c_n_db:.1f} dB, "
+              f"du tru = {margin:.1f} dB {status}")
+    
+    # Thoi gian tin nhan
+    print(f"\n--- THOI GIAN TIN NHAN ---")
+    msg_bytes = 24
+    msg_bits = msg_bytes * 8
+    best_rate = 400
+    tx_time = msg_bits / best_rate
+    print(f"Kich thuoc TN:   {msg_bytes} byte ({msg_bits} bit)")
+    print(f"Tai {best_rate} bps:      {tx_time:.2f} giay phat")
+    
+    # Cua so lien lac
+    pass_time_min = 10
+    messages_per_pass = int(pass_time_min * 60 / (tx_time + 1))
+    print(f"Thoi gian qua:   ~{pass_time_min} phut")
+    print(f"Tin nhan/qua:    ~{messages_per_pass} (voi thoi gian bao ve)")
+    
+    return c_n0_dbhz
+
+c_n0 = iot_cubesat_link_budget()
+
+# Danh doi cong suat vs tam
+print("\n" + "=" * 60)
+print("DANH DOI CONG SUAT vs TAM")
+print("-" * 60)
+powers_mw = [50, 100, 250, 500, 1000]
+for p in powers_mw:
+    eirp = 10 * np.log10(p/1000) + 0 - 1
+    c_n0_var = eirp - 147.6 + (-21) + 228.6
+    margin_400bps = c_n0_var - 27 - 10
+    print(f"  {p:4d} mW: EIRP = {eirp:.1f} dBW, "
+          f"C/N₀ = {c_n0_var:.1f} dBHz, "
+          f"du tru@400bps = {margin_400bps:.1f} dB")
+```
+
+**So sanh ve tinh IoT:**
+
+| He thong | Tan so | CS phat | Toc do | Tin nhan |
+|----------|--------|---------|--------|----------|
+| Swarm | 148 MHz | 1W | 1 kbps | 192 byte |
+| Orbcomm | 400 MHz | 5W | 2.4 kbps | 6-2000 byte |
+| Iridium SBD | 1.6 GHz | 1.6W | 2.4 kbps | 340 byte |
+| Myriota | 400 MHz | 20 mW | 500 bps | 20 byte |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Bat ngo G/T CubeSat.** -20 dB/K la pho bien—dung gia dinh hieu suat tram mat dat.
+
+2. **Doppler tai LEO.** ±10 kHz tai L-band tu chuyen dong CubeSat; may thu phai theo doi.
+
+3. **Cua so lien lac ngan.** ~10 phut qua, khong phai luc nao cung tren dau—len ke hoach thoi gian tin nhan.
+
+4. **Anh huong tang dien ly.** Quay Faraday, nhap nhay—te hon o tan so thap.
+
+5. **Rang buoc pho.** Chi co phan bo hep cho sat-IoT; can phoi hop.
+
+6. **Tuoi tho pin.** 100 mW × 1 giay = 100 mJ moi tin nhan; nhan voi tin nhan/ngay.
+
+7. **Xac suat va cham.** Nhieu cam bien, mot ve tinh—giao thuc MAC thiet yeu.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- Quy dinh Vo tuyen ITU (phan bo 401-403 MHz)
+- Tai lieu he thong ARGOS
+- Tai lieu thiet ke anten CubeSat
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [TT&C X-band Khong gian Sau](/vi/space/practical-link-budget-walkthroughs/x-band-ttc-deep-space/) — thach thuc tam cuc xa
+- [Kien truc Chom sao LEO](/vi/space/leo-constellation-architecture/starlink-class-design/) — goc nhin he thong
+- [Tong quan Lien ket Satcom](/vi/space/satcom-link-in-one-diagram/satcom-link-overview/) — co ban
+
+</section>

@@ -9,16 +9,475 @@ unit: multiple-access-satellite
 order: 4
 level: L3
 estimatedReadingMinutes: 5
-title: "MF-TDMA"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "MF-TDMA — Da truy cap Phan chia Thoi gian Nhieu Tan so"
+description: "Phuong phap truy cap VSAT hien dai thong tri ket hop tinh linh hoat cua FDMA voi hieu qua cua TDMA cho phan bo bang thong dong."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["mf-tdma", "dvb-rcs2", "vsat", "bang-thong-dong", "ve-tinh"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# MF-TDMA
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+MF-TDMA la cong cu chinh cua he thong VSAT hien dai. No ket hop FDMA (nhieu song mang tan so) voi TDMA (khe thoi gian tren moi song mang). Ket qua: he thong quan ly mang co the gan dong bat ky thiet bi dau cuoi nao vao bat ky khe nao tren bat ky song mang nao, phu hop dung luong voi nhu cau theo thoi gian thuc. Day la ly do ket noi Viasat hoac HughesNet cua ban co the tang toc cao khi can nhung chia se tai nguyen hieu qua qua hang trieu thue bao. DVB-RCS2, tieu chuan toan cau, duoc xay dung tren MF-TDMA.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Vi du luoi
+
+```
+MF-TDMA: Luoi 2D cua tan so × khe thoi gian
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Nghi ve bai dau xe nhieu tang (tan so)                            │
+│  va nhieu cho dau moi tang (khe thoi gian).                        │
+│                                                                      │
+│  Ban co the dau tai BAT KY cho trong nao tren BAT KY tang nao.    │
+│  Nguoi quan ly bai phan bo cho dong dua tren nhu cau.             │
+│                                                                      │
+│                                                                      │
+│  Tan so                                                             │
+│      ▲                                                              │
+│      │                                                              │
+│  f4 ─┼──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┐   │
+│      │A │  │B │  │A │C │  │  │D │  │A │B │  │C │  │  │D │A │  │   │
+│  f3 ─┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤   │
+│      │  │D │  │A │  │  │B │A │  │C │  │  │A │  │D │B │  │  │C │   │
+│  f2 ─┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤   │
+│      │B │  │C │  │D │A │  │B │  │  │C │D │  │A │  │  │B │C │  │   │
+│  f1 ─┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤   │
+│      │  │A │  │B │  │  │C │  │A │D │  │  │B │  │A │C │  │  │D │   │
+│      └──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┘   │
+│      │◄──────────────── Sieu khung ───────────────────────────►│   │
+│                                                                      │
+│  • Moi o = mot khe thoi gian tren mot tan so                       │
+│  • Thiet bi dau cuoi nhay giua tan so va khe                       │
+│  • Hub gan khe qua TBTP (Ke hoach Thoi gian Cum Dau cuoi)          │
+│  • Khe trong = dung luong san co de burst                          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Phan bo bang thong dong
+
+```
+Tai sao MF-TDMA Thang TDMA hoac FDMA Thuan tuy:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KICH BAN: 100 dau cuoi, phan lon nhan roi, thỉnh thoảng burst     │
+│                                                                      │
+│  FDMA THUAN TUY:                                                    │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Moi dau cuoi co dinh 360 kHz (36 MHz / 100)                │   │
+│  │  Toc do dinh: 360 kHz × 2 bps/Hz = 720 kbps                 │   │
+│  │  Neu 5% hoat dong: 95% bang thong lang phi                  │   │
+│  │  KHONG BURSTING - bi ket o 720 kbps                         │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  TDMA THUAN TUY (mot song mang):                                    │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Song mang 36 MHz, 100 khe moi khung                        │   │
+│  │  Moi dau cuoi: 1 khe = 1% thoi gian tai 72 Mbps             │   │
+│  │  Toc do dinh: 720 kbps duy tri                              │   │
+│  │  Khong hieu qua cho dau cuoi nho (overhead preamble lon)    │   │
+│  │  BURSTING HAN CHE - bi rang buoc boi kich thuoc khe         │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  MF-TDMA:                                                           │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  4 song mang × 6 MHz, 25 khe moi song mang moi khung        │   │
+│  │  Dau cuoi nho: 1 khe tren 1 song mang = 360 kbps            │   │
+│  │  Burst trung binh: 4 khe qua 2 song mang = 2.9 Mbps         │   │
+│  │  Burst lon: 20 khe qua 4 song mang = 14 Mbps                │   │
+│  │  DONG - lay bao nhieu khe can!                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  MF-TDMA cung cap bursting linh hoat trong khi chia se            │
+│  bang thong hieu qua qua cac dau cuoi voi nhu cau khac nhau.      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cau truc khung DVB-RCS2
+
+```
+Phan cap Khung MF-TDMA DVB-RCS2:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SIEU KHUNG (48-750 ms, cau hinh duoc)                             │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                               │   │
+│  │  ┌─────────┬─────────┬─────────┬─────────┬─────────┐        │   │
+│  │  │ Khung 0 │ Khung 1 │ Khung 2 │  ...    │ Khung N │        │   │
+│  │  └─────────┴─────────┴─────────┴─────────┴─────────┘        │   │
+│  │                                                               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  KHUNG (song mang × thoi gian)                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │         │  Khe 0   │  Khe 1   │  Khe 2   │  ...  │  Khe M   │   │
+│  │  SM 0   │──────────┼──────────┼──────────┼───────┼──────────│   │
+│  │  SM 1   │──────────┼──────────┼──────────┼───────┼──────────│   │
+│  │  SM 2   │──────────┼──────────┼──────────┼───────┼──────────│   │
+│  │  ...    │──────────┼──────────┼──────────┼───────┼──────────│   │
+│  │  SM K   │──────────┼──────────┼──────────┼───────┼──────────│   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  KHE THOI GIAN (don vi truyen dan)                                 │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  ┌──────┬─────────┬────────────────────────┬──────┐         │   │
+│  │  │Bao ve│Preamble │      Du lieu Tai trong │Bao ve│         │   │
+│  │  │      │  + UW   │   (ATM/IP/MPEG)        │      │         │   │
+│  │  └──────┴─────────┴────────────────────────┴──────┘         │   │
+│  │                                                               │   │
+│  │  Bao ve: 1-5 ky hieu (dung sai dinh thoi)                   │   │
+│  │  Preamble: CR + BTR + UW ≈ 48-96 ky hieu                    │   │
+│  │  Tai trong: 64-2048 byte dien hinh                          │   │
+│  │                                                               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Co che phan bo bang thong
+
+```
+Phan bo Dung luong MF-TDMA:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  BA LOAI DUNG LUONG:                                               │
+│                                                                      │
+│  1. CRA (Phan bo Toc do Khong doi)                                 │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  • Khe co dinh moi khung (giong SCPC, nhung chia se)          │ │
+│  │  • Bang thong dam bao, uu tien cao nhat                       │ │
+│  │  • Dung cho: VoIP, hoi nghi video, du lieu quan trong        │ │
+│  │  • Vi du: 256 kbps CRA cho thoai doanh nghiep                │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  2. RBDC (Dung luong Dong theo Toc do)                             │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  • Dau cuoi yeu cau toc do (kbps), hub phan bo khe            │ │
+│  │  • Duy tri cho den khi dau cuoi yeu cau toc do thap hon       │ │
+│  │  • Dung cho: Streaming, tai xuong, du lieu tuong tac         │ │
+│  │  • Vi du: Yeu cau 2 Mbps cho streaming video                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  3. VBDC (Dung luong Dong theo Khoi luong)                         │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  • Dau cuoi yeu cau khoi luong (byte), hub phan bo khe        │ │
+│  │  • Mot lan: dung luong cap mot lan moi yeu cau                │ │
+│  │  • Dung cho: Email, duyet web, burst                         │ │
+│  │  • Vi du: Yeu cau 50 KB cho phan hoi HTTP                    │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  4. FCA (Phan bo Dung luong Tu do)                                 │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  • Hub phan phoi dung luong khong dung cho dau cuoi hoat dong │ │
+│  │  • No luc tot nhat, uu tien thap nhat                         │ │
+│  │  • Hap thu phan du CRA + RBDC + VBDC                         │ │
+│  │  • Dung cho: Truyen nen, cap nhat phan mem                   │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TONG DUNG LUONG = CRA + RBDC + VBDC + FCA ≤ Dung luong He thong  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Ke hoach thoi gian cum dau cuoi (TBTP)
+
+```
+Cach Khe Duoc Phan bo:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LIEN KET XUOI (Hub → Dau cuoi):                                   │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                │ │
+│  │  Hub phat TBTP (Ke hoach Thoi gian Cum Dau cuoi):             │ │
+│  │                                                                │ │
+│  │  "Trong sieu khung 1234:                                      │ │
+│  │     Dau cuoi 001: Song mang 2, Khe 5-7                       │ │
+│  │     Dau cuoi 002: Song mang 1, Khe 12                        │ │
+│  │     Dau cuoi 003: Song mang 3, Khe 1-4, 8-10                 │ │
+│  │     ..."                                                      │ │
+│  │                                                                │ │
+│  │  Gui truoc 2-3 sieu khung (tre lap lich)                      │ │
+│  │                                                                │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  LIEN KET NGUOC (Dau cuoi → Hub):                                  │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                │ │
+│  │  Dau cuoi truyen yeu cau dung luong qua:                      │ │
+│  │  • Truong SAC trong moi cum                                  │ │
+│  │  • Khe tranh chap rieng (cho truy cap ban dau)               │ │
+│  │                                                                │ │
+│  │  Dinh dang yeu cau:                                           │ │
+│  │    "Dau cuoi 001 yeu cau: CRA=128kbps, RBDC=0, VBDC=8KB"     │ │
+│  │                                                                │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  VONG LAP DINH THOI:                                               │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                │ │
+│  │  Sieu khung N:   Dau cuoi gui yeu cau dung luong              │ │
+│  │  Sieu khung N+1: Hub xu ly, tinh TBTP                        │ │
+│  │  Sieu khung N+2: Hub phat TBTP                               │ │
+│  │  Sieu khung N+3: Dau cuoi truyen trong khe duoc gan          │ │
+│  │                                                                │ │
+│  │  Tong tre: ~3 sieu khung = 150-500 ms dien hinh              │ │
+│  │                                                                │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**May tinh dung luong va hieu qua MF-TDMA:**
+
+```python
+import numpy as np
+
+def dung_luong_khung_mf_tdma(so_song_mang, bw_song_mang_mhz, toc_do_ky_hieu_msps,
+                              bit_moi_ky_hieu, ty_le_ma, khe_moi_khung,
+                              ky_hieu_preamble, ky_hieu_bao_ve):
+    """
+    Tinh dung luong khung MF-TDMA.
+    """
+    thoi_gian_khe_us = 1000000 / toc_do_ky_hieu_msps / khe_moi_khung
+    
+    ky_hieu_tai_trong = int(thoi_gian_khe_us * toc_do_ky_hieu_msps) - ky_hieu_preamble - ky_hieu_bao_ve
+    
+    bit_moi_khe = ky_hieu_tai_trong * bit_moi_ky_hieu * ty_le_ma
+    byte_moi_khe = bit_moi_khe / 8
+    
+    tong_khe = so_song_mang * khe_moi_khung
+    
+    return {
+        "so_song_mang": so_song_mang,
+        "khe_moi_khung": khe_moi_khung,
+        "tong_khe": tong_khe,
+        "byte_moi_khe": int(byte_moi_khe),
+        "ky_hieu_tai_trong": ky_hieu_tai_trong
+    }
+
+def phan_bo_dung_luong(tong_khe, dau_cuoi):
+    """
+    Mo phong phan bo dung luong MF-TDMA.
+    
+    Args:
+        tong_khe: Tong khe moi sieu khung
+        dau_cuoi: Danh sach dict {id, khe_cra, khe_rbdc, khe_vbdc}
+    
+    Returns:
+        Ket qua phan bo
+    """
+    tong_cra = sum(t.get("khe_cra", 0) for t in dau_cuoi)
+    tong_rbdc = sum(t.get("khe_rbdc", 0) for t in dau_cuoi)
+    tong_vbdc = sum(t.get("khe_vbdc", 0) for t in dau_cuoi)
+    
+    da_cam_ket = tong_cra + tong_rbdc + tong_vbdc
+    fca_san_co = max(0, tong_khe - da_cam_ket)
+    
+    dc_hoat_dong = len([t for t in dau_cuoi if 
+                       t.get("khe_cra", 0) + t.get("khe_rbdc", 0) + t.get("khe_vbdc", 0) > 0])
+    
+    fca_moi_dc = fca_san_co // max(1, dc_hoat_dong) if dc_hoat_dong > 0 else 0
+    
+    return {
+        "tong_khe": tong_khe,
+        "khe_cra": tong_cra,
+        "khe_rbdc": tong_rbdc,
+        "khe_vbdc": tong_vbdc,
+        "khe_fca": fca_san_co,
+        "su_dung": da_cam_ket / tong_khe,
+        "fca_moi_dc": fca_moi_dc
+    }
+
+def thong_luong_dau_cuoi(cra_kbps, rbdc_kbps, vbdc_burst_kb, fca_kbps,
+                         cir_kbps, mir_kbps):
+    """
+    Tinh thong luong dau cuoi voi rang buoc QoS.
+    """
+    tong = cra_kbps + rbdc_kbps + fca_kbps
+    
+    dam_bao = min(cra_kbps, cir_kbps)
+    
+    dinh = min(tong, mir_kbps)
+    
+    return {
+        "dam_bao_kbps": dam_bao,
+        "dien_hinh_kbps": cra_kbps + rbdc_kbps,
+        "dinh_kbps": dinh,
+        "vbdc_burst_kb": vbdc_burst_kb
+    }
+
+print("Phan tich Dung luong MF-TDMA")
+print("=" * 70)
+
+# Cau hinh he thong
+print("\n1. Cau hinh He thong MF-TDMA (Vi du DVB-RCS2)")
+print("-" * 70)
+
+print("""
+  Cau hinh Lien ket Nguoc DVB-RCS2 Dien hinh:
+
+  ┌────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  Tham so                  │ Gia tri                            │
+  │  ─────────────────────────┼────────────────────────────────── │
+  │  Bang thong nguoc         │ 36 MHz (transponder bang Ku)      │
+  │  So song mang             │ 6 × 6 MHz                         │
+  │  Toc do ky hieu/song mang │ 4.5 Msps                          │
+  │  Dieu che                 │ QPSK                              │
+  │  Ty le ma FEC             │ 1/2 den 3/4 (thich ung)           │
+  │  Khe moi khung            │ 32 moi song mang                  │
+  │  Tong khe moi khung       │ 6 × 32 = 192                      │
+  │  Thoi gian sieu khung     │ 48 ms                             │
+  │  Tai trong khe            │ 188 byte (tuong thich ATM)        │
+  │                                                                 │
+  └────────────────────────────────────────────────────────────────┘
+""")
+
+# Vi du phan bo dung luong
+print("\n2. Vi du Phan bo Dung luong")
+print("-" * 70)
+
+dau_cuoi = [
+    {"id": "DN 1", "khe_cra": 4, "khe_rbdc": 8, "khe_vbdc": 2},
+    {"id": "DN 2", "khe_cra": 4, "khe_rbdc": 4, "khe_vbdc": 0},
+    {"id": "TD 1", "khe_cra": 0, "khe_rbdc": 2, "khe_vbdc": 4},
+    {"id": "TD 2", "khe_cra": 0, "khe_rbdc": 1, "khe_vbdc": 2},
+    {"id": "TD 3", "khe_cra": 0, "khe_rbdc": 0, "khe_vbdc": 6},
+]
+
+tong_khe = 192
+phan_bo = phan_bo_dung_luong(tong_khe, dau_cuoi)
+
+print(f"\n  Tong khe moi sieu khung: {phan_bo['tong_khe']}")
+print(f"\n  Phan bo chi tiet:")
+print(f"    CRA (dam bao):      {phan_bo['khe_cra']:>3} khe ({phan_bo['khe_cra']/tong_khe*100:>5.1f}%)")
+print(f"    RBDC (theo toc do): {phan_bo['khe_rbdc']:>3} khe ({phan_bo['khe_rbdc']/tong_khe*100:>5.1f}%)")
+print(f"    VBDC (theo kluong): {phan_bo['khe_vbdc']:>3} khe ({phan_bo['khe_vbdc']/tong_khe*100:>5.1f}%)")
+print(f"    FCA (tu do):        {phan_bo['khe_fca']:>3} khe ({phan_bo['khe_fca']/tong_khe*100:>5.1f}%)")
+print(f"\n  Su dung he thong: {phan_bo['su_dung']:.1%}")
+print(f"  FCA moi dau cuoi hoat dong: {phan_bo['fca_moi_dc']} khe")
+
+# QoS dau cuoi
+print("\n3. Ho so QoS Dau cuoi")
+print("-" * 70)
+
+ho_so = [
+    ("DN Vang", 512, 2048, 100, 1024, 512, 10240),
+    ("DN Bac", 256, 1024, 50, 512, 256, 5120),
+    ("TD Cao cap", 128, 512, 25, 512, 128, 2048),
+    ("TD Co ban", 0, 256, 10, 256, 64, 1024),
+]
+
+print(f"\n  {'Ho so':<20} {'CRA':>8} {'RBDC':>8} {'CIR':>8} {'MIR':>8} {'Dinh':>10}")
+print(f"  {'-'*62}")
+
+for ten, cra, rbdc, vbdc, fca, cir, mir in ho_so:
+    tp = thong_luong_dau_cuoi(cra, rbdc, vbdc, fca, cir, mir)
+    print(f"  {ten:<20} {cra:>6}k {rbdc:>6}k {tp['dam_bao_kbps']:>6}k {mir:>6}k {tp['dinh_kbps']:>8}k")
+
+# So sanh tre
+print("\n4. Thanh phan Tre MF-TDMA")
+print("-" * 70)
+
+print("""
+  ┌────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  Thanh phan                     │ Gia tri Dien hinh            │
+  │  ───────────────────────────────┼────────────────────────────  │
+  │  Lan truyen (khu hoi GEO)       │ 540-600 ms                   │
+  │  Tre lap lich sieu khung        │ 48-100 ms (2-3 sieu khung)  │
+  │  Xu ly tai hub                  │ 5-20 ms                      │
+  │  Xu ly tai dau cuoi             │ 5-10 ms                      │
+  │  ───────────────────────────────┼────────────────────────────  │
+  │  TONG (goi dau tien)            │ 600-750 ms                   │
+  │  TONG (goi tiep theo)           │ 540-640 ms                   │
+  │                                                                 │
+  │  De so sanh:                                                   │
+  │  • SCPC: 540-560 ms (khong lap lich)                          │
+  │  • Mat dat: 20-100 ms                                          │
+  │                                                                 │
+  └────────────────────────────────────────────────────────────────┘
+""")
+```
+
+**Cong thuc chinh:**
+
+| Chi so | Cong thuc |
+|--------|-----------|
+| Tong khe | So_song_mang × Khe_moi_song_mang |
+| Dung luong khe | (Ky_hieu_khe - Preamble - Bao_ve) × Bit/ky_hieu × Ty_le_ma / 8 |
+| Dam bao CIR | min(Toc_do_CRA, Toc_do_Cam_ket) |
+| Toc do dinh | min(CRA + RBDC + FCA, MIR) |
+| Su dung | (CRA + RBDC + VBDC) / Tong_khe |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Bo qua tre lap lich.** MF-TDMA them 2-3 sieu khung tre cho yeu cau dung luong. Tre goi dau tien co the cao hon SCPC 100-200 ms.
+
+2. **Dang ky qua nhieu CRA.** CRA duoc dam bao — neu ban hua nhieu CRA hon dung luong he thong, ban se that bai tai tai dinh. Giu tong CRA < 70% dung luong.
+
+3. **Ky vong burst tuc thi.** Yeu cau VBDC/RBDC mat 2-3 sieu khung de dap ung. Luu luong web theo cum cam nhan tre nay.
+
+4. **Quen bien do suy hao mua.** He thong MF-TDMA dung ma hoa/dieu che thich ung. Mua to giam khe moi dau cuoi — danh ngan sach cho che do suy giam.
+
+5. **Danh gia thap overhead preamble.** Khe nho co phan tram preamble cao hon. Khe 64-byte voi preamble 96 ky hieu mat ~20% cho overhead.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- ETSI EN 301 545-2 — Dac ta Lop Thap DVB-RCS2
+- ETSI EN 301 545-4 — Huong dan trien khai DVB-RCS2
+- Tai lieu he thong Hughes JUPITER — MF-TDMA thuong mai
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [FDMA](/vi/space/multiple-access-satellite/fdma/) — so sanh voi phan chia tan so thuan tuy
+- [TDMA](/vi/space/multiple-access-satellite/tdma/) — so sanh voi phan chia thoi gian thuan tuy
+- [CDMA & SCPC](/vi/space/multiple-access-satellite/cdma-scpc/) — cac phuong an song mang rieng
+
+</section>

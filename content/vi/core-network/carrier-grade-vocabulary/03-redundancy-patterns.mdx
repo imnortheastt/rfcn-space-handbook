@@ -8,17 +8,412 @@ track: n0
 unit: carrier-grade-vocabulary
 order: 3
 level: L2
-estimatedReadingMinutes: 5
-title: "Cac mau du phong"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-carrier-grade-vocabulary-02-mtbf-and-mttr"]
+spiralRevisits: ["core-network-n1-why-telcos-build-differently-02-five-nines-availability"]
+title: "Cac Mau Du Phong"
+description: "1+1, N+1, N+M, active-active, active-standby — cac building block cua high availability."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["ITU-T G.841", "MEF 2.0"]
+tags: ["redundancy", "high-availability", "failover", "networking"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Cac mau du phong
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Single point of failure giet chet availability. Toan don gian: neu mot component co 99.9% availability, hai component song song cho ban 99.9999%.
+
+Redundancy pattern la cach mang vien thong dat duoc "five nines" va hon nua. Hieu chung cho phep ban thiet ke he thong song sot qua failure mot cach graceful.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Pho redundancy
+
+```
+It redundant hon                                       Redundant hon
+     │                                                        │
+     ▼                                                        ▼
+┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐
+│ Single │   │  Cold  │   │  Warm  │   │  Hot   │   │ Active │
+│        │   │Standby │   │Standby │   │Standby │   │ Active │
+└────────┘   └────────┘   └────────┘   └────────┘   └────────┘
+     │            │            │            │            │
+   Khong     Phut de      Giay de    Duoi giay    Khong co
+  fallback   failover     failover   failover     failover
+```
+
+**Tradeoff quan trong:**
+- Redundancy nhieu hon = chi phi cao hon
+- Redundancy nhieu hon = thoi gian failover thap hon
+- Redundancy nhieu hon = phuc tap hon
+
+### Pattern pho bien
+
+**1+1 (One-plus-one):**
+```
+┌──────────┐
+│ Primary  │──────┐
+│ (Active) │      │
+└──────────┘      ├──────► Traffic
+┌──────────┐      │
+│ Standby  │──────┘
+│ (Idle)   │
+└──────────┘
+
+100% spare capacity. Primary fail → standby tiep nhan.
+```
+
+**N+1 (N-plus-one):**
+```
+┌──────────┐
+│ Active 1 │──────┐
+└──────────┘      │
+┌──────────┐      │
+│ Active 2 │──────┼──────► Traffic
+└──────────┘      │
+┌──────────┐      │
+│ Active 3 │──────┤
+└──────────┘      │
+┌──────────┐      │
+│ Standby  │──────┘
+└──────────┘
+
+Mot spare cover N unit dang hoat dong.
+Bat ky cai nao fail → standby tiep nhan.
+```
+
+**N+M (N-plus-M):**
+```
+Giong N+1, nhung voi M spare.
+Co the song sot M failure dong thoi.
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cac che do standby
+
+**Cold standby:**
+- Backup tat nguon hoac chua config
+- Can manual intervention de bring up
+- Thoi gian failover: phut den gio
+- Chi phi thap nhat, availability thap nhat
+
+```
+Binh thuong:   Failure:       Recovery:
+┌──────┐       ┌──────┐       ┌──────┐
+│Active│       │ FAIL │       │ OFF  │
+│  ON  │       │      │       │      │
+└──────┘       └──────┘       └──────┘
+┌──────┐       ┌──────┐       ┌──────┐
+│Standby       │Standby       │ NOW  │
+│ OFF  │       │ OFF  │  →    │ACTIVE│  (boot thu cong)
+└──────┘       └──────┘       └──────┘
+```
+
+**Warm standby:**
+- Backup bat nguon, da config
+- State sync dinh ky hoac khi thay doi
+- Failover tu dong
+- Thoi gian failover: giay
+
+```
+Binh thuong:      Failure:          Recovery:
+┌──────┐          ┌──────┐          ┌──────┐
+│Active│          │ FAIL │          │ FAIL │
+│Sync ─┼────┐     │      │          │      │
+└──────┘    │     └──────┘          └──────┘
+            ▼
+┌──────┐          ┌──────┐          ┌──────┐
+│Standby          │Standby          │ NOW  │
+│READY │          │READY │    →     │ACTIVE│  (tu dong)
+└──────┘          └──────┘          └──────┘
+```
+
+**Hot standby:**
+- Backup chay cung config, sync lien tuc
+- Stateful failover (session duoc giu)
+- Tu dong, failover duoi giay
+
+```
+Binh thuong:      Failure:          Recovery:
+┌──────┐          ┌──────┐          ┌──────┐
+│Active│          │ FAIL │          │ FAIL │
+│State─┼─────┐    │      │          │      │
+└──────┘     │    └──────┘          └──────┘
+        sync │
+┌──────┐     ▼    ┌──────┐          ┌──────┐
+│Standby          │Standby          │ NOW  │
+│SYNCED│          │SYNCED│    →     │ACTIVE│  (&lt;50ms)
+└──────┘          └──────┘          └──────┘
+```
+
+### Active-active vs active-standby
+
+**Active-standby:**
+```
+┌──────────────────────────────────────┐
+│            Load Balancer             │
+└─────────────────┬────────────────────┘
+                  │
+        ┌─────────┴─────────┐
+        │                   │
+        ▼                   ▼
+   ┌────────┐          ┌────────┐
+   │ Active │          │Standby │
+   │  100%  │          │   0%   │
+   │ traffic│          │traffic │
+   └────────┘          └────────┘
+
+- Standby idle cho den khi failure
+- Quan ly state don gian hon
+- Lang phi standby capacity
+```
+
+**Active-active:**
+```
+┌──────────────────────────────────────┐
+│            Load Balancer             │
+└─────────────────┬────────────────────┘
+                  │
+        ┌─────────┴─────────┐
+        │                   │
+        ▼                   ▼
+   ┌────────┐          ┌────────┐
+   │ Active │          │ Active │
+   │  50%   │          │  50%   │
+   │ traffic│          │traffic │
+   └────────┘          └────────┘
+
+- Ca hai xu ly traffic
+- Tan dung tai nguyen tot hon
+- Can ngan chan split-brain
+- State sync phuc tap hon
+```
+
+### Cac tang redundancy
+
+High availability doi hoi redundancy o nhieu tang:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Application Layer                    │
+│  Active-active cluster, session replication, DB HA     │
+└─────────────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────────────────────────────────────┐
+│                     Network Layer                        │
+│  Dual uplink, ECMP, link aggregation, VRRP/HSRP        │
+└─────────────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────────────────────────────────────┐
+│                    Hardware Layer                        │
+│  Dual power supply, redundant fan, RAID storage        │
+└─────────────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────────────────────────────────────┐
+│                     Facility Layer                       │
+│  Dual power feed, UPS, generator, cooling redundancy   │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Insight quan trong:** Redundancy o mot tang khong giup ich neu tang khac la single point of failure.
+
+### Giao thuc network redundancy
+
+**VRRP (Virtual Router Redundancy Protocol):**
+```
+┌────────────────────────────────────────────────────────┐
+│                    Virtual IP: 10.0.0.1                │
+│                         │                              │
+│            ┌────────────┴────────────┐                 │
+│            │                         │                 │
+│       ┌────┴────┐              ┌────┴────┐            │
+│       │Router A │              │Router B │            │
+│       │ Master  │              │ Backup  │            │
+│       │10.0.0.2 │              │10.0.0.3 │            │
+│       │Priority │              │Priority │            │
+│       │  100    │              │   50    │            │
+│       └─────────┘              └─────────┘            │
+└────────────────────────────────────────────────────────┘
+
+- Client tro den virtual IP
+- Master tra loi
+- Master fail → backup nhan virtual IP
+- Failover: 1-3 giay
+```
+
+**Link aggregation (LAG/LACP):**
+```
+┌────────┐                      ┌────────┐
+│        │  Link 1  ──────────  │        │
+│ Switch │  Link 2  ──────────  │ Switch │
+│   A    │  Link 3  ──────────  │   B    │
+│        │  Link 4  ──────────  │        │
+└────────┘                      └────────┘
+           ◄──── LAG bundle ────►
+
+- Nhieu link xuat hien nhu mot
+- Traffic can bang tai qua cac link
+- Mot link fail → traffic chuyen sang link khac
+- Khong co do tre failover
+```
+
+**ECMP (Equal-Cost Multi-Path):**
+```
+                    ┌────────┐
+                    │  Core  │
+                    │ Router │
+                    └────┬───┘
+              ┌──────────┼──────────┐
+              │          │          │
+          ┌───┴───┐  ┌───┴───┐  ┌───┴───┐
+          │Path A │  │Path B │  │Path C │
+          │Cost=10│  │Cost=10│  │Cost=10│
+          └───────┘  └───────┘  └───────┘
+
+- Nhieu path co cost bang nhau
+- Traffic hash-based qua cac path
+- Mot path fail → traffic phan phoi lai
+- Hoi tu duoi giay
+```
+
+### Tinh availability ket hop
+
+**Noi tiep (ca hai phai hoat dong):**
+```
+A_total = A₁ × A₂ × A₃ × ...
+
+Vi du: 99.9% × 99.9% = 99.8%
+Them component noi tiep giam availability.
+```
+
+**Song song (mot trong hai hoat dong):**
+```
+A_total = 1 - (1-A₁) × (1-A₂) × ...
+
+Vi du: 1 - (0.001 × 0.001) = 99.9999%
+Them component redundant tang availability.
+```
+
+**Vi du thuc te:**
+```
+Router don: 99.9%
+Dual router (active-standby): 1 - (0.001)² = 99.9999%
+Them firewall don trong path: 99.9999% × 99.9% = 99.899%
+
+Firewall tro thanh bottleneck.
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Chon redundancy pattern:**
+
+| Pattern | Use case | Spare capacity | Chi phi |
+|---------|----------|----------------|---------|
+| 1+1 | Critical, volume thap | 100% | Cao |
+| N+1 | Volume cao, chap nhan rui ro | 1/N | Trung binh |
+| N+M | Volume cao, SLA nghiem ngat | M/N | Cao hon |
+| Active-active | Volume cao, tan dung toi da | 0% | Cao nhat |
+
+**Checklist thiet ke:**
+
+1. **Xac dinh single point of failure:** Trace path. Cai gi khong redundant?
+2. **Match redundancy voi SLA:** 99.9% can redundancy co ban. 99.999% can moi thu redundant.
+3. **Test failover:** Redundancy chua test la redundancy chua chung minh.
+4. **Xem xet failure domain:** Dia ly, nguon dien, diversity provider.
+5. **Plan cho N-1:** Ban co the song sot mot failure va van dat SLA?
+
+**Redundancy telecom pho bien:**
+
+| Component | Pattern dien hinh |
+|-----------|-------------------|
+| Core router | Active-standby hoac active-active |
+| Edge router | N+1 |
+| Power supply | Dual feed + UPS + generator |
+| Fiber | Dual diverse path |
+| Data center | N+1 hoac 2N |
+
+**Troubleshooting failover:**
+
+1. **Failover khong xay ra:**
+   - Kiem tra heartbeat/keepalive
+   - Verify standby thuc su san sang
+   - Kiem tra dieu kien failover da dat
+
+2. **Failover qua cham:**
+   - Giam detection interval
+   - Pre-stage standby state
+   - Kiem tra co che sync
+
+3. **Failback gay outage:**
+   - Kiem tra preemption setting
+   - Verify primary da phuc hoi hoan toan
+   - Xem xet manual failback
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Shared failure mode.** Hai server tren cung rack, cung switch, cung power feed khong thuc su redundant. Failure domain da dang quan trong.
+
+2. **Failover chua test.** "Chung toi co redundancy" khong co nghia gi neu failover chua bao gio duoc test trong dieu kien thuc te.
+
+3. **State synchronization lag.** Hot standby cham 30 giay mat 30 giay du lieu khi failover. Biet sync lag cua ban.
+
+4. **Split brain.** Ca hai node nghi minh la master. Khong co fencing dung, data corruption theo sau. Luon co tiebreaker.
+
+5. **Failover loop.** Primary fail, standby tiep nhan, primary recover, nhan lai, fail lai... Dampen failover/failback.
+
+6. **Cascade failure.** Mot failure gay load shift lam qua tai he thong con lai. Size cho N-1 capacity.
+
+7. **Can manual intervention.** "Automatic failover" can ai do click nut luc 3 gio sang khong phai automatic.
+
+8. **Quen management plane.** Production redundant, nhung management/monitoring la single point of failure. Bay gio ban khong the thay van de.
+
+9. **Redundant nhung khong diverse.** Hai path qua cung provider, cung cable conduit. Backhoe lay ca hai.
+
+10. **Configuration drift.** Primary va standby config lenh nhau. Failover lo ra standby config sai.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- ITU-T G.841, "Types and characteristics of SDH network protection architectures"
+- MEF 2.0, "Requirements and Framework for Ethernet Service Protection"
+- RFC 5798, "Virtual Router Redundancy Protocol (VRRP) Version 3"
+- IEEE 802.1AX, "Link Aggregation"
+- Marcus & Stern, *Blueprints for High Availability*, Wiley
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Five nines availability](/vi/core-network/why-telcos-build-differently/five-nines-availability/) — dat 99.999%
+- [Capacity planning basics](/vi/core-network/carrier-grade-vocabulary/capacity-planning-basics/) — sizing cho failure scenario
+- [MPLS protection](/vi/core-network/mpls-vlan-vrf/mpls-protection/) — network-layer redundancy
+
+</section>

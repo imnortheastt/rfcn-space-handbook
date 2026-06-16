@@ -1,24 +1,302 @@
 ---
-id: core-network-n0-4g-5g-not-like-aws-vpc-01-telecom-vs-cloud-networking-vi
+id: core-network-n1-4g-5g-not-like-aws-vpc-01-telecom-vs-cloud-networking-vi
 slug: telecom-vs-cloud-networking
 lang: vi
-parityId: core-network-n0-4g-5g-not-like-aws-vpc-01-telecom-vs-cloud-networking
+parityId: core-network-n1-4g-5g-not-like-aws-vpc-01-telecom-vs-cloud-networking
 domain: core-network
-track: n0
+track: n1
 unit: 4g-5g-not-like-aws-vpc
 order: 1
 level: L1
-estimatedReadingMinutes: 5
-title: "Mang vien thong vs mang dam may"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-osi-tcpip-backend-perspective-02-tcp-ip-stack"]
+spiralRevisits: ["core-network-n2-5g-core-sba-01-service-based-architecture"]
+title: "Mạng viễn thông vs mạng đám mây"
+description: "Tại sao mạng di động hoạt động khác biệt về cơ bản so với AWS VPC của bạn — và tại sao điều đó quan trọng."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 23.501"]
+tags: ["telecom", "cloud", "networking", "5g", "comparison"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Mang vien thong vs mang dam may
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+Bạn biết TCP/IP. Bạn đã deploy app trên AWS. Bạn hiểu VPC, load balancer, và microservice.
+
+Giờ có ai đó yêu cầu bạn làm việc trên 5G core network. Bạn nhìn sơ đồ kiến trúc và nghĩ: "Tại sao nó phức tạp thế? Sao không dùng load balancer là xong?"
+
+Bài học này bắc cầu khoảng cách đó. Mạng di động giải quyết các vấn đề mà mạng cloud không có — và hiểu những vấn đề đó giải thích độ phức tạp.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+### Sự khác biệt cơ bản
+
+**Cloud networking:** Thiết bị có địa chỉ IP ổn định. Chúng không di chuyển. Kết nối được khởi tạo bởi client.
+
+**Telecom networking:** Thiết bị di chuyển liên tục. Địa chỉ IP thay đổi. Mạng phải theo dõi vị trí. Mạng phải reach thiết bị không khởi tạo liên lạc.
+
+| Khía cạnh | AWS VPC | Mạng di động |
+|-----------|---------|--------------|
+| Vị trí thiết bị | Cố định (data center) | Di chuyển (bất cứ đâu) |
+| Gán IP | Static hoặc DHCP (phút+) | Dynamic (giây) |
+| Mạng reach thiết bị | Không (NAT, firewall) | Có (paging, push) |
+| Tính liên tục session | Kết nối chết nếu IP đổi | Session survive handover |
+| Identity | Địa chỉ IP, DNS | IMSI/SUPI (dựa trên SIM) |
+| Mô hình trust | Mạng trust thiết bị | Mạng authenticate thiết bị |
+
+### Các vấn đề telecom giải quyết
+
+**1. Mobility**
+
+Điện thoại của bạn di chuyển từ trạm này sang trạm khác. Mạng phải:
+- Theo dõi bạn đang kết nối trạm nào
+- Handover session mà không drop cuộc gọi
+- Cập nhật routing để packet tìm được bạn
+
+Trong AWS, nếu EC2 instance di chuyển, bạn có IP mới. Kết nối đứt. Trong di động, session tiếp tục liền mạch.
+
+**2. Reachability**
+
+Ai đó gọi bạn. Mạng phải:
+- Tìm ra bạn đang gần trạm nào
+- Đánh thức điện thoại (paging)
+- Thiết lập đường đi cho cuộc gọi
+
+Trong AWS, bạn không thể reach thiết bị sau NAT mà nó không kết nối trước. Trong di động, mạng luôn có thể tìm và đánh thức thiết bị của bạn.
+
+**3. Identity và Authentication**
+
+Thẻ SIM chứng minh bạn là ai. Mạng authenticate bạn trước khi cấp quyền truy cập. Billing gắn với identity của bạn.
+
+Trong AWS, authentication xảy ra ở application layer. Mạng không biết và không quan tâm bạn là ai.
+
+**4. Quality of Service**
+
+Cuộc gọi voice cần &lt;150ms latency. Video cần bandwidth ổn định. Cuộc gọi khẩn cấp cần priority hơn mọi thứ.
+
+Trong AWS, best-effort delivery là mặc định. QoS là thứ thêm sau, implement bằng traffic shaping phức tạp.
+
+Trong di động, QoS là cơ bản. Radio scheduler, core network, và transport đều enforce nó.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### So sánh kiến trúc
+
+**AWS VPC (đơn giản hóa):**
+
+```
+┌─────────────────────────────────────────┐
+│                Internet                  │
+└───────────────────┬─────────────────────┘
+                    │
+            ┌───────┴───────┐
+            │  Load Balancer │
+            └───────┬───────┘
+                    │
+    ┌───────────────┼───────────────┐
+    │               │               │
+┌───┴───┐       ┌───┴───┐       ┌───┴───┐
+│ App A │       │ App B │       │ App C │
+└───┬───┘       └───┬───┘       └───┬───┘
+    │               │               │
+    └───────────────┴───────────────┘
+                    │
+            ┌───────┴───────┐
+            │   Database    │
+            └───────────────┘
+```
+
+Traffic chảy vào. App xử lý. Database lưu. Đơn giản.
+
+**5G Core (đơn giản hóa):**
+
+```
+┌─────────────────────────────────────────┐
+│                Internet/DN               │
+└───────────────────┬─────────────────────┘
+                    │
+            ┌───────┴───────┐
+            │      UPF      │  (User Plane)
+            └───────┬───────┘
+                    │
+    ┌───────────────┴───────────────┐
+    │                               │
+┌───┴───┐                       ┌───┴───┐
+│ gNB 1 │                       │ gNB 2 │
+└───┬───┘                       └───┬───┘
+    │                               │
+    │◄──────── Handover ───────────►│
+    │                               │
+┌───┴───────────────────────────────┴───┐
+│                  UE                    │
+│          (điện thoại di động)          │
+└───────────────────────────────────────┘
+
+Control Plane (riêng):
+┌───────┐  ┌───────┐  ┌───────┐  ┌───────┐
+│  AMF  │──│  SMF  │──│  UDM  │──│  PCF  │
+└───────┘  └───────┘  └───────┘  └───────┘
+```
+
+UE (điện thoại) di chuyển. Mạng theo dõi nó. Session survive.
+
+### Khác biệt kiến trúc chính
+
+**1. Tách biệt control plane / user plane**
+
+Trong AWS, load balancer đưa quyết định routing inline với data flow.
+
+Trong 5G, **control plane** (AMF, SMF) đưa quyết định. **User plane** (UPF) forward packet. Chúng tách biệt.
+
+Tại sao?
+- Quyết định control không thường xuyên (session setup, handover)
+- Data forwarding là high-volume, low-latency
+- Tách biệt cho phép scale độc lập
+
+**2. Mobility anchoring**
+
+Khi điện thoại di chuyển từ gNB 1 sang gNB 2, session phải survive.
+
+**UPF (User Plane Function)** đóng vai trò anchor. Bất kể bạn kết nối gNB nào, packet của bạn route qua UPF. Địa chỉ IP của bạn giữ nguyên.
+
+```
+Trước handover:           Sau handover:
+Internet → UPF → gNB 1    Internet → UPF → gNB 2
+               ↓                         ↓
+              UE                        UE
+```
+
+Điều này khác biệt cơ bản với AWS, nơi đổi subnet nghĩa là đổi IP.
+
+**3. Subscriber identity**
+
+Trong AWS, identity là concern của application. Mạng route packet dựa trên IP.
+
+Trong di động, identity được tích hợp vào mạng:
+- **SUPI (Subscription Permanent Identifier):** Identity vĩnh viễn của bạn (trong SIM)
+- **5G-GUTI:** Identifier tạm thời (bảo vệ privacy)
+- **UDM (Unified Data Management):** Lưu dữ liệu subscription
+
+Mạng authenticate bạn lúc kết nối. Mọi packet gắn với identity đã authenticate.
+
+**4. Radio resource management**
+
+Trong AWS, bandwidth (hầu như) không giới hạn. Bạn không nghĩ về nó.
+
+Trong di động, **spectrum khan hiếm**. Radio scheduler phải:
+- Phân bổ slot thời gian/tần số cho mỗi user
+- Xử lý nhiễu giữa các user
+- Thích ứng với điều kiện kênh thay đổi
+- Ưu tiên dựa trên QoS
+
+Đây là vấn đề khác biệt cơ bản so với wired networking.
+
+### GTP tunnel
+
+Mạng di động dùng **GTP (GPRS Tunneling Protocol)** để chở user data.
+
+```
+┌──────────────────────────────────────────┐
+│ Outer IP │ UDP │ GTP │ Inner IP │ Payload │
+└──────────────────────────────────────────┘
+```
+
+Tại sao tunneling?
+- Inner IP là IP của thiết bị (ổn định)
+- Outer IP route qua mạng di động
+- Khi bạn di chuyển, chỉ outer routing thay đổi
+
+Điều này giống VPN, nhưng được quản lý bởi mạng, không phải bạn.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Mapping khái niệm:**
+
+| Khái niệm cloud | Tương đương telecom | Khác biệt chính |
+|-----------------|---------------------|-----------------|
+| VPC | APN/DNN | Tên mạng, không phải IP range |
+| Subnet | Tracking Area | Địa lý, không phải logic |
+| NAT Gateway | UPF | Cũng xử lý mobility |
+| IAM | UDM + AUSF | Crypto authentication |
+| Security Group | 5QI + Packet Filter | QoS-aware |
+| Route Table | AMF + SMF decision | Dynamic per-session |
+| Load Balancer | NRF + SCP | Service discovery |
+
+**Khi nào áp dụng model nào:**
+
+Dùng **cloud pattern** khi:
+- Thiết bị cố định
+- Bạn kiểm soát cả hai đầu
+- Best-effort chấp nhận được
+- Identity là application-layer
+
+Dùng **telecom pattern** khi:
+- Thiết bị di chuyển
+- Mạng phải reach thiết bị
+- QoS đảm bảo cần thiết
+- Identity phải là network-layer
+
+**Ví dụ: IoT fleet**
+
+Nếu thiết bị IoT của bạn ở vị trí cố định (sensor nhà máy), cloud pattern hoạt động.
+
+Nếu chúng di chuyển (logistics tracking), telecom pattern áp dụng — bạn cần mobility, reachability, và session continuity.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Giả định "thêm load balancer" là đủ.** Load balancer giả định backend ổn định. Mạng di động có endpoint di chuyển.
+
+2. **Bỏ qua radio.** Trong cloud, mạng đáng tin cậy. Trong di động, kênh radio không đáng tin cậy, biến đổi, và chia sẻ. Điều này thay đổi cơ bản thiết kế protocol.
+
+3. **Coi identity là tùy chọn.** Trong di động, thiết bị không authenticate không có dịch vụ. Mọi packet có identity.
+
+4. **Giả định địa chỉ IP ổn định.** Điện thoại nhận IP mới thường xuyên. Session phải survive điều này.
+
+5. **Quên overhead control plane.** Thiết lập session di động liên quan hàng chục message. Điều này "đắt" so với TCP SYN-ACK.
+
+6. **Áp dụng microservice một cách mù quáng.** 5G dùng microservice (SBA), nhưng với ràng buộc cụ thể: service mesh, HTTP/2, API nghiêm ngặt. Không phải "chỉ là Kubernetes."
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- 3GPP TS 23.501, "System architecture for the 5G System"
+- 3GPP TS 23.502, "Procedures for the 5G System"
+- Sauter, *From GSM to LTE-Advanced Pro and 5G*, Wiley, 2021
+- Amazon AWS Documentation, "VPC Concepts"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [Tách biệt user plane / control plane](/vi/core-network/4g-5g-not-like-aws-vpc/user-plane-control-plane-separation/) — tại sao chúng tách biệt
+- [Khái niệm mobility management](/vi/core-network/4g-5g-not-like-aws-vpc/mobility-management-concept/) — handover hoạt động thế nào
+- [Service-based architecture](/vi/core-network/why-sba-architectural-shift/sba-design-principles/) — cách tiếp cận cloud-native của 5G
+
+</section>

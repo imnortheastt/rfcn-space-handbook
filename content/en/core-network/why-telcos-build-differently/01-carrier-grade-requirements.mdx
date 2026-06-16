@@ -1,24 +1,257 @@
 ---
-id: core-network-n0-why-telcos-build-differently-01-carrier-grade-requirements-en
+id: core-network-n1-why-telcos-build-differently-01-carrier-grade-requirements-en
 slug: carrier-grade-requirements
 lang: en
-parityId: core-network-n0-why-telcos-build-differently-01-carrier-grade-requirements
+parityId: core-network-n1-why-telcos-build-differently-01-carrier-grade-requirements
 domain: core-network
-track: n0
+track: n1
 unit: why-telcos-build-differently
 order: 1
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-osi-tcpip-backend-perspective-01-osi-layers"]
+spiralRevisits: ["core-network-n2-5g-core-sba-01-service-based-architecture"]
 title: "Carrier-grade requirements"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Why telecom systems are built differently — the non-negotiable requirements that shape every design decision, and how 5G achieves them with cloud-native tools."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["TL 9000", "NEBS GR-63", "ETSI NFV", "3GPP TS 23.501"]
+tags: ["carrier-grade", "telecom", "reliability", "availability", "5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Carrier-grade requirements
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Your startup can tolerate a few minutes of downtime. A telecom network cannot.
+
+When a cloud service goes down, users complain on social media. When a telecom network fails, emergency calls don't connect, hospitals lose connectivity, ambulance dispatch fails, and financial settlement systems halt. The difference in consequences shapes every architectural decision from hardware selection to software deployment procedures.
+
+Understanding carrier-grade requirements helps you appreciate why telecom systems seem "over-engineered" — they are not. They are appropriately engineered for their failure domain. And as 5G moves toward cloud-native infrastructure, cloud engineers who understand these constraints can build systems that meet them.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+**Carrier-grade** means: "suitable for use in a public telecommunications network."
+
+The core requirements:
+
+| Requirement | Target | Cloud equivalent |
+|-------------|--------|------------------|
+| Availability | 99.999% (5 nines) | 99.9% (3 nines) |
+| Annual downtime | less than 5.26 minutes | less than 8.76 hours |
+| Failover time | less than 50ms | Seconds to minutes |
+| Planned maintenance | Zero downtime | Maintenance windows |
+| Lifespan | 15-20 years | 3-5 years |
+
+**The math matters.** At 99.9% availability, you get approximately 8 hours of downtime per year. At 99.999%, you get approximately 5 minutes. That is 100 times more reliable.
+
+**Mental model:** Think of telecom infrastructure like power grids or water systems — essential services where failure has cascading societal impact. A power grid does not schedule a maintenance window that cuts power to a hospital. A telecom network does not schedule a window that drops emergency calls.
+
+### The cloud engineer's instinct vs. telecom reality
+
+Cloud engineers learn patterns that are actively dangerous in telecom:
+
+| Cloud instinct | Telecom reality |
+|----------------|----------------|
+| "Just restart the pod" | Restart drops active calls for all users on that node |
+| "Circuit breaker to shed load" | Shedding voice or emergency traffic is legally prohibited |
+| "Eventually consistent is fine" | Billing must be exactly-once; eventual = lost revenue |
+| "2 AM maintenance window" | 2 AM in California is peak time in Asia-Pacific |
+| "Canary deploy with 1% traffic" | You cannot A/B test live emergency calls |
+| "Health check restarts unhealthy pods" | A pod restart mid-call drops the call |
+
+This is not a criticism of cloud patterns — they are excellent for their domain. The difference is that telecom's domain has different consequences for failure.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### The Five Pillars of Carrier-Grade
+
+#### 1. High Availability (HA)
+
+**Target:** 99.999% uptime = 5.26 minutes downtime/year
+
+**How it is achieved:**
+- **Redundancy everywhere:** Every component has a backup that is actively running
+- **No single point of failure (SPOF):** Losing any one component does not cause service loss
+- **Geographic distribution:** Sites in different locations survive regional disasters
+- **Hot standby:** Backup systems are running and can take over in under 50ms
+
+**Real example:** A 5G core has multiple AMF instances across data centers. If one AMF fails, traffic fails over to another in less than 50ms. Users don't notice because the SCTP associations to the gNBs re-associate automatically.
+
+**How 5G achieves this with cloud-native:** The 5G core uses stateless NF design — each AMF instance stores no session state locally. UE context is stored in a shared UDSF (Unstructured Data Storage Function) or external cache. Any AMF instance can handle any UE's request. This is the microservices pattern applied to telecom, specified in 3GPP TS 23.501 clause 4.2.
+
+#### 2. Fault Tolerance
+
+**Target:** Service continues despite failures, with graceful degradation under overload
+
+**Techniques:**
+- **Active-active clustering:** Multiple instances share load; any can handle any request
+- **Active-standby:** Backup waits, takes over when primary fails (used for stateful components)
+- **N+1 redundancy:** For N required components, deploy N+1
+- **Graceful degradation:** Under overload, shed lower-priority traffic rather than crash
+- **Overload control:** NFs must implement overload protection per 3GPP TS 29.500 to prevent cascade failures
+
+**Real example:** A signaling link fails. The SCTP multi-homing mechanism detects this in milliseconds, switches to the backup path, and reroutes traffic. No calls drop. This is fundamentally different from a TCP connection drop, which requires a full reconnect.
+
+**The overload cascade problem:** In telecom, overload propagates upward. If one AMF is overloaded and starts rejecting requests, all gNBs connected to it start retrying — which creates more load. The 3GPP overload control mechanism (NF load information in NRF, explicit overload signals via HTTP 503 with Retry-After headers) breaks this cascade.
+
+#### 3. Hitless Upgrades (In-Service Software Upgrade — ISSU)
+
+**Target:** Zero service interruption during software updates
+
+**How it is done:**
+- **Rolling upgrades:** Update nodes one by one while others handle traffic
+- **State synchronization:** New instance receives active session state before takeover
+- **Backward compatibility:** New version must communicate with old version during transition
+- **Graceful handover:** Existing sessions are migrated, not terminated
+
+**Real example:** An SMF is upgraded from v1.2 to v1.3. Kubernetes rolling update starts a new SMF pod (v1.3) alongside the old one. The NRF reflects both versions. New session requests go to v1.3. Existing sessions complete on v1.2. When v1.2 has drained all sessions, it is terminated. Zero user impact.
+
+**Where this breaks in Kubernetes defaults:** Default Kubernetes rolling update terminates old pods before fully verifying new ones. For telecom, you need `preStop` hooks to drain sessions, `minReadySeconds` long enough for session migration, and explicit session drain via PFCP or NF management interface before pod termination.
+
+#### 4. Scalability
+
+**Target:** Handle traffic growth without architectural redesign
+
+**Characteristics:**
+- **Horizontal scaling:** Add more instances, not bigger instances
+- **Stateless design:** Any instance can handle any request (state externalized)
+- **Load balancing:** Traffic distributed across instances
+- **Elastic scaling:** Automatically add/remove capacity based on demand
+
+**Real example:** During a major event (New Year's Eve, a World Cup final), the network automatically scales up SMF and UPF capacity as session establishment rate spikes. After the event, it scales back down. This is Kubernetes Horizontal Pod Autoscaler applied to 5G NFs.
+
+**5G-specific scaling challenge:** UPF scaling is more complex than stateless NF scaling. The UPF holds GTP tunnel state for active PDU sessions. Scaling UPF requires either: (a) new sessions go to new UPF instances while old sessions stay on old ones (asymmetric scaling), or (b) session migration via SMF-coordinated PFCP session re-establishment (expensive but clean).
+
+#### 5. Security and Compliance
+
+**Target:** Protect critical infrastructure and meet regulatory requirements
+
+**Requirements:**
+- **Lawful interception (LI):** Required by law in most countries. All calls and data sessions must be interceptable under court order, transparently to the user.
+- **Data sovereignty:** User data must stay within geographic boundaries (EU GDPR, various national laws)
+- **Encryption:** All traffic encrypted in transit (TLS on SBI, NAS security via SEAF/AUSF) and at rest
+- **Network slicing isolation:** Slice A must not be able to access Slice B's traffic (3GPP TS 33.501)
+- **Access control:** Strict OAuth 2.0 token-based authentication between NFs on SBI
+- **Audit logging:** Every administrative action recorded with tamper-evident logging
+
+**Lawful interception architecture:** The IMS-ALG or IMS-SBC intercepts voice. The AMF and SMF have LI trigger interfaces. When activated for a specific IMSI, the network transparently duplicates traffic to the Law Enforcement Agency (LEA) via a dedicated interface. This is specified in 3GPP TS 33.127 and must not be visible to the target user.
+
+### Why Cloud Patterns Don't Translate Directly
+
+| Cloud pattern | Why it fails for telecom |
+|--------------|-------------------------|
+| "Just restart it" | Restarts drop calls. Users notice. |
+| Circuit breaker | Dropping traffic is not acceptable for voice/emergency. |
+| Eventually consistent | Billing must be exactly-once; "eventual" means revenue loss. |
+| Maintenance windows | 3 AM is peak time somewhere in the network. |
+| A/B testing | Cannot test on live emergency calls. |
+| Default readiness probe | If probe fails mid-call, pod gets killed, all calls drop. |
+| Kubernetes default PDB | PodDisruptionBudget defaults allow simultaneous pod kills. |
+
+### The Cost of Carrier-Grade
+
+Achieving 99.999% costs significantly more than 99.9%:
+
+- **Hardware:** Enterprise-grade servers, redundant power (A+B feeds), redundant network (dual NICs, bonding)
+- **Software:** Complex state management, extensive integration testing, backward compatibility constraints
+- **Operations:** 24/7 NOC, automated monitoring, runbooks for every failure mode, change management boards
+- **Facilities:** Tier III+ data centers, backup generators, HVAC redundancy, physical security
+
+**Rule of thumb:** Each additional "nine" costs roughly 10 times more. The engineering effort to go from 99.99% to 99.999% is not incremental — it often requires architectural redesign.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+### Evaluating carrier-grade claims
+
+When a vendor claims "carrier-grade," ask:
+
+1. **What is the measured availability?** Not designed, not targeted — measured in production deployments at comparable scale.
+2. **What is the failover time?** Less than 50ms for stateful connections is the benchmark. Demand a demonstration.
+3. **Can you upgrade without downtime?** Ask them to demonstrate a live ISSU with active sessions.
+4. **What is the MTBF and MTTR?** Mean time between failures, mean time to repair. Get the data, not the marketing sheet.
+5. **How is state replicated?** Synchronous or asynchronous? What is the RPO/RTO?
+6. **How does overload control work?** What happens when the system is at 110% capacity?
+
+### Mapping carrier-grade to cloud-native
+
+| Carrier-grade concept | Kubernetes/cloud equivalent | Gap to address |
+|----------------------|---------------------------|----------------|
+| Active-active | Multi-replica Deployment with PodAntiAffinity | Default rolling update is not hitless |
+| ISSU | Rolling update with preStop drain + readinessProbe | Needs session drain logic |
+| State sync | UDSF / Redis / etcd with replication | Latency of external state access adds RTT |
+| Geo-redundancy | Multi-region deployment with global load balancer | Network partition handling |
+| Traffic engineering | Istio, weighted routing, NRF-based discovery | SCP adds centralized routing intelligence |
+| Overload control | HPA + KEDA + custom metrics | Must implement 3GPP overload signaling |
+
+### Checklist before deploying a 5G NF
+
+- [ ] `PodDisruptionBudget` set to allow at most 1 unavailable replica
+- [ ] `preStop` hook implements session drain (PFCP, NF deregistration from NRF)
+- [ ] `minReadySeconds` set to drain time estimate
+- [ ] Anti-affinity rules spread replicas across availability zones
+- [ ] Liveness probe does not kill pods under load (use startupProbe for slow starts)
+- [ ] External state store (Redis, UDSF) has its own HA configuration
+- [ ] Overload control metrics exposed to autoscaler
+- [ ] TLS certificates rotated without restart (hot reload)
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing high availability with disaster recovery.** HA handles component failures (seconds to milliseconds). DR handles site failures (minutes to hours). Both are required. A 5G deployment with excellent HA but no geo-redundancy fails completely when the data center loses power.
+
+2. **Assuming redundancy means reliability.** Redundant systems that share a failure mode (same software bug, same power feed, same network switch) are not truly redundant. This is called a common-cause failure or correlated failure. The 2003 Northeast blackout affected redundant systems simultaneously. In 5G, a software bug in all AMF instances fails the entire network.
+
+3. **Ignoring the human factor.** Industry data consistently shows that the majority of major outages are caused by configuration errors and change management failures, not hardware failures. Carrier-grade includes rigorous change management, peer review of changes, and staged rollout procedures.
+
+4. **Over-engineering for the wrong metric.** 99.999% availability is meaningless if latency is unacceptable for the use case. A network that is always up but adds 200ms latency fails voice quality requirements. Balance availability, latency, and throughput.
+
+5. **Treating carrier-grade as binary.** It is a spectrum. A billing system has different requirements than a real-time voice system. A network management plane has different requirements than the data plane. Design to the actual SLA of each component.
+
+6. **Ignoring Kubernetes defaults.** Default Kubernetes behaviors — pod restarts on liveness failure, rolling updates with brief unavailability, no session drain — are incompatible with carrier-grade. Every 5G NF deployed on Kubernetes needs explicit carrier-grade configuration overrides.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- TL 9000 Quality Management System, QuEST Forum
+- NEBS GR-63-CORE, "Network Equipment-Building System (NEBS) Requirements"
+- ETSI NFV ISG, "Network Functions Virtualisation — Reliability"
+- ITU-T E.800, "Terms and definitions related to quality of service"
+- 3GPP TS 23.501, "System architecture for 5G System" (stateless NF design, clause 4.2)
+- 3GPP TS 29.500, "Technical Realization of Service Based Architecture" (overload control)
+- 3GPP TS 33.127, "Lawful interception architecture"
+- Beyer et al., *Site Reliability Engineering*, O'Reilly, 2016
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Five nines availability](/en/core-network/why-telcos-build-differently/five-nines-availability/) — the math and engineering behind 99.999%
+- [Telco regulatory context](/en/core-network/why-telcos-build-differently/telco-regulatory-context/) — why compliance shapes architecture
+- [SBA design principles](/en/core-network/why-sba-architectural-shift/sba-design-principles/) — how 5G achieves carrier-grade with cloud-native
+
+</section>

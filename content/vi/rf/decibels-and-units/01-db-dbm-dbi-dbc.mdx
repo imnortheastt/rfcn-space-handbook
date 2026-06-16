@@ -8,12 +8,12 @@ track: r0
 unit: decibels-and-units
 order: 1
 level: L1
-estimatedReadingMinutes: 6
+estimatedReadingMinutes: 14
 prerequisites: []
 spiralRevisits: []
 title: "dB, dBm, dBi, dBc"
 description: "Ký hiệu decibel và các biến thể đặc trưng RF."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -25,11 +25,13 @@ status: published
 
 <section class="lesson-hook">
 
-## Tại sao decibel?
+## Tại sao dùng decibel?
 
-Kỹ sư RF làm việc với dải động khổng lồ — tín hiệu biến đổi từ picowatt đến kilowatt, độ lợi anten trải trên hệ số 1000+. Làm việc với đơn vị tuyến tính nghĩa là nhân các số 10^12. Decibel chuyển phép nhân thành phép cộng, làm ngân sách liên kết khả thi.
+Bạn đang thiết kế một trạm gốc (base station) di động. Công suất phát là 40 W. Khi tín hiệu đến máy điện thoại cách 2 km, công suất nhận chỉ còn 0,000 000 000 4 W — nhỏ hơn đúng 100 tỷ lần. Nếu bạn theo dõi con số này bằng đơn vị watt trong bảng tính, bạn phải nhân và chia các số trải dài 11 bậc độ lớn. Một lỗi số học nhỏ là sai ngân sách liên kết (link budget) đến 1000 lần.
 
-Hiểu các biến thể dB (dBm, dBi, dBc) là bước đầu tiên để đọc bất kỳ datasheet hay đặc tả RF nào.
+Kỹ sư RF đã giải quyết vấn đề này hơn một thế kỷ trước: dùng logarit. Decibel nén dải 11 bậc đó xuống còn khoảng 110 đơn vị. Phép nhân trở thành phép cộng. Một chuỗi bộ khuếch đại và cáp chỉ là một cột số cộng lại. Ngân sách liên kết là một phép tổng đơn giản.
+
+Mọi datasheet RF, mọi màn hình máy phân tích mạng (network analyzer), mọi đặc tả 3GPP đều dùng dB và các biến thể của nó. Trước khi đọc được bất kỳ tài liệu nào trong số đó, bạn cần nắm vững ký hiệu này — không chỉ công thức, mà cả cách tính nhẩm.
 
 </section>
 
@@ -37,20 +39,33 @@ Hiểu các biến thể dB (dBm, dBi, dBc) là bước đầu tiên để đọ
 
 ## Trực giác
 
-Decibel chỉ là tỷ số biểu diễn dạng logarit:
+Decibel biểu diễn một tỷ số trên thang logarit. Công thức cốt lõi:
 
 $$\text{dB} = 10 \log_{10}\left(\frac{P_1}{P_2}\right)$$
 
-- **+3 dB** ≈ gấp đôi công suất
-- **+10 dB** = 10× công suất
-- **−3 dB** ≈ nửa công suất
-- **−10 dB** = 1/10 công suất
+Điểm mấu chốt: mỗi hệ số 10 trong công suất tương đương 10 dB, và mỗi hệ số 2 xấp xỉ 3 dB. Khi bạn đã quen với hai mốc này, bạn có thể tính nhẩm hầu hết các con số RF.
 
-Hậu tố cho biết tham chiếu là gì:
-- **dBm** = so với 1 milliwatt
-- **dBW** = so với 1 watt
-- **dBi** = so với anten đẳng hướng
-- **dBc** = so với sóng mang
+**Thang ×10 / ×2:**
+- +10 dB = 10× công suất
+- +3 dB ≈ 2× công suất (chính xác: 3,01 dB)
+- +6 dB ≈ 4× công suất (hai lần nhân đôi)
+- +20 dB = 100× công suất
+- +30 dB = 1000× công suất
+
+**Chiều âm:**
+- −3 dB ≈ nửa công suất
+- −10 dB = một phần mười công suất
+- −30 dB = một phần nghìn công suất
+
+**Hậu tố cho biết điểm tham chiếu:**
+- **dB** đơn thuần = tỷ số không thứ nguyên (độ lợi, suy hao)
+- **dBm** = tham chiếu 1 milliwatt (công suất tuyệt đối)
+- **dBW** = tham chiếu 1 watt (công suất tuyệt đối)
+- **dBi** = độ lợi anten tham chiếu bộ bức xạ đẳng hướng (isotropic radiator)
+- **dBd** = độ lợi anten tham chiếu dipole nửa sóng
+- **dBc** = công suất tham chiếu tín hiệu sóng mang (carrier)
+
+Hãy nghĩ dBm như "decibel đo từ 1 mW." Nó chuyển giá trị công suất tuyệt đối thành số logarit. Còn dB thuần là một hệ số nhân — "+20 dB độ lợi" nghĩa là đầu ra gấp 100 lần đầu vào, bất kể mức công suất thực tế là bao nhiêu.
 
 </section>
 
@@ -58,81 +73,107 @@ Hậu tố cho biết tham chiếu là gì:
 
 ## Cơ chế
 
-### dB (tỷ số thuần)
+### dB — tỷ số thuần không thứ nguyên
 
-Tỷ số công suất:
+Cho đại lượng công suất:
 $$G_{\text{dB}} = 10 \log_{10}\left(\frac{P_{out}}{P_{in}}\right)$$
 
-Tỷ số điện áp/dòng điện (công suất ∝ V²):
+Cho điện áp hoặc dòng điện (vì công suất ∝ V², hệ số trở thành 20):
 $$G_{\text{dB}} = 20 \log_{10}\left(\frac{V_{out}}{V_{in}}\right)$$
 
-### dBm (công suất tuyệt đối)
+Sự chênh lệch hệ số 2 giữa 10 và 20 là bẫy cổ điển với người mới học. Quy tắc: dùng 10 khi so sánh công suất (watt); dùng 20 khi so sánh đại lượng trường (volt, ampere, cường độ trường). Cả hai biểu diễn cùng tỷ số công suất vật lý — chúng chỉ xuất phát từ các đại lượng đo khác nhau.
 
-Tham chiếu: 1 mW.
+### dBm — công suất tuyệt đối tham chiếu 1 mW
 
-$$P_{\text{dBm}} = 10 \log_{10}\left(\frac{P}{1\ \text{mW}}\right)$$
+$$P_{\text{dBm}} = 10 \log_{10}\left(\frac{P_{\text{mW}}}{1\ \text{mW}}\right)$$
 
-| Công suất | dBm |
-|-----------|-----|
+Bảng chuyển đổi mà mọi kỹ sư RF phải thuộc lòng:
+
+| Công suất tuyến tính | dBm |
+|---|---|
+| 1 pW | −90 dBm |
+| 1 nW | −60 dBm |
 | 1 μW | −30 dBm |
 | 1 mW | 0 dBm |
 | 10 mW | +10 dBm |
 | 100 mW | +20 dBm |
 | 1 W | +30 dBm |
+| 10 W | +40 dBm |
+| 100 W | +50 dBm |
 
-### dBW (công suất tuyệt đối)
+Chuyển ngược từ dBm sang milliwatt: $P_{\text{mW}} = 10^{P_{\text{dBm}}/10}$
 
-Tham chiếu: 1 W.
+### dBW — công suất tuyệt đối tham chiếu 1 W
 
-$$P_{\text{dBW}} = 10 \log_{10}\left(\frac{P}{1\ \text{W}}\right)$$
+$$P_{\text{dBW}} = 10 \log_{10}\left(\frac{P_{\text{W}}}{1\ \text{W}}\right)$$
 
-Chuyển đổi: $\text{dBm} = \text{dBW} + 30$.
+Quan hệ với dBm: $\text{dBm} = \text{dBW} + 30$
 
-### dBi (độ lợi anten)
+dBW xuất hiện chủ yếu trong thông số vệ tinh và máy phát công suất cao (ví dụ: EIRP của vệ tinh địa tĩnh thường được cho là +50 dBW hoặc cao hơn).
 
-Tham chiếu: bộ bức xạ đẳng hướng (anten giả định bức xạ đều theo mọi hướng).
+### dBi — độ lợi anten so với bộ bức xạ đẳng hướng
 
-$$G_{\text{dBi}} = 10 \log_{10}\left(\frac{G}{G_{iso}}\right)$$
+Bộ bức xạ đẳng hướng (isotropic radiator) là nguồn điểm lý thuyết bức xạ đều theo mọi hướng. Anten thực tập trung năng lượng theo hướng ưu tiên, nên chúng có "độ lợi" so với hình cầu lý tưởng này.
 
-Dipole có độ lợi ≈ 2.15 dBi.
+$$G_{\text{dBi}} = 10 \log_{10}\left(\frac{G_{\text{thực}}}{G_{\text{đẳng hướng}}}\right)$$
 
-### dBd (độ lợi anten)
+Vì $G_{\text{đẳng hướng}} = 1$ theo định nghĩa, dBi chỉ là logarit của hệ số độ lợi. Dipole nửa sóng có độ lợi khoảng 1,64 (tuyến tính), tức 2,15 dBi. Anten patch điển hình khoảng 7 dBi. Anten đĩa độ lợi cao có thể đạt 40 dBi.
 
-Tham chiếu: dipole nửa sóng.
+### dBd — độ lợi anten so với dipole
 
-$$G_{\text{dBd}} = G_{\text{dBi}} - 2.15$$
+$$G_{\text{dBd}} = G_{\text{dBi}} - 2{,}15$$
 
-Datasheet dùng cả hai — luôn kiểm tra tham chiếu nào.
+Vậy anten 10 dBd tương đương 12,15 dBi. Điều này quan trọng khi đọc datasheet anten trạm gốc: một số liệt kê độ lợi theo dBd, làm số trông nhỏ hơn. Luôn kiểm tra tham chiếu nào được dùng.
 
-### dBc (so với sóng mang)
+### dBc — so với sóng mang
 
-Dùng cho tín hiệu giả, tạp nhiễu pha, hài.
+Dùng để đặc trưng hài (harmonic), tín hiệu giả (spurious), và tạp nhiễu pha (phase noise) — tất cả so với công suất sóng mang.
 
-$$P_{\text{dBc}} = 10 \log_{10}\left(\frac{P_{signal}}{P_{carrier}}\right)$$
+$$P_{\text{dBc}} = 10 \log_{10}\left(\frac{P_{\text{spur}}}{P_{\text{carrier}}}\right)$$
 
-Ví dụ: "Hài bậc hai ở −40 dBc" nghĩa là 40 dB dưới sóng mang.
+Ví dụ: "Tạp nhiễu pha: −120 dBc/Hz tại offset 1 MHz" nghĩa là mật độ công suất tạp nhiễu cách sóng mang 1 MHz thấp hơn sóng mang 120 dB, trên mỗi hertz băng thông. Đây luôn là số âm (spur yếu hơn sóng mang) trừ khi có vấn đề nghiêm trọng.
 
-### Quy tắc cộng
+### Độ lợi nối tiếp: tại sao dB làm link budget trở nên đơn giản
 
-| Phép tính | Tuyến tính | dB |
-|-----------|------------|-----|
-| Nối tiếp độ lợi | $G_{total} = G_1 \times G_2$ | $G_{total} = G_1 + G_2$ |
-| Tỷ số công suất | $P_2 / P_1$ | $P_{2,\text{dBm}} - P_{1,\text{dBm}}$ |
+Trong đơn vị tuyến tính, chuỗi linh kiện nhân với nhau:
 
-**Bạn không thể cộng trực tiếp giá trị dBm.** Để cộng công suất trong dBm:
-1. Chuyển sang tuyến tính (mW)
-2. Cộng
-3. Chuyển lại dBm
+$$P_{\text{out}} = P_{\text{in}} \times G_1 \times G_2 \times L_1 \times L_2 \times \ldots$$
 
-### Tính nhẩm nhanh
+trong đó độ lợi $G > 1$ và suy hao $L < 1$. Trong dB:
 
-| Thay đổi | dB | Chính xác |
-|----------|-----|-----------|
-| ×2 | +3 dB | 3.01 dB |
-| ×4 | +6 dB | 6.02 dB |
-| ×10 | +10 dB | chính xác |
-| ×100 | +20 dB | chính xác |
-| ×1000 | +30 dB | chính xác |
+$$P_{\text{out,dBm}} = P_{\text{in,dBm}} + G_{1,\text{dB}} + G_{2,\text{dB}} + L_{1,\text{dB}} + L_{2,\text{dB}} + \ldots$$
+
+Bạn chỉ cần cộng. Suy hao là giá trị dB âm, độ lợi là dương. Một link budget đầy đủ chỉ là tổng của một cột số.
+
+### Quy tắc then chốt: không được cộng trực tiếp các giá trị dBm
+
+**dBm + dBm vô nghĩa.** dBm biểu diễn mức công suất; hai mức công suất cộng nhau trong miền watt (tuyến tính), không phải trong miền dBm (logarit).
+
+Để cộng hai công suất biểu diễn bằng dBm:
+1. Chuyển mỗi giá trị sang milliwatt: $P_{\text{mW}} = 10^{P_{\text{dBm}}/10}$
+2. Cộng các giá trị milliwatt
+3. Chuyển tổng về dBm
+
+Ví dụ: +10 dBm + +10 dBm
+- 10 mW + 10 mW = 20 mW
+- $10 \log_{10}(20) = 13$ dBm
+
+Đáp án là +13 dBm, không phải +20 dBm. Đây là lỗi dB phổ biến nhất.
+
+### Bảng tính nhẩm nhanh
+
+| Thay đổi tuyến tính | Tương đương dB |
+|---|---|
+| ×2 | +3 dB |
+| ×4 | +6 dB |
+| ×8 | +9 dB |
+| ×10 | +10 dB |
+| ×100 | +20 dB |
+| ×1000 | +30 dB |
+| ÷2 | −3 dB |
+| ÷10 | −10 dB |
+
+Với giá trị trung gian: kết hợp các mốc. ×5 = ×10 ÷ 2 = +10 − 3 = +7 dB. ×20 = ×10 × 2 = +10 + 3 = +13 dB.
 
 </section>
 
@@ -140,42 +181,51 @@ Ví dụ: "Hài bậc hai ở −40 dBc" nghĩa là 40 dB dưới sóng mang.
 
 ## Áp dụng
 
-**Ví dụ: Nối tiếp bộ khuếch đại**
+**Ví dụ 1: Công suất phát theo dBm**
 
-Bộ khuếch đại 1: +20 dB độ lợi.
-Bộ khuếch đại 2: +15 dB độ lợi.
+Router Wi-Fi phát ở 100 mW.
 
-Tổng độ lợi: $20 + 15 = 35$ dB = 3162× công suất.
+$$P = 10 \log_{10}\left(\frac{100}{1}\right) = 10 \times 2 = +20 \text{ dBm}$$
 
-**Ví dụ: Công suất theo dBm**
+Tính nhanh: 100 mW = 10 × 10 mW = +10 dB so với 10 mW = +10 + 10 = +20 dBm.
 
-Máy phát ra 2 W.
+**Ví dụ 2: Link budget đầy đủ**
 
-$P = 10 \log_{10}(2000\ \text{mW}) = 10 \times 3.3 = 33$ dBm.
+Liên kết cảm biến IoT 900 MHz:
+- Công suất TX: +20 dBm (100 mW)
+- Suy hao cáp TX: −1 dB
+- Độ lợi anten TX: +3 dBi
+- Suy hao không gian tự do ở 500 m: −84 dB
+- Độ lợi anten RX: +0 dBi (omni)
+- Suy hao cáp RX: −0,5 dB
 
-**Ví dụ: Ngân sách liên kết**
+Công suất nhận: $20 - 1 + 3 - 84 + 0 - 0{,}5 = -62{,}5$ dBm
 
-Công suất TX: +30 dBm.
-Độ lợi anten TX: +10 dBi.
-Suy hao đường truyền: −100 dB.
-Độ lợi anten RX: +5 dBi.
+Nếu độ nhạy máy thu là −90 dBm, biên link là $-62{,}5 - (-90) = 27{,}5$ dB. Tốt.
 
-Công suất nhận: $30 + 10 - 100 + 5 = -55$ dBm.
+**Ví dụ 3: Chuỗi bộ khuếch đại**
 
-**Ví dụ: Cộng công suất**
+LNA (bộ khuếch đại tạp nhiễu thấp): +18 dB. Driver amplifier: +12 dB. Power amplifier: +30 dB.
 
-Hai tín hiệu: +10 dBm và +10 dBm.
+Tổng độ lợi: $18 + 12 + 30 = +60$ dB = $10^6$ = 1.000.000× công suất.
 
-Tuyến tính: 10 mW + 10 mW = 20 mW = +13 dBm.
+Đầu vào: −40 dBm. Đầu ra: $-40 + 60 = +20$ dBm = 100 mW.
 
-(KHÔNG phải +20 dBm — đó là lỗi nhân.)
+**Ví dụ 4: Đặc tả tín hiệu giả**
 
-**Ví dụ: dBc sang tuyệt đối**
+Máy phát ở +33 dBm có hài bậc hai tại −45 dBc.
 
-Sóng mang: +20 dBm.
-Spur ở −30 dBc.
+Công suất hài: $33 + (-45) = -12$ dBm.
 
-Công suất spur: $20 + (-30) = -10$ dBm.
+Theo watt: $10^{-12/10} \approx 63$ μW.
+
+**Ví dụ 5: So sánh độ lợi anten**
+
+Anten được ghi "9 dBd."
+
+Theo dBi: $9 + 2{,}15 = 11{,}15$ dBi.
+
+Độ lợi tuyến tính: $10^{11{,}15/10} \approx 13$.
 
 </section>
 
@@ -183,17 +233,17 @@ Công suất spur: $20 + (-30) = -10$ dBm.
 
 ## Lỗi thường gặp
 
-1. **Cộng giá trị dBm.** dBm + dBm vô nghĩa. Chuyển sang mW trước, cộng, chuyển lại.
+1. **Cộng trực tiếp các giá trị dBm.** Đây là lỗi cơ bản nhất trong tính toán RF. +10 dBm cộng +10 dBm là +13 dBm, không phải +20 dBm. Chỉ được cộng giá trị logarit khi chúng là tỷ số không thứ nguyên (dB, không phải dBm).
 
-2. **Nhầm dBi và dBd.** Anten liệt kê "12 dBd" thực ra là 14.15 dBi. Luôn kiểm tra tham chiếu.
+2. **Dùng hệ số 10 cho tỷ số điện áp.** Điện áp là đại lượng trường. Vì công suất ∝ V², hệ số dB cho điện áp là 20, không phải 10. Nói "độ lợi điện áp 10 dB" khi thực ra là "20 dB" sẽ đánh giá thấp độ lợi biên độ trường 2 lần và công suất 4 lần.
 
-3. **Dùng 10× cho điện áp.** Cho tỷ số điện áp hoặc dòng điện, dùng 20 log₁₀, không phải 10 log₁₀.
+3. **Trộn dBi và dBd không kiểm tra.** Anten ghi "12 dBd" thực ra là 14,15 dBi. Trong link budget dùng dBi, sử dụng trực tiếp giá trị dBd gây sai số 2,15 dB. Xác minh tham chiếu cho mọi giá trị độ lợi anten.
 
-4. **Quên dBm là tuyệt đối.** "Tín hiệu giảm 3 dB" là tương đối. "Tín hiệu là −80 dBm" là tuyệt đối.
+4. **Coi dBm là đơn vị tương đối.** "Tín hiệu giảm 3 dB" và "tín hiệu ở −80 dBm" là hai phát biểu khác nhau. Cái trước là thay đổi (tỷ số không thứ nguyên). Cái sau là mức tuyệt đối. Bạn có thể cộng tỷ số dB vào mức dBm, nhưng không được cộng hai giá trị dBm.
 
-5. **Độ chính xác máy tính.** 3 dB ≈ 2× đủ cho ước tính. Để chính xác, dùng 10^(x/10).
+5. **Quên hệ số ×2 chính xác.** Tính nhẩm ×2 = +3 dB rất tiện, nhưng chính xác là 3,01 dB. Với tính toán chuỗi chính xác, sai số làm tròn tích lũy. Khi biên nhỏ hơn 3 dB, dùng giá trị chính xác.
 
-6. **Nhầm dB âm.** −3 dB nghĩa là nửa công suất (÷2), không phải −2× công suất.
+6. **Hiểu nhầm dB âm là công suất âm.** −20 dB nghĩa là 1/100 tham chiếu, không phải "công suất âm." Công suất luôn dương; dB có thể âm, không, hoặc dương.
 
 </section>
 
@@ -201,7 +251,9 @@ Công suất spur: $20 + (-30) = -10$ dBm.
 
 ## Tài liệu tham khảo
 
-- IEEE Standard for Definitions of Physical Quantities for Fundamental Frequency and Time Metrology.
-- ITU Radio Regulations — định nghĩa đơn vị công suất.
+- IEEE Standard 100, *The Authoritative Dictionary of IEEE Standards Terms* — định nghĩa dBm, dBi, dBd, dBc.
+- ITU Radio Regulations, Appendix 4 — quy ước ký hiệu công suất cho phối hợp tần số quốc tế.
+- Pozar, D.M., *Microwave Engineering*, 4th ed., Chapter 1 — decibel trong phân tích mạch.
+- Rappaport, T.S., *Wireless Communications: Principles and Practice*, 2nd ed., Chapter 3 — cơ bản link budget.
 
 </section>

@@ -8,12 +8,12 @@ track: r2
 unit: what-is-an-antenna
 order: 3
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 11
 prerequisites: ["rf-r2-what-is-an-antenna-01-radiation"]
 spiralRevisits: []
 title: "Reciprocity"
 description: "Why transmit and receive patterns are the same."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,11 @@ status: published
 
 ## Why reciprocity matters
 
-You measure an antenna's pattern by transmitting. But it will be used for receiving. Are they the same?
+Antenna measurement labs almost always characterize antennas in transmit mode: feed the antenna, rotate a reference horn around it, record the pattern. But the antenna will often be used for receiving. Is the transmit pattern the same as the receive pattern?
 
-The reciprocity theorem guarantees: yes. An antenna's transmit pattern equals its receive pattern. This fundamental result lets engineers characterize antennas in whichever mode is more convenient.
+The answer is yes — and it follows from a deep symmetry in Maxwell's equations called the reciprocity theorem. This theorem has practical consequences throughout RF engineering: it justifies using transmit measurements to characterize receive behavior, it explains why uplink and downlink path losses are equal, and it determines when an antenna system will *not* be reciprocal (active antennas, circulators, ferrite devices).
+
+For engineers coming from software, reciprocity is the RF analog of a symmetric API: if A can call B, B can call A with the same cost.
 
 </section>
 
@@ -37,67 +39,90 @@ The reciprocity theorem guarantees: yes. An antenna's transmit pattern equals it
 
 ## Intuition
 
-Maxwell's equations are symmetric with respect to source and field. If you can send a signal from A to B, you can send one from B to A with the same efficiency.
+Maxwell's equations contain no preferred time direction. If you run the clock backward on a valid EM solution, you get another valid EM solution. Physically: if a wave can travel from point A to point B through some medium, it can also travel from B to A following the same path, with the same amplitude.
 
-For antennas: wherever the antenna radiates strongly when transmitting, it receives strongly from that direction when receiving. The gain pattern is the same.
+For a two-antenna link:
+- If antenna A transmits and antenna B receives signal $V$, then
+- If antenna B transmits the same current, antenna A receives exactly signal $V$.
+
+The gain pattern — how strongly the antenna interacts with waves from a given direction — is therefore the same whether the antenna is transmitting or receiving. This is reciprocity.
+
+It holds as long as the medium and the antenna are **linear** (no saturation), **time-invariant** (no switches or modulators in the signal path), and made of **reciprocal materials** (no ferrites with a DC magnetic bias).
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How it works
 
-### Lorentz reciprocity theorem
+### The Lorentz reciprocity theorem
 
-For a linear, time-invariant, reciprocal medium:
+For any two sets of sources $(J_1, M_1)$ and $(J_2, M_2)$ producing fields $(E_1, H_1)$ and $(E_2, H_2)$ in the same linear, isotropic medium, the Lorentz theorem states:
 
-$$\oint_S (\mathbf{E}_1 \times \mathbf{H}_2 - \mathbf{E}_2 \times \mathbf{H}_1) \cdot d\mathbf{S} = 0$$
+$$\oint_S \left(\mathbf{E}_1 \times \mathbf{H}_2 - \mathbf{E}_2 \times \mathbf{H}_1\right) \cdot d\mathbf{S} = 0$$
 
-This relates fields from two different sources in the same medium.
+for a closed surface $S$ enclosing no sources. This is not an approximation — it is an exact consequence of Maxwell's equations in reciprocal media.
 
-### Antenna reciprocity
+The physical interpretation: the net power "transferred" from source set 1 to source set 2 equals the net power transferred from set 2 to set 1. There is no preferred direction of coupling.
 
-Consider two antennas A and B:
+### Transfer impedance symmetry
 
-$$\frac{V_{AB}}{I_A} = \frac{V_{BA}}{I_B}$$
+Consider two antennas A and B. Drive antenna A with current $I_A$; it induces open-circuit voltage $V_{AB}$ at B. Drive antenna B with current $I_B$; it induces open-circuit voltage $V_{BA}$ at A.
 
-where:
-- $V_{AB}$ = voltage at B due to current $I_A$ at A
-- $V_{BA}$ = voltage at A due to current $I_B$ at B
+The Lorentz theorem implies:
 
-**Result:** The transfer impedance is symmetric.
+$$\frac{V_{AB}}{I_A} = \frac{V_{BA}}{I_B} \equiv Z_{AB}$$
+
+The transfer impedance $Z_{AB}$ is symmetric. This is the foundation of the two-port S-parameter description of antenna links: $S_{21} = S_{12}$ in a reciprocal environment.
 
 ### Pattern equivalence
 
-The normalized radiation pattern in transmit mode equals the receive pattern:
+The normalized radiation pattern $F(\theta, \phi)$ — which describes gain as a function of angle — is identical in transmit and receive modes:
 
 $$F_{TX}(\theta, \phi) = F_{RX}(\theta, \phi)$$
 
-Gain, directivity, and beamwidth are identical.
+This means:
+- **Gain** is the same in TX and RX.
+- **Beamwidth** is the same.
+- **Sidelobe level** is the same.
+- **Null positions** are the same.
 
-### Effective aperture relation
+A null in the transmit pattern means that direction is also a null in receive — the antenna rejects interferers from that direction equally well.
 
-For any antenna:
+### Effective aperture and gain — the same formula
+
+When receiving, an antenna captures power from an incident plane wave. The captured power is:
+
+$$P_{rx} = S \cdot A_e$$
+
+where $S$ is the incident power density (W/m²) and $A_e$ is the **effective aperture** (m²). The reciprocity theorem forces the same relationship to hold for both TX and RX:
 
 $$G = \frac{4\pi A_e}{\lambda^2}$$
 
-This applies in both TX and RX modes. Transmit gain and receive effective aperture are linked by the same formula.
+So if you know the transmit gain, you immediately know how much aperture the antenna presents to an incoming wave — no separate RX characterization needed.
 
-### Impedance
+**Worked example:** A patch antenna has $G = 7$ dBi $= 5.0$ at 2.4 GHz ($\lambda = 125$ mm).
 
-The antenna impedance $Z_A = R + jX$ is the same whether transmitting or receiving.
+$$A_e = \frac{G \lambda^2}{4\pi} = \frac{5.0 \times (0.125)^2}{4\pi} = \frac{5.0 \times 0.0156}{12.57} = 6.2 \times 10^{-3}\ \text{m}^2 = 62\ \text{cm}^2$$
 
-### Reciprocity conditions
+The patch captures 62 cm² of the incident wavefront — even though its physical area may be only 30 cm².
 
-The theorem holds for:
-- Linear materials
-- Time-invariant systems
-- Isotropic or anisotropic (reciprocal) media
+### Impedance reciprocity
 
-The theorem fails for:
-- Nonlinear devices (amplifiers, mixers)
-- Non-reciprocal materials (ferrites with bias)
-- Active antennas with asymmetric amplification
+The input impedance $Z_A = R_A + jX_A$ is the same whether the antenna is transmitting or receiving. This matters for matching network design: you design the match once, and it works for both link directions.
+
+### When reciprocity fails
+
+Reciprocity requires all elements in the RF chain to be linear and passive. It breaks for:
+
+| Non-reciprocal element | Why it breaks reciprocity | Practical example |
+|------------------------|--------------------------|-------------------|
+| Amplifier (LNA, PA) | Provides gain in one direction only | Active antenna arrays |
+| Circulator / isolator | Ferrite with DC magnetic bias — non-symmetric tensor permeability | Duplexers, radar T/R switches |
+| PIN diode switch | Non-linear when switching | Switched beam arrays |
+| Plasma antenna | Ionized gas — non-linear medium | Experimental only |
+
+When reciprocity is broken deliberately, TX and RX patterns differ. An active phased array with T/R modules has different transmit power and receive noise figure per element — the overall system behavior in TX and RX is engineered independently, not assumed equal.
 
 </section>
 
@@ -105,27 +130,31 @@ The theorem fails for:
 
 ## Apply
 
-**Example: Pattern measurement**
+**Simplifying antenna pattern measurement**
 
-To measure a receive antenna's pattern, transmit from it instead. Rotate a test antenna around it and record power. The pattern equals the receive pattern.
+A receive-only antenna (e.g., a GPS patch on a satellite) is difficult to characterize in receive mode because you'd need a calibrated signal source at every angle in the sky. Instead, connect a signal generator to the antenna feed, rotate a receive horn around it in an anechoic chamber, and record the pattern. Reciprocity guarantees the pattern matches receive behavior.
 
-This is much easier than building a movable transmitter.
+This trick halves the cost of antenna test ranges: only one end needs to be rotated. The antenna under test is always the transmitter.
 
-**Example: Radar cross section**
+**Link budget: why uplink and downlink path loss are equal**
 
-Monostatic RCS measurement uses the same antenna for TX and RX. Reciprocity ensures the measured RCS applies to both directions.
+Free space path loss from A to B equals path loss from B to A. Both use the same formula:
 
-**Example: Link budget symmetry**
+$$L_{fs} = \left(\frac{4\pi r}{\lambda}\right)^2$$
 
-Path loss from A to B equals path loss from B to A (in reciprocal media). Uplink and downlink have the same path loss, though system noise figures differ.
+The path loss is reciprocal even if the link budget is not. Uplink and downlink budgets differ because transmit power, antenna gain, and noise figure differ at each end — not because propagation is asymmetric.
 
-**Example: Array calibration**
+**Array calibration via transmit probing**
 
-Calibrate a receive array by transmitting from each element and measuring at a reference antenna. Reciprocity guarantees this characterizes receive performance.
+To calibrate the receive amplitude and phase of each element in a large phased array, drive each element as a transmitter and measure the field at a reference antenna. Reciprocity maps those transmit measurements directly onto receive calibration coefficients.
 
-**Example: Non-reciprocal device**
+This technique is used in massive MIMO base stations (64–256 elements) to avoid the impractical alternative of probing each element with an incident wave from precisely the right direction.
 
-A circulator routes signals differently depending on port. It's deliberately non-reciprocal. An antenna system using circulators may have different TX and RX characteristics at the system level.
+**Non-reciprocal device: the circulator**
+
+A circulator routes signal from port 1 to port 2, port 2 to port 3, and port 3 to port 1. The reverse routes are blocked. This deliberate non-reciprocity is used in full-duplex radars: TX power goes from port 1 to the antenna (port 2) without leaking into the receiver (port 3).
+
+The circulator contains a ferrite magnetized by a permanent magnet. The off-diagonal terms of the permeability tensor ($\mu_{ij} \neq \mu_{ji}$) violate the symmetry condition of the Lorentz theorem.
 
 </section>
 
@@ -133,15 +162,15 @@ A circulator routes signals differently depending on port. It's deliberately non
 
 ## Pitfalls
 
-1. **Applying to active antennas.** An antenna with an integrated LNA has different TX and RX behavior. Reciprocity applies to the passive antenna element, not the amplified system.
+1. **Applying to active antenna systems.** An antenna element is passive and reciprocal. An antenna element plus LNA is not: the LNA only amplifies signals arriving from space, not the transmit path. Design active antenna receive and transmit chains independently.
 
-2. **Confusing with duplexing.** TX and RX use the same pattern, but practical systems may use different antennas, frequencies, or paths for uplink vs. downlink.
+2. **Confusing channel reciprocity with system reciprocity.** In TDD (time-division duplex) systems like 5G NR, the channel is assumed reciprocal (same path, same frequency, same time slot). But the full system — including PA gain, LNA noise, and filter paths — is not symmetric. Reciprocity-based beamforming calibration corrects for the hardware asymmetry.
 
-3. **Non-reciprocal media.** Near magnetized ferrites (isolators, circulators), reciprocity fails. Design must account for directional behavior.
+3. **Non-reciprocal propagation media.** The ionosphere under some conditions (strong magnetic fields, plasmas) can be non-reciprocal. Faraday rotation reverses sense but is reciprocal in the strict sense — the total phase accumulated is the same in both directions at a fixed frequency. Truly non-reciprocal propagation is rare in typical engineering scenarios.
 
-4. **Nonlinear effects.** High-power TX may cause saturation or nonlinear effects not present in low-power RX. The pattern may effectively differ.
+4. **Polarization cross-coupling.** Reciprocity holds per polarization. A co-pol-to-co-pol path is reciprocal; so is a cross-pol path. But the coupling from port H to port V of a dual-polarized antenna equals the coupling from port V to port H. Cross-polarization isolation is symmetric between ports.
 
-5. **Polarization.** Reciprocity holds per polarization. An antenna with different TX and RX polarization filters will behave asymmetrically at the system level.
+5. **High-power transmit distortion.** If the antenna or its feed has nonlinear behavior at high TX power (e.g., connector contact arcing, ferrite saturation), the transmit pattern may differ from the receive pattern measured at low power. The antenna is temporarily non-reciprocal under high-power conditions.
 
 </section>
 
@@ -149,8 +178,8 @@ A circulator routes signals differently depending on port. It's deliberately non
 
 ## References
 
-- Balanis, *Antenna Theory: Analysis and Design*, Chapter 2.
-- Collin, *Foundations for Microwave Engineering*, Chapter 1.
-- IEEE Standard 145 — Definitions of Terms for Antennas.
+- Balanis, *Antenna Theory: Analysis and Design*, 4th ed., Chapter 2 — Lorentz reciprocity and antenna transfer impedance.
+- Collin, *Foundations for Microwave Engineering*, 2nd ed., Chapter 1 — formal derivation of the reciprocity theorem.
+- IEEE Standard 145-2013 — Definitions of Terms for Antennas, reciprocity definitions.
 
 </section>

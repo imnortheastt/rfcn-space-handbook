@@ -9,16 +9,593 @@ unit: newspace-economics
 order: 4
 level: L5
 estimatedReadingMinutes: 5
-title: "Engineering trade space under cost constraints"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "Engineering Trade Space — Cost vs Performance Decisions"
+description: "How NewSpace engineers make systematic tradeoffs between cost, mass, power, and reliability."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["trade-study", "cost-performance", "design-to-cost", "pareto", "mass-budget"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Engineering trade space under cost constraints
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Traditional aerospace optimizes for performance: maximum capability, minimum risk, cost be damned. NewSpace flips this: optimize for cost, accept "good enough" performance. A GEO satellite might use a $200k rad-hardened processor with 15-year guaranteed life. Starlink uses a $5 automotive chip, accepts 2% failure rate, and replaces dead satellites. Both are rational — for different business models. Understanding trade space analysis tells you how to make these decisions systematically, not by gut feel.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The trade space concept
+
+```
+What is a Trade Space?
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  A TRADE SPACE is the set of all feasible design choices           │
+│  and their performance/cost outcomes.                               │
+│                                                                      │
+│                                                                      │
+│  Performance                                                        │
+│      ▲                                                              │
+│      │              ★ Traditional (high perf, high cost)           │
+│      │             /                                                │
+│      │            /                                                 │
+│      │           /   Pareto frontier                               │
+│      │          /    (efficient designs)                           │
+│      │         /                                                    │
+│      │        ●━━━━━━━━━━━━●                                       │
+│      │       /              ╲                                       │
+│      │      /  Trade space   ╲                                     │
+│      │     /   (all feasible  ╲                                    │
+│      │    /    designs)        ★ NewSpace (good-enough, low cost) │
+│      │   /                                                          │
+│      └──┴───────────────────────────────────────────────→ Cost      │
+│                                                                      │
+│  KEY INSIGHT:                                                       │
+│  You can't have max performance AND min cost.                      │
+│  Every design is a tradeoff. Make it explicitly.                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### The fundamental tradeoffs
+
+```
+Primary Engineering Tradeoffs:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. COST ↔ PERFORMANCE                                             │
+│     ┌───────────────────────────────────────────────────────┐      │
+│     │  More capable = more expensive                        │      │
+│     │  Example: 10 Gbps link costs 3x more than 1 Gbps     │      │
+│     │                                                        │      │
+│     │  Decision: What performance do customers actually pay │      │
+│     │            for? Don't gold-plate.                     │      │
+│     └───────────────────────────────────────────────────────┘      │
+│                                                                      │
+│  2. COST ↔ RELIABILITY                                             │
+│     ┌───────────────────────────────────────────────────────┐      │
+│     │  Higher reliability = more testing, redundancy, cost  │      │
+│     │  Example: Rad-hard chip ($200k) vs automotive ($5)   │      │
+│     │                                                        │      │
+│     │  Decision: Is fleet redundancy cheaper than unit      │      │
+│     │            reliability? (Often yes for LEO)           │      │
+│     └───────────────────────────────────────────────────────┘      │
+│                                                                      │
+│  3. COST ↔ SCHEDULE                                                │
+│     ┌───────────────────────────────────────────────────────┐      │
+│     │  Faster = more expensive (overtime, parallel dev)     │      │
+│     │  Example: 6-month vs 18-month development cycle      │      │
+│     │                                                        │      │
+│     │  Decision: Does time-to-market matter more than      │      │
+│     │            development cost? (Usually yes for startups)│     │
+│     └───────────────────────────────────────────────────────┘      │
+│                                                                      │
+│  4. MASS ↔ COST                                                    │
+│     ┌───────────────────────────────────────────────────────┐      │
+│     │  Lighter = more expensive (exotic materials, machining)│     │
+│     │  Example: Titanium ($50/kg) vs Aluminum ($3/kg)       │      │
+│     │                                                        │      │
+│     │  Decision: Compare mass savings × $/kg_launch vs      │      │
+│     │            material premium. Do the math.             │      │
+│     └───────────────────────────────────────────────────────┘      │
+│                                                                      │
+│  5. POWER ↔ MASS ↔ COST                                            │
+│     ┌───────────────────────────────────────────────────────┐      │
+│     │  More power = bigger solar arrays = more mass/cost    │      │
+│     │  Example: 1 kW solar array ≈ 3 kg, 500 W payload     │      │
+│     │                                                        │      │
+│     │  Decision: What's the minimum power that delivers    │      │
+│     │            the required capability?                   │      │
+│     └───────────────────────────────────────────────────────┘      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Design-to-cost methodology
+
+```
+Design-to-Cost Process:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TRADITIONAL: Design → Cost → Shock → Redesign → Iterate           │
+│  (Cost is discovered after design, always too high)                │
+│                                                                      │
+│  DESIGN-TO-COST: Target Cost → Design Constraints → Design         │
+│  (Cost is an input, not an output)                                 │
+│                                                                      │
+│  STEP 1: Set target cost from business model                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Revenue model: $100/month × 1M subscribers = $100M/mo│         │
+│  │  Required margin: 50%                                 │         │
+│  │  Allowable cost: $50M/month                           │         │
+│  │  Satellite fleet needed: 1,000 satellites             │         │
+│  │  Constellation refresh: 5 years                       │         │
+│  │  Satellites/year: 200                                 │         │
+│  │  Total sat budget: $50M × 12 × 0.3 = $180M/year      │         │
+│  │  Target cost per satellite: $900k                     │         │
+│  │                                                        │         │
+│  │  → This is your design constraint, not a wish.        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STEP 2: Allocate cost budget to subsystems                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Subsystem        │ % Budget │ Allocation             │         │
+│  │  ──────────────────┼──────────┼────────────────        │         │
+│  │  Payload (comms)   │    40%   │ $360k                  │         │
+│  │  Avionics          │    15%   │ $135k                  │         │
+│  │  Power system      │    15%   │ $135k                  │         │
+│  │  Propulsion        │    10%   │ $90k                   │         │
+│  │  Structure         │    10%   │ $90k                   │         │
+│  │  Thermal           │     5%   │ $45k                   │         │
+│  │  AIT (test/integ)  │     5%   │ $45k                   │         │
+│  │  ──────────────────┼──────────┼────────────────        │         │
+│  │  TOTAL             │   100%   │ $900k                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STEP 3: Design each subsystem to its budget                       │
+│  (If you can't hit the budget, trade performance or de-scope)     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Quantitative trade study
+
+```
+How to Run a Trade Study:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  EXAMPLE: Choose a communications subsystem                        │
+│                                                                      │
+│  STEP 1: Define evaluation criteria and weights                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Criterion       │ Weight │ Rationale                 │         │
+│  │  ─────────────────┼────────┼────────────────────────── │         │
+│  │  Unit cost       │   35%  │ Business model driver    │         │
+│  │  Data rate       │   25%  │ Customer value           │         │
+│  │  Mass            │   15%  │ Launch cost impact       │         │
+│  │  Power           │   10%  │ Solar array sizing       │         │
+│  │  TRL (maturity)  │   10%  │ Schedule risk            │         │
+│  │  Reliability     │    5%  │ Fleet handles failures   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STEP 2: Score each option (1-5 scale)                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Option        │Cost│Rate│Mass│Power│TRL │Rel │SCORE │         │
+│  │  ──────────────┼────┼────┼────┼─────┼────┼────┼──────│         │
+│  │  Option A: Ka  │  4 │  5 │  3 │   3 │  5 │  4 │ 4.05 │         │
+│  │  Option B: Ku  │  5 │  3 │  4 │   4 │  5 │  4 │ 4.15 │ ← WIN  │
+│  │  Option C: V   │  2 │  5 │  2 │   2 │  3 │  3 │ 2.85 │         │
+│  │  Option D: Opt │  1 │  4 │  5 │   5 │  2 │  2 │ 2.65 │         │
+│  │                                                        │         │
+│  │  Score = Σ(weight × score) for each criterion         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STEP 3: Sensitivity analysis                                      │
+│  "What if cost weight changes from 35% to 50%?"                   │
+│  → Still Option B? If not, decision is sensitive to assumptions.  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Mass and power budgets
+
+```
+Subsystem Budgeting Example:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MASS BUDGET (500 kg total allocation):                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Subsystem        │ Allocation │ Current │ Margin    │         │
+│  │  ──────────────────┼────────────┼─────────┼───────── │         │
+│  │  Payload           │    150 kg  │  145 kg │  +3.3%   │         │
+│  │  Structure         │    100 kg  │   98 kg │  +2.0%   │         │
+│  │  Power (array+bat) │     80 kg  │   82 kg │  -2.5% ⚠ │        │
+│  │  Propulsion        │     60 kg  │   55 kg │  +8.3%   │         │
+│  │  Avionics          │     40 kg  │   38 kg │  +5.0%   │         │
+│  │  Thermal           │     30 kg  │   28 kg │  +6.7%   │         │
+│  │  Harness/misc      │     40 kg  │   42 kg │  -5.0% ⚠ │        │
+│  │  ──────────────────┼────────────┼─────────┼───────── │         │
+│  │  TOTAL             │    500 kg  │  488 kg │  +2.4%   │         │
+│  │  System margin     │     12 kg  │         │          │         │
+│  │                                                        │         │
+│  │  RULES:                                               │         │
+│  │  • Early design: 20% margin per subsystem            │         │
+│  │  • CDR: 10% margin per subsystem                     │         │
+│  │  • Flight: 5% system margin reserve                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  POWER BUDGET (1000 W total generation):                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Mode          │ Payload │ Avionics │ Propulsion │ Σ  │         │
+│  │  ──────────────┼─────────┼──────────┼────────────┼────│         │
+│  │  Safe hold     │    0 W  │    50 W  │      0 W   │ 50W│         │
+│  │  Cruise        │  200 W  │   100 W  │      0 W   │300W│         │
+│  │  Downlink      │  600 W  │   150 W  │      0 W   │750W│         │
+│  │  Orbit raise   │    0 W  │   100 W  │    400 W   │500W│         │
+│  │  Peak (worst)  │  600 W  │   150 W  │    200 W   │950W│         │
+│  │                                                        │         │
+│  │  Available: 1000 W, Peak demand: 950 W, Margin: 5%    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Trade study calculator:**
+
+```python
+import numpy as np
+
+def weighted_score(scores, weights):
+    """
+    Calculate weighted score for trade study.
+    
+    Args:
+        scores: Dict of {criterion: score} (1-5 scale)
+        weights: Dict of {criterion: weight} (sum to 1.0)
+    
+    Returns:
+        Weighted total score
+    """
+    total = sum(scores[c] * weights[c] for c in scores)
+    return total
+
+def run_trade_study(options, criteria, weights):
+    """
+    Run a complete trade study.
+    
+    Args:
+        options: Dict of {option_name: {criterion: score}}
+        criteria: List of criterion names
+        weights: Dict of {criterion: weight}
+    
+    Returns:
+        Ranked list of (option_name, score)
+    """
+    results = []
+    for name, scores in options.items():
+        total = weighted_score(scores, weights)
+        results.append((name, total))
+    
+    return sorted(results, key=lambda x: -x[1])
+
+def sensitivity_analysis(options, criteria, base_weights, vary_criterion, vary_range):
+    """
+    Test how ranking changes as one weight varies.
+    """
+    results = []
+    for weight_val in vary_range:
+        weights = base_weights.copy()
+        weights[vary_criterion] = weight_val
+        remaining = 1 - weight_val
+        other_sum = sum(base_weights[c] for c in criteria if c != vary_criterion)
+        
+        for c in criteria:
+            if c != vary_criterion:
+                weights[c] = base_weights[c] * remaining / other_sum
+        
+        ranking = run_trade_study(options, criteria, weights)
+        winner = ranking[0][0]
+        results.append((weight_val, winner))
+    
+    return results
+
+def mass_budget_check(allocations, actuals, margin_required=0.10):
+    """
+    Check mass budget status.
+    """
+    results = []
+    for subsystem in allocations:
+        alloc = allocations[subsystem]
+        actual = actuals.get(subsystem, 0)
+        margin = (alloc - actual) / alloc
+        status = "OK" if margin >= margin_required else "WARNING"
+        results.append({
+            "subsystem": subsystem,
+            "allocated": alloc,
+            "actual": actual,
+            "margin_pct": margin * 100,
+            "status": status
+        })
+    return results
+
+def design_to_cost_allocation(target_cost, subsystem_percentages):
+    """
+    Allocate cost budget to subsystems.
+    """
+    return {sub: target_cost * pct for sub, pct in subsystem_percentages.items()}
+
+print("Engineering Trade Space Tools")
+print("=" * 70)
+
+# Trade study example: communications subsystem
+print("\n1. Trade Study: Communications Subsystem")
+print("-" * 70)
+
+criteria = ["cost", "data_rate", "mass", "power", "trl", "reliability"]
+
+weights = {
+    "cost": 0.35,
+    "data_rate": 0.25,
+    "mass": 0.15,
+    "power": 0.10,
+    "trl": 0.10,
+    "reliability": 0.05
+}
+
+options = {
+    "Ka-band (Option A)": {"cost": 4, "data_rate": 5, "mass": 3, "power": 3, "trl": 5, "reliability": 4},
+    "Ku-band (Option B)": {"cost": 5, "data_rate": 3, "mass": 4, "power": 4, "trl": 5, "reliability": 4},
+    "V-band (Option C)": {"cost": 2, "data_rate": 5, "mass": 2, "power": 2, "trl": 3, "reliability": 3},
+    "Optical (Option D)": {"cost": 1, "data_rate": 4, "mass": 5, "power": 5, "trl": 2, "reliability": 2},
+}
+
+print(f"  Criteria weights:")
+for c, w in weights.items():
+    print(f"    {c:<15}: {w:>5.0%}")
+
+print(f"\n  Option scores:")
+print(f"  {'Option':<20} {'Cost':>5} {'Rate':>5} {'Mass':>5} {'Power':>6} {'TRL':>5} {'Rel':>5} {'TOTAL':>7}")
+print(f"  {'-'*60}")
+
+results = run_trade_study(options, criteria, weights)
+for name, score in results:
+    s = options[name]
+    marker = " ← BEST" if score == results[0][1] else ""
+    print(f"  {name:<20} {s['cost']:>5} {s['data_rate']:>5} {s['mass']:>5} {s['power']:>6} {s['trl']:>5} {s['reliability']:>5} {score:>7.2f}{marker}")
+
+# Sensitivity analysis
+print(f"\n2. Sensitivity Analysis: Varying Cost Weight")
+print("-" * 70)
+
+cost_range = [0.20, 0.30, 0.40, 0.50, 0.60]
+sensitivity = sensitivity_analysis(options, criteria, weights, "cost", cost_range)
+
+print(f"  Cost Weight │ Winner")
+print(f"  ────────────┼────────────────────")
+for weight_val, winner in sensitivity:
+    print(f"  {weight_val:>10.0%}  │ {winner}")
+
+# Design-to-cost example
+print(f"\n3. Design-to-Cost Budget Allocation")
+print("-" * 70)
+
+target_cost = 900_000  # $900k per satellite
+
+subsystem_pct = {
+    "Payload (comms)": 0.40,
+    "Avionics": 0.15,
+    "Power system": 0.15,
+    "Propulsion": 0.10,
+    "Structure": 0.10,
+    "Thermal": 0.05,
+    "AIT": 0.05,
+}
+
+allocations = design_to_cost_allocation(target_cost, subsystem_pct)
+
+print(f"  Target satellite cost: ${target_cost:,}")
+print(f"\n  {'Subsystem':<20} {'% Budget':>10} {'Allocation':>15}")
+print(f"  {'-'*48}")
+
+for sub, pct in subsystem_pct.items():
+    alloc = allocations[sub]
+    print(f"  {sub:<20} {pct:>10.0%} ${alloc:>14,.0f}")
+
+print(f"  {'-'*48}")
+print(f"  {'TOTAL':<20} {'100%':>10} ${target_cost:>14,}")
+
+# Mass budget example
+print(f"\n4. Mass Budget Status Check")
+print("-" * 70)
+
+mass_allocations = {
+    "Payload": 150,
+    "Structure": 100,
+    "Power": 80,
+    "Propulsion": 60,
+    "Avionics": 40,
+    "Thermal": 30,
+    "Harness": 40,
+}
+
+mass_actuals = {
+    "Payload": 145,
+    "Structure": 98,
+    "Power": 82,
+    "Propulsion": 55,
+    "Avionics": 38,
+    "Thermal": 28,
+    "Harness": 42,
+}
+
+budget_status = mass_budget_check(mass_allocations, mass_actuals, margin_required=0.05)
+
+print(f"  {'Subsystem':<15} {'Allocated':>12} {'Actual':>10} {'Margin':>10} {'Status':>10}")
+print(f"  {'-'*60}")
+
+total_alloc = 0
+total_actual = 0
+
+for item in budget_status:
+    total_alloc += item["allocated"]
+    total_actual += item["actual"]
+    status_icon = "✓" if item["status"] == "OK" else "⚠"
+    print(f"  {item['subsystem']:<15} {item['allocated']:>10} kg {item['actual']:>8} kg {item['margin_pct']:>9.1f}% {status_icon:>10}")
+
+print(f"  {'-'*60}")
+total_margin = (total_alloc - total_actual) / total_alloc * 100
+print(f"  {'TOTAL':<15} {total_alloc:>10} kg {total_actual:>8} kg {total_margin:>9.1f}%")
+
+# Cost-mass tradeoff
+print(f"\n5. Cost-Mass Tradeoff Analysis")
+print("-" * 70)
+
+print("""
+  Should we use titanium or aluminum for a structural bracket?
+  
+  ┌────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  Material    │ Density │ Strength │ Part Mass │ Material Cost │
+  │  ────────────┼─────────┼──────────┼───────────┼─────────────  │
+  │  Aluminum    │ 2.7 g/cc│ 270 MPa  │  2.0 kg   │      $6       │
+  │  Titanium    │ 4.5 g/cc│ 900 MPa  │  0.8 kg   │    $200       │
+  │                                                                 │
+  │  Mass savings with Ti: 2.0 - 0.8 = 1.2 kg                     │
+  │  Cost premium: $200 - $6 = $194                                │
+  │                                                                 │
+  │  Break-even: If launch cost > $194 / 1.2 kg = $162/kg         │
+  │                                                                 │
+  │  At $2,700/kg (Falcon 9): Save $3,240 launch, spend $194 Ti   │
+  │  → Net savings: $3,046. USE TITANIUM.                         │
+  │                                                                 │
+  │  At $200/kg (Starship): Save $240 launch, spend $194 Ti       │
+  │  → Net savings: $46. MARGINAL, consider other factors.        │
+  │                                                                 │
+  │  At $50/kg (future): Save $60 launch, spend $194 Ti           │
+  │  → Net loss: -$134. USE ALUMINUM.                             │
+  │                                                                 │
+  └────────────────────────────────────────────────────────────────┘
+""")
+
+# Reliability vs cost tradeoff
+print("6. Reliability vs Fleet Redundancy")
+print("-" * 70)
+
+print("""
+  Should we use rad-hard chips or accept failures?
+  
+  ┌────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  Option A: Rad-hard chips                                     │
+  │  • Chip cost: $200,000/satellite                              │
+  │  • Failure rate: 0.1%/year                                    │
+  │  • Fleet of 1000 sats: 1 failure/year                        │
+  │  • Total chip cost: $200M                                     │
+  │                                                                 │
+  │  Option B: Automotive chips + fleet redundancy                │
+  │  • Chip cost: $500/satellite                                  │
+  │  • Failure rate: 3%/year                                      │
+  │  • Fleet of 1000 sats: 30 failures/year                      │
+  │  • Total chip cost: $500k                                     │
+  │  • Replacement cost: 30 × $300k (sat + launch) = $9M/year    │
+  │                                                                 │
+  │  Option A (5 years): $200M chips + $1.5M replacements        │
+  │  Option B (5 years): $0.5M chips + $45M replacements         │
+  │                                                                 │
+  │  OPTION B SAVES $154M over 5 years.                           │
+  │                                                                 │
+  │  KEY INSIGHT: Fleet redundancy beats unit reliability        │
+  │  when replacement is cheap (cheap launch + cheap sats).       │
+  │                                                                 │
+  └────────────────────────────────────────────────────────────────┘
+""")
+```
+
+**Key formulas:**
+
+| Metric | Formula |
+|--------|---------|
+| Weighted score | Σ(weight_i × score_i) |
+| Margin | (Allocated - Actual) / Allocated |
+| Mass-cost break-even | Material premium / Mass savings |
+| Fleet replacement cost | Failure rate × Fleet size × Replacement cost |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Unstated weights.** Every decision has implicit weights. Make them explicit or you'll argue about scores when you disagree on priorities.
+
+2. **3-point-itis.** Rating everything 3/5 makes all options equal. Force yourself to use 1s and 5s.
+
+3. **Ignoring interactions.** Mass affects power affects cost. Evaluate at the system level, not just subsystem.
+
+4. **Optimizing past the point of value.** Saving $1k on a $300k satellite doesn't matter. Focus on big drivers.
+
+5. **Forgetting schedule.** A perfect design that ships 2 years late loses to a good design that ships now.
+
+6. **Recalculating on every iteration.** Do the trade study once, document it, move on. Don't re-optimize daily.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- NASA Systems Engineering Handbook — trade study methods
+- INCOSE SE Handbook — decision analysis techniques
+- Wertz, Everett, Puschell, "Space Mission Engineering" — Ch 2-4
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Cost-to-Orbit Trends](/en/space/newspace-economics/cost-to-orbit/) — launch cost drives material decisions
+- [Mass Production Manufacturing](/en/space/newspace-economics/mass-production-manufacturing/) — design for producibility
+- [Vertical Integration](/en/space/newspace-economics/vertical-integration/) — make vs buy decisions
+
+</section>

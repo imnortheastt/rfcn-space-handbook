@@ -8,17 +8,418 @@ track: n3
 unit: selection-logic
 order: 3
 level: L4
-estimatedReadingMinutes: 5
-title: "Tieu chi lua chon NF"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n2-network-functions-overview-05-nrf-nssf-pcf-nef"]
+spiralRevisits: []
+title: "Tieu chi Lua chon NF"
+description: "Cach NRF va cac NF su dung lua chon NF instance dung dua tren vi tri, dung luong, uu tien, va kha nang dich vu."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 29.510", "3GPP TS 23.501"]
+tags: ["5g", "nrf", "lua-chon-nf", "kham-pha-dich-vu"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tieu chi lua chon NF
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+5G Core co nhieu instance cua moi NF de mo rong va phuc hoi. Khi AMF can SMF, no chon cai nao?
+
+Tieu chi lua chon NF xac dinh phan phoi tai, phuc hoi loi, va dinh tuyen toi uu. Lua chon sai gay diem nong, tang do tre, hoac loi dich vu.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Kham pha va lua chon NF
+
+```
+Luong Kham pha va Lua chon NF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  NF Su dung (v.d., AMF)                                 │
+│  "Toi can SMF phuc vu S-NSSAI=1 trong TAI-1"            │
+│       │                                                 │
+│       │ Nnrf_NFDiscovery                               │
+│       ▼                                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                    NRF                          │    │
+│  │                                                  │    │
+│  │  Buoc 1: Loc theo thuoc tinh bat buoc           │    │
+│  │  - NF Type = SMF                                │    │
+│  │  - S-NSSAI = 1                                  │    │
+│  │  - TAI bao gom TAI-1                            │    │
+│  │                                                  │    │
+│  │  Buoc 2: Ap dung tieu chi lua chon              │    │
+│  │  - Priority (thap hon = tot hon)                │    │
+│  │  - Capacity (cao hon = con nhieu hon)           │    │
+│  │  - Locality (uu tien cung vung)                 │    │
+│  │  - Load (muc su dung hien tai)                  │    │
+│  │                                                  │    │
+│  │  Buoc 3: Tra ve danh sach xep hang              │    │
+│  │  [smf-1, smf-3, smf-2] (theo thu tu uu tien)    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│       │                                                 │
+│       ▼                                                 │
+│  Consumer chon tu danh sach (thuong la dau tien)        │
+│  AMF → SMF-1                                            │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Thu bac tieu chi lua chon
+
+```
+Uu tien Tieu chi Lua chon NF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Tieu chi              Trong so   Mo ta                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ 1. Dich vu Bat buoc  Loc                        │    │
+│  │    NF phai ho tro dich vu can                   │    │
+│  │    (v.d., Nsmf_PDUSession)                      │    │
+│  │                                                  │    │
+│  │ 2. Tinh nang Bat buoc Loc                       │    │
+│  │    NF phai ho tro tinh nang cu the              │    │
+│  │    (v.d., IMS voice, N3IWF)                     │    │
+│  │                                                  │    │
+│  │ 3. S-NSSAI           Loc                        │    │
+│  │    NF phai phuc vu slice yeu cau                │    │
+│  │                                                  │    │
+│  │ 4. TAI / Vung Phuc vu Loc + Xep hang           │    │
+│  │    NF phai phuc vu vi tri                       │    │
+│  │    Uu tien NF gan hon/cung vung                 │    │
+│  │                                                  │    │
+│  │ 5. Priority          Xep hang (thap hon tot hon)│    │
+│  │    Uu tien do nha mang gan                      │    │
+│  │                                                  │    │
+│  │ 6. Capacity          Xep hang (cao hon tot hon) │    │
+│  │    Dung luong tuong doi (0-65535)               │    │
+│  │                                                  │    │
+│  │ 7. Load              Xep hang (thap hon tot hon)│    │
+│  │    Phan tram tai hien tai (0-100)               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Yeu cau kham pha NRF
+
+```
+Tham so Yeu cau NFDiscovery:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  GET /nnrf-disc/v1/nf-instances?<query-params>          │
+│                                                          │
+│  Tham so Bat buoc:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ target-nf-type    = SMF                         │    │
+│  │ requester-nf-type = AMF                         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Bo loc Tuy chon:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ snssais          = [{"sst":1}]                  │    │
+│  │ tai              = {"plmnId":...,"tac":"0001"}  │    │
+│  │ dnn              = "internet"                   │    │
+│  │ smf-serving-area = "area-1"                     │    │
+│  │ service-names    = ["nsmf-pdusession"]          │    │
+│  │ preferred-locality = "region-east"             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Goi y Lua chon:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ max-payload-size = 4096                         │    │
+│  │ limit            = 10                           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Phan hoi:                                              │
+│  {                                                      │
+│    "validityPeriod": 3600,                              │
+│    "nfInstances": [                                     │
+│      {                                                  │
+│        "nfInstanceId": "smf-1-uuid",                    │
+│        "nfType": "SMF",                                 │
+│        "priority": 10,                                  │
+│        "capacity": 1000,                                │
+│        "load": 45,                                      │
+│        "locality": "region-east",                       │
+│        "nfServices": [...]                              │
+│      },                                                 │
+│      ...                                                │
+│    ]                                                    │
+│  }                                                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Priority va capacity
+
+```
+Tinh toan Priority va Capacity:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Priority (0-65535, thap hon = uu tien hon):            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Truong hop su dung:                            │    │
+│  │  - Chi dinh chinh/phu                           │    │
+│  │  - Uu tien dia ly                               │    │
+│  │  - Lop phan cung (moi vs cu)                    │    │
+│  │                                                  │    │
+│  │  Vi du:                                         │    │
+│  │  smf-1: priority=10  ← Chinh                    │    │
+│  │  smf-2: priority=10  ← Chinh (chia se)          │    │
+│  │  smf-3: priority=50  ← Phu                      │    │
+│  │  smf-4: priority=100 ← Khoi phuc tham hoa       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Capacity (0-65535, trong so tuong doi):                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Phan phoi theo trong so giua NF cung priority  │    │
+│  │                                                  │    │
+│  │  Vi du (nhom priority=10):                      │    │
+│  │  smf-1: capacity=1000 → 50% luu luong          │    │
+│  │  smf-2: capacity=1000 → 50% luu luong          │    │
+│  │                                                  │    │
+│  │  Vi du (kich thuoc khong deu):                  │    │
+│  │  smf-1: capacity=3000 → 75% luu luong          │    │
+│  │  smf-2: capacity=1000 → 25% luu luong          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Load (0-100, % su dung hien tai):                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  So lieu dong, cap nhat qua Nnrf_NFManagement   │    │
+│  │                                                  │    │
+│  │  Consumer co the dieu chinh lua chon:           │    │
+│  │  - Tranh NF co load > 80%                       │    │
+│  │  - Uu tien NF co load < 50%                     │    │
+│  │  - Xem xet (capacity - load) la hieu qua       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Lua chon dua tren locality
+
+```
+Lua chon Locality va Dia ly:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dinh dang Chuoi Locality:                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ "quocgia.vung.trungtamdulieu.rack"              │    │
+│  │                                                  │    │
+│  │ Vi du:                                          │    │
+│  │ "vn.north.hanoi-dc1"                            │    │
+│  │ "vn.south.hcmc-dc2.rack-a"                      │    │
+│  │ "us.east.virginia-az1"                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  So khop Locality:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Locality nguoi yeu cau: "vn.north.hanoi-dc1"   │    │
+│  │                                                  │    │
+│  │  Ung vien 1: "vn.north.hanoi-dc1" → Chinh xac ✓ │    │
+│  │  Ung vien 2: "vn.north.hanoi-dc2" → Vung ✓      │    │
+│  │  Ung vien 3: "vn.south.hcmc-dc1"  → Quoc gia ✓  │    │
+│  │  Ung vien 4: "us.east.virginia"   → Khong khop  │    │
+│  │                                                  │    │
+│  │  Uu tien: Ung vien 1 > 2 > 3 > 4                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Locality trong Thuat toan Lua chon:                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. Loc theo thuoc tinh bat buoc                │    │
+│  │  2. Nhom theo priority                          │    │
+│  │  3. Trong nhom priority, uu tien cuc bo         │    │
+│  │  4. Trong locality, trong so theo capacity      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Lua chon theo dich vu cu the
+
+```
+Lua chon Dich vu NF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dang ky NF voi Dich vu:                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ {                                               │    │
+│  │   "nfInstanceId": "smf-1",                      │    │
+│  │   "nfType": "SMF",                              │    │
+│  │   "nfServices": [                               │    │
+│  │     {                                           │    │
+│  │       "serviceName": "nsmf-pdusession",         │    │
+│  │       "versions": [{"apiVersionInUri": "v1"}],  │    │
+│  │       "scheme": "https",                        │    │
+│  │       "nfServiceStatus": "REGISTERED",          │    │
+│  │       "priority": 10,                           │    │
+│  │       "capacity": 500                           │    │
+│  │     },                                          │    │
+│  │     {                                           │    │
+│  │       "serviceName": "nsmf-event-exposure",     │    │
+│  │       "versions": [{"apiVersionInUri": "v1"}],  │    │
+│  │       "scheme": "https",                        │    │
+│  │       "nfServiceStatus": "REGISTERED",          │    │
+│  │       "priority": 20,                           │    │
+│  │       "capacity": 200                           │    │
+│  │     }                                           │    │
+│  │   ]                                             │    │
+│  │ }                                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Lua chon Cap Dich vu:                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ Consumer truy van dich vu cu the:               │    │
+│  │ GET /nnrf-disc/v1/nf-instances                  │    │
+│  │   ?target-nf-type=SMF                           │    │
+│  │   &service-names=nsmf-pdusession                │    │
+│  │                                                  │    │
+│  │ NRF chi tra ve NF co dich vu do                 │    │
+│  │ Priority/capacity cap dich vu dung de xep hang  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tom tat tieu chi lua chon:**
+
+| Tieu chi | Loai | Gia tri | Muc dich |
+|----------|------|---------|----------|
+| Priority | Xep hang | 0-65535 (thap=tot hon) | Chinh/phu |
+| Capacity | Trong so | 0-65535 (tuong doi) | Phan phoi tai |
+| Load | Dong | 0-100% | Tranh qua tai |
+| Locality | Uu tien | Chuoi phan cap | Do tre |
+| S-NSSAI | Loc | SST+SD | Dinh tuyen slice |
+| TAI | Loc | PLMN+TAC | Phu vung |
+
+**Vi du kham pha NRF:**
+
+```bash
+# Kham pha SMF cho slice 1 trong TAI 0001
+curl -X GET "http://nrf:8080/nnrf-disc/v1/nf-instances\
+?target-nf-type=SMF\
+&requester-nf-type=AMF\
+&snssais=%5B%7B%22sst%22%3A1%7D%5D\
+&tai=%7B%22plmnId%22%3A%7B%22mcc%22%3A%22001%22%2C%22mnc%22%3A%2201%22%7D%2C%22tac%22%3A%220001%22%7D" | jq
+
+# Kiem tra trang thai tai NF
+curl -X GET "http://nrf:8080/nnrf-nfm/v1/nf-instances/smf-1-uuid" | jq '.load, .capacity'
+
+# Cap nhat tai NF
+curl -X PATCH "http://nrf:8080/nnrf-nfm/v1/nf-instances/smf-1-uuid" \
+  -H "Content-Type: application/json-patch+json" \
+  -d '[{"op": "replace", "path": "/load", "value": 75}]'
+```
+
+**Ma gia thuat toan lua chon:**
+
+```python
+def select_nf(discovery_response):
+    candidates = discovery_response.nfInstances
+    
+    # Nhom theo priority
+    groups = group_by(candidates, key=lambda nf: nf.priority)
+    
+    for priority in sorted(groups.keys()):
+        group = groups[priority]
+        
+        # Loc bo qua tai
+        available = [nf for nf in group if nf.load < 90]
+        if not available:
+            continue
+        
+        # Uu tien cuc bo
+        local = [nf for nf in available if nf.locality == my_locality]
+        pool = local if local else available
+        
+        # Ngau nhien theo trong so capacity
+        return weighted_choice(pool, weight=lambda nf: nf.capacity)
+    
+    return None  # Khong co NF phu hop
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Tat ca NF cung priority.** Khong co phan biet priority, khong the lam chinh/phu. Dat priority co chu dich.
+
+2. **Capacity khong cap nhat.** Gia tri capacity tinh khong phan anh kha dung thuc. Cap nhat capacity khi co su kien mo rong.
+
+3. **Load cu.** Cap nhat load khong du thuong xuyen. Dat khoang thoi gian heartbeat phu hop (30s-60s).
+
+4. **Khong khop locality.** Consumer va producer dung ten locality khac nhau. Chuan hoa trong toan bo trien khai.
+
+5. **Dich vu khong dang ky.** NF dang ky nhung dich vu thieu trong danh sach nfServices. Consumer khong tim thay.
+
+6. **Cache discovery het han.** Consumer cache ket qua discovery qua validityPeriod. Ton trong TTL.
+
+7. **Khong du phong khi that bai.** NF da chon that bai, consumer khong thu lai voi ung vien tiep theo. Trien khai logic thu lai.
+
+8. **Bo loc qua han che.** Khong NF nao khop tat ca tieu chi. Noi long bo loc tuy chon, giu bo loc bat buoc.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 29.510, "NRF Services"
+- 3GPP TS 23.501, "System Architecture" clause 6.3
+- 3GPP TS 29.500, "Technical Realization of SBI"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Tong quan NSSF](/vi/core-network/selection-logic/nssf-overview/) — lua chon rieng slice
+- [NRF](/vi/core-network/network-functions-overview/nrf-nssf-pcf-nef/) — dich vu kham pha
+- [Tong quan SBI](/vi/core-network/service-based-interface-http2/sbi-overview/) — goi dich vu
+
+</section>

@@ -8,17 +8,466 @@ track: s7
 unit: leo-constellation-architecture
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "Gateway placement"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["starlink-class-design", "inter-satellite-links-isl"]
+spiralRevisits: []
+title: "Gateway Placement for LEO Constellations"
+description: "Where to place ground stations for optimal coverage, capacity, and latency."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["gateway", "ground-station", "peering", "fiber", "leo"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Gateway placement
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Even with ISL-equipped constellations, traffic must eventually reach the terrestrial internet. Gateway placement determines system capacity, latency to content servers, regulatory compliance, and operational resilience. A poorly placed gateway network can bottleneck an otherwise capable constellation. Understanding the tradeoffs—fiber access, weather diversity, regulatory approval, and coverage geometry—is essential for constellation operators and integrators.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What does a gateway do?
+
+```
+Gateway Function in LEO System:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  USER TRAFFIC FLOW:                                                 │
+│                                                                      │
+│     User Terminal                                                   │
+│          │                                                          │
+│          │ Ku/Ka-band user link                                     │
+│          ▼                                                          │
+│        🛰️ LEO Satellite                                            │
+│          │                                                          │
+│          │ ─┬─ ISL (if available) ─→ 🛰️ ─→ 🛰️ ─→ ...              │
+│          │  │                                                       │
+│          │  └─ OR direct gateway link                              │
+│          ▼                                                          │
+│     ┌─────────────────────────────────────────────┐                │
+│     │              GATEWAY SITE                    │                │
+│     │  ┌─────────┐  ┌─────────┐  ┌─────────┐     │                │
+│     │  │ Antenna │  │ Antenna │  │ Antenna │     │                │
+│     │  │  3.5m   │  │  3.5m   │  │  3.5m   │     │                │
+│     │  └────┬────┘  └────┬────┘  └────┬────┘     │                │
+│     │       │            │            │          │                │
+│     │       ▼            ▼            ▼          │                │
+│     │  ┌─────────────────────────────────────┐   │                │
+│     │  │         Modem Bank (SDRs)           │   │                │
+│     │  └────────────────┬────────────────────┘   │                │
+│     │                   │                        │                │
+│     │                   ▼                        │                │
+│     │  ┌─────────────────────────────────────┐   │                │
+│     │  │    Gateway Router / Core Network    │   │                │
+│     │  └────────────────┬────────────────────┘   │                │
+│     └───────────────────┼────────────────────────┘                │
+│                         │                                          │
+│                         │ Fiber backhaul (10-100 Gbps)             │
+│                         ▼                                          │
+│     ┌─────────────────────────────────────────────┐                │
+│     │              INTERNET EXCHANGE              │                │
+│     │    (IXP, cloud peering, content servers)    │                │
+│     └─────────────────────────────────────────────┘                │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Gateway density vs ISL capability
+
+```
+Gateway Strategy Depends on ISL:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  NO ISL (OneWeb Gen1 style):                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Every satellite needs gateway in view when serving   │         │
+│  │  users. Traffic cannot hop through space.            │         │
+│  │                                                        │         │
+│  │       🛰️         🛰️         🛰️         🛰️            │         │
+│  │        │          │          │          │            │         │
+│  │        ▼          ▼          ▼          ▼            │         │
+│  │       GW1        GW2        GW3        GW4           │         │
+│  │                                                        │         │
+│  │  Result: Need 40-100+ gateway sites worldwide        │         │
+│  │  Coverage gap = service gap (oceans, remote areas)   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WITH ISL (Starlink style):                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Traffic can route through space to reach any gateway │         │
+│  │  that has capacity.                                   │         │
+│  │                                                        │         │
+│  │       🛰️ ─── ISL ─── 🛰️ ─── ISL ─── 🛰️               │         │
+│  │        │                              │               │         │
+│  │        │                              ▼               │         │
+│  │      User                            GW1             │         │
+│  │      (ocean)                    (continental)        │         │
+│  │                                                        │         │
+│  │  Result: Need only 10-50 gateway sites               │         │
+│  │  Placement optimizes for fiber access + weather      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Gateway site selection criteria
+
+```
+Site Selection Decision Matrix:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CRITERION           │ WHY IT MATTERS          │ PRIORITY │        │
+│  ────────────────────┼─────────────────────────┼──────────│        │
+│  Fiber availability  │ Backhaul capacity/cost  │ Critical │        │
+│  IXP proximity       │ Latency to content      │ Critical │        │
+│  Weather (rain zone) │ Ka-band fade margin     │ High     │        │
+│  Regulatory approval │ Spectrum license        │ Critical │        │
+│  Land/lease cost     │ CapEx/OpEx              │ Medium   │        │
+│  Power availability  │ 100-500 kW per site     │ High     │        │
+│  Latitude coverage   │ Satellite visibility    │ High     │        │
+│  Redundancy/diversity│ Failover capability     │ High     │        │
+│  ────────────────────┴─────────────────────────┴──────────│        │
+│                                                                      │
+│  RAIN FADE CONSIDERATION (Ka-band):                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ITU Rain Zone │ Rain Rate  │ Ka Fade │ Availability │         │
+│  │  ──────────────┼────────────┼─────────┼──────────────│         │
+│  │  A (dry)       │ 8 mm/hr    │ 3 dB    │ 99.99%       │         │
+│  │  K (moderate)  │ 42 mm/hr   │ 10 dB   │ 99.9%        │         │
+│  │  P (tropical)  │ 145 mm/hr  │ 25 dB   │ 99.0%        │         │
+│  │                                                        │         │
+│  │  Solution: Site diversity (50-100 km apart)          │         │
+│  │  If one site fades, traffic routes to backup         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Gateway capacity architecture
+
+```
+Multi-Antenna Gateway Site:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  WHY MULTIPLE ANTENNAS?                                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  LEO satellites pass overhead in ~5-10 minutes       │         │
+│  │  Need multiple antennas to track multiple sats       │         │
+│  │  simultaneously and handoff seamlessly               │         │
+│  │                                                        │         │
+│  │  Time: 0 min     2 min      4 min      6 min         │         │
+│  │        │         │          │          │             │         │
+│  │        ▼         ▼          ▼          ▼             │         │
+│  │       🛰️A →    🛰️A →     🛰️A →     🛰️A (setting)   │         │
+│  │                  🛰️B →     🛰️B →     🛰️B →          │         │
+│  │                            🛰️C →     🛰️C →          │         │
+│  │        │         │          │          │             │         │
+│  │       Ant1     Ant1       Ant1→     (handoff)       │         │
+│  │                 Ant2       Ant2      Ant2           │         │
+│  │                            Ant3      Ant3           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TYPICAL GATEWAY SITE SPECS (Starlink-class):                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Component        │ Specification                     │         │
+│  │  ─────────────────┼───────────────────────────────── │         │
+│  │  Antennas         │ 6-12 × 3.5m dishes               │         │
+│  │  Frequency (GW)   │ Ka-band (17.7-20.2/27.5-30 GHz)  │         │
+│  │  Throughput/ant   │ 10-20 Gbps                       │         │
+│  │  Site capacity    │ 80-200 Gbps                      │         │
+│  │  Power draw       │ 200-500 kW                       │         │
+│  │  Footprint        │ 1-5 acres                        │         │
+│  │  Fiber backhaul   │ 100+ Gbps                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Global gateway network design
+
+```
+Gateway Network Topology:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  STARLINK GATEWAY STRATEGY (example):                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │        ┌─────┐         ┌─────┐         ┌─────┐       │         │
+│  │        │ GW  │         │ GW  │         │ GW  │       │         │
+│  │        │ US  │         │ EU  │         │ Asia│       │         │
+│  │        │ x8  │         │ x6  │         │ x4  │       │         │
+│  │        └──┬──┘         └──┬──┘         └──┬──┘       │         │
+│  │           │               │               │          │         │
+│  │           ▼               ▼               ▼          │         │
+│  │     ┌──────────────────────────────────────────┐     │         │
+│  │     │   Tier 1 Fiber + Cloud Peering Points   │     │         │
+│  │     │   (Google, AWS, Azure, Cloudflare, etc.)│     │         │
+│  │     └──────────────────────────────────────────┘     │         │
+│  │                                                        │         │
+│  │  Regional breakdown (approximate):                    │         │
+│  │  • North America: 8-12 sites                         │         │
+│  │  • Europe: 4-8 sites                                 │         │
+│  │  • Asia-Pacific: 4-6 sites                           │         │
+│  │  • South America: 2-4 sites                          │         │
+│  │  • Africa/Middle East: 2-4 sites                     │         │
+│  │                                                        │         │
+│  │  Total: ~25-40 gateway sites for global coverage     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LATENCY OPTIMIZATION:                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  User in Dallas → Starlink → Gateway in Dallas       │         │
+│  │                              → Fiber (5ms) → AWS     │         │
+│  │                                                        │         │
+│  │  vs.                                                  │         │
+│  │                                                        │         │
+│  │  User in Dallas → Starlink → ISL → Gateway in Seattle│         │
+│  │                              → Fiber (30ms) → AWS    │         │
+│  │                                                        │         │
+│  │  Gateway proximity to cloud = lower total latency    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Gateway placement optimizer:**
+
+```python
+import numpy as np
+from math import radians, sin, cos, asin, sqrt
+
+R_EARTH = 6371  # km
+
+def haversine_km(lat1, lon1, lat2, lon2):
+    """Great circle distance between two points."""
+    lat1, lon1, lat2, lon2 = map(radians, [lat1, lon1, lat2, lon2])
+    dlat = lat2 - lat1
+    dlon = lon2 - lon1
+    a = sin(dlat/2)**2 + cos(lat1)*cos(lat2)*sin(dlon/2)**2
+    return 2 * R_EARTH * asin(sqrt(a))
+
+def satellite_visibility_duration_min(altitude_km, min_elevation_deg):
+    """Approximate time a LEO satellite is visible."""
+    r = R_EARTH + altitude_km
+    el_rad = radians(min_elevation_deg)
+    
+    # Central angle for visibility
+    rho = np.arcsin(R_EARTH / r * np.cos(el_rad)) - el_rad
+    
+    # Arc length as fraction of orbit
+    arc_fraction = 2 * rho / (2 * np.pi)
+    
+    # Orbital period
+    T = 2 * np.pi * np.sqrt(r**3 / 398600.4418) / 60  # minutes
+    
+    return T * arc_fraction
+
+def gateway_coverage_radius_km(altitude_km, min_elevation_deg):
+    """Coverage radius of a gateway site."""
+    r = R_EARTH + altitude_km
+    el_rad = radians(min_elevation_deg)
+    rho = np.arcsin(R_EARTH / r * np.cos(el_rad)) - el_rad
+    return R_EARTH * rho
+
+def rain_fade_margin_db(rain_rate_mm_hr, frequency_ghz, elevation_deg, path_length_km=5):
+    """Estimate rain fade (simplified ITU-R model)."""
+    # Simplified specific attenuation (dB/km)
+    # Real calculation uses ITU-R P.838
+    k = 0.0001 * frequency_ghz**1.5
+    alpha = 1.0 + 0.01 * frequency_ghz
+    gamma = k * (rain_rate_mm_hr ** alpha)
+    
+    # Effective path length through rain
+    L_eff = path_length_km / sin(radians(elevation_deg))
+    
+    return gamma * L_eff
+
+def gateway_site_score(
+    fiber_distance_km,
+    ixp_distance_km,
+    rain_zone,
+    latitude,
+    constellation_inclination=53
+):
+    """Score a potential gateway site (higher = better)."""
+    score = 100
+    
+    # Fiber penalty (0-30 points)
+    score -= min(30, fiber_distance_km * 0.5)
+    
+    # IXP penalty (0-20 points)
+    score -= min(20, ixp_distance_km * 0.2)
+    
+    # Rain zone penalty (A=0, K=10, P=25)
+    rain_penalties = {'A': 0, 'K': 10, 'P': 25}
+    score -= rain_penalties.get(rain_zone, 15)
+    
+    # Latitude bonus (closer to constellation inclination = more passes)
+    lat_diff = abs(latitude) - constellation_inclination
+    if lat_diff < 10:
+        score += 10  # Optimal latitude band
+    elif lat_diff > 30:
+        score -= 10  # Poor visibility
+    
+    return max(0, score)
+
+# Example gateway analysis
+print("LEO Gateway Placement Analysis")
+print("=" * 70)
+
+# Candidate gateway sites
+sites = [
+    ("Boca Chica, TX", 25.9, -97.4, 10, 50, 'K'),
+    ("Redmond, WA", 47.7, -122.1, 5, 10, 'K'),
+    ("Fucino, Italy", 42.0, 13.6, 20, 30, 'A'),
+    ("Warkworth, NZ", -36.4, 174.7, 30, 80, 'K'),
+    ("São Paulo, BR", -23.5, -46.6, 5, 15, 'P'),
+    ("Pune, India", 18.5, 73.9, 10, 40, 'P'),
+    ("Nairobi, Kenya", -1.3, 36.8, 50, 100, 'K'),
+]
+
+print(f"\n{'Site':<20} {'Lat':>6} {'Fiber':>8} {'IXP':>8} {'Rain':>6} {'Score':>7}")
+print("-" * 70)
+
+for name, lat, lon, fiber_km, ixp_km, rain in sites:
+    score = gateway_site_score(fiber_km, ixp_km, rain, lat)
+    print(f"{name:<20} {lat:>6.1f}° {fiber_km:>6}km {ixp_km:>6}km {rain:>6} {score:>7.1f}")
+
+# Coverage analysis
+print("\n" + "=" * 70)
+print("Gateway Coverage Parameters (550 km LEO)")
+print("-" * 70)
+
+altitude = 550
+for min_el in [10, 25, 40]:
+    radius = gateway_coverage_radius_km(altitude, min_el)
+    duration = satellite_visibility_duration_min(altitude, min_el)
+    print(f"Min elevation {min_el}°: coverage radius {radius:.0f} km, pass duration {duration:.1f} min")
+
+# Capacity planning
+print("\n" + "=" * 70)
+print("Gateway Capacity Planning")
+print("-" * 70)
+
+antennas_per_site = 8
+throughput_per_antenna_gbps = 15
+sites_count = 30
+user_avg_mbps = 100
+overbooking_ratio = 20  # 20:1 typical for broadband
+
+total_gateway_capacity_gbps = antennas_per_site * throughput_per_antenna_gbps * sites_count
+max_concurrent_users_gbps = total_gateway_capacity_gbps * 1000 / user_avg_mbps
+max_subscribers = max_concurrent_users_gbps * overbooking_ratio
+
+print(f"Antennas per site: {antennas_per_site}")
+print(f"Throughput per antenna: {throughput_per_antenna_gbps} Gbps")
+print(f"Number of gateway sites: {sites_count}")
+print(f"Total gateway capacity: {total_gateway_capacity_gbps} Gbps")
+print(f"Max concurrent users @ {user_avg_mbps} Mbps: {max_concurrent_users_gbps:,.0f}")
+print(f"Max subscribers ({overbooking_ratio}:1 overbooking): {max_subscribers/1e6:.1f}M")
+
+# Rain fade example
+print("\n" + "=" * 70)
+print("Rain Fade Analysis (Ka-band 20 GHz, 30° elevation)")
+print("-" * 70)
+
+rain_rates = [
+    ("Light rain (Zone A)", 8),
+    ("Moderate rain (Zone K)", 42),
+    ("Heavy rain (Zone P)", 145),
+]
+
+for desc, rate in rain_rates:
+    fade = rain_fade_margin_db(rate, 20, 30)
+    print(f"{desc}: {rate} mm/hr → {fade:.1f} dB fade")
+```
+
+**Gateway summary:**
+
+| Metric | Bent-Pipe System | ISL-Enabled System |
+|--------|------------------|-------------------|
+| Gateway sites needed | 50-100 | 20-40 |
+| Coverage gap tolerance | None | High (ISL routes around) |
+| Site placement priority | User density | Fiber + IXP access |
+| Weather resilience | Critical | Moderate (can reroute) |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Fiber last mile.** A gateway without fiber backhaul is a bottleneck.
+
+2. **Regulatory delays.** Spectrum licensing can take 1-3 years in some countries.
+
+3. **Rain fade.** Ka-band links lose 10-25 dB in heavy rain—need site diversity.
+
+4. **Handoff gaps.** Without enough antennas, brief outages occur during satellite transitions.
+
+5. **Power hungry.** A gateway site draws 200-500 kW; remote locations may lack capacity.
+
+6. **Latitude mismatch.** Gateways at equator see fewer passes than at constellation inclination.
+
+7. **Single points of failure.** Regional gateway outage can black out large areas without ISL backup.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU-R P.618: Propagation Data for Earth-Space Telecommunications
+- Starlink FCC Gateway Earth Station Applications
+- Telesat Lightspeed Gateway Architecture Overview
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Handover](/en/space/leo-constellation-architecture/handover-between-satellites/) — beam switching
+- [Capacity Dynamics](/en/space/leo-constellation-architecture/capacity-dynamics/) — load balancing
+- [Link Budget](/en/space/link-budget-master-class/) — gateway link calculations
+
+</section>

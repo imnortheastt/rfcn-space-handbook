@@ -1,24 +1,342 @@
 ---
-id: core-network-n0-4g-5g-not-like-aws-vpc-03-mobility-management-concept-vi
+id: core-network-n1-4g-5g-not-like-aws-vpc-03-mobility-management-concept-vi
 slug: mobility-management-concept
 lang: vi
-parityId: core-network-n0-4g-5g-not-like-aws-vpc-03-mobility-management-concept
+parityId: core-network-n1-4g-5g-not-like-aws-vpc-03-mobility-management-concept
 domain: core-network
-track: n0
+track: n1
 unit: 4g-5g-not-like-aws-vpc
 order: 3
 level: L2
-estimatedReadingMinutes: 5
-title: "Khai niem quan ly di dong"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n1-4g-5g-not-like-aws-vpc-02-user-plane-control-plane-separation"]
+spiralRevisits: ["core-network-n3-mobility-management-01-registration"]
+title: "Khái niệm mobility management"
+description: "Cách mạng di động theo dõi thiết bị, xử lý di chuyển, và giữ session sống trong handover."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 23.501", "3GPP TS 23.502"]
+tags: ["mobility", "handover", "registration", "5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Khai niem quan ly di dong
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+Điện thoại của bạn chuyển đổi liền mạch giữa các trạm khi bạn lái xe trên cao tốc. Cuộc gọi video tiếp tục mà không bị ngắt. Làm sao?
+
+Mobility management là vấn đề cốt lõi mạng di động giải quyết. Hiểu nó giải thích tại sao kiến trúc di động trông như vậy — và tại sao pattern từ cloud computing cố định không áp dụng được.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+### Ba vấn đề mobility
+
+**1. Theo dõi vị trí:** Thiết bị đang ở đâu ngay bây giờ? Trạm nào có thể reach nó?
+
+**2. Reachability:** Ai đó muốn gọi thiết bị này. Mạng tìm nó và đánh thức nó như thế nào?
+
+**3. Session continuity:** Thiết bị đang trong cuộc gọi video và di chuyển sang cell mới. Session survive như thế nào?
+
+### Trạng thái của thiết bị di động
+
+Thiết bị không phải lúc nào cũng "connected." Nó chuyển đổi giữa các trạng thái để tiết kiệm pin:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│    ┌──────────┐                       ┌──────────┐     │
+│    │   OFF    │──── Bật nguồn ───────►│REGISTERED│     │
+│    │          │◄─── Tắt nguồn ────────│          │     │
+│    └──────────┘                       └────┬─────┘     │
+│                                            │           │
+│                          ┌─────────────────┴───────────┐
+│                          │                             │
+│                          ▼                             ▼
+│                   ┌──────────┐                  ┌──────────┐
+│                   │   IDLE   │◄────────────────►│CONNECTED │
+│                   │          │    Hoạt động     │          │
+│                   └──────────┘                  └──────────┘
+│                         │                             │
+│                   Không kết nối                 Kết nối radio
+│                   radio                         active
+│                         │                             │
+│                   Tiết kiệm                     Data chảy
+│                   pin                                 │
+│                                                       │
+└─────────────────────────────────────────────────────────┘
+```
+
+**IDLE (RRC_INACTIVE):** Thiết bị đã đăng ký nhưng không truyền active. Mạng biết đại khái nó ở đâu (tracking area) nhưng không chính xác cell nào.
+
+**CONNECTED (RRC_CONNECTED):** Thiết bị có kết nối radio active. Mạng biết chính xác cell nào. Data có thể chảy.
+
+### Tracking Area
+
+Mạng không theo dõi từng cell khi thiết bị idle — điều đó sẽ quá nhiều signaling. Thay vào đó, nó dùng **tracking area**.
+
+```
+┌───────────────────────────────────────────────────────┐
+│                    Tracking Area 1                     │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐         │
+│  │Cell │  │Cell │  │Cell │  │Cell │  │Cell │         │
+│  │  1  │  │  2  │  │  3  │  │  4  │  │  5  │         │
+│  └─────┘  └─────┘  └─────┘  └─────┘  └─────┘         │
+│                                                       │
+│  Thiết bị có thể di chuyển tự do không cần báo mạng  │
+└───────────────────────────────────────────────────────┘
+
+┌───────────────────────────────────────────────────────┐
+│                    Tracking Area 2                     │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐         │
+│  │Cell │  │Cell │  │Cell │  │Cell │  │Cell │         │
+│  │  6  │  │  7  │  │  8  │  │  9  │  │ 10  │         │
+│  └─────┘  └─────┘  └─────┘  └─────┘  └─────┘         │
+│                                                       │
+│  Khi thiết bị vào đây, nó gửi Tracking Area Update   │
+└───────────────────────────────────────────────────────┘
+```
+
+**Trade-off:**
+- Tracking area lớn → ít signaling, nhưng paging storm khi thiết bị được gọi
+- Tracking area nhỏ → nhiều signaling, nhưng paging hiệu quả
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### Registration
+
+Khi thiết bị bật nguồn hoặc vào mạng mới, nó phải đăng ký.
+
+```
+┌─────┐                    ┌─────┐                    ┌─────┐
+│ UE  │                    │ AMF │                    │ UDM │
+└──┬──┘                    └──┬──┘                    └──┬──┘
+   │                          │                          │
+   │ ─── Registration Req ───►│                          │
+   │     (SUCI, capabilities) │                          │
+   │                          │                          │
+   │                          │ ─── Authentication ─────►│
+   │                          │                          │
+   │◄── Auth Challenge ───────│                          │
+   │                          │                          │
+   │ ─── Auth Response ──────►│                          │
+   │                          │                          │
+   │                          │◄── Auth Confirmed ───────│
+   │                          │                          │
+   │◄── Registration Accept ──│                          │
+   │     (5G-GUTI, TA list)   │                          │
+```
+
+**Kết quả:**
+- Thiết bị nhận temporary ID (5G-GUTI)
+- Mạng biết AMF nào đang serve thiết bị này
+- Thiết bị biết tracking area nào nó có thể roam
+
+### Tracking Area Update (TAU)
+
+Khi thiết bị di chuyển sang tracking area mới trong khi idle, nó báo mạng.
+
+```
+┌─────┐                    ┌─────┐
+│ UE  │                    │ AMF │
+└──┬──┘                    └──┬──┘
+   │                          │
+   │  Thiết bị phát hiện TA   │
+   │  mới                     │
+   │                          │
+   │ ─── TA Update Request ──►│
+   │     (TA hiện tại)        │
+   │                          │
+   │◄── TA Update Accept ─────│
+   │     (TA list mới)        │
+```
+
+**Tại sao quan trọng:**
+- Mạng luôn biết (đại khái) nơi tìm thiết bị
+- Paging chỉ cần đi đến một tracking area, không phải toàn mạng
+
+### Paging
+
+Ai đó gọi bạn. Điện thoại đang idle. Mạng tìm nó như thế nào?
+
+```
+┌─────┐                    ┌─────┐                    ┌─────┐
+│Caller│                   │ AMF │                    │ UE  │
+└──┬──┘                    └──┬──┘                    └──┬──┘
+   │                          │                          │
+   │ ─── Incoming call ──────►│                          │
+   │                          │                          │
+   │                          │  Tra cứu: UE ở TA 1      │
+   │                          │                          │
+   │                          │ ─── Paging (tất cả ─────►│
+   │                          │     cell trong TA 1)     │
+   │                          │                          │
+   │                          │◄── Paging Response ──────│
+   │                          │    (Tôi ở cell 3)        │
+   │                          │                          │
+   │◄─────────────────────────│◄──── Call setup ─────────│
+```
+
+**Paging thực tế:**
+1. Mạng xác định thiết bị ở tracking area nào
+2. Tất cả cell trong tracking area đó broadcast paging message
+3. Thiết bị thức dậy, phản hồi với cell chính xác
+4. Call setup tiến hành
+
+### Handover
+
+Thiết bị đang trong cuộc gọi active và di chuyển sang cell mới. Session phải survive.
+
+**Intra-gNB handover** (cùng base station, cell khác):
+- Xử lý local bởi gNB
+- Rất nhanh (&lt;20ms gián đoạn)
+- Không liên quan core network
+
+**Inter-gNB handover** (base station khác nhau):
+
+```
+┌─────┐          ┌─────────┐          ┌─────────┐          ┌─────┐
+│ UE  │          │Source   │          │Target   │          │ AMF │
+│     │          │  gNB    │          │  gNB    │          │     │
+└──┬──┘          └────┬────┘          └────┬────┘          └──┬──┘
+   │                  │                    │                  │
+   │  Measurement     │                    │                  │
+   │  report cho thấy │                    │                  │
+   │  target tốt hơn  │                    │                  │
+   │                  │                    │                  │
+   │                  │ ─ Handover Req ───►│                  │
+   │                  │                    │                  │
+   │                  │◄─ Handover Ack ────│                  │
+   │                  │   (sẵn sàng)       │                  │
+   │                  │                    │                  │
+   │◄─ HO Command ────│                    │                  │
+   │                  │                    │                  │
+   │ ══════════════ Chuyển sang target ═══►│                  │
+   │                  │                    │                  │
+   │                  │                    │ ─ Path Switch ──►│
+   │                  │                    │                  │
+   │                  │                    │◄─ Path Switch ───│
+   │                  │                    │    Ack           │
+```
+
+**Insight quan trọng:** Trong handover, UPF (user plane) có thể không đổi. Chỉ kết nối radio chuyển. Đây là lý do CUPS quan trọng — anchor point giữ ổn định.
+
+### Session continuity option
+
+5G cung cấp các mức session continuity khác nhau:
+
+| Mode | Hành vi | Use case |
+|------|---------|----------|
+| **SSC Mode 1** | Session anchor (UPF) không bao giờ đổi | Real-time app, enterprise |
+| **SSC Mode 2** | Mạng có thể release và re-establish | Best-effort app |
+| **SSC Mode 3** | Session mới trước khi session cũ kết thúc (make-before-break) | Seamless mobility |
+
+**SSC Mode 1 (phổ biến nhất):**
+```
+┌──────────────────────────────────────────────────────────┐
+│                                                          │
+│   gNB A ──────┐                  ┌────── gNB C           │
+│               │                  │                       │
+│               ▼                  ▼                       │
+│         ┌─────────────────────────────┐                  │
+│         │           UPF               │◄─── Anchor giữ  │
+│         └─────────────────────────────┘     cố định     │
+│                      │                                   │
+│                      ▼                                   │
+│                  Internet                                │
+│                                                          │
+│   UE di chuyển: gNB A → gNB B → gNB C                   │
+│   UPF không bao giờ đổi. IP address giữ nguyên.         │
+│                                                          │
+└──────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Thiết kế cho mobility:**
+
+| Ứng dụng | Latency tolerance | Session continuity | Khuyến nghị |
+|----------|-------------------|-------------------|-------------|
+| VoIP/Video | &lt;150ms | Critical | SSC Mode 1 |
+| Web browsing | Giây OK | Nice to have | SSC Mode 2 |
+| IoT telemetry | Giây OK | Không critical | SSC Mode 2 |
+| Gaming | &lt;50ms | Critical | SSC Mode 1 + edge UPF |
+
+**Capacity planning cho mobility:**
+
+- **Handover rate:** Khu vực đô thị với user di chuyển nhanh (cao tốc) có handover rate cao
+- **Paging load:** Tracking area lớn giảm TAU signaling nhưng tăng paging load
+- **AMF sizing:** AMF xử lý tất cả mobility signaling — scale dựa trên mobility event, không phải throughput
+
+**Debug vấn đề mobility:**
+
+1. **Drop call trong handover:**
+   - Kiểm tra handover timing (measurement report, handover command)
+   - Verify target cell sẵn sàng trước handover
+   - Kiểm tra UPF path switch timing
+
+2. **Delayed call setup:**
+   - Kiểm tra paging success rate
+   - Verify tracking area configuration
+   - Tìm paging storm (quá nhiều thiết bị trong một TA)
+
+3. **IP address thay đổi không mong muốn:**
+   - Verify SSC mode configuration
+   - Kiểm tra UPF reselection có đang xảy ra không
+   - Review SMF session management
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Giả định WiFi-style handover hoạt động.** WiFi handover đơn giản — kết nối lại AP mới. Mobile handover được phối hợp, với state transfer. Vấn đề khác.
+
+2. **Bỏ qua thiết kế tracking area.** TA planning kém gây TAU signaling quá mức hoặc paging storm. Đây là vấn đề capacity planning, không chỉ configuration.
+
+3. **Coi mobility là edge case.** Trong mạng di động, mobility là trường hợp bình thường. Thiết kế cho nó trước.
+
+4. **Quên idle mode.** Hầu hết thiết bị idle hầu hết thời gian. Idle mode mobility (TAU, paging) chiếm đa số signaling load.
+
+5. **Dựa quá nhiều vào IP cho identity.** IP address thay đổi. Dùng SUPI/5G-GUTI cho device identity, không phải IP.
+
+6. **Giả định handover là instant.** Ngay cả handover tốt cũng có ~20-50ms gián đoạn. Real-time app phải buffer hoặc tolerate điều này.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- 3GPP TS 23.501, "System architecture for the 5G System"
+- 3GPP TS 23.502, "Procedures for the 5G System"
+- 3GPP TS 38.300, "NR and NG-RAN Overall Description"
+- Sauter, *From GSM to LTE-Advanced Pro and 5G*, Wiley, 2021
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [Registration procedure](/vi/core-network/mobility-management/registration/) — registration flow chi tiết
+- [Handover procedure](/vi/core-network/mobility-management/handover/) — cơ chế inter-gNB handover
+- [Idle and connected mode](/vi/core-network/mobility-management/idle-connected-modes/) — chi tiết state machine
+
+</section>

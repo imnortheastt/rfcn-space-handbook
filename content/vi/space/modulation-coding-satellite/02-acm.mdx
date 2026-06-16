@@ -9,16 +9,510 @@ unit: modulation-coding-satellite
 order: 2
 level: L3
 estimatedReadingMinutes: 5
-title: "Dieu che va ma hoa thich nghi (ACM)"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "Dieu che va Ma hoa Thich ung (ACM)"
+description: "Chon MODCOD dong de toi da thong luong trong dieu kien thay doi."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["acm", "vcm", "ccm", "modcod", "giam-thieu-suy-giam"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Dieu che va ma hoa thich nghi (ACM)
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Mua co the lam suy giam tin hieu ve tinh bang Ka 10+ dB trong vai phut. Khong co ACM, nha khai thac phai thiet ke cho dieu kien xau nhat—lang phi 50%+ dung luong vao nhung ngay troi quang. Voi ACM, moi tram nhan duoc thong luong cao nhat ma lien ket hien tai cua no co the ho tro. Khi mua anh huong mot tram, chi tram do giam xuong MODCOD ben vung hon; moi nguoi khac van truyen hieu qua cao. ACM la ky thuat lam cho bang thong rong ve tinh hien dai kha thi ve kinh te.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Van de cot loi ACM giai quyet
+
+```
+Khong co ACM: Thiet ke cho Truong hop Xau nhat
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CACH TIEP CAN TRUYEN THONG (CCM - Ma hoa & Dieu che Co dinh):     │
+│                                                                      │
+│  Yeu cau he thong: 99.9% tinh san sang (8.7 gio gian doan/nam)    │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  SNR troi quang:    18 dB  (95% thoi gian)           │         │
+│  │  SNR mua vua:       12 dB  (4% thoi gian)            │         │
+│  │  SNR mua to:         6 dB  (0.9% thoi gian)          │         │
+│  │  SNR mua lon:        2 dB  (0.1% thoi gian - mat)    │         │
+│  │                                                        │         │
+│  │  THIET KE CCM: Dung QPSK 2/3 (yeu cau ~3 dB)        │         │
+│  │  → Hoat dong trong TAT CA dieu kien ke ca mua to     │         │
+│  │  → Hieu suat: 1.32 bps/Hz LUON LUON                  │         │
+│  │                                                        │         │
+│  │  TIEM NANG BI LANG PHI:                               │         │
+│  │  Troi quang co the ho tro 32APSK 5/6 → 4.1 bps/Hz   │         │
+│  │  Mat dung luong: (4.1-1.32)/4.1 = 68% lang phi!      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  VOI ACM: Thich ung voi Dieu kien Hien tai                         │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Troi quang:  32APSK 5/6 → 4.1 bps/Hz (95%)          │         │
+│  │  Mua vua:     16APSK 2/3 → 2.6 bps/Hz (4%)           │         │
+│  │  Mua to:      QPSK 2/3   → 1.3 bps/Hz (0.9%)         │         │
+│  │  Mua lon:     MAT                      (0.1%)         │         │
+│  │                                                        │         │
+│  │  HS trung binh: 0.95×4.1 + 0.04×2.6 + 0.009×1.3     │         │
+│  │               = 4.0 bps/Hz (so voi 1.32 CCM)         │         │
+│  │                                                        │         │
+│  │  LOI ICH ACM: +200% thong luong voi cung tinh san sang!│        │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Cac che do van hanh ACM
+
+```
+Ba Che do: CCM, VCM, ACM
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CCM (Ma hoa & Dieu che Co dinh)                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Hub ────────[QPSK 3/4]────────────────► Tram        │         │
+│  │       ────────[QPSK 3/4]────────────────►             │         │
+│  │       ────────[QPSK 3/4]────────────────►             │         │
+│  │                                                        │         │
+│  │  • Cung MODCOD cho tat ca khung                      │         │
+│  │  • May thu don gian, khong can phan hoi              │         │
+│  │  • Truong hop: TV phat song (khong co kenh hoi)      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  VCM (Ma hoa & Dieu che Thay doi)                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Hub ────────[32APSK 5/6]───────────────► Tram A     │         │
+│  │       ────────[16APSK 3/4]──────────────► Tram B     │         │
+│  │       ────────[QPSK 2/3]────────────────► Tram C     │         │
+│  │                                                        │         │
+│  │  • MODCOD khac nhau theo diem den                    │         │
+│  │  • Dua tren ngan sach lien ket tinh (khoang cach, anten)│       │
+│  │  • Khong co phan hoi thoi gian thuc                  │         │
+│  │  • Truong hop: kich thuoc tram khac nhau trong chum  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ACM (Ma hoa & Dieu che Thich ung)                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Hub ◄═══[bao cao SNR]═══════════════════ Cac tram   │         │
+│  │    │                                                  │         │
+│  │    └────[32APSK 5/6]───────────────► Tram A (nang)   │         │
+│  │    └────[16APSK 2/3]───────────────► Tram A (mua)    │         │
+│  │    └────[8PSK 3/4]─────────────────► Tram B          │         │
+│  │                                                        │         │
+│  │  • MODCOD thich ung thoi gian thuc theo tram         │         │
+│  │  • Yeu cau kenh hoi de bao cao SNR                   │         │
+│  │  • Thich ung voi mua, nhieu, loi chi huong           │         │
+│  │  • Truong hop: VSAT bang rong, he thong HTS          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Vong lap dieu khien ACM
+
+```
+Vong lap Phan hoi ACM:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                        HUB/GATEWAY                           │   │
+│  │  ┌────────────────────────────────────────────────────────┐ │   │
+│  │  │                   BO DIEU KHIEN ACM                     │ │   │
+│  │  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐    │ │   │
+│  │  │  │CSDL SNR     │  │Bang MODCOD  │  │Hang doi LT  │    │ │   │
+│  │  │  │             │  │             │  │             │    │ │   │
+│  │  │  │Tram A: 14dB │  │14dB→32APSK │  │ A: 50 Mbps  │    │ │   │
+│  │  │  │Tram B: 8dB  │  │ 8dB→8PSK   │  │ B: 20 Mbps  │    │ │   │
+│  │  │  │Tram C: 4dB  │  │ 4dB→QPSK   │  │ C: 10 Mbps  │    │ │   │
+│  │  │  └─────────────┘  └─────────────┘  └─────────────┘    │ │   │
+│  │  └────────────────────────────────────────────────────────┘ │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                         │                      ▲                     │
+│                         │ Lien ket xuoi        │ Lien ket hoi       │
+│                         │ (MODCOD thay doi)    │ (bao cao SNR)      │
+│                         ▼                      │                     │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │                       VE TINH                                │   │
+│  │          (bent-pipe: chuyen tiep trong suot)                 │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                         │                      ▲                     │
+│                         ▼                      │                     │
+│       ┌─────────┐  ┌─────────┐  ┌─────────┐                        │
+│       │ Tram    │  │ Tram    │  │ Tram    │                        │
+│       │   A     │  │   B     │  │   C     │                        │
+│       │ ☀ Quang │  │ 🌧 Mua  │  │ ⛈ Bao  │                        │
+│       │         │  │         │  │         │                        │
+│       │Do       │  │Do       │  │Do       │                        │
+│       │SNR→14dB │  │SNR→8dB  │  │SNR→4dB  │                        │
+│       └─────────┘  └─────────┘  └─────────┘                        │
+│                                                                      │
+│  THOI GIAN:                                                         │
+│  1. Tram do SNR nhan duoc (moi ~100ms den 1s)                      │
+│  2. Bao cao SNR gui tren lien ket hoi (dinh kem hoac rieng)        │
+│  3. Hub nhan bao cao (~250ms RTT cho GEO)                          │
+│  4. Bo dieu khien ACM chon MODCOD moi                              │
+│  5. Khung tiep theo cho tram do dung MODCOD moi                    │
+│  6. Tong vong lap: 500ms - 2s tuy trien khai                       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Phuong phap uoc tinh SNR
+
+```
+Cach Tram Do SNR:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PHUONG PHAP 1: Uoc tinh Dua tren Pilot                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Khung DVB-S2 voi pilot:                              │         │
+│  │  ┌─────┬─────┬─────┬─────┬─────┬─────┬─────┐        │         │
+│  │  │ PL  │Data │PILOT│Data │PILOT│Data │PILOT│        │         │
+│  │  │ HDR │     │ 36s │     │ 36s │     │ 36s │        │         │
+│  │  └─────┴─────┴─────┴─────┴─────┴─────┴─────┘        │         │
+│  │                  ↓     ↓     ↓                        │         │
+│  │  Pilot la ky hieu DA BIET → so sanh nhan vs ly tuong │         │
+│  │  Bien do vecto loi → uoc tinh SNR                    │         │
+│  │                                                        │         │
+│  │  Uu diem: Hoat dong bat ke MODCOD                    │         │
+│  │  Nhuoc diem: ~3% overhead cho pilot                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PHUONG PHAP 2: Uoc tinh Co tro Du lieu                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Sau khi giai ma FEC, ma hoa lai va so sanh:         │         │
+│  │                                                        │         │
+│  │  Ky hieu nhan ──► Giai ma ──► Ma hoa lai             │         │
+│  │        │                              │               │         │
+│  │        └──────── So sanh ─────────────┘               │         │
+│  │                    │                                  │         │
+│  │                    ▼                                  │         │
+│  │               Uoc tinh SNR                            │         │
+│  │                                                        │         │
+│  │  Uu diem: Khong overhead                             │         │
+│  │  Nhuoc diem: That bai neu giai ma that bai (ga-trung)│         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PHUONG PHAP 3: SNORE (Do lech SNR tu Phan tu Tai nguyen)          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Bao cao thay doi tuong doi, khong phai SNR tuyet doi:│        │
+│  │                                                        │         │
+│  │  MODCOD hien tai: 16APSK 3/4 (nguong: 10.2 dB)       │         │
+│  │  Margin do duoc: +3.8 dB                              │         │
+│  │  Bao cao: "SNORE = +3.8"                              │         │
+│  │                                                        │         │
+│  │  Hub tinh: Co the nang cap len 32APSK 3/4 (12.2 dB)  │         │
+│  │                                                        │         │
+│  │  Uu diem: Khong phu thuoc hieu chuan                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Tre hien ACM
+
+```
+Tranh Dao dong MODCOD:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  VAN DE: SNR dao dong → MODCOD nhay nhanh                          │
+│                                                                      │
+│  SNR (dB)                                                           │
+│     12 ─────────────────────────────────────────── Nguong 16APSK   │
+│        ╱╲    ╱╲    ╱╲                                               │
+│     11 ╱  ╲╱╱  ╲╱╱  ╲╱╲                                            │
+│        ╱              ╲                                              │
+│     10 ─────────────────────────────────────────── Nguong 8PSK     │
+│                                                                      │
+│  Khong co tre hien: MODCOD thay doi 6 lan trong cua so nay!       │
+│  → Decoder reset, mat thong luong, sap xep lai goi                 │
+│                                                                      │
+│  GIAI PHAP: Them margin tre hien                                    │
+│                                                                      │
+│  SNR (dB)                                                           │
+│     13 ─────────────────────────────────────────── Nang cap 16APSK │
+│     12 ────────────────────────────────────────────────────────────│
+│        ╱╲    ╱╲    ╱╲                                               │
+│     11 ╱  ╲╱╱  ╲╱╱  ╲╱╲                                            │
+│        ╱              ╲                                              │
+│     10 ────────────────────────────────────────────────────────────│
+│      9 ─────────────────────────────────────────── Ha cap 8PSK    │
+│                                                                      │
+│  Quy tac:                                                           │
+│  • Nang cap: SNR > nguong + 1 dB margin                            │
+│  • Ha cap: SNR < nguong - 1 dB margin                              │
+│  • Giu: O lai MODCOD hien tai trong dai ±1 dB                      │
+│                                                                      │
+│  Ky thuat bo sung:                                                  │
+│  • Trung binh thoi gian (vd: cua so 5 giay)                        │
+│  • Thoi gian o toi thieu (o lai MODCOD toi thieu N khung)          │
+│  • Thuat toan du doan (xu huong toc do mua)                        │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Mo phong ACM va tinh toan loi ich:**
+
+```python
+import numpy as np
+
+# Bang MODCOD voi nguong
+MODCODS = [
+    {"ten": "QPSK 1/2",   "hs": 0.99,  "nguong": 1.0},
+    {"ten": "QPSK 2/3",   "hs": 1.32,  "nguong": 3.1},
+    {"ten": "QPSK 3/4",   "hs": 1.49,  "nguong": 4.0},
+    {"ten": "8PSK 2/3",   "hs": 1.98,  "nguong": 6.6},
+    {"ten": "8PSK 3/4",   "hs": 2.23,  "nguong": 7.9},
+    {"ten": "16APSK 2/3", "hs": 2.64,  "nguong": 9.0},
+    {"ten": "16APSK 3/4", "hs": 2.97,  "nguong": 10.2},
+    {"ten": "32APSK 3/4", "hs": 3.70,  "nguong": 12.2},
+    {"ten": "32APSK 5/6", "hs": 4.12,  "nguong": 13.0},
+]
+
+def chon_modcod(snr_db, margin_db=1.0):
+    """Chon MODCOD tot nhat cho SNR cho truoc voi margin."""
+    co_san = snr_db - margin_db
+    tot_nhat = None
+    for mc in MODCODS:
+        if mc["nguong"] <= co_san:
+            if tot_nhat is None or mc["hs"] > tot_nhat["hs"]:
+                tot_nhat = mc
+    return tot_nhat if tot_nhat else MODCODS[0]
+
+def mo_phong_su_kien_mua(snr_quang, suy_giam_toi_da, so_mau=100):
+    """Mo phong su kien suy giam mua (suy giam chuong Gauss)."""
+    t = np.linspace(0, 1, so_mau)
+    suy_giam = suy_giam_toi_da * np.exp(-((t - 0.5) ** 2) / 0.02)
+    return snr_quang - suy_giam
+
+print("Mo phong ACM")
+print("=" * 60)
+
+# Kich ban: Lien ket Ka-band voi suy giam mua
+snr_troi_quang = 15.0  # dB
+suy_giam_mua_toi_da = 10.0  # dB
+so_mau = 100
+
+chuoi_snr = mo_phong_su_kien_mua(snr_troi_quang, suy_giam_mua_toi_da, so_mau)
+
+print("\n1. SNR va MODCOD Trong Su kien Mua")
+print("-" * 60)
+
+# Theo doi thong ke
+ccm_modcod = chon_modcod(snr_troi_quang - suy_giam_mua_toi_da)
+acm_hieu_suat = []
+ccm_hieu_suat = ccm_modcod["hs"]
+
+# Cac diem hien thi
+diem_hien_thi = [0, 25, 45, 50, 55, 75, 99]
+
+print(f"  Thiet ke CCM: {ccm_modcod['ten']} (co dinh)")
+print()
+print(f"  {'Mau':<8} {'SNR (dB)':<10} {'ACM MODCOD':<14} {'HS ACM':<10} {'HS CCM':<10}")
+print("-" * 60)
+
+for i, snr in enumerate(chuoi_snr):
+    acm_mc = chon_modcod(snr)
+    acm_hieu_suat.append(acm_mc["hs"])
+    
+    if i in diem_hien_thi:
+        print(f"  {i:<8} {snr:<10.1f} {acm_mc['ten']:<14} {acm_mc['hs']:<10.2f} {ccm_hieu_suat:<10.2f}")
+
+# Tinh loi ich
+hs_acm_tb = np.mean(acm_hieu_suat)
+loi_ich_acm = (hs_acm_tb / ccm_hieu_suat - 1) * 100
+
+print()
+print("-" * 60)
+print(f"  Hieu suat trung binh CCM: {ccm_hieu_suat:.2f} bps/Hz")
+print(f"  Hieu suat trung binh ACM: {hs_acm_tb:.2f} bps/Hz")
+print(f"  Loi ich ACM so voi CCM: +{loi_ich_acm:.1f}%")
+
+# Mo phong tre hien
+print("\n2. Anh huong cua Tre hien")
+print("-" * 60)
+
+def dem_thay_doi_modcod(chuoi_snr, tre_hien_db=0):
+    """Dem cac chuyen doi MODCOD voi tre hien cho truoc."""
+    thay_doi = 0
+    mc_hien_tai = chon_modcod(chuoi_snr[0])
+    
+    for snr in chuoi_snr[1:]:
+        mc_moi = chon_modcod(snr)
+        
+        if tre_hien_db > 0:
+            if mc_moi["hs"] > mc_hien_tai["hs"]:
+                if snr > mc_moi["nguong"] + tre_hien_db:
+                    if mc_moi != mc_hien_tai:
+                        thay_doi += 1
+                        mc_hien_tai = mc_moi
+            elif mc_moi["hs"] < mc_hien_tai["hs"]:
+                if snr < mc_hien_tai["nguong"] - tre_hien_db:
+                    if mc_moi != mc_hien_tai:
+                        thay_doi += 1
+                        mc_hien_tai = mc_moi
+        else:
+            if mc_moi != mc_hien_tai:
+                thay_doi += 1
+                mc_hien_tai = mc_moi
+    
+    return thay_doi
+
+# Them nhieu de thuc te hon
+snr_nhieu = chuoi_snr + np.random.normal(0, 0.5, len(chuoi_snr))
+
+for hyst in [0, 0.5, 1.0, 2.0]:
+    thay_doi = dem_thay_doi_modcod(snr_nhieu, hyst)
+    print(f"  Tre hien {hyst:.1f} dB: {thay_doi} lan thay doi MODCOD")
+
+# Kich ban nhieu tram
+print("\n3. Kich ban ACM Nhieu Tram")
+print("-" * 60)
+
+tram = [
+    {"ten": "Tram A", "snr_quang": 16, "phan_tram_suy_giam": 5},
+    {"ten": "Tram B", "snr_quang": 14, "phan_tram_suy_giam": 10},
+    {"ten": "Tram C", "snr_quang": 12, "phan_tram_suy_giam": 15},
+    {"ten": "Tram D", "snr_quang": 10, "phan_tram_suy_giam": 20},
+]
+
+print(f"  {'Tram':<12} {'SNR Quang':<12} {'% Suy giam':<10} {'HS ACM':<10} {'HS CCM':<10}")
+print("-" * 60)
+
+tong_acm = 0
+tong_ccm = 0
+
+snr_xau_nhat = min(t["snr_quang"] * (1 - t["phan_tram_suy_giam"]/100*0.7) for t in tram)
+ccm_mc = chon_modcod(snr_xau_nhat - 5)
+
+for t in tram:
+    mc_quang = chon_modcod(t["snr_quang"])
+    snr_suy_giam = t["snr_quang"] - 5
+    mc_suy_giam = chon_modcod(snr_suy_giam)
+    
+    phan_tram_quang = 100 - t["phan_tram_suy_giam"]
+    hs_acm = (mc_quang["hs"] * phan_tram_quang + mc_suy_giam["hs"] * t["phan_tram_suy_giam"]) / 100
+    
+    tong_acm += hs_acm
+    tong_ccm += ccm_mc["hs"]
+    
+    print(f"  {t['ten']:<12} {t['snr_quang']:<12} {t['phan_tram_suy_giam']:<10} {hs_acm:<10.2f} {ccm_mc['hs']:<10.2f}")
+
+loi_ich_he_thong = (tong_acm / tong_ccm - 1) * 100
+print()
+print(f"  Loi ich ACM he thong: +{loi_ich_he_thong:.1f}%")
+
+# Overhead kenh hoi
+print("\n4. Yeu cau Kenh hoi ACM")
+print("-" * 60)
+
+khoang_bao_cao_ms = 500
+kich_thuoc_bao_cao_bit = 32
+so_tram = 1000
+
+bao_cao_moi_giay = 1000 / khoang_bao_cao_ms
+tong_bps = bao_cao_moi_giay * kich_thuoc_bao_cao_bit * so_tram
+
+print(f"  Khoang bao cao: {khoang_bao_cao_ms} ms")
+print(f"  Kich thuoc bao cao: {kich_thuoc_bao_cao_bit} bit")
+print(f"  So tram: {so_tram}")
+print(f"  Overhead kenh hoi: {tong_bps/1e6:.2f} Mbps")
+print(f"  (Thuong <1% dung luong lien ket xuoi)")
+```
+
+**Tham so chinh:**
+
+| Tham so | Gia tri Dien hinh | Anh huong |
+|---------|------------------|-----------|
+| Khoang bao cao SNR | 100ms - 1s | Nhanh hon = theo doi tot hon, nhieu overhead hon |
+| Margin tre hien | 0.5 - 2 dB | Lon hon = it thay doi hon, thich ung cham hon |
+| Do tre vong ACM | 500ms - 2s | RTT GEO gioi han phan hoi suy giam nhanh |
+| Loi ich so voi CCM | 30% - 200% | Phu thuoc thong ke suy giam |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Bo qua do tre vong ACM.** RTT GEO la 500ms. Suy giam nhanh (scintillation) co the nhanh hon ACM co the phan hoi.
+
+2. **Khong co tre hien.** Khong co margin, MODCOD dao dong nhanh, gay mat thong luong do decoder reset.
+
+3. **Bao cao SNR cu.** Neu kenh hoi tac, du lieu SNR cu gay chon sai MODCOD.
+
+4. **Bat doi xung len/xuong.** Mua suy giam ca hai huong. ACM len (tu tram) can dieu khien rieng.
+
+5. **ACM theo tram vs theo chum.** HTS voi chum diem hep co the dung ACM theo chum (tat ca tram trong chum dung chung MODCOD).
+
+6. **Gia dinh ACM sua tat ca margin.** Ton that tinh (lech chi huong anten, thiet bi lao hoa) van can margin.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- ETSI EN 302 307-1 (Dac ta ACM DVB-S2)
+- "Chon MODCOD DVB-S2" (whitepaper Newtec)
+- ITU-R P.618 (Thong ke suy giam mua)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [DVB-S2 va DVB-S2X](/vi/space/modulation-coding-satellite/dvb-s2-s2x/) — tieu chuan dinh nghia ACM
+- [MODCODs](/vi/space/modulation-coding-satellite/modcods/) — cac to hop dieu che/ma hoa
+- [Ton that Khi quyen](/vi/space/link-budget-master-class/atmospheric-losses-itu-r-p618/) — nhung gi ACM bu dap
+
+</section>

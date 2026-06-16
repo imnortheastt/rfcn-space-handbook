@@ -8,17 +8,385 @@ track: n3
 unit: standards-map-ts23
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "TS 23.502 — Procedures"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-standards-map-ts23-01-ts-23-501-overview"]
+spiralRevisits: []
+title: "TS 23.502 — 5G System Procedures"
+description: "Deep dive into 3GPP TS 23.502: the definitive spec for 5G procedures including registration, session management, and mobility."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.502"]
+tags: ["3gpp", "ts-23-502", "5g-procedures", "registration", "pdu-session"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# TS 23.502 — Procedures
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+TS 23.502 is where 5G comes alive. While TS 23.501 defines WHAT exists, TS 23.502 defines HOW it works. Every signaling flow, every procedure, every state transition is here.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Document scope
+
+```
+TS 23.502 Coverage:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TS 23.502: Procedures for the 5G System                │
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  WHAT IT DEFINES:                                 │  │
+│  │                                                    │  │
+│  │  • Registration procedures                        │  │
+│  │  • Deregistration procedures                      │  │
+│  │  • Connection management                          │  │
+│  │  • Session management (PDU session)               │  │
+│  │  • Service request procedures                     │  │
+│  │  • Mobility procedures (handover)                 │  │
+│  │  • Paging procedures                              │  │
+│  │  • Policy control procedures                      │  │
+│  │  • Authentication procedures                      │  │
+│  │  • NF service operations                          │  │
+│  │                                                    │  │
+│  │  FORMAT:                                          │  │
+│  │  • Message sequence charts (MSCs)                 │  │
+│  │  • Step-by-step descriptions                      │  │
+│  │  • Pre-conditions and post-conditions             │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  WHAT IT DOES NOT DEFINE:                         │  │
+│  │                                                    │  │
+│  │  • Message formats (see TS 24.xxx, 29.xxx)        │  │
+│  │  • NF descriptions (see TS 23.501)                │  │
+│  │  • Protocol details (see TS 38.xxx for RAN)       │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Spec organization
+
+```
+TS 23.502 Structure (Rel-18):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Clause   Content                                       │
+│  ──────────────────────────────────────────────────     │
+│                                                          │
+│  1        Scope                                         │
+│  2        References                                    │
+│  3        Definitions and abbreviations                 │
+│                                                          │
+│  4        Procedures for 5GS                            │
+│           ├── 4.1 General                               │
+│           ├── 4.2 Registration management               │
+│           │       ├── 4.2.2 Registration                │
+│           │       ├── 4.2.3 Deregistration              │
+│           │       └── 4.2.4 Implicit deregistration     │
+│           ├── 4.3 Session management                    │
+│           │       ├── 4.3.2 PDU Session Establishment   │
+│           │       ├── 4.3.3 PDU Session Modification    │
+│           │       └── 4.3.4 PDU Session Release         │
+│           ├── 4.4 Mobility management                   │
+│           │       ├── Handover procedures               │
+│           │       └── Service Request                   │
+│           ├── 4.5 Policy procedures                     │
+│           ├── 4.6 Charging procedures                   │
+│           ├── 4.7 Slice-specific procedures             │
+│           ├── 4.8 Paging procedures                     │
+│           └── 4.9+ Advanced features                    │
+│                                                          │
+│  5        Procedures for network functions              │
+│           (NRF, UDM, AUSF service operations)           │
+│                                                          │
+│  Annexes  Informative examples                          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Registration procedure (Clause 4.2.2)
+
+```
+Initial Registration Flow:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE          gNB         AMF       AUSF/UDM    SMF      │
+│  │            │           │           │          │       │
+│  │──── RRC ───│           │           │          │       │
+│  │  Setup     │           │           │          │       │
+│  │            │           │           │          │       │
+│  │──── Registration Request (via N1/N2) ────────│       │
+│  │            │──────────→│           │          │       │
+│  │            │           │           │          │       │
+│  │            │           │── Nausf_UEAuth ────→│       │
+│  │            │           │           │          │       │
+│  │←── Authentication Request ─────────│          │       │
+│  │            │           │           │          │       │
+│  │──── Authentication Response ───────│          │       │
+│  │            │           │           │          │       │
+│  │            │           │── Nudm_UECM/SDM ───→│       │
+│  │            │           │  (context, subs)     │       │
+│  │            │           │           │          │       │
+│  │←── Security Mode Command ──────────│          │       │
+│  │            │           │           │          │       │
+│  │──── Security Mode Complete ────────│          │       │
+│  │            │           │           │          │       │
+│  │            │           │── Nsmf (if PDU) ───────────→│
+│  │            │           │           │          │       │
+│  │←── Registration Accept ────────────│          │       │
+│  │            │           │           │          │       │
+│  │──── Registration Complete ─────────│          │       │
+│  │            │           │           │          │       │
+│                                                          │
+│  Key Steps:                                             │
+│  1. RRC connection establishment (RAN)                  │
+│  2. Registration Request (NAS over N1)                  │
+│  3. Authentication (AUSF/UDM)                           │
+│  4. Security activation (NAS security)                  │
+│  5. Context retrieval (UDM subscription)                │
+│  6. PDU session (if requested, via SMF)                 │
+│  7. Registration Accept (AMF to UE)                     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### PDU session establishment (Clause 4.3.2)
+
+```
+PDU Session Establishment Flow:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE       gNB      AMF      SMF      UPF      PCF       │
+│  │         │        │        │        │        │         │
+│  │── PDU Session Establishment Request ────────│        │
+│  │         │────────│        │        │        │         │
+│  │         │        │        │        │        │         │
+│  │         │        │── Nsmf_PDUSession_Create ───→│    │
+│  │         │        │        │        │        │         │
+│  │         │        │        │── Npcf_SMPolicy ───────→│ │
+│  │         │        │        │  (get policy)   │        │
+│  │         │        │        │        │        │         │
+│  │         │        │        │── N4 Session ───│        │
+│  │         │        │        │  Establishment  │        │
+│  │         │        │        │        │        │         │
+│  │         │        │←─ response with QoS ──────│        │
+│  │         │        │        │        │        │         │
+│  │         │←── N2 PDU Session Resource Setup ─│        │
+│  │         │        │        │        │        │         │
+│  │         │── N3 tunnel setup ───────│        │         │
+│  │         │        │        │        │        │         │
+│  │←── PDU Session Establishment Accept ────────│        │
+│  │         │        │        │        │        │         │
+│                                                          │
+│  Key Steps:                                             │
+│  1. UE requests PDU session (DNN, S-NSSAI)              │
+│  2. AMF selects SMF (based on DNN, slice)               │
+│  3. SMF gets policy from PCF                            │
+│  4. SMF selects UPF (locality, capability)              │
+│  5. SMF programs UPF via N4 (PFCP)                      │
+│  6. AMF/gNB establish N3 tunnel                         │
+│  7. UE receives IP address, QoS info                    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Xn-based handover (Clause 4.9.1)
+
+```
+Xn Handover Flow:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE    Source gNB   Target gNB    AMF     SMF    UPF    │
+│  │         │           │           │       │      │      │
+│  │── Measurement Report ───│       │       │      │      │
+│  │         │           │           │       │      │      │
+│  │         │── Handover Request ──→│       │      │      │
+│  │         │   (Xn-AP)    │        │       │      │      │
+│  │         │           │           │       │      │      │
+│  │         │←── Handover Request Ack ──│   │      │      │
+│  │         │   (with DL forwarding)    │   │      │      │
+│  │         │           │           │       │      │      │
+│  │←── HO Command ──│   │           │       │      │      │
+│  │  (via RRC)      │   │           │       │      │      │
+│  │         │           │           │       │      │      │
+│  │───── UE detaches ───│           │       │      │      │
+│  │         │           │           │       │      │      │
+│  │──────── Synchronize + HO Complete ──────│      │      │
+│  │         │           │           │       │      │      │
+│  │         │           │── Path Switch Request ─→│      │
+│  │         │           │           │       │      │      │
+│  │         │           │           │── N4 Mod ──→│      │
+│  │         │           │           │  (new N3)   │      │
+│  │         │           │           │       │      │      │
+│  │         │           │←── Path Switch Ack ──────│      │
+│  │         │           │           │       │      │      │
+│  │         │←── UE Context Release ──│     │      │      │
+│  │         │   (source cleanup)       │     │      │      │
+│  │         │           │           │       │      │      │
+│                                                          │
+│  Key Characteristics:                                   │
+│  - Direct signaling between gNBs (Xn interface)         │
+│  - AMF involved only for path switch                    │
+│  - SMF updates UPF with new N3 tunnel                   │
+│  - Faster than N2-based handover                        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Service request (Clause 4.2.3)
+
+```
+Service Request Flow (UE-triggered):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE (IDLE)     gNB         AMF        SMF        UPF    │
+│  │              │           │          │          │      │
+│  │── Service Request ──────→│          │          │      │
+│  │   (NAS via RRC)          │          │          │      │
+│  │              │           │          │          │      │
+│  │              │           │── Context retrieval │      │
+│  │              │           │   (if needed)       │      │
+│  │              │           │          │          │      │
+│  │              │←── N2 PDU Session Resource ────│      │
+│  │              │    Setup Request     │          │      │
+│  │              │           │          │          │      │
+│  │              │── RRC Reconfiguration ──│       │      │
+│  │←─────────────│           │          │          │      │
+│  │              │           │          │          │      │
+│  │── RRC Reconfig Complete ─│          │          │      │
+│  │              │           │          │          │      │
+│  │              │── N2 PDU Session Resource ────→│      │
+│  │              │    Setup Response    │          │      │
+│  │              │           │          │          │      │
+│  │              │           │── N4 (update N3) ──→│      │
+│  │              │           │          │          │      │
+│  │←── Service Accept ───────│          │          │      │
+│  │              │           │          │          │      │
+│  │ (Now CONNECTED)          │          │          │      │
+│                                                          │
+│  Trigger: UE has data to send but is in IDLE mode       │
+│  Result: RAN connection + N3 tunnel re-established      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Key clauses to reference:**
+
+| Procedure | Clause |
+|-----------|--------|
+| Registration | 4.2.2 |
+| Deregistration | 4.2.3 |
+| PDU Session Establishment | 4.3.2 |
+| PDU Session Modification | 4.3.3 |
+| PDU Session Release | 4.3.4 |
+| Service Request | 4.2.3.2 |
+| Paging | 4.2.3.3 |
+| Xn Handover | 4.9.1.2 |
+| N2 Handover | 4.9.1.3 |
+| Authentication | 4.2.2.2.2 |
+
+**Reading procedure diagrams:**
+
+```
+How to Read MSCs (Message Sequence Charts):
+
+1. Left-to-right = time progression
+2. Vertical lines = entities (UE, NFs)
+3. Arrows = messages/signals
+4. Numbers = step sequence
+5. Boxes = optional/conditional steps
+6. Notes = additional conditions
+
+Example notation:
+  ────────→  = synchronous request
+  - - - - →  = asynchronous/optional
+  [condition] = optional step
+```
+
+**Cross-references:**
+
+```
+TS 23.502 says "UE sends Registration Request"
+  → TS 24.501 defines Registration Request format
+  → TS 33.501 defines security for registration
+  → TS 38.331 defines RRC procedures for NAS transport
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Reading only text.** MSC diagrams carry critical information. Study them.
+
+2. **Skipping pre-conditions.** Each procedure has assumptions. Violating them = undefined behavior.
+
+3. **Ignoring optional steps.** Steps in brackets [] may be mandatory in your scenario.
+
+4. **Confusing procedures.** Registration ≠ Connection ≠ PDU Session. Know the difference.
+
+5. **Missing error paths.** Success flows are shown first. Error handling is often in separate subclauses.
+
+6. **Assuming one version.** Procedures evolve across releases. Check your target release.
+
+7. **Not tracing service operations.** Nxxx_Service calls reference TS 29.xxx for details.
+
+8. **Forgetting state.** Procedures depend on current UE/NF state. Track state machines.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.502, "Procedures for the 5G System (5GS)"
+- 3GPP TS 23.501, "System architecture for the 5G System (5GS)"
+- 3GPP TS 24.501, "Non-Access-Stratum (NAS) protocol for 5G System (5GS)"
+- 3GPP TS 29.518, "AMF Services"
+- 3GPP TS 29.502, "SMF Services"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Registration Procedure](/en/core-network/mobility-management/registration/) — detailed registration
+- [PDU Session Establishment](/en/core-network/session-management/pdu-session-establishment/) — detailed session
+- [Handover](/en/core-network/mobility-management/handover/) — mobility procedures
+- [TS 23.501 Overview](/en/core-network/standards-map-ts23/ts-23-501-overview/) — architecture context
+
+</section>

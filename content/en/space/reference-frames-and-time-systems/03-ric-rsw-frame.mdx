@@ -9,16 +9,554 @@ unit: reference-frames-and-time-systems
 order: 3
 level: L3
 estimatedReadingMinutes: 5
-title: "RIC/RSW local orbital frame"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "RIC/RSW Local Orbital Frame"
+description: "Satellite-centered frames for relative motion, proximity operations, and collision avoidance."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["ric", "rsw", "lvlh", "relative-motion", "proximity-ops"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# RIC/RSW local orbital frame
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+When two satellites approach each other — for docking, collision avoidance, or formation flying — their absolute positions in ECI don't give intuitive information. "Target is 500 km ahead" makes immediate sense; "target is at [X, Y, Z] in J2000" requires calculation. Local orbital frames like RIC (Radial-In-track-Cross-track) and RSW (Radial-Along-track-Normal) center on one spacecraft and orient axes along its orbital motion. These frames make relative dynamics intuitive, maneuver planning straightforward, and conjunction screening meaningful.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Why local orbital frames exist
+
+```
+The Problem with ECI for Proximity Operations:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SCENARIO: Two satellites in similar orbits                        │
+│                                                                      │
+│  ECI VIEW (unhelpful):          LOCAL ORBITAL VIEW (intuitive):    │
+│                                                                      │
+│  ┌─────────────────────────┐   ┌─────────────────────────┐         │
+│  │                         │   │                         │         │
+│  │  Both satellites at     │   │  "Chaser is 2 km behind,│         │
+│  │  [X,Y,Z] ≈ 7000 km      │   │   50 m below, and 100 m│         │
+│  │  Difference unclear     │   │   to the right of      │         │
+│  │                         │   │   Target"               │         │
+│  │     ╭────╮ ←🛰️A         │   │                         │         │
+│  │    ╱      ╲             │   │        Target 🛰️        │         │
+│  │   ╱   🌍   ╲🛰️B          │   │           ↓ R (radial) │         │
+│  │  ╱          ╲           │   │  ← C     ┼ → I         │         │
+│  │                         │   │  (cross) │ (in-track)  │         │
+│  │                         │   │        🛰️ Chaser       │         │
+│  │  Where is B relative    │   │                         │         │
+│  │  to A? Hard to tell!    │   │  "2 km behind, 50 m    │         │
+│  │                         │   │   below" - actionable!  │         │
+│  │                         │   │                         │         │
+│  └─────────────────────────┘   └─────────────────────────┘         │
+│                                                                      │
+│  LOCAL FRAMES GIVE:                                                 │
+│  • Intuitive relative positions                                    │
+│  • Direct maneuver planning (ΔV in each axis)                      │
+│  • Natural dynamics (Clohessy-Wiltshire equations)                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### RIC vs RSW vs LVLH naming
+
+```
+Same Concept, Different Names:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Three naming conventions for the same frame concept:               │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Axis    │ RIC        │ RSW          │ LVLH           │         │
+│  │  ────────┼────────────┼──────────────┼────────────────│         │
+│  │          │            │              │                │         │
+│  │  Radial  │ R (outward)│ R (outward)  │ +Z (downward)  │         │
+│  │  (nadir/ │ +R = away  │ +R = away    │ +Z = toward    │         │
+│  │  zenith) │ from Earth │ from Earth   │ Earth (nadir)  │         │
+│  │          │            │              │                │         │
+│  │  Along-  │ I (In-track│ S (along-    │ +X (velocity   │         │
+│  │  track   │ /velocity) │ track/"Süd") │ direction)     │         │
+│  │          │            │              │                │         │
+│  │  Cross-  │ C (cross-  │ W (out-of-   │ +Y (orbit      │         │
+│  │  track   │ track,     │ plane,       │ normal, may    │         │
+│  │          │ completes) │ "West")      │ vary)          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WARNING: Sign conventions vary by organization!                    │
+│                                                                      │
+│  • NASA: Often uses LVLH with +Z nadir                             │
+│  • CCSDS/18th Space Control: Uses RSW with +R zenith               │
+│  • ESA: Often uses RIC or TNW                                      │
+│                                                                      │
+│  ALWAYS CHECK DOCUMENTATION FOR SIGN CONVENTIONS                    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### The frame definition
+
+```
+RIC Frame Definition (centered on Target spacecraft):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                                                                      │
+│                        C (Cross-track)                              │
+│                         ↑                                            │
+│                         │   Out of orbit plane                      │
+│                         │   (perpendicular to orbit)                │
+│                         │                                            │
+│                         │                                            │
+│           I ←───────────┼───────────→ -I                            │
+│        (In-track)       │            (behind)                       │
+│        (velocity dir)   │                                            │
+│                         │                                            │
+│                         │                                            │
+│                         ↓                                            │
+│                        -R (toward Earth / nadir)                    │
+│                                                                      │
+│                   🛰️ Target at origin                               │
+│                                                                      │
+│  AXIS DEFINITIONS:                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  R (Radial):                                          │         │
+│  │  R̂ = r / |r|                                         │         │
+│  │  Points from Earth center through satellite (zenith) │         │
+│  │                                                        │         │
+│  │  C (Cross-track):                                     │         │
+│  │  Ĉ = (r × v) / |r × v| = ĥ                           │         │
+│  │  Orbit normal (angular momentum direction)           │         │
+│  │                                                        │         │
+│  │  I (In-track):                                        │         │
+│  │  Î = Ĉ × R̂                                           │         │
+│  │  Approximately velocity direction (exact for circ.)  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  NOTE: For circular orbits, I aligns with velocity.                │
+│  For elliptical orbits, I is perpendicular to R in orbit plane.   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### ECI to RIC transformation
+
+```
+Converting from ECI to RIC:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Given: Target state (r_t, v_t) and Chaser state (r_c, v_c) in ECI │
+│                                                                      │
+│  STEP 1: Build RIC rotation matrix from Target state               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  R̂ = r_t / |r_t|           (radial unit vector)      │         │
+│  │  ĥ = (r_t × v_t) / |r_t × v_t|  (orbit normal)       │         │
+│  │  Î = ĥ × R̂                  (in-track unit vector)   │         │
+│  │                                                        │         │
+│  │  Rotation matrix ECI→RIC:                             │         │
+│  │                                                        │         │
+│  │       ┌         ┐                                     │         │
+│  │       │ R̂ᵀ      │                                     │         │
+│  │  M =  │ Îᵀ      │   (rows are unit vectors)          │         │
+│  │       │ Ĉᵀ      │                                     │         │
+│  │       └         ┘                                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STEP 2: Transform relative position                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Δr_eci = r_c - r_t        (ECI relative position)   │         │
+│  │  Δr_ric = M · Δr_eci       (RIC relative position)   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STEP 3: Transform relative velocity (includes rotation)          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ω = h / |r_t|²           (orbital angular rate)     │         │
+│  │  Ω = ω · Ĉ                (angular velocity vector)  │         │
+│  │                                                        │         │
+│  │  Δv_eci = v_c - v_t                                   │         │
+│  │  Δv_ric = M · Δv_eci - Ω × Δr_ric                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Relative motion dynamics (CW equations)
+
+```
+Clohessy-Wiltshire Equations (Circular Reference Orbit):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  For small relative separations in circular orbit:                 │
+│                                                                      │
+│  ẍ = 3n²x + 2nẏ           (radial)                                │
+│  ÿ = -2nẋ                  (in-track)                              │
+│  z̈ = -n²z                  (cross-track)                          │
+│                                                                      │
+│  Where n = √(μ/a³) = mean motion (rad/s)                           │
+│                                                                      │
+│  KEY INSIGHTS:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Cross-track (z) is DECOUPLED                      │         │
+│  │     → Simple harmonic oscillation at orbital period   │         │
+│  │     → A cross-track burn only affects cross-track     │         │
+│  │                                                        │         │
+│  │  2. Radial and in-track are COUPLED                   │         │
+│  │     → Radial displacement drifts in-track             │         │
+│  │     → In-track velocity creates radial oscillation    │         │
+│  │                                                        │         │
+│  │  3. Natural motion forms ELLIPSES                     │         │
+│  │     → 2:1 in-track to radial ratio                   │         │
+│  │     → Free relative orbit = stadium shaped           │         │
+│  │                                                        │         │
+│  │  4. Drift rate: Δẏ ≈ -1.5n · Δx                      │         │
+│  │     → 1 km below = drifts ~2.3 km/orbit ahead        │         │
+│  │     → (for LEO with 90-min period)                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  NATURAL DRIFT VISUALIZATION:                                       │
+│                                                                      │
+│        y (in-track)                                                 │
+│            ↑                                                        │
+│            │    ╭──────────────╮                                    │
+│            │   ╱                ╲                                   │
+│            │  │                  │ ← 2:1 ellipse                   │
+│            │  │     Target       │                                  │
+│  ──────────┼──│────── 🛰️ ───────│──────────→ x (radial)            │
+│            │  │                  │                                  │
+│            │   ╲                ╱                                   │
+│            │    ╰──────────────╯                                    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Common proximity operations patterns
+
+```
+Standard Approach Trajectories:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  V-BAR APPROACH (along velocity vector):                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │   Safe: Natural dynamics moves chaser away if abort  │         │
+│  │                                                        │         │
+│  │        Target 🛰️ ←──────────── 🛰️ Chaser            │         │
+│  │                    (approaching from behind)          │         │
+│  │                                                        │         │
+│  │   Hold points: -2 km, -500 m, -200 m, -50 m          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  R-BAR APPROACH (along radial vector):                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │   Requires continuous thrust to maintain             │         │
+│  │   (fighting natural drift)                           │         │
+│  │                                                        │         │
+│  │              Target 🛰️                               │         │
+│  │                  ↑                                    │         │
+│  │                  │                                    │         │
+│  │              Chaser 🛰️ (approaching from below)      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  FOOTBALL ORBIT (natural station-keeping):                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │   Passive safe: Chaser orbits Target naturally       │         │
+│  │                                                        │         │
+│  │        y (in-track)                                   │         │
+│  │            ↑      ╭──────╮                            │         │
+│  │            │     ╱        ╲                           │         │
+│  │   ─────────┼────│ 🛰️Target│──→ x (radial)            │         │
+│  │            │     ╲   🛰️C  ╱                           │         │
+│  │            │      ╰──────╯                            │         │
+│  │                                                        │         │
+│  │   2:1 ellipse, no ΔV required to maintain            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**RIC frame computations:**
+
+```python
+import numpy as np
+
+MU_EARTH = 398600.4418  # km³/s²
+
+def eci_to_ric(r_target, v_target, r_chaser, v_chaser):
+    """Convert chaser state from ECI to RIC relative to target."""
+    # Compute RIC unit vectors
+    r_mag = np.linalg.norm(r_target)
+    
+    r_hat = r_target / r_mag                    # Radial (R)
+    h = np.cross(r_target, v_target)            # Angular momentum
+    h_mag = np.linalg.norm(h)
+    c_hat = h / h_mag                           # Cross-track (C)
+    i_hat = np.cross(c_hat, r_hat)              # In-track (I)
+    
+    # Rotation matrix ECI -> RIC
+    R_eci_to_ric = np.array([r_hat, i_hat, c_hat])
+    
+    # Relative position in ECI
+    delta_r_eci = r_chaser - r_target
+    
+    # Transform to RIC
+    delta_r_ric = R_eci_to_ric @ delta_r_eci
+    
+    # Relative velocity (accounting for frame rotation)
+    omega = h_mag / r_mag**2  # Orbital angular rate
+    omega_vec = omega * c_hat
+    
+    delta_v_eci = v_chaser - v_target
+    delta_v_ric = R_eci_to_ric @ delta_v_eci - np.cross(omega_vec, delta_r_ric)
+    
+    return delta_r_ric, delta_v_ric, R_eci_to_ric
+
+def cw_propagate(r0_ric, v0_ric, t, n):
+    """Propagate relative state using Clohessy-Wiltshire equations."""
+    x0, y0, z0 = r0_ric
+    vx0, vy0, vz0 = v0_ric
+    
+    nt = n * t
+    cos_nt = np.cos(nt)
+    sin_nt = np.sin(nt)
+    
+    # Position
+    x = (4 - 3*cos_nt)*x0 + sin_nt/n*vx0 + 2/n*(1 - cos_nt)*vy0
+    y = 6*(sin_nt - nt)*x0 + y0 - 2/n*(1 - cos_nt)*vx0 + (4*sin_nt - 3*nt)/n*vy0
+    z = z0*cos_nt + vz0/n*sin_nt
+    
+    # Velocity
+    vx = 3*n*sin_nt*x0 + cos_nt*vx0 + 2*sin_nt*vy0
+    vy = 6*n*(cos_nt - 1)*x0 + 2*sin_nt*vx0 + (4*cos_nt - 3)*vy0
+    vz = -z0*n*sin_nt + vz0*cos_nt
+    
+    return np.array([x, y, z]), np.array([vx, vy, vz])
+
+def drift_rate(delta_r_radial, n):
+    """Calculate in-track drift rate due to radial offset."""
+    return -1.5 * n * delta_r_radial
+
+def miss_distance(r_ric):
+    """Calculate miss distance (total relative distance)."""
+    return np.linalg.norm(r_ric)
+
+print("RIC/RSW Local Orbital Frame Examples")
+print("=" * 70)
+
+# Example: ISS and visiting vehicle
+print("\n1. ECI to RIC Conversion")
+print("-" * 70)
+
+# ISS (target) in ECI
+r_iss = np.array([-2436.45, -2436.45, 6891.04])  # km
+v_iss = np.array([-5.654, 4.830, 2.312])          # km/s
+
+# Visiting vehicle (chaser) - 2 km behind, 100 m below
+r_chaser = np.array([-2434.45, -2434.45, 6889.04])  # km (approximately)
+v_chaser = np.array([-5.654, 4.830, 2.312])          # km/s (matching velocity)
+
+delta_r, delta_v, R_mat = eci_to_ric(r_iss, v_iss, r_chaser, r_chaser)
+
+print("  Target (ISS) state:")
+print(f"    Position: [{r_iss[0]:.2f}, {r_iss[1]:.2f}, {r_iss[2]:.2f}] km")
+print(f"    Velocity: [{v_iss[0]:.3f}, {v_iss[1]:.3f}, {v_iss[2]:.3f}] km/s")
+
+print("\n  Chaser relative state in RIC:")
+print(f"    Radial (R):      {delta_r[0]*1000:.1f} m")
+print(f"    In-track (I):    {delta_r[1]*1000:.1f} m")
+print(f"    Cross-track (C): {delta_r[2]*1000:.1f} m")
+print(f"    Miss distance:   {miss_distance(delta_r)*1000:.1f} m")
+
+# Orbital parameters
+print("\n2. Orbital Parameters")
+print("-" * 70)
+
+r_mag = np.linalg.norm(r_iss)
+v_mag = np.linalg.norm(v_iss)
+a = 1 / (2/r_mag - v_mag**2/MU_EARTH)  # Semi-major axis
+n = np.sqrt(MU_EARTH / a**3)            # Mean motion
+period = 2 * np.pi / n / 60             # Period in minutes
+
+print(f"  Semi-major axis: {a:.2f} km")
+print(f"  Mean motion (n): {n:.6f} rad/s")
+print(f"  Orbital period: {period:.1f} minutes")
+
+# Drift calculation
+print("\n3. Natural Drift Analysis")
+print("-" * 70)
+
+radial_offsets = [-100, -50, 0, 50, 100]  # meters
+
+print("  Radial offset → In-track drift rate:")
+print()
+for offset_m in radial_offsets:
+    offset_km = offset_m / 1000
+    drift_rate_m_s = drift_rate(offset_km, n) * 1000  # m/s
+    drift_per_orbit = drift_rate_m_s * period * 60   # m/orbit
+    print(f"    {offset_m:+5.0f} m radial → {drift_rate_m_s*1000:+6.2f} mm/s "
+          f"({drift_per_orbit/1000:+6.2f} km/orbit)")
+
+# CW propagation
+print("\n4. Relative Motion Propagation (CW)")
+print("-" * 70)
+
+# Initial state: 1 km behind, 50 m below, no relative velocity
+r0 = np.array([-0.050, -1.0, 0.0])  # km (R, I, C)
+v0 = np.array([0.0, 0.0, 0.0])       # km/s
+
+print(f"  Initial position: R={r0[0]*1000:.0f}m, I={r0[1]*1000:.0f}m, C={r0[2]*1000:.0f}m")
+print(f"  Initial velocity: vR={v0[0]*1000:.1f}m/s, vI={v0[1]*1000:.1f}m/s, vC={v0[2]*1000:.1f}m/s")
+print()
+
+times_min = [0, 15, 30, 45, 60, 90]
+
+print(f"  {'Time (min)':<12} {'R (m)':<10} {'I (m)':<12} {'C (m)':<10} {'Range (m)'}")
+print("-" * 60)
+
+for t_min in times_min:
+    t_sec = t_min * 60
+    r_t, v_t = cw_propagate(r0, v0, t_sec, n)
+    rng = np.linalg.norm(r_t)
+    print(f"  {t_min:<12} {r_t[0]*1000:<10.1f} {r_t[1]*1000:<12.1f} "
+          f"{r_t[2]*1000:<10.1f} {rng*1000:<.1f}")
+
+# Conjunction analysis
+print("\n5. Conjunction Screening Example")
+print("-" * 70)
+
+# Two debris objects with uncertain positions
+tca_miss_distance = 150  # meters
+sigma_r = 50   # m uncertainty in radial
+sigma_i = 200  # m uncertainty in in-track
+sigma_c = 30   # m uncertainty in cross-track
+
+print("  Conjunction assessment:")
+print(f"    TCA miss distance: {tca_miss_distance} m")
+print(f"    Position uncertainty (1σ):")
+print(f"      Radial:      {sigma_r} m")
+print(f"      In-track:    {sigma_i} m")
+print(f"      Cross-track: {sigma_c} m")
+
+# Combined covariance (simplified)
+combined_sigma = np.sqrt(sigma_r**2 + sigma_i**2 + sigma_c**2)
+collision_probability = np.exp(-(tca_miss_distance**2) / (2 * combined_sigma**2))
+
+print(f"\n    Combined 1σ uncertainty: {combined_sigma:.1f} m")
+print(f"    Miss distance / σ: {tca_miss_distance/combined_sigma:.2f}")
+
+if tca_miss_distance / combined_sigma < 3:
+    print("    ⚠️  CONJUNCTION OF CONCERN (miss < 3σ)")
+else:
+    print("    ✓  Low collision probability")
+
+# Frame comparison
+print("\n6. Frame Naming Convention Comparison")
+print("-" * 70)
+
+print("""
+  ┌─────────────┬────────────┬─────────────────────────────────────┐
+  │ Direction   │ Axis Names │ Notes                               │
+  ├─────────────┼────────────┼─────────────────────────────────────┤
+  │ Radial      │ R, x       │ +R usually = zenith (away from Earth)
+  │ In-track    │ I, S, y    │ Along velocity for circular orbit   │
+  │ Cross-track │ C, W, z    │ Orbit normal (h direction)          │
+  ├─────────────┼────────────┼─────────────────────────────────────┤
+  │ LVLH        │ X, Y, Z    │ +Z often = nadir (toward Earth)    │
+  │             │            │ Watch for sign conventions!         │
+  └─────────────┴────────────┴─────────────────────────────────────┘
+""")
+```
+
+**Key RIC relationships:**
+
+| Concept | Formula/Value |
+|---------|---------------|
+| Drift from radial offset | ẏ ≈ -1.5n·x |
+| Natural relative orbit shape | 2:1 in-track:radial ellipse |
+| Mean motion (LEO) | n ≈ 0.001 rad/s |
+| Drift rate (1 km below, LEO) | ~2.3 km/orbit ahead |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Sign convention confusion.** RIC +R is zenith; LVLH +Z is often nadir. Always verify.
+
+2. **Forgetting frame rotation.** RIC velocity includes frame rotation. Use full transformation.
+
+3. **CW equations for elliptical orbits.** CW assumes circular reference orbit. Use Tschauner-Hempel for eccentric.
+
+4. **Large separations.** CW is linearized for small Δr. For >10 km, use full nonlinear propagation.
+
+5. **Mixing frames.** A position in RIC with velocity in RSW produces garbage. Keep everything in one frame.
+
+6. **Ignoring J2 for long-term.** RIC ignores orbital perturbations. For hours-to-days, add J2 effects.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Clohessy & Wiltshire, "Terminal Guidance System for Satellite Rendezvous" (1960)
+- CCSDS 508.0-B-1 Conjunction Data Message standard
+- Vallado, "Fundamentals of Astrodynamics and Applications"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [ECI Frame](/en/space/reference-frames-and-time-systems/eci-frame/) — the absolute frame for orbit definition
+- [Frame Transformations](/en/space/reference-frames-and-time-systems/frame-transformations/) — converting between all frames
+- [Collision Avoidance](/en/space/orbital-mechanics/collision-avoidance/) — using RIC for conjunction assessment
+
+</section>

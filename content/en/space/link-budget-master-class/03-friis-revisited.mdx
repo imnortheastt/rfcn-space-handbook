@@ -8,17 +8,412 @@ track: s7
 unit: link-budget-master-class
 order: 3
 level: L2
-estimatedReadingMinutes: 5
-title: "Friis equation revisited for satellite"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Friis Equation Revisited for Satellite"
+description: "Free space path loss and the complete link budget equation."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["Friis", "FSPL", "path-loss", "link-budget"]
+widgets: ["LinkBudget"]
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Friis equation revisited for satellite
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+The Friis transmission equation is the backbone of all link budgets—it tells you how much power arrives at the receiver given what was transmitted. For satellite links, where distances are measured in thousands of kilometers and every dB counts, understanding Friis is essential. It explains why GEO links are harder than LEO, why Ka-band requires more EIRP than C-band, and how antenna size trades off with transmit power.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Power spreading in free space
+
+```
+Why Signals Weaken with Distance:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  An isotropic antenna radiates power equally in all directions.    │
+│  That power spreads over an expanding sphere:                      │
+│                                                                      │
+│           ●                                                         │
+│          /│\                                                        │
+│         / │ \                                                       │
+│        /  │  \   ← Power spreads over sphere surface               │
+│       /   │   \     Area = 4πd²                                    │
+│      /    │    \                                                    │
+│     ●─────●─────●   at distance d                                  │
+│                                                                      │
+│  Power density at distance d:                                       │
+│                                                                      │
+│  S = P_tx / (4πd²)   [W/m²]                                        │
+│                                                                      │
+│  Double the distance → 1/4 the power density → -6 dB              │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### The Friis equation
+
+```
+Complete Friis Transmission Equation:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  P_rx = P_tx × G_tx × G_rx × (λ / 4πd)²                            │
+│                                                                      │
+│  In decibels:                                                       │
+│                                                                      │
+│  P_rx = P_tx + G_tx + G_rx - FSPL                                  │
+│  (dBW)  (dBW)  (dBi)  (dBi)   (dB)                                 │
+│                                                                      │
+│  Where FSPL = Free Space Path Loss:                                │
+│                                                                      │
+│  FSPL = (4πd / λ)²                                                 │
+│                                                                      │
+│  FSPL (dB) = 20 log(d) + 20 log(f) + 92.45                        │
+│              (km)        (GHz)                                      │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  REARRANGED FOR LINK BUDGET:                          │         │
+│  │                                                        │         │
+│  │  P_rx = EIRP - FSPL + G_rx                           │         │
+│  │                                                        │         │
+│  │  Or using G/T:                                        │         │
+│  │                                                        │         │
+│  │  C/N₀ = EIRP - FSPL + G/T - k                        │         │
+│  │                                                        │         │
+│  │  k = Boltzmann's constant = -228.6 dBW/K/Hz          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Path loss for different orbits
+
+```
+FSPL by Orbit Type:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  FSPL (dB) = 20 log(d_km) + 20 log(f_GHz) + 92.45                  │
+│                                                                      │
+│  ┌────────────────────────────────────────────────────┐            │
+│  │                                                     │            │
+│  │  Orbit        │ Distance │ 4 GHz   │ 12 GHz │ 30 GHz│           │
+│  │  ─────────────┼──────────┼─────────┼────────┼───────│           │
+│  │  LEO (550 km) │ ~600 km  │ 168 dB  │ 177 dB │ 185 dB│           │
+│  │  MEO (20000)  │ ~22000 km│ 199 dB  │ 208 dB │ 216 dB│           │
+│  │  GEO          │ ~36000 km│ 203 dB  │ 212 dB │ 220 dB│           │
+│  │  Lunar        │ ~384000 km│221 dB  │ 230 dB │ 238 dB│           │
+│  │                                                     │            │
+│  └────────────────────────────────────────────────────┘            │
+│                                                                      │
+│  KEY OBSERVATIONS:                                                  │
+│  • GEO is ~35 dB harder than LEO (distance dominates)             │
+│  • Ka-band (30 GHz) is ~18 dB harder than C-band (4 GHz)          │
+│  • Every doubling of distance adds 6 dB                            │
+│  • Every doubling of frequency adds 6 dB                           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Complete link budget
+
+```
+Putting It All Together:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TRANSMITTER         PATH             RECEIVER                      │
+│  ┌──────────┐    ┌──────────┐    ┌──────────────┐                  │
+│  │  P_tx    │    │  FSPL    │    │  G_rx        │                  │
+│  │  +G_tx   │───→│  +Losses │───→│  -T_sys      │                  │
+│  │  =EIRP   │    │          │    │  =G/T        │                  │
+│  └──────────┘    └──────────┘    └──────────────┘                  │
+│                                                                      │
+│  LINK EQUATION:                                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  C/N₀ = EIRP - FSPL - L_other + G/T + 228.6          │         │
+│  │  (dBHz)                                               │         │
+│  │                                                        │         │
+│  │  Where L_other includes:                             │         │
+│  │  • Atmospheric absorption (0.5-5 dB)                 │         │
+│  │  • Rain fade (0-20+ dB for Ka-band)                 │         │
+│  │  • Pointing loss (0.5-2 dB)                         │         │
+│  │  • Polarization mismatch (0-3 dB)                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  EXAMPLE: Ku-band GEO downlink                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Satellite EIRP:      +52 dBW                        │         │
+│  │  FSPL (36000 km, 12 GHz): -205.8 dB                 │         │
+│  │  Atmospheric loss:    -0.5 dB                        │         │
+│  │  Pointing loss:       -0.5 dB                        │         │
+│  │  Ground G/T:          +27 dB/K                       │         │
+│  │  Boltzmann:           +228.6 dBW/K/Hz               │         │
+│  │  ───────────────────────────────                      │         │
+│  │  C/N₀:                101.8 dBHz                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Why λ appears in FSPL
+
+```
+Understanding the Wavelength Term:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Common confusion: "Does higher frequency cause more loss?"        │
+│                                                                      │
+│  ANSWER: Not really! The λ² term reflects ANTENNA CAPTURE AREA.   │
+│                                                                      │
+│  For a fixed-gain isotropic reference:                             │
+│  • Effective aperture A_e = λ²/(4π)                                │
+│  • Higher frequency = smaller λ = smaller capture area             │
+│                                                                      │
+│  For a fixed PHYSICAL aperture (like a dish):                      │
+│  • Gain increases as f² (aperture stays same, beamwidth shrinks)  │
+│  • This exactly cancels the f² in FSPL                            │
+│  • Net result: SAME received power for same dish size!            │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Physical dish comparison (same size):               │         │
+│  │                                                        │         │
+│  │  At 4 GHz:  G = 40 dBi,  FSPL = 200 dB              │         │
+│  │  At 12 GHz: G = 50 dBi,  FSPL = 210 dB              │         │
+│  │  At 30 GHz: G = 58 dBi,  FSPL = 218 dB              │         │
+│  │                                                        │         │
+│  │  Net: higher freq gains from antenna offset FSPL!    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  BUT: Higher frequencies have more atmospheric loss + rain fade.  │
+│  That's the REAL challenge with Ka-band.                           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Link budget calculations:**
+
+```python
+import numpy as np
+
+def fspl_db(distance_km, frequency_ghz):
+    """
+    Calculate Free Space Path Loss in dB.
+    
+    FSPL = 20 log(d_km) + 20 log(f_GHz) + 92.45
+    """
+    return 20 * np.log10(distance_km) + 20 * np.log10(frequency_ghz) + 92.45
+
+def parabolic_gain_dbi(diameter_m, frequency_ghz, efficiency=0.55):
+    """Calculate parabolic antenna gain in dBi."""
+    wavelength_m = 0.3 / frequency_ghz
+    gain_linear = efficiency * (np.pi * diameter_m / wavelength_m) ** 2
+    return 10 * np.log10(gain_linear)
+
+def link_budget(eirp_dbw, distance_km, freq_ghz, g_over_t_dbk, other_losses_db=0):
+    """
+    Calculate C/N0 for a satellite link.
+    
+    Args:
+        eirp_dbw: Transmitter EIRP in dBW
+        distance_km: Link distance in km
+        freq_ghz: Frequency in GHz
+        g_over_t_dbk: Receiver G/T in dB/K
+        other_losses_db: Additional losses (atmospheric, pointing, etc.)
+    
+    Returns:
+        C/N0 in dBHz
+    """
+    k_dbw = -228.6  # Boltzmann constant in dBW/K/Hz
+    path_loss = fspl_db(distance_km, freq_ghz)
+    
+    cn0 = eirp_dbw - path_loss - other_losses_db + g_over_t_dbk - k_dbw
+    
+    return cn0, path_loss
+
+def required_ebn0_to_cn0(ebn0_db, data_rate_bps):
+    """Convert Eb/N0 requirement to C/N0."""
+    return ebn0_db + 10 * np.log10(data_rate_bps)
+
+# Example calculations
+print("Friis Equation & Link Budget")
+print("=" * 60)
+
+# FSPL comparison
+print("\n1. Free Space Path Loss Comparison")
+print("-" * 60)
+
+orbits = [
+    ("LEO (550 km)", 600),
+    ("MEO (GPS)", 22000),
+    ("GEO", 36000),
+    ("Lunar", 384000),
+]
+
+freqs = [4, 12, 30]
+
+print(f"  {'Orbit':<20}", end="")
+for f in freqs:
+    print(f"{f} GHz".center(12), end="")
+print()
+print("-" * 60)
+
+for name, dist in orbits:
+    print(f"  {name:<20}", end="")
+    for f in freqs:
+        loss = fspl_db(dist, f)
+        print(f"{loss:.1f} dB".center(12), end="")
+    print()
+
+# Complete link budget
+print("\n2. GEO Ku-band Downlink Budget")
+print("-" * 60)
+
+# Parameters
+sat_eirp = 52  # dBW
+distance = 36000  # km
+freq = 12  # GHz
+ground_gt = 27  # dB/K
+atm_loss = 0.5  # dB
+pointing_loss = 0.5  # dB
+total_other_loss = atm_loss + pointing_loss
+
+cn0, fspl = link_budget(sat_eirp, distance, freq, ground_gt, total_other_loss)
+
+print(f"  Satellite EIRP:        {sat_eirp:+.1f} dBW")
+print(f"  Free space path loss:  {-fspl:.1f} dB")
+print(f"  Atmospheric loss:      {-atm_loss:.1f} dB")
+print(f"  Pointing loss:         {-pointing_loss:.1f} dB")
+print(f"  Ground station G/T:    {ground_gt:+.1f} dB/K")
+print(f"  Boltzmann constant:    +228.6 dBW/K/Hz")
+print("-" * 60)
+print(f"  C/N₀:                  {cn0:.1f} dBHz")
+
+# Convert to Eb/N0 for a data rate
+data_rate = 10e6  # 10 Mbps
+required_ebn0 = 8  # dB (typical for QPSK with coding)
+required_cn0 = required_ebn0_to_cn0(required_ebn0, data_rate)
+margin = cn0 - required_cn0
+
+print(f"\n  For {data_rate/1e6:.0f} Mbps data rate:")
+print(f"  Required Eb/N₀:        {required_ebn0:.1f} dB")
+print(f"  Required C/N₀:         {required_cn0:.1f} dBHz")
+print(f"  Link margin:           {margin:.1f} dB")
+
+# LEO comparison
+print("\n3. LEO vs GEO Comparison (same EIRP)")
+print("-" * 60)
+
+leo_dist = 600  # km
+geo_dist = 36000  # km
+
+for name, dist in [("LEO", leo_dist), ("GEO", geo_dist)]:
+    cn0, fspl = link_budget(sat_eirp, dist, freq, ground_gt, total_other_loss)
+    print(f"  {name}: FSPL = {fspl:.1f} dB, C/N₀ = {cn0:.1f} dBHz")
+
+leo_advantage = fspl_db(geo_dist, freq) - fspl_db(leo_dist, freq)
+print(f"\n  LEO advantage: {leo_advantage:.1f} dB less path loss")
+
+# Physical aperture comparison
+print("\n4. Fixed Dish Size vs Frequency")
+print("-" * 60)
+
+dish_size = 3.0  # m
+distance = 36000  # km
+
+print(f"  {dish_size}m dish at GEO distance ({distance} km):")
+print(f"")
+print(f"  {'Freq (GHz)':<12} {'Gain (dBi)':<12} {'FSPL (dB)':<12} {'Net (dB)':<12}")
+print("-" * 60)
+
+for f in [4, 12, 30]:
+    gain = parabolic_gain_dbi(dish_size, f)
+    loss = fspl_db(distance, f)
+    net = gain - loss
+    print(f"  {f:<12} {gain:<12.1f} {loss:<12.1f} {net:<12.1f}")
+
+print("\n  Note: Net is similar across frequencies (dish cancels FSPL)!")
+print("  Higher frequencies lose to atmosphere/rain, not FSPL.")
+```
+
+**Key FSPL values:**
+
+| Link | Distance | FSPL @ 12 GHz |
+|------|----------|---------------|
+| LEO-to-ground | 600 km | 177 dB |
+| GEO-to-ground | 36,000 km | 206 dB |
+| Inter-satellite (GEO) | 80,000 km | 213 dB |
+| Earth-Moon | 384,000 km | 230 dB |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Forgetting to use km and GHz.** The 92.45 constant assumes km and GHz. Mix units → wrong answer.
+
+2. **Blaming FSPL for Ka-band difficulty.** The real problem is atmospheric absorption and rain fade, not FSPL.
+
+3. **Using nadir distance for LEO.** Slant range varies with elevation angle; use actual path distance.
+
+4. **Ignoring elevation angle.** Lower elevation = longer path + more atmosphere + worse G/T.
+
+5. **Linear vs dB confusion.** Friis is multiplicative; link budget is additive in dB.
+
+6. **Forgetting Boltzmann.** When using G/T, you need -228.6 dBW/K/Hz to get C/N₀.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Friis, H.T. "A Note on a Simple Transmission Formula" (1946)
+- ITU-R P.525 (Free-space attenuation)
+- Maral & Bousquet "Satellite Communications Systems"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Atmospheric Losses](/en/space/link-budget-master-class/atmospheric-losses-itu-r-p618/) — beyond free space
+- [EIRP](/en/space/link-budget-master-class/eirp/) — transmitter design
+- [G/T](/en/space/link-budget-master-class/g-over-t/) — receiver sensitivity
+
+</section>

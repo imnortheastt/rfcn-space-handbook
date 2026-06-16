@@ -8,17 +8,413 @@ track: n3
 unit: network-functions-overview
 order: 1
 level: L2
-estimatedReadingMinutes: 5
-title: "AMF — Chuc nang quan ly truy cap va di dong"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-why-sba-architectural-shift-02-sba-design-principles"]
+spiralRevisits: ["core-network-n4-mobility-management-01-registration"]
+title: "AMF — Chuc Nang Quan Ly Truy Cap va Di Dong"
+description: "Trung tam signaling cua 5G core — ket noi UE, di dong, va dieu khien truy cap."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 23.502"]
+tags: ["amf", "5g", "mobility", "registration", "ngap"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# AMF — Chuc nang quan ly truy cap va di dong
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Khi dien thoai cua ban bat nguon, dang ky voi mang, di chuyen giua cac cell, hoac chuyen tu idle sang connected — **AMF** xu ly tat ca.
+
+AMF la **neo control plane** cho 5G. Moi UE noi chuyen voi AMF. Moi gNB ket noi voi AMF. Hieu AMF la hieu nhip dap cua signaling 5G.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### AMF lam gi
+
+```
+AMF o trung tam:
+
+                         ┌─────────────────┐
+                         │      UDM        │
+                         │ (du lieu thue bao)│
+                         └────────▲────────┘
+                                  │ Nudm
+                                  │
+┌─────────┐    N2/NGAP    ┌───────┴───────┐    Nsmf     ┌─────────┐
+│  gNB    │◄─────────────►│      AMF      │◄───────────►│   SMF   │
+└─────────┘               │               │             └─────────┘
+                          │  (trung tam   │
+┌─────────┐    N1/NAS     │  signaling)   │    Nausf    ┌─────────┐
+│   UE    │◄─────────────►│               │◄───────────►│  AUSF   │
+└─────────┘               └───────┬───────┘             └─────────┘
+                                  │ Npcf
+                                  │
+                         ┌────────▼────────┐
+                         │      PCF        │
+                         │ (policy truy cap)│
+                         └─────────────────┘
+```
+
+**AMF la diem lien lac duy nhat cua UE** cho tat ca signaling control plane.
+
+### Trach nhiem chinh
+
+| Trach nhiem | Y nghia |
+|-------------|---------|
+| **Registration** | Gan ket UE, phoi hop authentication |
+| **Quan ly ket noi** | Trang thai Idle/Connected, paging |
+| **Quan ly di dong** | Handover, quan ly danh sach TAI |
+| **Dieu khien truy cap** | Chon network slice, han che truy cap |
+| **Ket thuc NAS** | Signaling NAS end-to-end voi UE |
+| **Ket thuc N2** | Signaling control plane voi gNB |
+
+### Tu 4G MME sang 5G AMF
+
+```
+4G MME vs 5G AMF:
+
+┌─────────────────────────────────────────────────────────┐
+│                      4G MME                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Registration │ Mobility │ Session │ Bearer     │    │
+│  │              │          │ Mgmt    │ Mgmt       │    │
+│  └─────────────────────────────────────────────────┘    │
+│  Tat ca trong mot monolith                              │
+└─────────────────────────────────────────────────────────┘
+                         │
+                         ▼ Phan tach
+┌─────────────────────────────────────────────────────────┐
+│                      5G SBA                              │
+│                                                          │
+│  ┌───────────┐    ┌───────────┐    ┌───────────┐       │
+│  │    AMF    │    │    SMF    │    │    UPF    │       │
+│  │           │    │           │    │           │       │
+│  │ Mobility  │    │ Session   │    │ User      │       │
+│  │ Access    │    │ Mgmt      │    │ Plane     │       │
+│  └───────────┘    └───────────┘    └───────────┘       │
+│                                                          │
+│  Quan ly session tach ra cho SMF                        │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Khac biet chinh:** AMF xu ly mobility va access; SMF xu ly session. Phan tach ro rang.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Dich vu AMF (SBI)
+
+AMF expose cac dich vu nay qua HTTP/2:
+
+```
+Dich vu AMF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Namf_Communication                                     │
+│  ├── N1N2MessageTransfer      (chuyen tiep NAS den UE)  │
+│  ├── UEContextTransfer        (di dong lien AMF)        │
+│  └── EBIAssignment            (ID bearer EPS)           │
+│                                                          │
+│  Namf_EventExposure                                     │
+│  ├── Subscribe                (thong bao su kien)       │
+│  ├── Unsubscribe                                        │
+│  └── Notify                                             │
+│                                                          │
+│  Namf_Location                                          │
+│  └── ProvidePositioningInfo   (dich vu vi tri)          │
+│                                                          │
+│  Namf_MT                                                │
+│  └── EnableUEReachability     (mobile terminated)       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Thu tuc dang ky
+
+```
+Dang ky UE voi AMF:
+
+UE              gNB              AMF              AUSF/UDM
+│                │                │                   │
+│ RRC Connection │                │                   │
+│───────────────►│                │                   │
+│                │                │                   │
+│        Registration Request     │                   │
+│        (qua NAS tren N1)        │                   │
+│───────────────────────────────►│                   │
+│                │                │                   │
+│                │                │   Nausf_Auth      │
+│                │                │──────────────────►│
+│                │                │                   │
+│                │                │   Auth vector     │
+│                │                │◄──────────────────│
+│                │                │                   │
+│  Auth Request (qua NAS)         │                   │
+│◄───────────────────────────────│                   │
+│                │                │                   │
+│  Auth Response                  │                   │
+│───────────────────────────────►│                   │
+│                │                │                   │
+│                │                │   Nudm_UECM      │
+│                │                │   (dang ky)       │
+│                │                │──────────────────►│
+│                │                │                   │
+│  Registration Accept            │                   │
+│  (5G-GUTI, danh sach TAI)       │                   │
+│◄───────────────────────────────│                   │
+│                │                │                   │
+```
+
+**Ket qua:** UE dang ky voi AMF, co 5G-GUTI, biet Tracking Area duoc phep.
+
+### UE context trong AMF
+
+```
+AMF UE Context:
+
+┌─────────────────────────────────────────────────────────┐
+│  UE Context (moi thue bao)                               │
+│                                                          │
+│  Danh tinh:                                             │
+│  ├── SUPI: 452021123456789                              │
+│  ├── 5G-GUTI: AMF gan                                   │
+│  └── PEI: IMEI thiet bi (neu yeu cau)                   │
+│                                                          │
+│  Bao mat:                                               │
+│  ├── K_AMF: khoa dan xuat                               │
+│  ├── Thuat toan bao mat NAS                             │
+│  └── Trang thai boi canh bao mat                        │
+│                                                          │
+│  Di dong:                                               │
+│  ├── Trang thai dang ky (registered/deregistered)       │
+│  ├── Trang thai CM (connected/idle)                     │
+│  ├── TAI hien tai (Tracking Area)                       │
+│  └── NSSAI duoc phep (network slice)                    │
+│                                                          │
+│  Thong tin session (con tro):                           │
+│  ├── PDU session 1 → SMF-A                              │
+│  └── PDU session 2 → SMF-B                              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Trang thai quan ly ket noi (CM)
+
+```
+May trang thai CM:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ┌──────────┐                         │
+│  UE bat nguon ──► │ CM-IDLE  │                         │
+│                    └────┬─────┘                         │
+│                         │                                │
+│           Service Request / Paging Response              │
+│                         │                                │
+│                         ▼                                │
+│                    ┌──────────┐                         │
+│                    │CM-CONNECTED│                       │
+│                    └────┬─────┘                         │
+│                         │                                │
+│                  Het thoi gian khong hoat dong          │
+│                  RRC release                             │
+│                         │                                │
+│                         ▼                                │
+│                    ┌──────────┐                         │
+│                    │ CM-IDLE  │                         │
+│                    └──────────┘                         │
+│                                                          │
+│  CM-IDLE: Khong co ket noi N1/N2, UE truy cap qua paging│
+│  CM-CONNECTED: Ket noi signaling hoat dong             │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Thu tuc paging
+
+```
+Paging (UE trong CM-IDLE):
+
+Dich vu       SMF              AMF              gNB trong danh
+ben ngoai                                         sach TAI
+   │           │                │                   │
+   │  Du lieu  │                │                   │
+   │  downlink │  N11 (notify)  │                   │
+   │──────────►│───────────────►│                   │
+   │           │                │                   │
+   │           │                │   Paging (N2)     │
+   │           │                │──────────────────►│
+   │           │                │                   │
+   │           │                │              (broadcast
+   │           │                │               paging trong
+   │           │                │               tat ca cell)
+   │           │                │                   │
+   │           │                │   Paging Response │
+   │           │                │◄──────────────────│
+   │           │                │                   │
+   │           │   UE Context   │                   │
+   │           │   Phuc hoi     │                   │
+   │           │◄───────────────│                   │
+   │           │                │                   │
+```
+
+### Lua chon AMF
+
+Khi UE ket noi lan dau, mang chon AMF:
+
+```
+Yeu to lua chon AMF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. GUAMI trong Initial UE Message (neu co)             │
+│     - UE cung cap identifier AMF truoc                  │
+│     - Mang co route den cung AMF                        │
+│                                                          │
+│  2. NSSAI yeu cau                                       │
+│     - AMF phai ho tro slice UE yeu cau                  │
+│     - NSSF co the ho tro lua chon                       │
+│                                                          │
+│  3. Registration Area                                   │
+│     - AMF phuc vu cac TAI cu the                        │
+│     - gNB route den AMF phu hop                         │
+│                                                          │
+│  4. Can bang tai                                        │
+│     - Phan phoi UE qua pool AMF                         │
+│     - Theo trong so hoac round-robin                    │
+│                                                          │
+│  5. Chinh sach nha mang                                 │
+│     - Thue bao VIP den AMF cu the                       │
+│     - Xem xet dia ly                                    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Giao dien N2 (NGAP)
+
+```
+Giao tiep AMF-gNB (NGAP):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Thu tuc NGAP:                                          │
+│                                                          │
+│  Quan ly giao dien:                                     │
+│  ├── NG Setup                   (gNB → AMF ket noi)     │
+│  ├── AMF Configuration Update                           │
+│  └── NG Reset                                           │
+│                                                          │
+│  Quan ly UE Context:                                    │
+│  ├── Initial UE Message                                 │
+│  ├── Initial Context Setup                              │
+│  ├── UE Context Release                                 │
+│  └── UE Context Modification                            │
+│                                                          │
+│  Di dong:                                               │
+│  ├── Handover Required/Request                          │
+│  ├── Handover Command/Preparation                       │
+│  ├── Path Switch Request                                │
+│  └── Handover Cancel                                    │
+│                                                          │
+│  Paging:                                                │
+│  └── Paging                                             │
+│                                                          │
+│  Transport: SCTP tren IP                                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tham so cau hinh AMF:**
+
+| Tham so | Muc dich | Gia tri dien hinh |
+|---------|----------|-------------------|
+| PLMN ID | PLMN phuc vu | MCC-MNC (v.d., 452-02) |
+| AMF Set ID | Nhom pool AMF | 0-1023 |
+| AMF Pointer | AMF trong set | 0-63 |
+| Danh sach TAI | Tracking area phuc vu | Danh sach TAI |
+| NSSAI ho tro | Ho tro slice | To hop SST/SD |
+| T3512 | Timer dang ky dinh ky | 54 phut mac dinh |
+| T3502 | Timer thu lai dang ky | 12 phut mac dinh |
+
+**Lap ke hoach dung luong AMF:**
+
+| Chi so | Mo ta |
+|--------|-------|
+| Max UE context | So UE da dang ky |
+| Ty le dang ky | Dang ky moi giay |
+| Dung luong paging | Paging moi giay |
+| Ket noi N2 | So gNB |
+| Thong luong SBI | HTTP/2 request moi giay |
+
+**Checklist xu ly su co:**
+
+| Van de | Kiem tra |
+|--------|----------|
+| Dang ky that bai | AUSF/UDM truy cap duoc, dang ky NRF |
+| Paging that bai | Danh sach TAI dung, trang thai N2 gNB |
+| Handover that bai | AMF dich truy cap duoc, routing GUAMI |
+| Hieu nang cham | CPU/memory, do tre SBI, nghen N2 |
+| UE khong lien lac duoc | Trang thai CM, TAI cuoi biet, timer paging |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Nham AMF voi MME.** AMF khong xu ly session — do la SMF. Dung mong doi quan ly bearer trong AMF.
+
+2. **Bo qua lap ke hoach TAI.** Thiet ke TAI kem gay ra cap nhat dang ky qua nhieu. Lap ke hoach danh sach TAI theo mau di dong.
+
+3. **Danh gia thap tai paging.** Thiet bi IoT voi du lieu thuong xuyen co the lam qua tai paging. Xem xet chien luoc luon ket noi.
+
+4. **Trien khai AMF don.** Pool AMF voi can bang tai la thiet yeu cho kha nang phuc hoi va scale.
+
+5. **Quen di dong lien AMF.** UE di chuyen giua cac AMF yeu cau chuyen context. Test handover lien AMF.
+
+6. **Cau hinh bao mat NAS sai.** Ho tro thuat toan sai lam hong authentication. Xac nhan kha nang bao mat NAS.
+
+7. **Van de N2 SCTP.** Multi-homing va heartbeat SCTP yeu cau cau hinh mang. Firewall thuong chan SCTP.
+
+8. **Khong khop timer.** T3512 (dang ky dinh ky) nen phu hop voi hanh vi UE mong doi va tai mang.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.501, "System architecture for 5G System"
+- 3GPP TS 23.502, "Procedures for 5G System"
+- 3GPP TS 24.501, "NAS protocol for 5G System"
+- 3GPP TS 38.413, "NG-RAN; NG Application Protocol (NGAP)"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [SMF](/vi/core-network/network-functions-overview/smf/) — doi tac quan ly session
+- [Thu tuc dang ky](/vi/core-network/mobility-management/registration/) — di sau
+- [Handover](/vi/core-network/mobility-management/handover/) — di dong trong hanh dong
+
+</section>

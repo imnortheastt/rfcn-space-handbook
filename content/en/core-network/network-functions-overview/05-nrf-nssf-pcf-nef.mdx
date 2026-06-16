@@ -8,17 +8,494 @@ track: n3
 unit: network-functions-overview
 order: 5
 level: L3
-estimatedReadingMinutes: 5
-title: "NRF, NSSF, PCF, NEF — Discovery, slicing, policy, exposure"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 14
+prerequisites: ["core-network-n3-why-sba-architectural-shift-02-sba-design-principles"]
+spiralRevisits: ["core-network-n4-network-slicing-01-overview"]
+title: "NRF, NSSF, PCF, NEF — Discovery, Slicing, Policy, Exposure"
+description: "The supporting cast of 5G — service discovery, slice selection, policy control, and API exposure."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 23.502"]
+tags: ["nrf", "nssf", "pcf", "nef", "5g", "slicing", "policy"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# NRF, NSSF, PCF, NEF — Discovery, slicing, policy, exposure
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+AMF, SMF, and UPF are the "main characters" of 5G. But they need **supporting infrastructure** to function.
+
+**NRF** enables service discovery. **NSSF** selects network slices. **PCF** enforces policies. **NEF** exposes APIs to external applications. Without these, the SBA architecture would collapse.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The four supporting functions
+
+```
+Supporting NFs in 5G:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────┐   ┌─────────┐   ┌─────────┐   ┌─────────┐ │
+│  │   NRF   │   │  NSSF   │   │   PCF   │   │   NEF   │ │
+│  │         │   │         │   │         │   │         │ │
+│  │ Service │   │  Slice  │   │ Policy  │   │  API    │ │
+│  │Discovery│   │Selection│   │ Control │   │Exposure │ │
+│  └────┬────┘   └────┬────┘   └────┬────┘   └────┬────┘ │
+│       │             │             │             │       │
+│       └─────────────┼─────────────┼─────────────┘       │
+│                     │             │                      │
+│                     ▼             ▼                      │
+│              ┌───────────────────────┐                  │
+│              │  AMF │ SMF │ UPF │ ... │                 │
+│              │  (Consumer NFs)        │                  │
+│              └───────────────────────┘                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+| Function | One-line purpose |
+|----------|------------------|
+| **NRF** | "Where is the SMF that serves DNN X?" |
+| **NSSF** | "Which slice should this UE use?" |
+| **PCF** | "What QoS and rules apply to this session?" |
+| **NEF** | "How can external apps talk to the 5G network?" |
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+---
+
+## NRF — Network Repository Function
+
+### What NRF does
+
+NRF is the **service registry** for 5G SBA. Every NF registers its services with NRF; consumers discover services by querying NRF.
+
+```
+NRF Service Registry:
+
+┌─────────────────────────────────────────────────────────┐
+│                         NRF                              │
+│                                                          │
+│  Registered NFs:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ NF: AMF-001                                      │    │
+│  │   Type: AMF                                      │    │
+│  │   Services: [Namf_Communication, Namf_Location]  │    │
+│  │   Address: https://amf1.5gc.operator.com        │    │
+│  │   PLMN: 310-260                                  │    │
+│  │   Slices: [SST=1, SST=2]                        │    │
+│  │   TAIs: [TAI1, TAI2, TAI3]                      │    │
+│  ├─────────────────────────────────────────────────┤    │
+│  │ NF: SMF-001                                      │    │
+│  │   Type: SMF                                      │    │
+│  │   Services: [Nsmf_PDUSession]                   │    │
+│  │   DNNs: [internet, ims]                         │    │
+│  │   ...                                            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### NRF operations
+
+```
+NRF Services (Nnrf):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nnrf_NFManagement:                                     │
+│  ├── NFRegister         (NF joins network)             │
+│  ├── NFUpdate           (NF changes profile)           │
+│  ├── NFDeregister       (NF leaves)                    │
+│  └── NFStatusSubscribe  (watch for changes)            │
+│                                                          │
+│  Nnrf_NFDiscovery:                                      │
+│  └── NFDiscover         (find NFs matching criteria)   │
+│                                                          │
+│  Nnrf_AccessToken:                                      │
+│  └── AccessTokenRequest (OAuth2 token for NF-to-NF)    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Discovery example
+
+```
+AMF discovering SMF:
+
+AMF                         NRF
+ │                           │
+ │  NFDiscover Request       │
+ │  - Target NF Type: SMF    │
+ │  - DNN: "internet"        │
+ │  - S-NSSAI: SST=1         │
+ │  - TAI: matching UE loc   │
+ │──────────────────────────►│
+ │                           │
+ │                      ┌────┴────┐
+ │                      │ Search  │
+ │                      │ registry│
+ │                      └────┬────┘
+ │                           │
+ │  NFDiscover Response      │
+ │  - SMF-001: https://...   │
+ │  - SMF-002: https://...   │
+ │◄──────────────────────────│
+ │                           │
+```
+
+---
+
+## NSSF — Network Slice Selection Function
+
+### What NSSF does
+
+NSSF helps select the appropriate **network slice** for a UE. Different slices serve different purposes (eMBB, URLLC, mMTC).
+
+```
+Network Slicing Concept:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│        Physical 5G Network                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ Slice 1 (SST=1): eMBB                   │   │    │
+│  │  │ AMF-A, SMF-A, UPF-A                     │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ Slice 2 (SST=2): URLLC                  │   │    │
+│  │  │ AMF-B, SMF-B, UPF-B (edge)              │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ Slice 3 (SST=3): mMTC                   │   │    │
+│  │  │ AMF-C, SMF-C, UPF-C                     │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  NSSF decides: "UE X gets Slice 1 + Slice 2"           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### NSSF services
+
+```
+NSSF Services (Nnssf):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nnssf_NSSelection:                                     │
+│  └── NSSelectionGet        (select slices for UE)      │
+│                                                          │
+│  Nnssf_NSSAIAvailability:                               │
+│  ├── NSSAIAvailabilityPut  (TA → slice mapping)        │
+│  ├── NSSAIAvailabilityDelete                            │
+│  └── NSSAIAvailabilitySubscribe                         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Slice selection flow
+
+```
+Slice Selection:
+
+UE              AMF              NSSF
+│                │                │
+│ Registration   │                │
+│ Requested NSSAI│                │
+│ [SST=1, SST=2] │                │
+│───────────────►│                │
+│                │                │
+│                │ NSSelectionGet │
+│                │ - SUPI         │
+│                │ - Requested NSSAI
+│                │ - TAI          │
+│                │───────────────►│
+│                │                │
+│                │         ┌──────┴──────┐
+│                │         │ Check:      │
+│                │         │ - Subscription
+│                │         │ - TA support│
+│                │         │ - Policy    │
+│                │         └──────┬──────┘
+│                │                │
+│                │ Allowed NSSAI  │
+│                │ [SST=1]        │
+│                │ Target AMF Set │
+│                │◄───────────────│
+│                │                │
+```
+
+---
+
+## PCF — Policy Control Function
+
+### What PCF does
+
+PCF provides **policy rules** to AMF (access policies) and SMF (session policies). It decides QoS, charging rules, and traffic treatment.
+
+```
+PCF in the Policy Framework:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ┌─────────┐                          │
+│                    │   UDR   │ (policy data)            │
+│                    └────▲────┘                          │
+│                         │                                │
+│                    ┌────┴────┐                          │
+│                    │   PCF   │                          │
+│                    └────┬────┘                          │
+│                         │                                │
+│           ┌─────────────┼─────────────┐                 │
+│           │             │             │                  │
+│           ▼             ▼             ▼                  │
+│      ┌─────────┐   ┌─────────┐   ┌─────────┐           │
+│      │   AMF   │   │   SMF   │   │   AF    │           │
+│      │         │   │         │   │(via NEF)│           │
+│      │ Access  │   │ Session │   │ App     │           │
+│      │ Policy  │   │ Policy  │   │ Request │           │
+│      └─────────┘   └─────────┘   └─────────┘           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### PCF services
+
+```
+PCF Services (Npcf):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Npcf_AMPolicyControl:                                  │
+│  ├── Create             (access policy for UE)         │
+│  ├── Update                                             │
+│  └── Delete                                             │
+│                                                          │
+│  Npcf_SMPolicyControl:                                  │
+│  ├── Create             (session policy for PDU)       │
+│  ├── Update                                             │
+│  ├── Delete                                             │
+│  └── UpdateNotify       (policy change trigger)        │
+│                                                          │
+│  Npcf_PolicyAuthorization:                              │
+│  └── Create             (AF requests QoS)              │
+│                                                          │
+│  Npcf_BDTPolicyControl:                                 │
+│  └── Create             (background data transfer)     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Policy decision example
+
+```
+Session Policy:
+
+SMF                         PCF
+ │                           │
+ │  SM Policy Create         │
+ │  - SUPI                   │
+ │  - DNN: "internet"        │
+ │  - S-NSSAI: SST=1         │
+ │  - UE IP: 10.0.0.5        │
+ │──────────────────────────►│
+ │                           │
+ │                      ┌────┴────┐
+ │                      │ Evaluate│
+ │                      │ rules   │
+ │                      └────┬────┘
+ │                           │
+ │  SM Policy Decision       │
+ │  - PCC Rules:             │
+ │    - QoS: 5QI=9, MBR=100M │
+ │    - Charging: prepaid    │
+ │  - Session AMBR           │
+ │◄──────────────────────────│
+ │                           │
+```
+
+---
+
+## NEF — Network Exposure Function
+
+### What NEF does
+
+NEF is the **API gateway** between external applications and the 5G core. It exposes network capabilities safely and securely.
+
+```
+NEF as API Gateway:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  External World              │      5G Core             │
+│                              │                          │
+│  ┌─────────┐                │                          │
+│  │ IoT App │────┐           │                          │
+│  └─────────┘    │           │                          │
+│                  │           │                          │
+│  ┌─────────┐    │    ┌──────┴─────┐    ┌─────────┐    │
+│  │ Video   │────┼───►│    NEF     │───►│   PCF   │    │
+│  │ Service │    │    │            │    └─────────┘    │
+│  └─────────┘    │    │ - Validate │                    │
+│                  │    │ - Translate│    ┌─────────┐    │
+│  ┌─────────┐    │    │ - Authorize│───►│   UDM   │    │
+│  │ Traffic │────┘    │            │    └─────────┘    │
+│  │ Mgmt    │         └──────┬─────┘                    │
+│  └─────────┘                │          ┌─────────┐    │
+│                              │         │   AMF   │    │
+│                              │         └─────────┘    │
+│                              │                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### NEF services
+
+```
+NEF Services (Nnef):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  External exposure (to AFs):                            │
+│  ├── MonitoringEvent       (UE location, reachability) │
+│  ├── DeviceTriggering      (wake up IoT device)        │
+│  ├── ParameterProvision    (set UE parameters)         │
+│  ├── TrafficInfluence      (route traffic to edge)     │
+│  └── ChargeableParty       (sponsor data usage)        │
+│                                                          │
+│  Internal services:                                     │
+│  └── AFSessionWithQoS      (QoS for specific app)      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Traffic influence example
+
+```
+Traffic Influence Request:
+
+AF (Video CDN)              NEF                  PCF/SMF
+     │                       │                      │
+     │  Traffic Influence    │                      │
+     │  - UE Group: all      │                      │
+     │  - App: video.cdn.com │                      │
+     │  - Route to: edge-upf │                      │
+     │──────────────────────►│                      │
+     │                       │                      │
+     │                  ┌────┴────┐                 │
+     │                  │ Validate│                 │
+     │                  │ Auth AF │                 │
+     │                  └────┬────┘                 │
+     │                       │                      │
+     │                       │  Npcf/Nsmf trigger   │
+     │                       │  Route video traffic │
+     │                       │  to edge UPF         │
+     │                       │─────────────────────►│
+     │                       │                      │
+     │  200 OK               │                      │
+     │◄──────────────────────│                      │
+     │                       │                      │
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**NRF configuration:**
+
+| Parameter | Purpose |
+|-----------|---------|
+| PLMN ID | Network identity |
+| NRF peers | For NRF-to-NRF communication |
+| OAuth2 config | Token-based authorization |
+
+**NSSF configuration:**
+
+| Parameter | Purpose |
+|-----------|---------|
+| Supported S-NSSAIs | Available slices |
+| TA-NSSAI mapping | Which slices in which areas |
+| AMF set info | Target AMFs per slice |
+
+**PCF configuration:**
+
+| Parameter | Purpose |
+|-----------|---------|
+| UDR endpoint | Policy data repository |
+| Default policies | Fallback rules |
+| Charging rules | Online/offline charging |
+
+**NEF configuration:**
+
+| Parameter | Purpose |
+|-----------|---------|
+| AF allowlist | Authorized external apps |
+| API throttling | Rate limiting |
+| Exposure scopes | What capabilities are exposed |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **NRF as single point of failure.** NRF outage stops discovery. Deploy redundant NRF instances.
+
+2. **NSSF complexity.** Slice selection logic can get complex. Start simple, add rules incrementally.
+
+3. **PCF overload.** Every session queries PCF. Monitor and scale appropriately.
+
+4. **NEF security gaps.** Exposing network APIs to external apps requires strict authorization. Audit AF access.
+
+5. **Caching NRF results.** Stale discovery data causes routing to dead NFs. Set appropriate TTLs.
+
+6. **Ignoring NSSAI consistency.** Requested, allowed, and configured NSSAI must align. Mismatches cause slice selection failures.
+
+7. **PCF-UDR split brain.** Policy data in UDR and PCF runtime state must stay synchronized.
+
+8. **NEF rate limiting.** External AFs can flood NEF with requests. Implement throttling from day one.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System architecture for 5G System"
+- 3GPP TS 29.510, "NRF Services"
+- 3GPP TS 29.531, "NSSF Services"
+- 3GPP TS 29.512, "PCF Services"
+- 3GPP TS 29.522, "NEF Services"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Network slicing](/en/core-network/network-slicing/overview/) — deep dive into slicing
+- [Policy framework](/en/core-network/policy-and-charging/policy-framework/) — PCC rules in detail
+- [SBI design principles](/en/core-network/why-sba-architectural-shift/sba-design-principles/) — how NFs communicate
+
+</section>

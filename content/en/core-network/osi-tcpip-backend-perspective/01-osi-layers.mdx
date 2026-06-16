@@ -8,17 +8,275 @@ track: n0
 unit: osi-tcpip-backend-perspective
 order: 1
 level: L0
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 11
+prerequisites: []
+spiralRevisits: ["core-network-n1-why-telcos-build-differently-01-carrier-grade-requirements"]
 title: "OSI layers"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The 7-layer model that lets you debug any network problem — from physical cables to application APIs — and how it maps to 5G architecture."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["ISO/IEC 7498-1"]
+tags: ["osi", "networking", "fundamentals", "protocol-stack"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# OSI layers
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Your API call times out. Is it the server? The network? DNS? A firewall? The load balancer?
+
+The OSI model gives you a systematic way to isolate the problem. Layer by layer, you can trace where packets flow and where they stop. Every network engineer, backend developer, and SRE uses this mental model daily — even if they don't name it.
+
+More importantly for this handbook: the OSI model is the conceptual skeleton that 5G engineers refer to constantly. When a radio engineer says "Layer 2 scheduling," they mean something very specific. When a core network engineer says "Layer 7 service exposure," they are describing 5G's Service-Based Interface. Understanding the layers lets you navigate the conversation between the radio world and the cloud world.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+The OSI model splits networking into seven layers, each with one job:
+
+| Layer | Name | One-liner | Example |
+|-------|------|-----------|---------|
+| 7 | Application | User-facing protocols | HTTP, SMTP, DNS |
+| 6 | Presentation | Data format, encryption | TLS, JPEG, JSON |
+| 5 | Session | Connection management | NetBIOS, RPC |
+| 4 | Transport | End-to-end delivery | TCP, UDP, SCTP |
+| 3 | Network | Routing between networks | IP, ICMP |
+| 2 | Data Link | Hop-by-hop delivery | Ethernet, WiFi, eCPRI |
+| 1 | Physical | Bits on wire | Cables, fiber, radio waves |
+
+**Mnemonic:** "Please Do Not Throw Sausage Pizza Away" (Physical → Application).
+
+**Key insight:** Each layer only talks to its neighbor. Layer 4 doesn't care about cables; Layer 2 doesn't care about HTTP. This isolation lets you swap implementations without breaking the stack — and it is exactly why you can run a 5G core on commodity cloud hardware while the radio access network (RAN) uses specialized RF electronics below it.
+
+### The cloud analogy
+
+Think of the OSI model as a postal system inside a large company:
+
+- **Layer 1 (Physical):** The trucks and roads — the physical medium carrying the mail.
+- **Layer 2 (Data Link):** The local courier who delivers between buildings on one campus, using building names (MAC addresses), not city addresses.
+- **Layer 3 (Network):** The city postal system routing packages between campuses, using city addresses (IP addresses).
+- **Layer 4 (Transport):** The mailroom clerk who tracks whether the package arrived, retransmits if lost (TCP), or just sends without tracking (UDP).
+- **Layer 7 (Application):** The business department that reads and acts on the letter content.
+
+Each department does its job and hands the package to the next. A breakdown at any one level stops the chain — and knowing which department failed tells you exactly who to call.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Layer 1: Physical
+
+Converts bits to physical signals. Defines:
+- Connector types (RJ45, SFP+, LC fiber, antenna)
+- Voltage levels, optical wavelengths, frequencies
+- Bit timing and synchronization
+
+**In telecom:** Layer 1 includes the actual radio frequency transmission between UE and gNB, and the fiber carrying fronthaul (eCPRI) between the remote radio unit (RRU) and the baseband unit (BBU). The distinction between Layer 1 and Layer 2 at the RAN is precisely where O-RAN functional splits are defined.
+
+**Troubleshooting:** Is the cable plugged in? Is the link LED on? Is the NIC detected? Is RF signal strength sufficient?
+
+### Layer 2: Data Link
+
+Delivers frames between directly connected devices. Handles:
+- MAC addressing (48-bit hardware addresses)
+- Frame delimiting (start/end of frame)
+- Error detection (CRC)
+- Media access (CSMA/CD for Ethernet; TDMA scheduling for 5G NR)
+
+**Key protocols:** Ethernet (802.3), WiFi (802.11), PPP.
+
+**In 5G RAN:** Layer 2 is subdivided into three sublayers — MAC (scheduling and HARQ retransmissions), RLC (segmentation, ARQ), and PDCP (ciphering, header compression, reordering). These are specified in 3GPP TS 38.321/38.322/38.323. When engineers say "L2 throughput" in RAN context, they mean the aggregate data rate at the PDCP layer.
+
+**Troubleshooting:** Can you ping the gateway? Are there MAC address conflicts? Is the switch port up?
+
+### Layer 3: Network
+
+Routes packets across networks. Handles:
+- Logical addressing (IP addresses)
+- Routing decisions (which hop next?)
+- Fragmentation (breaking large packets)
+
+**Key protocols:** IPv4, IPv6, ICMP, OSPF, BGP.
+
+**In 5G core:** Layer 3 is where GTP-U (GPRS Tunneling Protocol – User plane) operates. GTP-U wraps the user's IP packets inside another UDP/IP envelope to carry them across the N3 interface between gNB and UPF, and across N9 between UPF instances. From the UE's perspective, its IP traffic is encapsulated inside a GTP tunnel at Layer 3 — this is how the 5G user plane differs fundamentally from a simple IP network.
+
+**Troubleshooting:** Can you ping a remote IP? Is the route correct? Are there firewall rules blocking?
+
+### Layer 4: Transport
+
+Provides end-to-end communication between processes:
+- **TCP:** Reliable, ordered, connection-oriented. Used for web, database, and most application traffic.
+- **UDP:** Unreliable, unordered, connectionless. Used for DNS, video streaming, and — critically — GTP-U tunneling.
+- **SCTP (Stream Control Transmission Protocol):** Multi-homing, multi-streaming, message-oriented. This is the transport protocol for 5G control plane signaling on the N2 interface (AMF-gNB) and for Diameter/S1AP in 4G. SCTP is why telecom signaling survives a link failure without dropping calls.
+
+Handles:
+- Port numbers (which application?)
+- Flow control (don't overwhelm receiver)
+- Error recovery (TCP retransmits lost segments; SCTP retransmits lost chunks)
+
+**Troubleshooting:** Is the port open? Is the connection timing out? Are there TCP retransmits?
+
+### Layer 5: Session
+
+Manages sessions — logical connections between applications:
+- Session establishment, maintenance, termination
+- Checkpointing (resume after failure)
+
+In practice, mostly absorbed into Layer 4 or 7 in modern stacks.
+
+### Layer 6: Presentation
+
+Handles data representation:
+- Character encoding (UTF-8, ASCII)
+- Data compression
+- Encryption/decryption (TLS handshake)
+
+In practice, often handled by application libraries. In 5G SBI context, JSON encoding and TLS 1.2/1.3 live here.
+
+### Layer 7: Application
+
+User-facing protocols:
+- **HTTP/HTTPS:** Web traffic — and 5G's Service-Based Interface
+- **DNS:** Name resolution
+- **SMTP/IMAP:** Email
+- **SSH:** Secure shell
+- **Diameter/RADIUS:** AAA protocols (4G/IMS)
+- **PFCP (Packet Forwarding Control Protocol):** 5G N4 interface between SMF and UPF
+
+**In 5G core:** The Service-Based Interface (SBI) is Layer 7 REST over HTTP/2. Every NF-to-NF call — AMF calling UDM, SMF calling PCF — is an HTTP/2 request at Layer 7. This is a deliberate design choice in 3GPP Rel-15 to align 5G core with cloud-native practices.
+
+**Troubleshooting:** Is the API returning errors? Is DNS resolving correctly?
+
+### Encapsulation
+
+Data flows down the stack, each layer adding its header:
+
+```
+Application data
+    + HTTP/2 header         (Layer 7)
+    + TLS record            (Layer 6)
+    + TCP/SCTP header       (Layer 4)
+    + IP header             (Layer 3)
+    + Ethernet header+FCS   (Layer 2)
+    → Physical bits         (Layer 1)
+```
+
+At the receiver, each layer strips its header and passes data up. In a GTP tunnel (5G user plane), the encapsulation is deeper:
+
+```
+UE application data
+    + UE IP header          (Layer 3 — inner, UE-assigned address)
+    + GTP-U header          (Layer 3/4 — tunnel ID)
+    + UDP header            (Layer 4 — port 2152)
+    + outer IP header       (Layer 3 — gNB/UPF transport address)
+    + Ethernet              (Layer 2)
+    → Physical bits         (Layer 1)
+```
+
+This "IP-in-GTP-in-UDP-in-IP" nesting is why 5G user-plane packet inspection requires going four headers deep.
+
+### Where the OSI model is used in 5G
+
+| 5G context | OSI layer(s) | What is described |
+|------------|-------------|-------------------|
+| NR physical layer (RF, OFDM) | L1 | Waveform, antenna, HARQ physical channel |
+| RAN L2 (MAC, RLC, PDCP) | L2 | Scheduling, retransmission, ciphering |
+| GTP-U tunneling | L3 + L4 | User-plane encapsulation N3/N9 |
+| SCTP signaling (N2, Xn) | L4 | Control plane transport |
+| SBI (NF-to-NF REST APIs) | L7 | 5G core microservice communication |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+### Debugging a failed API call
+
+Your service can't reach an external API. Systematic approach:
+
+1. **Layer 1:** Is the network cable connected? `ip link show` — is the interface UP?
+2. **Layer 2:** Can you reach the gateway? `arping 192.168.1.1`
+3. **Layer 3:** Can you ping the destination IP? `ping 93.184.216.34`
+4. **Layer 4:** Can you connect to the port? `nc -zv api.example.com 443`
+5. **Layer 7:** Does the HTTP request work? `curl -v https://api.example.com/health`
+
+Each layer narrows the problem. If Layer 3 works but Layer 4 fails, the issue is likely a firewall blocking the port.
+
+### Reading a packet capture
+
+Wireshark shows: Ethernet → IP → UDP → GTP → IP → TCP → HTTP. That is Layers 2-3-4 (outer) + GTP tunnel + 3-4-7 (inner). Filter by layer:
+
+```
+eth.addr == aa:bb:cc:dd:ee:ff        # Layer 2
+ip.addr == 10.0.0.1                  # Layer 3 (outer)
+udp.port == 2152                     # Layer 4 (GTP-U port)
+gtp                                  # GTP tunnel
+ip.addr == 10.1.2.3                  # Layer 3 (inner UE address)
+tcp.port == 443                      # Layer 4 (inner)
+http2                                # Layer 7
+```
+
+### Mapping a 5G attach to OSI layers
+
+When a UE connects to a 5G network, every layer plays a role simultaneously:
+
+- **L1:** RF signal from UE to gNB antenna
+- **L2:** NR MAC scheduler grants uplink resource; PDCP ciphers NAS messages
+- **L3/L4:** SCTP carries N2 (NGAP) signaling between gNB and AMF
+- **L7:** AMF calls UDM via HTTP/2 `GET /nudm-sdm/v2/{supi}/am-data` to fetch subscription
+
+A failure at any layer produces a different symptom — knowing the model tells you which team to page.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Taking OSI too literally.** Real protocols don't map cleanly. TLS spans Layers 5-6. HTTP/3 uses QUIC which reimplements TCP features at Layer 4. GTP-U tunnels create nested Layer 3 headers. Use OSI as a mental model, not a rigid specification.
+
+2. **Forgetting Layer 1.** Most "network issues" are actually physical: unplugged cables, bad transceivers, RF interference, fiber bends. Check the obvious first. In RAN deployments, the most common first-day problems are Layer 1 (bad cable, wrong SFP, antenna mismatch).
+
+3. **Skipping layers when debugging.** Jumping straight to Layer 7 wastes time. If Layer 3 is broken, no amount of application debugging helps. Always descend methodically.
+
+4. **Confusing OSI with TCP/IP model.** TCP/IP has 4 layers (Link, Internet, Transport, Application). Most real-world discussion uses TCP/IP terminology. OSI is a reference model for understanding; TCP/IP is what actually runs.
+
+5. **Ignoring SCTP in telecom.** Many cloud engineers know only TCP and UDP. In telecom, SCTP carries critical signaling (N2, Xn, E1 interfaces in 5G; S1AP, X2AP in 4G). An SCTP misconfiguration drops calls, not web requests — the stakes are different.
+
+6. **Assuming one IP header.** GTP tunneling means user-plane traffic has two IP headers. Load balancers, firewalls, and DPI systems that only inspect the outer header miss the actual UE traffic entirely. This is a common misconfiguration in cloud-native 5G deployments.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ISO/IEC 7498-1:1994, "Information technology — OSI Basic Reference Model"
+- 3GPP TS 38.300, "NR; NR and NG-RAN Overall Description" (Layer 2 sublayers)
+- 3GPP TS 29.281, "GPRS Tunnelling Protocol User Plane (GTPv1-U)" (GTP-U encapsulation)
+- RFC 4960, "Stream Control Transmission Protocol" (SCTP)
+- Tanenbaum & Wetherall, *Computer Networks*, 5th ed., Pearson, 2011
+- Stevens, *TCP/IP Illustrated, Vol. 1*, Addison-Wesley, 2011
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [TCP/IP stack](/en/core-network/osi-tcpip-backend-perspective/tcp-ip-stack/) — the practical 4-layer model
+- [Sockets and APIs](/en/core-network/osi-tcpip-backend-perspective/sockets-and-apis/) — how applications use the stack
+- [Packet flow end-to-end](/en/core-network/osi-tcpip-backend-perspective/packet-flow-end-to-end/) — tracing a request through all layers
+- [Carrier-grade requirements](/en/core-network/why-telcos-build-differently/carrier-grade-requirements/) — why telecom uses these layers differently
+
+</section>

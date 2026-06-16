@@ -8,17 +8,332 @@ track: n3
 unit: session-management-deep-dive
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "Sua doi phien PDU"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 11
+prerequisites: ["core-network-n3-session-management-deep-dive-01-pdu-session-establishment"]
+spiralRevisits: ["core-network-n4-qos-01-5qi"]
+title: "Sua Doi PDU Session"
+description: "Thay doi session dang hoat dong — them QoS flow, cap nhat AMBR, va sua doi do mang kich hoat."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.502", "3GPP TS 24.501"]
+tags: ["pdu-session", "5g", "modification", "qos-flow"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Sua doi phien PDU
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Khi PDU session da thiet lap, no khong giu nguyen. Ban bat dau goi video — mang them QoS flow. Ban dat gioi han du lieu — mang giam AMBR. Ban di chuyen den cell edge — UPF thay doi.
+
+**Sua doi session** xu ly tat ca cac thay doi runtime nay ma khong can huy va xay dung lai session.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Nhung gi co the sua doi
+
+```
+Tham so Session Co the Sua doi:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  QoS Flow:                                              │
+│  ├── Them QoS flow moi (vd, cho goi video)             │
+│  ├── Xoa QoS flow (cuoc goi ket thuc)                  │
+│  └── Sua doi tham so QoS (5QI, MBR, GBR)               │
+│                                                          │
+│  Session AMBR:                                          │
+│  ├── Tang (nang cap goi, gio thap diem)                │
+│  └── Giam (dat gioi han du lieu, tac nghen)            │
+│                                                          │
+│  UPF/Duong Du lieu:                                     │
+│  ├── Doi UPF (SSC mode 2/3, di dong)                   │
+│  └── Them/xoa UL classifier (edge breakout)            │
+│                                                          │
+│  Quy tac QoS:                                           │
+│  ├── Them quy tac bo loc goi                           │
+│  └── Sua doi/xoa quy tac hien co                       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Ai kich hoat sua doi
+
+| Nguoi khoi tao | Vi du Trigger |
+|----------------|---------------|
+| **UE** | Bat dau goi video, yeu cau QoS cao hon |
+| **SMF** | Thay doi policy tu PCF |
+| **AMF** | Handover yeu cau cap nhat duong |
+| **AF** | App ben ngoai yeu cau QoS qua NEF |
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Sua doi do UE khoi tao
+
+```
+Sua doi do UE khoi tao (vd, yeu cau QoS cao hon):
+
+UE           gNB          AMF          SMF          PCF
+│             │            │            │            │
+│ PDU Session │            │            │            │
+│ Modification│            │            │            │
+│ Request     │            │            │            │
+│ - Yeu cau   │            │            │            │
+│   QoS moi   │            │            │            │
+│────────────►│───────────►│            │            │
+│             │            │            │            │
+│             │            │ Nsmf_PDU   │            │
+│             │            │ Session    │            │
+│             │            │ UpdateSM   │            │
+│             │            │ Context    │            │
+│             │            │───────────►│            │
+│             │            │            │            │
+│             │            │            │ Cap nhat   │
+│             │            │            │ policy     │
+│             │            │            │───────────►│
+│             │            │            │            │
+│             │            │            │ QoS duoc   │
+│             │            │            │ phep       │
+│             │            │            │◄───────────│
+│             │            │            │            │
+│             │            │ N2 SM Info │            │
+│             │ N2 PDU Sess│ (neu can   │            │
+│             │ Res Modify │ cap nhat   │            │
+│             │ Request    │ RAN)       │            │
+│             │◄───────────│◄───────────│            │
+│             │            │            │            │
+│ RRC Reconfig│            │            │            │
+│ (sua DRB)   │            │            │            │
+│◄────────────│            │            │            │
+│             │            │            │            │
+│ RRC Reconfig│            │            │            │
+│ Complete    │            │            │            │
+│────────────►│            │            │            │
+│             │            │            │            │
+│ PDU Session │            │            │            │
+│ Modification│            │            │            │
+│ Command     │            │            │            │
+│◄────────────│◄───────────│◄───────────│            │
+│             │            │            │            │
+```
+
+### Sua doi do mang khoi tao
+
+```
+Sua doi do Mang khoi tao (vd, thay doi policy):
+
+PCF          SMF          AMF          gNB          UE
+│             │            │            │            │
+│ Cap nhat    │            │            │            │
+│ Policy      │            │            │            │
+│ Notify      │            │            │            │
+│────────────►│            │            │            │
+│             │            │            │            │
+│             │ Namf_Comm  │            │            │
+│             │ N1N2       │            │            │
+│             │ Message    │            │            │
+│             │ Transfer   │            │            │
+│             │───────────►│            │            │
+│             │            │            │            │
+│             │            │ N2 PDU Sess│            │
+│             │            │ Res Modify │            │
+│             │            │ Request    │            │
+│             │            │───────────►│            │
+│             │            │            │            │
+│             │            │            │ RRC Reconfig
+│             │            │            │ (DRB moi)  │
+│             │            │            │───────────►│
+│             │            │            │            │
+│             │            │            │ RRC Reconfig
+│             │            │            │ Complete   │
+│             │            │            │◄───────────│
+│             │            │            │            │
+│             │            │ N2 PDU Sess│            │
+│             │            │ Res Modify │            │
+│             │            │ Response   │            │
+│             │            │◄───────────│            │
+│             │            │            │            │
+│             │            │ PDU Session│            │
+│             │            │ Modification            │
+│             │            │ Command    │            │
+│             │            │───────────────────────►│
+│             │            │            │            │
+```
+
+### Them QoS flow
+
+```
+Them QoS Flow (goi video bat dau):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Truoc: Chi co QoS mac dinh                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PDU Session 1                                    │    │
+│  │ └── QoS Flow 1 (QFI=1, 5QI=9, best effort)     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  AF/IMS kich hoat goi video qua PCF/NEF                 │
+│                           │                              │
+│                           ▼                              │
+│                                                          │
+│  Sau: Them flow GBR                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PDU Session 1                                    │    │
+│  │ ├── QoS Flow 1 (QFI=1, 5QI=9, best effort)     │    │
+│  │ └── QoS Flow 2 (QFI=2, 5QI=2, GBR video)       │    │
+│  │          │                                       │    │
+│  │          └── Bo loc goi: RTP den/tu IMS        │    │
+│  │          └── MBR: 10 Mbps, GBR: 5 Mbps         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Sua doi trong handover
+
+```
+Cap nhat PDU Session Trong Xn Handover:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. UE chuyen giao tu gNB-A sang gNB-B                  │
+│                                                          │
+│  2. Target gNB gui Path Switch Request den AMF          │
+│     - Endpoint tunnel gNB moi                           │
+│                                                          │
+│  3. AMF thong bao SMF (Nsmf_PDUSession_UpdateSMContext) │
+│     - Tunnel N3 can cap nhat                            │
+│                                                          │
+│  4. SMF cap nhat UPF qua PFCP (N4)                      │
+│     - FAR moi voi dia chi gNB dich                     │
+│                                                          │
+│  5. Duong du lieu chuyen sang gNB moi                   │
+│                                                          │
+│  Truoc:                       Sau:                      │
+│  UE ◄─► gNB-A ◄─► UPF        UE ◄─► gNB-B ◄─► UPF     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Sua doi AMBR
+
+```
+Cap nhat Session AMBR (dat gioi han du lieu):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  CHF/OCS bao cao: Nguoi dung vuot 10 GB                 │
+│                   │                                      │
+│                   ▼                                      │
+│  PCF quyet dinh: Giam session AMBR xuong 1 Mbps         │
+│                   │                                      │
+│                   ▼                                      │
+│  SMF nhan cap nhat policy                               │
+│                   │                                      │
+│                   ▼                                      │
+│  SMF cap nhat UPF QER (gioi han toc do)                 │
+│  SMF gui lenh sua doi den UE                            │
+│                                                          │
+│  Truoc:                                                 │
+│  Session AMBR: 100 Mbps DL / 50 Mbps UL                │
+│                                                          │
+│  Sau:                                                   │
+│  Session AMBR: 1 Mbps DL / 1 Mbps UL                   │
+│                                                          │
+│  Luu y: Dia chi IP khong doi, session van hoat dong    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Trigger sua doi pho bien:**
+
+| Trigger | Thay doi gi |
+|---------|-------------|
+| Bat dau goi video | Them QoS flow GBR (5QI=2) |
+| Ket thuc goi video | Xoa QoS flow GBR |
+| Dat gioi han du lieu | Giam session AMBR |
+| Handover | Cap nhat endpoint tunnel N3 |
+| Edge breakout | Them quy tac UL classifier |
+| Che do gaming | Dieu chinh tham so QoS |
+
+**Debug sua doi:**
+
+```bash
+# Bo loc Wireshark cho tin nhan modification
+nas-5gs.sm.message_type == 0xc5 || nas-5gs.sm.message_type == 0xca || nas-5gs.sm.message_type == 0xcb
+
+# N4 session modification
+pfcp.message_type == 3 || pfcp.message_type == 4
+```
+
+**Loai tin nhan chinh:**
+
+| Tin nhan | Huong | Muc dich |
+|----------|-------|----------|
+| PDU Session Modification Request | UE→Mang | UE muon thay doi |
+| PDU Session Modification Command | Mang→UE | Mang thay doi session |
+| PDU Session Modification Complete | UE→Mang | UE xac nhan lenh |
+| PDU Session Modification Reject | Mang→UE | Thay doi bi tu choi |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Bo qua lenh modification.** Khi mang gui lenh modification, UE phai ap dung. Bo qua co the gay giai phong session.
+
+2. **QoS flow khong co bo loc goi.** Them QoS flow yeu cau bo loc goi de phan loai luu luong. Thieu bo loc nghia la luu luong dung flow mac dinh.
+
+3. **Yeu cau GBR khong co tai nguyen.** Yeu cau bitrate dam bao khi mang tac nghen → modification bi tu choi.
+
+4. **N4 cap nhat that bai.** Neu SMF khong the cap nhat UPF, modification that bai. Kiem tra ket noi N4.
+
+5. **Quen cap nhat RAN.** Mot so modification can cau hinh lai gNB (DRB moi). AMF phai gui tin nhan N2.
+
+6. **Van de thoi gian policy.** Thay doi policy PCF co the khong den SMF ngay. Policy cu co the xung dot voi modification.
+
+7. **Khong nhat quan multi-access.** UE tren ca 3GPP va non-3GPP phai co quy tac QoS nhat quan tren ca hai access.
+
+8. **Session AMBR vs UE AMBR.** Dung nham session AMBR (moi PDU session) voi UE AMBR (tren tat ca session).
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.502, "Procedures for 5GS"
+- 3GPP TS 24.501, "NAS protocol for 5GS"
+- 3GPP TS 29.502, "SMF Services"
+- 3GPP TS 29.244, "PFCP Protocol"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Giai phong PDU session](/vi/core-network/session-management-deep-dive/pdu-session-release/) — ket thuc session
+- [QoS flow](/vi/core-network/session-management-deep-dive/qos-flows/) — chi tiet quan ly flow
+- [Policy va charging](/vi/core-network/policy-and-charging/pcf-overview/) — gi kich hoat modification
+
+</section>

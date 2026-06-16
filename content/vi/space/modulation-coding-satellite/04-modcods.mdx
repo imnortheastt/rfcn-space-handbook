@@ -9,16 +9,471 @@ unit: modulation-coding-satellite
 order: 4
 level: L4
 estimatedReadingMinutes: 5
-title: "ModCod — so do dieu che va ma hoa"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "MODCOD — So do Dieu che va Ma hoa"
+description: "Tai lieu tham khao day du ve cac to hop dieu che va ma hoa DVB-S2/S2X."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["modcod", "dvb-s2", "hieu-suat-pho", "ngan-sach-lien-ket"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# ModCod — so do dieu che va ma hoa
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Chon MODCOD la quyet dinh quan trong nhat trong thiet ke lien ket ve tinh. Chon sai, va ban hoac lang phi mot nua dung luong transponder (qua than trong) hoac chiu gian doan lien tuc (qua mao hiem). DVB-S2 cung cap 28 MODCOD; DVB-S2X them 88 nua. Moi to hop dieu che va ty le ma co nguong SNR cu the va hieu suat pho rieng. Bai hoc nay cung cap bang tra cuu day du va truc giac de chon MODCOD dung cho bat ky lien ket nao.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Danh doi MODCOD
+
+```
+Danh doi Chon MODCOD:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Hieu suat                                                          │
+│  Pho        HIEU SUAT CAO                                           │
+│  (bps/Hz)                                                           │
+│     6 ─      ┌────────────────────────────────┐                     │
+│              │ 256APSK 3/4 (S2X)              │ ← Can ~18 dB       │
+│     5 ─      │                                │                     │
+│              │ 32APSK 8/9                     │ ← Can ~14 dB       │
+│     4 ─      │                                │                     │
+│              │ 16APSK 3/4                     │ ← Can ~10 dB       │
+│     3 ─      │                                │                     │
+│              │ 8PSK 2/3                       │ ← Can ~7 dB        │
+│     2 ─      │                                │                     │
+│              │ QPSK 3/4                       │ ← Can ~4 dB        │
+│     1 ─      │                                │                     │
+│              │ QPSK 1/4                       │ ← Hoat dong o -2 dB!│
+│     0 ─      └────────────────────────────────┘                     │
+│              SNR THAP CAN          SNR CAO CAN                      │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  DANH DOI:                                            │         │
+│  │                                                        │         │
+│  │  Dieu che cao hon (8PSK→16APSK→32APSK):              │         │
+│  │    + Nhieu bit hon moi ky hieu                       │         │
+│  │    - Ky hieu gan nhau hon → can SNR cao hon          │         │
+│  │                                                        │         │
+│  │  Ty le ma cao hon (1/2→3/4→9/10):                    │         │
+│  │    + It du thua hon → nhieu du lieu huu ich          │         │
+│  │    - It bao ve loi hon → can SNR cao hon             │         │
+│  │                                                        │         │
+│  │  QUY TAC: Chon hieu suat cao nhat SNR cua ban ho tro │         │
+│  │           voi margin cho suy giam                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Quy uoc dat ten MODCOD
+
+```
+Hieu Ten MODCOD:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MODCOD = Dieu che + Ty le ma                                       │
+│                                                                      │
+│  Vi du: "16APSK 3/4"                                                │
+│          │      │                                                    │
+│          │      └── Ty le ma: 3/4 bit la du lieu huu ich           │
+│          │          (1/4 la chan le cho sua loi)                    │
+│          │                                                           │
+│          └── Dieu che: Khoa Dich Pha-Bien do 16 diem               │
+│              (4 bit moi ky hieu)                                     │
+│                                                                      │
+│  BIT MOI KY HIEU THEO DIEU CHE:                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Dieu che   │ Bit/Ky hieu │ Diem Chom sao            │         │
+│  │  ───────────┼─────────────┼─────────────────────      │         │
+│  │  QPSK       │ 2           │ 4                        │         │
+│  │  8PSK       │ 3           │ 8                        │         │
+│  │  16APSK     │ 4           │ 16                       │         │
+│  │  32APSK     │ 5           │ 32                       │         │
+│  │  64APSK     │ 6           │ 64   (chi S2X)          │         │
+│  │  128APSK    │ 7           │ 128  (chi S2X)          │         │
+│  │  256APSK    │ 8           │ 256  (chi S2X)          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CONG THUC HIEU SUAT PHO:                                           │
+│                                                                      │
+│  η = (bit moi ky hieu) × (ty le ma)                                │
+│                                                                      │
+│  Vi du: 16APSK 3/4                                                  │
+│  η = 4 × (3/4) = 3.0 bps/Hz (ly thuyet)                            │
+│  Thuc te: 2.97 bps/Hz (tinh ca overhead)                           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Bang MODCOD DVB-S2 day du
+
+```
+Tham khao MODCOD DVB-S2 (Khung Thuong, 64800 bit):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MODCOD        │ HS (bps/Hz)│ Es/N0 (dB) │ SNR LT    │ Truong hop │
+│  ──────────────┼────────────┼────────────┼───────────┼────────────│
+│                                                                      │
+│  QPSK 1/4      │ 0.490      │ -2.35      │ -2.4      │ KG sau     │
+│  QPSK 1/3      │ 0.656      │ -1.24      │ -1.2      │ KG sau     │
+│  QPSK 2/5      │ 0.789      │ -0.30      │ -0.3      │ Bien       │
+│  QPSK 1/2      │ 0.988      │  1.00      │  1.0      │ Suy giam   │
+│  QPSK 3/5      │ 1.188      │  2.23      │  2.2      │ Dien hinh  │
+│  QPSK 2/3      │ 1.322      │  3.10      │  3.1      │ Dien hinh  │
+│  QPSK 3/4      │ 1.487      │  4.03      │  4.0      │ Lien ket tot│
+│  QPSK 4/5      │ 1.587      │  4.68      │  4.7      │ Lien ket tot│
+│  QPSK 5/6      │ 1.655      │  5.18      │  5.2      │ Lien ket tot│
+│  QPSK 8/9      │ 1.766      │  6.20      │  6.2      │ Troi quang │
+│  QPSK 9/10     │ 1.789      │  6.42      │  6.4      │ Troi quang │
+│  ─────────────────────────────────────────────────────────────────  │
+│  8PSK 3/5      │ 1.779      │  5.50      │  5.5      │ Vua phai   │
+│  8PSK 2/3      │ 1.980      │  6.62      │  6.6      │ Vua phai   │
+│  8PSK 3/4      │ 2.228      │  7.91      │  7.9      │ Lien ket tot│
+│  8PSK 5/6      │ 2.478      │  9.35      │  9.4      │ Troi quang │
+│  8PSK 8/9      │ 2.646      │ 10.69      │ 10.7      │ Troi quang │
+│  8PSK 9/10     │ 2.679      │ 10.98      │ 11.0      │ Troi quang │
+│  ─────────────────────────────────────────────────────────────────  │
+│  16APSK 2/3    │ 2.637      │  9.04      │  9.0      │ Vua phai   │
+│  16APSK 3/4    │ 2.966      │ 10.21      │ 10.2      │ Lien ket tot│
+│  16APSK 4/5    │ 3.165      │ 11.03      │ 11.0      │ Troi quang │
+│  16APSK 5/6    │ 3.300      │ 11.61      │ 11.6      │ Troi quang │
+│  16APSK 8/9    │ 3.523      │ 12.89      │ 12.9      │ Tuyet voi  │
+│  16APSK 9/10   │ 3.567      │ 13.13      │ 13.1      │ Tuyet voi  │
+│  ─────────────────────────────────────────────────────────────────  │
+│  32APSK 3/4    │ 3.703      │ 12.17      │ 12.2      │ Troi quang │
+│  32APSK 4/5    │ 3.951      │ 13.05      │ 13.1      │ Tuyet voi  │
+│  32APSK 5/6    │ 4.119      │ 13.64      │ 13.6      │ Tuyet voi  │
+│  32APSK 8/9    │ 4.398      │ 14.81      │ 14.8      │ Cao cap    │
+│  32APSK 9/10   │ 4.453      │ 15.07      │ 15.1      │ Cao cap    │
+│                                                                      │
+│  Luu y: Nguong Es/N0 cho gan nhu khong loi (BER < 10⁻⁷)           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Mo rong DVB-S2X
+
+```
+Mo rong DVB-S2X (Cac MODCOD Gia tri cao Duoc chon):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SNR RAT THAP (moi trong S2X):                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  MODCOD        │ HS (bps/Hz)│ Es/N0 (dB) │ Truong hop│         │
+│  │  ──────────────┼────────────┼────────────┼──────────│          │
+│  │  QPSK 11/45    │ 0.434      │ -2.85      │ Suy sau  │          │
+│  │  QPSK 4/15     │ 0.475      │ -2.52      │ Suy sau  │          │
+│  │  QPSK 14/45    │ 0.554      │ -1.89      │ Bien     │          │
+│  │  QPSK 7/15     │ 0.831      │  0.29      │ Mua      │          │
+│  │  QPSK 8/15     │ 0.950      │  1.29      │ Mua      │          │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SNR RAT CAO (moi trong S2X):                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  MODCOD        │ HS (bps/Hz)│ Es/N0 (dB) │ Truong hop│         │
+│  │  ──────────────┼────────────┼────────────┼──────────│          │
+│  │  64APSK 2/3    │ 3.959      │ 13.58      │ Cao cap  │          │
+│  │  64APSK 3/4    │ 4.453      │ 14.99      │ Cao cap  │          │
+│  │  64APSK 5/6    │ 4.946      │ 16.18      │ Cao cap  │          │
+│  │  128APSK 3/4   │ 5.197      │ 16.78      │ Sieu cap │          │
+│  │  256APSK 29/45 │ 5.105      │ 16.51      │ Sieu cap │          │
+│  │  256APSK 2/3   │ 5.300      │ 17.09      │ Sieu cap │          │
+│  │  256APSK 3/4   │ 5.962      │ 18.26      │ Sieu cap │          │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DO HAT MIN HON (S2X lap day khoang trong):                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  S2X cung cap buoc ~0.2 dB giua cac MODCOD           │         │
+│  │  → Theo doi ACM dieu kien suy giam tot hon           │         │
+│  │  → It margin bi lang phi hon                         │         │
+│  │                                                        │         │
+│  │  Vi du: Giua 8PSK 2/3 (6.62 dB) va 3/4 (7.91 dB)    │         │
+│  │  S2X them: 8PSK 32/45, 11/15, 7/9                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Luong chon MODCOD
+
+```
+Cach Chon MODCOD:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  BUOC 1: Tinh C/N (hoac Es/N0) co san                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Tu ngan sach lien ket:                               │         │
+│  │  C/N = EIRP - FSPL - Ton that + G/T - k - B          │         │
+│  │                                                        │         │
+│  │  Chuyen C/N sang Es/N0:                              │         │
+│  │  Es/N0 = C/N + 10·log₁₀(B/Rs) [dB]                   │         │
+│  │  (B = bang thong nhieu, Rs = toc do ky hieu)          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  BUOC 2: Tinh margin yeu cau                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Ton that trien khai:     ~0.5-1.0 dB                │         │
+│  │  Margin tre hien ACM:     ~0.5-1.0 dB                │         │
+│  │  Margin suy giam mua:     (tuy tinh san sang)        │         │
+│  │                                                        │         │
+│  │  Es/N0 co san de chon MODCOD:                        │         │
+│  │  = Es/N0 tinh duoc - Tong margin                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  BUOC 3: Chon MODCOD hieu suat cao nhat                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Tim MODCOD voi:                                      │         │
+│  │  Nguong Es/N0 < Es/N0 co san                         │         │
+│  │                                                        │         │
+│  │  Trong cac cai hoat dong, chon hieu suat cao nhat    │         │
+│  │                                                        │         │
+│  │  Vi du:                                               │         │
+│  │  Es/N0 co san = 11.5 dB                              │         │
+│  │                                                        │         │
+│  │  Cac tuy chon hoat dong:                             │         │
+│  │  • 16APSK 3/4 (nguong 10.21 dB) → 2.97 bps/Hz ✓     │         │
+│  │  • 16APSK 4/5 (nguong 11.03 dB) → 3.17 bps/Hz ✓     │         │
+│  │  • 16APSK 5/6 (nguong 11.61 dB) → QUA CAO ✗         │         │
+│  │                                                        │         │
+│  │  Chon: 16APSK 4/5 (hieu suat cao nhat hoat dong)     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tra cuu MODCOD va tinh toan dung luong:**
+
+```python
+import numpy as np
+
+# Bang MODCOD DVB-S2 day du
+MODCODS_S2 = [
+    {"ten": "QPSK 1/4",    "dieu_che": "QPSK",   "ty_le": "1/4",  "hs": 0.490, "nguong": -2.35},
+    {"ten": "QPSK 1/3",    "dieu_che": "QPSK",   "ty_le": "1/3",  "hs": 0.656, "nguong": -1.24},
+    {"ten": "QPSK 2/5",    "dieu_che": "QPSK",   "ty_le": "2/5",  "hs": 0.789, "nguong": -0.30},
+    {"ten": "QPSK 1/2",    "dieu_che": "QPSK",   "ty_le": "1/2",  "hs": 0.988, "nguong":  1.00},
+    {"ten": "QPSK 3/5",    "dieu_che": "QPSK",   "ty_le": "3/5",  "hs": 1.188, "nguong":  2.23},
+    {"ten": "QPSK 2/3",    "dieu_che": "QPSK",   "ty_le": "2/3",  "hs": 1.322, "nguong":  3.10},
+    {"ten": "QPSK 3/4",    "dieu_che": "QPSK",   "ty_le": "3/4",  "hs": 1.487, "nguong":  4.03},
+    {"ten": "QPSK 4/5",    "dieu_che": "QPSK",   "ty_le": "4/5",  "hs": 1.587, "nguong":  4.68},
+    {"ten": "QPSK 5/6",    "dieu_che": "QPSK",   "ty_le": "5/6",  "hs": 1.655, "nguong":  5.18},
+    {"ten": "QPSK 8/9",    "dieu_che": "QPSK",   "ty_le": "8/9",  "hs": 1.766, "nguong":  6.20},
+    {"ten": "QPSK 9/10",   "dieu_che": "QPSK",   "ty_le": "9/10", "hs": 1.789, "nguong":  6.42},
+    {"ten": "8PSK 3/5",    "dieu_che": "8PSK",   "ty_le": "3/5",  "hs": 1.779, "nguong":  5.50},
+    {"ten": "8PSK 2/3",    "dieu_che": "8PSK",   "ty_le": "2/3",  "hs": 1.980, "nguong":  6.62},
+    {"ten": "8PSK 3/4",    "dieu_che": "8PSK",   "ty_le": "3/4",  "hs": 2.228, "nguong":  7.91},
+    {"ten": "8PSK 5/6",    "dieu_che": "8PSK",   "ty_le": "5/6",  "hs": 2.478, "nguong":  9.35},
+    {"ten": "8PSK 8/9",    "dieu_che": "8PSK",   "ty_le": "8/9",  "hs": 2.646, "nguong": 10.69},
+    {"ten": "8PSK 9/10",   "dieu_che": "8PSK",   "ty_le": "9/10", "hs": 2.679, "nguong": 10.98},
+    {"ten": "16APSK 2/3",  "dieu_che": "16APSK", "ty_le": "2/3",  "hs": 2.637, "nguong":  9.04},
+    {"ten": "16APSK 3/4",  "dieu_che": "16APSK", "ty_le": "3/4",  "hs": 2.966, "nguong": 10.21},
+    {"ten": "16APSK 4/5",  "dieu_che": "16APSK", "ty_le": "4/5",  "hs": 3.165, "nguong": 11.03},
+    {"ten": "16APSK 5/6",  "dieu_che": "16APSK", "ty_le": "5/6",  "hs": 3.300, "nguong": 11.61},
+    {"ten": "16APSK 8/9",  "dieu_che": "16APSK", "ty_le": "8/9",  "hs": 3.523, "nguong": 12.89},
+    {"ten": "16APSK 9/10", "dieu_che": "16APSK", "ty_le": "9/10", "hs": 3.567, "nguong": 13.13},
+    {"ten": "32APSK 3/4",  "dieu_che": "32APSK", "ty_le": "3/4",  "hs": 3.703, "nguong": 12.17},
+    {"ten": "32APSK 4/5",  "dieu_che": "32APSK", "ty_le": "4/5",  "hs": 3.951, "nguong": 13.05},
+    {"ten": "32APSK 5/6",  "dieu_che": "32APSK", "ty_le": "5/6",  "hs": 4.119, "nguong": 13.64},
+    {"ten": "32APSK 8/9",  "dieu_che": "32APSK", "ty_le": "8/9",  "hs": 4.398, "nguong": 14.81},
+    {"ten": "32APSK 9/10", "dieu_che": "32APSK", "ty_le": "9/10", "hs": 4.453, "nguong": 15.07},
+]
+
+def chon_modcod(es_n0_db, margin_db=1.0, modcods=MODCODS_S2):
+    """Chon MODCOD tot nhat cho Es/N0 cho truoc."""
+    co_san = es_n0_db - margin_db
+    ung_cu = [mc for mc in modcods if mc["nguong"] <= co_san]
+    if not ung_cu:
+        return None
+    return max(ung_cu, key=lambda x: x["hs"])
+
+def tinh_toc_do_du_lieu(toc_do_ky_hieu_msps, modcod):
+    """Tinh toc do du lieu theo Mbps."""
+    return toc_do_ky_hieu_msps * modcod["hs"]
+
+print("Tham khao va May tinh MODCOD")
+print("=" * 70)
+
+print("\n1. Bang MODCOD DVB-S2 Day du")
+print("-" * 70)
+
+print(f"  {'MODCOD':<14} {'Dieu che':<10} {'T.le':<6} {'HS (bps/Hz)':<14} {'Es/N0 (dB)':<12}")
+print("-" * 70)
+
+for mc in MODCODS_S2:
+    print(f"  {mc['ten']:<14} {mc['dieu_che']:<10} {mc['ty_le']:<6} {mc['hs']:<14.3f} {mc['nguong']:<12.2f}")
+
+# Vi du chon MODCOD
+print("\n2. Vi du Chon MODCOD")
+print("-" * 70)
+
+truong_hop_thu = [
+    {"es_n0": -1.0, "margin": 1.0, "mo_ta": "Tau tham do KG sau"},
+    {"es_n0":  4.0, "margin": 1.0, "mo_ta": "Dieu kien suy giam mua"},
+    {"es_n0":  8.0, "margin": 1.0, "mo_ta": "Lien ket dien hinh"},
+    {"es_n0": 12.0, "margin": 1.0, "mo_ta": "Troi quang Ku-band"},
+    {"es_n0": 15.0, "margin": 1.0, "mo_ta": "Ka-band tuyet voi"},
+]
+
+for tc in truong_hop_thu:
+    mc = chon_modcod(tc["es_n0"], tc["margin"])
+    if mc:
+        print(f"  {tc['mo_ta']}:")
+        print(f"    Es/N0 = {tc['es_n0']:.1f} dB, Margin = {tc['margin']:.1f} dB")
+        print(f"    Da chon: {mc['ten']} → {mc['hs']:.3f} bps/Hz")
+        print()
+    else:
+        print(f"  {tc['mo_ta']}: Khong co MODCOD o {tc['es_n0'] - tc['margin']:.1f} dB")
+        print()
+
+# Tinh toan dung luong transponder
+print("3. May tinh Dung luong Transponder")
+print("-" * 70)
+
+bang_thong_transponder_mhz = 36
+rolloff = 0.20
+toc_do_ky_hieu = bang_thong_transponder_mhz / (1 + rolloff)
+
+print(f"  Transponder: {bang_thong_transponder_mhz} MHz, Roll-off: {rolloff*100:.0f}%")
+print(f"  Toc do ky hieu: {toc_do_ky_hieu:.2f} Msps")
+print()
+
+print(f"  {'MODCOD':<14} {'Hieu suat':<12} {'Toc do D.lieu':<14} {'Ghi chu':<20}")
+print("-" * 70)
+
+vi_du_modcods = ["QPSK 1/2", "QPSK 3/4", "8PSK 2/3", "16APSK 3/4", "32APSK 5/6"]
+
+for ten in vi_du_modcods:
+    mc = next(m for m in MODCODS_S2 if m["ten"] == ten)
+    toc_do_du_lieu = tinh_toc_do_du_lieu(toc_do_ky_hieu, mc)
+    ghi_chu = f"Can >{mc['nguong']:.1f} dB"
+    print(f"  {ten:<14} {mc['hs']:<12.3f} {toc_do_du_lieu:<14.2f} {ghi_chu:<20}")
+
+# So sanh dieu che
+print("\n4. So sanh Ho Dieu che")
+print("-" * 70)
+
+dieu_che = ["QPSK", "8PSK", "16APSK", "32APSK"]
+
+for dc in dieu_che:
+    ho_dc = [mc for mc in MODCODS_S2 if mc["dieu_che"] == dc]
+    nguong_min = min(mc["nguong"] for mc in ho_dc)
+    nguong_max = max(mc["nguong"] for mc in ho_dc)
+    hs_min = min(mc["hs"] for mc in ho_dc)
+    hs_max = max(mc["hs"] for mc in ho_dc)
+    
+    print(f"  {dc}:")
+    print(f"    Dai hieu suat: {hs_min:.2f} - {hs_max:.2f} bps/Hz")
+    print(f"    Dai SNR: {nguong_min:.1f} - {nguong_max:.1f} dB")
+    print()
+
+# Dai ACM
+print("5. Dai Van hanh ACM")
+print("-" * 70)
+
+acm_min = min(mc["nguong"] for mc in MODCODS_S2)
+acm_max = max(mc["nguong"] for mc in MODCODS_S2)
+hs_min = min(mc["hs"] for mc in MODCODS_S2)
+hs_max = max(mc["hs"] for mc in MODCODS_S2)
+
+print(f"  Dai dong ACM DVB-S2:")
+print(f"    Dai SNR: {acm_min:.1f} dB den {acm_max:.1f} dB (span {acm_max - acm_min:.1f} dB)")
+print(f"    Hieu suat: {hs_min:.2f} den {hs_max:.2f} bps/Hz")
+print(f"    Ty le: thay doi dung luong {hs_max/hs_min:.1f}x")
+```
+
+**Tham khao nhanh:**
+
+| Dai SNR | MODCOD Dien hinh | Truong hop |
+|---------|------------------|------------|
+| < 0 dB | QPSK 1/4 den 2/5 | KG sau, suy giam nang |
+| 0-5 dB | QPSK 1/2 den 5/6 | Suy giam mua, tram nho |
+| 5-10 dB | 8PSK, 16APSK thap | Van hanh VSAT dien hinh |
+| 10-15 dB | 16APSK, 32APSK | Troi quang, tram lon |
+| > 15 dB | 32APSK 8/9+ | Lien ket cao cap/feeder |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Nham C/N va Es/N0.** Chung khac nhau 10·log(B/Rs). Dung dung don vi khi tra cuu MODCOD.
+
+2. **Quen ton that trien khai.** Modem thuc te kem ~0.5-1 dB so voi nguong bang.
+
+3. **Bo qua phat khung ngan.** Khung ngan kem ~0.2-0.5 dB so voi khung thuong cung ty le.
+
+4. **Tron bang DVB-S2 va S2X.** MODCOD S2X yeu cau thiet bi tuong thich S2X.
+
+5. **Lui HPA cho APSK bac cao.** 32APSK can lui dau ra 2-3 dB, giam EIRP hieu dung.
+
+6. **MODCOD tinh trong dieu kien thay doi.** Dung ACM cho lien ket co suy giam mua.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- ETSI EN 302 307-1 (Dinh nghia MODCOD DVB-S2)
+- ETSI EN 302 307-2 (Mo rong MODCOD DVB-S2X)
+- Huong dan Trien khai DVB-S2 (A171)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [DVB-S2 va DVB-S2X](/vi/space/modulation-coding-satellite/dvb-s2-s2x/) — tieu chuan dinh nghia MODCOD
+- [ACM](/vi/space/modulation-coding-satellite/acm/) — chon MODCOD thich ung
+- [Danh doi Hieu suat Pho](/vi/space/modulation-coding-satellite/spectral-efficiency-tradeoff/) — toi uu thong luong vs margin
+
+</section>

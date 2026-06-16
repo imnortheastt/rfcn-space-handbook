@@ -8,17 +8,441 @@ track: s7
 unit: space-ground-link-antenna-perspective
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "Phased arrays on the ground"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: []
+spiralRevisits: []
+title: "Phased Arrays on the Ground — The Technology Behind Flat-Panel Terminals"
+description: "Understanding how phased array antennas enable LEO satellite tracking without moving parts."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["phased-array", "antenna", "beamforming", "starlink", "terminal", "esa"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Phased arrays on the ground
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+The Starlink "Dishy" terminal can track multiple LEO satellites zooming overhead at 7.5 km/s—with no moving parts visible. This magic is phased array technology: hundreds or thousands of tiny antenna elements that steer the beam electronically by adjusting phase. Understanding phased arrays is essential for designing modern satellite terminals, from consumer flat panels to enterprise-grade electronically steered antennas (ESAs).
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The basic principle
+
+```
+Phased Array Beam Steering:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SINGLE ELEMENT vs PHASED ARRAY:                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Single element:        Phased array:                 │         │
+│  │                                                        │         │
+│  │        ◢◣                     ◢◣◢◣◢◣◢◣               │         │
+│  │       /  \                  /    ▲    \              │         │
+│  │      /    \           ───►/     │     \◄───          │         │
+│  │     /      \              \     │     /              │         │
+│  │    /        \              \    │    /               │         │
+│  │                             \   │   /                │         │
+│  │  Fixed broad beam           Steerable narrow beam    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  HOW IT WORKS:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Many small antenna elements in a grid            │         │
+│  │  2. Each element has adjustable phase shifter        │         │
+│  │  3. Waves from elements combine constructively       │         │
+│  │     in desired direction                             │         │
+│  │  4. Destructively elsewhere → beam is steered        │         │
+│  │                                                        │         │
+│  │  No motors. No gears. Just electronics.              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Phase shifting for beam steering
+
+```
+Phase Shift Creates Steering:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  BROADSIDE (θ = 0°, beam straight up):                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                         ↑ beam                        │         │
+│  │                         │                             │         │
+│  │    ~~~~ ~~~~ ~~~~ ~~~~  │  ~~~~ ~~~~ ~~~~ ~~~~       │         │
+│  │    ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐          │         │
+│  │    │φ0│ │φ0│ │φ0│ │φ0│ │φ0│ │φ0│ │φ0│ │φ0│          │         │
+│  │    └──┘ └──┘ └──┘ └──┘ └──┘ └──┘ └──┘ └──┘          │         │
+│  │                                                        │         │
+│  │    All elements same phase → beam perpendicular      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STEERED (θ = 30°, beam tilted):                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                              ↗ beam                   │         │
+│  │                            /                          │         │
+│  │    ~~~~ ~~~~ ~~~~  ~~~~  /~~~~ ~~~~ ~~~~ ~~~~        │         │
+│  │    ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐ ┌──┐          │         │
+│  │    │φ0│ │φ1│ │φ2│ │φ3│ │φ4│ │φ5│ │φ6│ │φ7│          │         │
+│  │    └──┘ └──┘ └──┘ └──┘ └──┘ └──┘ └──┘ └──┘          │         │
+│  │                                                        │         │
+│  │    Progressive phase shift → beam steered             │         │
+│  │    φn = n × Δφ, where Δφ = (2π/λ) × d × sin(θ)       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Array architecture
+
+```
+Phased Array Terminal Architecture:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  STARLINK-STYLE FLAT PANEL:                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │   ┌─────────────────────────────────────────────────┐ │         │
+│  │   │  • • • • • • • • • • • • • • • • • • • • • • •  │ │         │
+│  │   │  • • • • • • • • • • • • • • • • • • • • • • •  │ │         │
+│  │   │  • • • • • • • • • • • • • • • • • • • • • • •  │ │         │
+│  │   │  • • • • • • • • • • • • • • • • • • • • • • •  │ │         │
+│  │   │  • • • • • • • • • • • • • • • • • • • • • • •  │ │         │
+│  │   │  • • • • • • • • • • • • • • • • • • • • • • •  │ │         │
+│  │   │  • • • • • • • • • • • • • • • • • • • • • • •  │ │         │
+│  │   │  • • • • • • • • • • • • • • • • • • • • • • •  │ │         │
+│  │   └─────────────────────────────────────────────────┘ │         │
+│  │         ~1,200+ antenna elements (Starlink)           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  COMPONENT STACK:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │   Layer 1: Radome (protective cover)                  │         │
+│  │   Layer 2: Patch antenna elements                     │         │
+│  │   Layer 3: Feed network                               │         │
+│  │   Layer 4: Phase shifters (one per element)          │         │
+│  │   Layer 5: T/R modules (transmit/receive)            │         │
+│  │   Layer 6: Beamforming ASIC                          │         │
+│  │   Layer 7: Digital backend / modem                   │         │
+│  │   Layer 8: Power supply & thermal management         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key parameters
+
+```
+Phased Array Performance Parameters:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ELEMENT COUNT AND GAIN:                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Array gain ≈ N × Element gain (ideal)               │         │
+│  │                                                        │         │
+│  │  Elements │ Gain increase │ Typical use              │         │
+│  │  ─────────┼───────────────┼─────────────────────────│         │
+│  │  64       │ +18 dB        │ IoT terminals           │         │
+│  │  256      │ +24 dB        │ Maritime VSAT           │         │
+│  │  1024     │ +30 dB        │ Aero/enterprise         │         │
+│  │  4096     │ +36 dB        │ Gateway ESA             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SCAN ANGLE AND LOSS:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Scan angle │ Projected aperture │ Gain loss         │         │
+│  │  ───────────┼────────────────────┼──────────────────│         │
+│  │  0° (up)    │ 100%               │ 0 dB             │         │
+│  │  30°        │ 87% (cos 30°)      │ -0.6 dB          │         │
+│  │  45°        │ 71% (cos 45°)      │ -1.5 dB          │         │
+│  │  60°        │ 50% (cos 60°)      │ -3.0 dB          │         │
+│  │  70°        │ 34% (cos 70°)      │ -4.7 dB          │         │
+│  │                                                        │         │
+│  │  Beyond ~60° from zenith, performance degrades       │         │
+│  │  significantly → "scan loss"                          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  GRATING LOBES (spacing matters):                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Element spacing d must satisfy: d ≤ λ / (1 + sin θ) │         │
+│  │                                                        │         │
+│  │  For ±60° scan at Ka-band (30 GHz, λ=10mm):          │         │
+│  │    d ≤ 10mm / (1 + 0.866) = 5.4 mm                   │         │
+│  │                                                        │         │
+│  │  If d too large → grating lobes appear (bad!)        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Types of phased arrays
+
+```
+Phased Array Types:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PASSIVE PHASED ARRAY (PESA):                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Single transmitter → Power divider → Phase shifters │         │
+│  │                                                        │         │
+│  │       ┌─────┐                                         │         │
+│  │       │ TX  │ ──► ╱│╲ ──► [φ] ──► ▭ element          │         │
+│  │       └─────┘      │      [φ] ──► ▭                  │         │
+│  │                    │      [φ] ──► ▭                  │         │
+│  │                    │      [φ] ──► ▭                  │         │
+│  │                                                        │         │
+│  │  Pros: Simpler, lower cost                           │         │
+│  │  Cons: Limited power, single failure point           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ACTIVE PHASED ARRAY (AESA):                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  T/R module per element (transmit/receive)           │         │
+│  │                                                        │         │
+│  │       [T/R] ──► ▭ element                            │         │
+│  │       [T/R] ──► ▭                                    │         │
+│  │       [T/R] ──► ▭                                    │         │
+│  │       [T/R] ──► ▭                                    │         │
+│  │                                                        │         │
+│  │  Pros: Higher power, graceful degradation            │         │
+│  │  Cons: More complex, higher cost                     │         │
+│  │                                                        │         │
+│  │  Starlink terminals use AESA architecture            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  HYBRID (motor + ESA):                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Motor positions array for coarse pointing           │         │
+│  │  ESA does fine tracking and beam steering            │         │
+│  │                                                        │         │
+│  │  Common in older Starlink terminals (Gen 1)          │         │
+│  │  Newer terminals are fully electronic                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Phased array analysis calculator:**
+
+```python
+import numpy as np
+
+C = 299792458  # Speed of light (m/s)
+
+def wavelength_m(frequency_ghz):
+    """Calculate wavelength from frequency."""
+    return C / (frequency_ghz * 1e9)
+
+def array_gain_db(n_elements, element_gain_dbi=5, efficiency=0.7):
+    """
+    Calculate phased array gain.
+    
+    Array gain = N × element_gain × efficiency
+    In dB: G_array = 10*log10(N) + G_element + 10*log10(η)
+    """
+    return 10 * np.log10(n_elements) + element_gain_dbi + 10 * np.log10(efficiency)
+
+def scan_loss_db(theta_deg):
+    """
+    Calculate gain loss due to scan angle.
+    
+    Projected aperture reduces as cos(θ).
+    """
+    theta_rad = np.radians(theta_deg)
+    return 10 * np.log10(np.cos(theta_rad))
+
+def max_element_spacing_m(frequency_ghz, max_scan_deg):
+    """
+    Calculate maximum element spacing to avoid grating lobes.
+    
+    d ≤ λ / (1 + sin(θ_max))
+    """
+    lambda_m = wavelength_m(frequency_ghz)
+    theta_rad = np.radians(max_scan_deg)
+    return lambda_m / (1 + np.sin(theta_rad))
+
+def phase_shift_deg(element_index, element_spacing_m, frequency_ghz, scan_angle_deg):
+    """
+    Calculate required phase shift for element n.
+    
+    φ_n = n × (2π/λ) × d × sin(θ) [radians]
+    """
+    lambda_m = wavelength_m(frequency_ghz)
+    theta_rad = np.radians(scan_angle_deg)
+    k = 2 * np.pi / lambda_m
+    phase_rad = element_index * k * element_spacing_m * np.sin(theta_rad)
+    return np.degrees(phase_rad) % 360
+
+def beamwidth_deg(n_elements_linear, element_spacing_m, frequency_ghz):
+    """
+    Approximate 3dB beamwidth for linear array.
+    
+    θ_3dB ≈ 0.886 × λ / (N × d)
+    """
+    lambda_m = wavelength_m(frequency_ghz)
+    aperture = n_elements_linear * element_spacing_m
+    return np.degrees(0.886 * lambda_m / aperture)
+
+# Example: Starlink-like terminal analysis
+print("Phased Array Terminal Analysis")
+print("=" * 70)
+
+# Parameters
+freq_ghz = 12.0  # Ku-band downlink
+n_elements = 1280  # Approximate Starlink element count
+element_gain = 5  # dBi typical patch element
+max_scan = 60  # degrees from zenith
+
+print(f"\nSystem Parameters:")
+print(f"  Frequency: {freq_ghz} GHz")
+print(f"  Wavelength: {wavelength_m(freq_ghz)*1000:.2f} mm")
+print(f"  Number of elements: {n_elements}")
+print(f"  Max scan angle: ±{max_scan}°")
+
+# Array gain
+print(f"\n1. Array Gain Analysis")
+print("-" * 70)
+for n in [64, 256, 1024, 1280, 4096]:
+    gain = array_gain_db(n, element_gain)
+    print(f"  {n:5} elements → {gain:.1f} dBi")
+
+# Scan loss
+print(f"\n2. Scan Loss vs Angle")
+print("-" * 70)
+print(f"  {'Scan angle':>12} {'Cos(θ)':>10} {'Scan loss':>12} {'Net gain':>12}")
+for theta in [0, 15, 30, 45, 60, 70]:
+    loss = scan_loss_db(theta)
+    net_gain = array_gain_db(n_elements, element_gain) + loss
+    print(f"  {theta:>10}° {np.cos(np.radians(theta)):>10.3f} {loss:>10.1f} dB {net_gain:>10.1f} dBi")
+
+# Element spacing
+print(f"\n3. Element Spacing Constraints")
+print("-" * 70)
+for f in [12.0, 20.0, 30.0]:
+    max_d = max_element_spacing_m(f, max_scan) * 1000
+    print(f"  {f:.0f} GHz, ±60° scan → d_max = {max_d:.2f} mm")
+
+# Phase shifts for steering
+print(f"\n4. Phase Shifts for 30° Beam Steering")
+print("-" * 70)
+d_spacing = wavelength_m(freq_ghz) * 0.5  # λ/2 spacing
+print(f"  Element spacing: {d_spacing*1000:.2f} mm (λ/2)")
+print(f"  {'Element':>10} {'Phase shift':>15}")
+for i in range(8):
+    phase = phase_shift_deg(i, d_spacing, freq_ghz, 30)
+    print(f"  {i:>10} {phase:>13.1f}°")
+
+# Beamwidth
+print(f"\n5. Beamwidth Estimation")
+print("-" * 70)
+n_linear = int(np.sqrt(n_elements))
+bw = beamwidth_deg(n_linear, d_spacing, freq_ghz)
+print(f"  ~{n_linear}×{n_linear} square array")
+print(f"  3dB beamwidth: ~{bw:.1f}°")
+
+# Power and thermal
+print(f"\n6. Typical Power Budget (Ku-band consumer terminal)")
+print("-" * 70)
+print(f"  DC power input: 50-100 W")
+print(f"  RF output power: ~2-4 W total")
+print(f"  EIRP: ~35-40 dBW")
+print(f"  Thermal: Active cooling often required")
+```
+
+**Terminal comparison:**
+
+| Terminal | Elements | Gain | Scan | Band | Power |
+|----------|----------|------|------|------|-------|
+| Starlink Gen2 | ~1,280 | ~33 dBi | ±60° | Ku/Ka | 50-75W |
+| OneWeb | ~256 | ~28 dBi | ±55° | Ku | 30W |
+| Maritime ESA | ~1,000+ | ~32 dBi | ±60° | Ka | 100W+ |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Scan loss ignorance.** At 60° from zenith, you lose 3 dB—factor this into link budgets.
+
+2. **Grating lobes.** Element spacing > λ/2 at wide scan angles creates unwanted beams.
+
+3. **Thermal limits.** High-power ESAs generate significant heat; thermal design is critical.
+
+4. **Cost assumptions.** Consumer ESAs took 20+ years to become affordable; enterprise still expensive.
+
+5. **Polarization.** Phased arrays can do both circular polarizations but need proper calibration.
+
+6. **Mutual coupling.** Elements affect each other; real performance differs from ideal calculations.
+
+7. **Regulatory limits.** EIRP masks limit off-axis emissions to protect adjacent satellites.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Mailloux, R. "Phased Array Antenna Handbook"
+- IEEE Transactions on Antennas and Propagation
+- SpaceX Starlink Gen2 FCC filings
+- Kymeta and Phasor ESA whitepapers
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Electronic Steering](/en/space/space-ground-link-antenna-perspective/electronic-steering/) — beamforming algorithms
+- [Mechanical Tracking](/en/space/space-ground-link-antenna-perspective/mechanical-tracking/) — traditional dish tracking
+- [Handover Between Satellites](/en/space/leo-constellation-architecture/handover-between-satellites/) — using ESA for LEO
+
+</section>

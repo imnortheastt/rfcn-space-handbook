@@ -9,16 +9,475 @@ unit: modulation-coding-satellite
 order: 4
 level: L4
 estimatedReadingMinutes: 5
-title: "ModCods — modulation and coding schemes"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "MODCODs — Modulation and Coding Schemes"
+description: "Complete reference for DVB-S2/S2X modulation and coding combinations."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["modcod", "dvb-s2", "spectral-efficiency", "link-budget"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# ModCods — modulation and coding schemes
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+MODCOD selection is the single most important decision in satellite link design. Choose wrong, and you either waste half your transponder capacity (too conservative) or suffer constant outages (too aggressive). DVB-S2 offers 28 MODCODs; DVB-S2X adds 88 more. Each combination of modulation and code rate has a specific SNR threshold and spectral efficiency. This lesson gives you the complete lookup tables and the intuition to pick the right MODCOD for any link.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The MODCOD trade-off
+
+```
+MODCOD Selection Trade-off:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Spectral                                                           │
+│  Efficiency                                                         │
+│  (bps/Hz)    HIGH EFFICIENCY                                        │
+│     6 ─      ┌────────────────────────────────┐                     │
+│              │ 256APSK 3/4 (S2X)              │ ← Needs ~18 dB     │
+│     5 ─      │                                │                     │
+│              │ 32APSK 8/9                     │ ← Needs ~14 dB     │
+│     4 ─      │                                │                     │
+│              │ 16APSK 3/4                     │ ← Needs ~10 dB     │
+│     3 ─      │                                │                     │
+│              │ 8PSK 2/3                       │ ← Needs ~7 dB      │
+│     2 ─      │                                │                     │
+│              │ QPSK 3/4                       │ ← Needs ~4 dB      │
+│     1 ─      │                                │                     │
+│              │ QPSK 1/4                       │ ← Works at -2 dB!  │
+│     0 ─      └────────────────────────────────┘                     │
+│              LOW SNR REQUIRED    HIGH SNR REQUIRED                  │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  TRADE-OFF:                                           │         │
+│  │                                                        │         │
+│  │  Higher modulation (8PSK→16APSK→32APSK):             │         │
+│  │    + More bits per symbol                            │         │
+│  │    - Symbols closer together → needs higher SNR      │         │
+│  │                                                        │         │
+│  │  Higher code rate (1/2→3/4→9/10):                    │         │
+│  │    + Less redundancy → more useful data              │         │
+│  │    - Less error protection → needs higher SNR        │         │
+│  │                                                        │         │
+│  │  RULE: Pick the highest efficiency your SNR supports │         │
+│  │        with margin for fading                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### MODCOD naming convention
+
+```
+Understanding MODCOD Names:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MODCOD = MODulation + CODing rate                                  │
+│                                                                      │
+│  Example: "16APSK 3/4"                                              │
+│            │      │                                                  │
+│            │      └── Coding rate: 3/4 of bits are useful data     │
+│            │          (1/4 are parity for error correction)         │
+│            │                                                         │
+│            └── Modulation: 16-point Amplitude-Phase Shift Keying   │
+│                (4 bits per symbol)                                   │
+│                                                                      │
+│  BITS PER SYMBOL BY MODULATION:                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Modulation │ Bits/Symbol │ Constellation Points     │         │
+│  │  ───────────┼─────────────┼─────────────────────      │         │
+│  │  QPSK       │ 2           │ 4                        │         │
+│  │  8PSK       │ 3           │ 8                        │         │
+│  │  16APSK     │ 4           │ 16                       │         │
+│  │  32APSK     │ 5           │ 32                       │         │
+│  │  64APSK     │ 6           │ 64   (S2X only)         │         │
+│  │  128APSK    │ 7           │ 128  (S2X only)         │         │
+│  │  256APSK    │ 8           │ 256  (S2X only)         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SPECTRAL EFFICIENCY FORMULA:                                       │
+│                                                                      │
+│  η = (bits per symbol) × (code rate)                               │
+│                                                                      │
+│  Example: 16APSK 3/4                                                │
+│  η = 4 × (3/4) = 3.0 bps/Hz (theoretical)                          │
+│  Actual: 2.97 bps/Hz (accounting for overhead)                      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Complete DVB-S2 MODCOD table
+
+```
+DVB-S2 MODCOD Reference (Normal Frame, 64800 bits):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MODCOD        │ Eff (bps/Hz)│ Es/N0 (dB) │ Ideal SNR │ Use Case   │
+│  ──────────────┼─────────────┼────────────┼───────────┼────────────│
+│                                                                      │
+│  QPSK 1/4      │ 0.490       │ -2.35      │ -2.4      │ Deep space │
+│  QPSK 1/3      │ 0.656       │ -1.24      │ -1.2      │ Deep space │
+│  QPSK 2/5      │ 0.789       │ -0.30      │ -0.3      │ Marginal   │
+│  QPSK 1/2      │ 0.988       │  1.00      │  1.0      │ Rain fade  │
+│  QPSK 3/5      │ 1.188       │  2.23      │  2.2      │ Typical    │
+│  QPSK 2/3      │ 1.322       │  3.10      │  3.1      │ Typical    │
+│  QPSK 3/4      │ 1.487       │  4.03      │  4.0      │ Good link  │
+│  QPSK 4/5      │ 1.587       │  4.68      │  4.7      │ Good link  │
+│  QPSK 5/6      │ 1.655       │  5.18      │  5.2      │ Good link  │
+│  QPSK 8/9      │ 1.766       │  6.20      │  6.2      │ Clear sky  │
+│  QPSK 9/10     │ 1.789       │  6.42      │  6.4      │ Clear sky  │
+│  ─────────────────────────────────────────────────────────────────  │
+│  8PSK 3/5      │ 1.779       │  5.50      │  5.5      │ Moderate   │
+│  8PSK 2/3      │ 1.980       │  6.62      │  6.6      │ Moderate   │
+│  8PSK 3/4      │ 2.228       │  7.91      │  7.9      │ Good link  │
+│  8PSK 5/6      │ 2.478       │  9.35      │  9.4      │ Clear sky  │
+│  8PSK 8/9      │ 2.646       │ 10.69      │ 10.7      │ Clear sky  │
+│  8PSK 9/10     │ 2.679       │ 10.98      │ 11.0      │ Clear sky  │
+│  ─────────────────────────────────────────────────────────────────  │
+│  16APSK 2/3    │ 2.637       │  9.04      │  9.0      │ Moderate   │
+│  16APSK 3/4    │ 2.966       │ 10.21      │ 10.2      │ Good link  │
+│  16APSK 4/5    │ 3.165       │ 11.03      │ 11.0      │ Clear sky  │
+│  16APSK 5/6    │ 3.300       │ 11.61      │ 11.6      │ Clear sky  │
+│  16APSK 8/9    │ 3.523       │ 12.89      │ 12.9      │ Excellent  │
+│  16APSK 9/10   │ 3.567       │ 13.13      │ 13.1      │ Excellent  │
+│  ─────────────────────────────────────────────────────────────────  │
+│  32APSK 3/4    │ 3.703       │ 12.17      │ 12.2      │ Clear sky  │
+│  32APSK 4/5    │ 3.951       │ 13.05      │ 13.1      │ Excellent  │
+│  32APSK 5/6    │ 4.119       │ 13.64      │ 13.6      │ Excellent  │
+│  32APSK 8/9    │ 4.398       │ 14.81      │ 14.8      │ Premium    │
+│  32APSK 9/10   │ 4.453       │ 15.07      │ 15.1      │ Premium    │
+│                                                                      │
+│  Note: Es/N0 threshold for quasi-error-free (BER < 10⁻⁷)          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### DVB-S2X additional MODCODs
+
+```
+DVB-S2X Extensions (Selected High-Value MODCODs):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  VERY LOW SNR (new in S2X):                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  MODCOD        │ Eff (bps/Hz)│ Es/N0 (dB) │ Use Case │         │
+│  │  ──────────────┼─────────────┼────────────┼──────────│         │
+│  │  QPSK 11/45    │ 0.434       │ -2.85      │ Deep fade│         │
+│  │  QPSK 4/15     │ 0.475       │ -2.52      │ Deep fade│         │
+│  │  QPSK 14/45    │ 0.554       │ -1.89      │ Marginal │         │
+│  │  QPSK 7/15     │ 0.831       │  0.29      │ Rain     │         │
+│  │  QPSK 8/15     │ 0.950       │  1.29      │ Rain     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  VERY HIGH SNR (new in S2X):                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  MODCOD        │ Eff (bps/Hz)│ Es/N0 (dB) │ Use Case │         │
+│  │  ──────────────┼─────────────┼────────────┼──────────│         │
+│  │  64APSK 2/3    │ 3.959       │ 13.58      │ Premium  │         │
+│  │  64APSK 3/4    │ 4.453       │ 14.99      │ Premium  │         │
+│  │  64APSK 5/6    │ 4.946       │ 16.18      │ Premium  │         │
+│  │  128APSK 3/4   │ 5.197       │ 16.78      │ Ultra    │         │
+│  │  256APSK 29/45 │ 5.105       │ 16.51      │ Ultra    │         │
+│  │  256APSK 2/3   │ 5.300       │ 17.09      │ Ultra    │         │
+│  │  256APSK 3/4   │ 5.962       │ 18.26      │ Ultra    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  FINER GRANULARITY (S2X fills gaps):                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  S2X provides ~0.2 dB steps between MODCODs          │         │
+│  │  → Better ACM tracking of fade conditions            │         │
+│  │  → Less wasted margin                                │         │
+│  │                                                        │         │
+│  │  Example: Between 8PSK 2/3 (6.62 dB) and 3/4 (7.91 dB)│        │
+│  │  S2X adds: 8PSK 32/45, 11/15, 7/9                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### MODCOD selection flow
+
+```
+How to Select a MODCOD:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  STEP 1: Calculate available C/N (or Es/N0)                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  From link budget:                                    │         │
+│  │  C/N = EIRP - FSPL - Losses + G/T - k - B            │         │
+│  │                                                        │         │
+│  │  Convert C/N to Es/N0:                               │         │
+│  │  Es/N0 = C/N + 10·log₁₀(B/Rs) [dB]                   │         │
+│  │  (B = noise bandwidth, Rs = symbol rate)              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  STEP 2: Account for required margin                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Implementation loss:    ~0.5-1.0 dB                 │         │
+│  │  ACM hysteresis margin:  ~0.5-1.0 dB                 │         │
+│  │  Rain fade margin:       (depends on availability)   │         │
+│  │                                                        │         │
+│  │  Available Es/N0 for MODCOD selection:               │         │
+│  │  = Calculated Es/N0 - Total margin                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  STEP 3: Select highest efficiency MODCOD                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Find MODCOD where:                                   │         │
+│  │  Threshold Es/N0 < Available Es/N0                   │         │
+│  │                                                        │         │
+│  │  Among those that work, pick highest efficiency      │         │
+│  │                                                        │         │
+│  │  Example:                                             │         │
+│  │  Available Es/N0 = 11.5 dB                           │         │
+│  │                                                        │         │
+│  │  Options that work:                                   │         │
+│  │  • 16APSK 3/4 (10.21 dB threshold) → 2.97 bps/Hz ✓  │         │
+│  │  • 16APSK 4/5 (11.03 dB threshold) → 3.17 bps/Hz ✓  │         │
+│  │  • 16APSK 5/6 (11.61 dB threshold) → TOO HIGH ✗     │         │
+│  │                                                        │         │
+│  │  Select: 16APSK 4/5 (highest efficiency that works)  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**MODCOD lookup and capacity calculation:**
+
+```python
+import numpy as np
+
+# Complete DVB-S2 MODCOD table
+MODCODS_S2 = [
+    {"name": "QPSK 1/4",    "mod": "QPSK",   "rate": "1/4",  "eff": 0.490, "threshold": -2.35},
+    {"name": "QPSK 1/3",    "mod": "QPSK",   "rate": "1/3",  "eff": 0.656, "threshold": -1.24},
+    {"name": "QPSK 2/5",    "mod": "QPSK",   "rate": "2/5",  "eff": 0.789, "threshold": -0.30},
+    {"name": "QPSK 1/2",    "mod": "QPSK",   "rate": "1/2",  "eff": 0.988, "threshold":  1.00},
+    {"name": "QPSK 3/5",    "mod": "QPSK",   "rate": "3/5",  "eff": 1.188, "threshold":  2.23},
+    {"name": "QPSK 2/3",    "mod": "QPSK",   "rate": "2/3",  "eff": 1.322, "threshold":  3.10},
+    {"name": "QPSK 3/4",    "mod": "QPSK",   "rate": "3/4",  "eff": 1.487, "threshold":  4.03},
+    {"name": "QPSK 4/5",    "mod": "QPSK",   "rate": "4/5",  "eff": 1.587, "threshold":  4.68},
+    {"name": "QPSK 5/6",    "mod": "QPSK",   "rate": "5/6",  "eff": 1.655, "threshold":  5.18},
+    {"name": "QPSK 8/9",    "mod": "QPSK",   "rate": "8/9",  "eff": 1.766, "threshold":  6.20},
+    {"name": "QPSK 9/10",   "mod": "QPSK",   "rate": "9/10", "eff": 1.789, "threshold":  6.42},
+    {"name": "8PSK 3/5",    "mod": "8PSK",   "rate": "3/5",  "eff": 1.779, "threshold":  5.50},
+    {"name": "8PSK 2/3",    "mod": "8PSK",   "rate": "2/3",  "eff": 1.980, "threshold":  6.62},
+    {"name": "8PSK 3/4",    "mod": "8PSK",   "rate": "3/4",  "eff": 2.228, "threshold":  7.91},
+    {"name": "8PSK 5/6",    "mod": "8PSK",   "rate": "5/6",  "eff": 2.478, "threshold":  9.35},
+    {"name": "8PSK 8/9",    "mod": "8PSK",   "rate": "8/9",  "eff": 2.646, "threshold": 10.69},
+    {"name": "8PSK 9/10",   "mod": "8PSK",   "rate": "9/10", "eff": 2.679, "threshold": 10.98},
+    {"name": "16APSK 2/3",  "mod": "16APSK", "rate": "2/3",  "eff": 2.637, "threshold":  9.04},
+    {"name": "16APSK 3/4",  "mod": "16APSK", "rate": "3/4",  "eff": 2.966, "threshold": 10.21},
+    {"name": "16APSK 4/5",  "mod": "16APSK", "rate": "4/5",  "eff": 3.165, "threshold": 11.03},
+    {"name": "16APSK 5/6",  "mod": "16APSK", "rate": "5/6",  "eff": 3.300, "threshold": 11.61},
+    {"name": "16APSK 8/9",  "mod": "16APSK", "rate": "8/9",  "eff": 3.523, "threshold": 12.89},
+    {"name": "16APSK 9/10", "mod": "16APSK", "rate": "9/10", "eff": 3.567, "threshold": 13.13},
+    {"name": "32APSK 3/4",  "mod": "32APSK", "rate": "3/4",  "eff": 3.703, "threshold": 12.17},
+    {"name": "32APSK 4/5",  "mod": "32APSK", "rate": "4/5",  "eff": 3.951, "threshold": 13.05},
+    {"name": "32APSK 5/6",  "mod": "32APSK", "rate": "5/6",  "eff": 4.119, "threshold": 13.64},
+    {"name": "32APSK 8/9",  "mod": "32APSK", "rate": "8/9",  "eff": 4.398, "threshold": 14.81},
+    {"name": "32APSK 9/10", "mod": "32APSK", "rate": "9/10", "eff": 4.453, "threshold": 15.07},
+]
+
+def select_modcod(es_n0_db, margin_db=1.0, modcods=MODCODS_S2):
+    """Select best MODCOD for given Es/N0."""
+    available = es_n0_db - margin_db
+    candidates = [mc for mc in modcods if mc["threshold"] <= available]
+    if not candidates:
+        return None
+    return max(candidates, key=lambda x: x["eff"])
+
+def calculate_data_rate(symbol_rate_msps, modcod):
+    """Calculate data rate in Mbps."""
+    return symbol_rate_msps * modcod["eff"]
+
+def cn_to_es_n0(cn_db, bandwidth_mhz, symbol_rate_msps):
+    """Convert C/N to Es/N0."""
+    return cn_db + 10 * np.log10(bandwidth_mhz / symbol_rate_msps)
+
+print("MODCOD Reference and Calculator")
+print("=" * 70)
+
+print("\n1. Complete DVB-S2 MODCOD Table")
+print("-" * 70)
+
+print(f"  {'MODCOD':<14} {'Modulation':<10} {'Rate':<6} {'Eff (bps/Hz)':<14} {'Es/N0 (dB)':<12}")
+print("-" * 70)
+
+for mc in MODCODS_S2:
+    print(f"  {mc['name']:<14} {mc['mod']:<10} {mc['rate']:<6} {mc['eff']:<14.3f} {mc['threshold']:<12.2f}")
+
+# MODCOD selection examples
+print("\n2. MODCOD Selection Examples")
+print("-" * 70)
+
+test_cases = [
+    {"es_n0": -1.0, "margin": 1.0, "desc": "Deep space probe"},
+    {"es_n0":  4.0, "margin": 1.0, "desc": "Rain fade conditions"},
+    {"es_n0":  8.0, "margin": 1.0, "desc": "Typical link"},
+    {"es_n0": 12.0, "margin": 1.0, "desc": "Clear sky Ku-band"},
+    {"es_n0": 15.0, "margin": 1.0, "desc": "Excellent Ka-band"},
+]
+
+for tc in test_cases:
+    mc = select_modcod(tc["es_n0"], tc["margin"])
+    if mc:
+        print(f"  {tc['desc']}:")
+        print(f"    Es/N0 = {tc['es_n0']:.1f} dB, Margin = {tc['margin']:.1f} dB")
+        print(f"    Selected: {mc['name']} → {mc['eff']:.3f} bps/Hz")
+        print()
+    else:
+        print(f"  {tc['desc']}: No MODCOD available at {tc['es_n0'] - tc['margin']:.1f} dB")
+        print()
+
+# Transponder capacity calculation
+print("3. Transponder Capacity Calculator")
+print("-" * 70)
+
+transponder_bw_mhz = 36
+rolloff = 0.20
+symbol_rate = transponder_bw_mhz / (1 + rolloff)
+
+print(f"  Transponder: {transponder_bw_mhz} MHz, Roll-off: {rolloff*100:.0f}%")
+print(f"  Symbol rate: {symbol_rate:.2f} Msps")
+print()
+
+print(f"  {'MODCOD':<14} {'Efficiency':<12} {'Data Rate':<14} {'Comment':<20}")
+print("-" * 70)
+
+example_modcods = ["QPSK 1/2", "QPSK 3/4", "8PSK 2/3", "16APSK 3/4", "32APSK 5/6"]
+
+for name in example_modcods:
+    mc = next(m for m in MODCODS_S2 if m["name"] == name)
+    data_rate = calculate_data_rate(symbol_rate, mc)
+    comment = f"Needs >{mc['threshold']:.1f} dB"
+    print(f"  {name:<14} {mc['eff']:<12.3f} {data_rate:<14.2f} {comment:<20}")
+
+# Modulation comparison
+print("\n4. Modulation Family Comparison")
+print("-" * 70)
+
+modulations = ["QPSK", "8PSK", "16APSK", "32APSK"]
+
+for mod in modulations:
+    mod_family = [mc for mc in MODCODS_S2 if mc["mod"] == mod]
+    min_thresh = min(mc["threshold"] for mc in mod_family)
+    max_thresh = max(mc["threshold"] for mc in mod_family)
+    min_eff = min(mc["eff"] for mc in mod_family)
+    max_eff = max(mc["eff"] for mc in mod_family)
+    
+    print(f"  {mod}:")
+    print(f"    Efficiency range: {min_eff:.2f} - {max_eff:.2f} bps/Hz")
+    print(f"    SNR range: {min_thresh:.1f} - {max_thresh:.1f} dB")
+    print()
+
+# ACM range
+print("5. ACM Operating Range")
+print("-" * 70)
+
+acm_min = min(mc["threshold"] for mc in MODCODS_S2)
+acm_max = max(mc["threshold"] for mc in MODCODS_S2)
+eff_min = min(mc["eff"] for mc in MODCODS_S2)
+eff_max = max(mc["eff"] for mc in MODCODS_S2)
+
+print(f"  DVB-S2 ACM dynamic range:")
+print(f"    SNR range: {acm_min:.1f} dB to {acm_max:.1f} dB ({acm_max - acm_min:.1f} dB span)")
+print(f"    Efficiency: {eff_min:.2f} to {eff_max:.2f} bps/Hz")
+print(f"    Ratio: {eff_max/eff_min:.1f}x capacity variation")
+```
+
+**Quick reference:**
+
+| SNR Range | Typical MODCODs | Use Case |
+|-----------|-----------------|----------|
+| < 0 dB | QPSK 1/4 to 2/5 | Deep space, severe fade |
+| 0-5 dB | QPSK 1/2 to 5/6 | Rain fade, small terminals |
+| 5-10 dB | 8PSK, 16APSK low | Typical VSAT operation |
+| 10-15 dB | 16APSK, 32APSK | Clear sky, large terminals |
+| > 15 dB | 32APSK 8/9+ | Premium/feeder links |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing C/N and Es/N0.** They differ by 10·log(B/Rs). Use correct units for MODCOD lookup.
+
+2. **Forgetting implementation loss.** Real modems are ~0.5-1 dB worse than table thresholds.
+
+3. **Ignoring short frame penalty.** Short frames are ~0.2-0.5 dB worse than normal frames.
+
+4. **Mixing DVB-S2 and S2X tables.** S2X MODCODs require S2X-capable equipment.
+
+5. **HPA backoff for high-order APSK.** 32APSK needs 2-3 dB output backoff, reducing effective EIRP.
+
+6. **Static MODCOD in variable conditions.** Use ACM for links with rain fading.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ETSI EN 302 307-1 (DVB-S2 MODCOD definitions)
+- ETSI EN 302 307-2 (DVB-S2X MODCOD extensions)
+- DVB-S2 Implementation Guidelines (A171)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [DVB-S2 and DVB-S2X](/en/space/modulation-coding-satellite/dvb-s2-s2x/) — the standard defining MODCODs
+- [ACM](/en/space/modulation-coding-satellite/acm/) — adaptive MODCOD selection
+- [Spectral Efficiency Trade-offs](/en/space/modulation-coding-satellite/spectral-efficiency-tradeoff/) — optimizing throughput vs margin
+
+</section>

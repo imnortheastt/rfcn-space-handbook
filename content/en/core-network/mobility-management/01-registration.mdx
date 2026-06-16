@@ -8,17 +8,399 @@ track: n3
 unit: mobility-management
 order: 1
 level: L2
-estimatedReadingMinutes: 5
-title: "Registration procedure"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-network-functions-overview-01-amf"]
+spiralRevisits: ["core-network-n3-session-management-deep-dive-01-pdu-session-establishment"]
+title: "Registration Procedure"
+description: "How a UE announces itself to the network — initial registration, mobility registration, and periodic updates."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.502", "3GPP TS 24.501"]
+tags: ["registration", "5g", "amf", "mobility"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Registration procedure
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Before a phone can make calls, send data, or do anything useful on a 5G network, it must **register**. Registration tells the network: "I exist, authenticate me, and track where I am."
+
+This procedure happens every time you power on your phone, move to a new area, or periodically while idle. Understanding registration is fundamental to debugging connectivity issues.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What registration accomplishes
+
+```
+Registration Goals:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE powers on or moves to new area                      │
+│                   │                                      │
+│                   ▼                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │            Registration Procedure                │    │
+│  │                                                  │    │
+│  │  1. AUTHENTICATION                              │    │
+│  │     "Prove you're a real subscriber"            │    │
+│  │                                                  │    │
+│  │  2. SECURITY ACTIVATION                         │    │
+│  │     "Set up encryption/integrity"               │    │
+│  │                                                  │    │
+│  │  3. REGISTRATION                                │    │
+│  │     "Record where you are"                      │    │
+│  │                                                  │    │
+│  │  4. CONFIGURATION                               │    │
+│  │     "Here's your allowed slices, etc."          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                   │                                      │
+│                   ▼                                      │
+│  UE is RM-REGISTERED, can request services             │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Registration types
+
+| Type | Trigger | Purpose |
+|------|---------|---------|
+| **Initial** | Power on, SIM insert | First-time or fresh registration |
+| **Mobility** | Enter new RA/TA | Update location with network |
+| **Periodic** | Timer expires | Confirm UE is still alive |
+| **Emergency** | Emergency call | Limited registration without SIM |
+
+### Registration vs PDU Session
+
+```
+Two-Step Process:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Step 1: Registration (this lesson)                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ "Hello network, I'm here, authenticate me"      │    │
+│  │                                                  │    │
+│  │ Result: UE is registered, known to AMF          │    │
+│  │ NO DATA YET — just registered                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                          │                               │
+│                          ▼                               │
+│  Step 2: PDU Session Establishment (next unit)         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ "Give me an IP address, I want data"            │    │
+│  │                                                  │    │
+│  │ Result: IP assigned, can send/receive data      │    │
+│  │ NOW CONNECTED                                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Network functions involved
+
+```
+Registration Participants:
+
+┌──────┐    ┌──────┐    ┌──────┐    ┌──────┐    ┌──────┐
+│  UE  │    │ gNB  │    │ AMF  │    │ AUSF │    │ UDM  │
+└──┬───┘    └──┬───┘    └──┬───┘    └──┬───┘    └──┬───┘
+   │           │           │           │           │
+   │  RRC/NAS  │   NGAP    │   SBI     │   SBI     │
+   │◄─────────►│◄─────────►│◄─────────►│◄─────────►│
+   │           │           │           │           │
+   │  Radio    │  N2 intf  │ Core NFs  │ Auth/Data │
+   │           │           │           │           │
+```
+
+### Initial registration flow
+
+```
+Initial Registration:
+
+UE                gNB                AMF               AUSF/UDM
+│                  │                  │                    │
+│ RRC Connection   │                  │                    │
+│ Setup            │                  │                    │
+│─────────────────►│                  │                    │
+│                  │                  │                    │
+│ Registration     │                  │                    │
+│ Request          │                  │                    │
+│ (SUCI, 5GMM cap) │                  │                    │
+│─────────────────►│                  │                    │
+│                  │                  │                    │
+│                  │ Initial UE Msg   │                    │
+│                  │ (NAS container)  │                    │
+│                  │─────────────────►│                    │
+│                  │                  │                    │
+│                  │                  │ Nausf_UEAuth      │
+│                  │                  │ (SUCI → SUPI)      │
+│                  │                  │───────────────────►│
+│                  │                  │                    │
+│                  │                  │ Auth Vector        │
+│                  │                  │ (RAND, AUTN,       │
+│                  │                  │  HXRES*, KAUSF)    │
+│                  │                  │◄───────────────────│
+│                  │                  │                    │
+│ Auth Request     │                  │                    │
+│ (RAND, AUTN)     │◄─────────────────│                    │
+│◄─────────────────│                  │                    │
+│                  │                  │                    │
+│    ┌─────────────┴─────────────┐    │                    │
+│    │ UE validates AUTN          │    │                    │
+│    │ UE computes RES*           │    │                    │
+│    └─────────────┬─────────────┘    │                    │
+│                  │                  │                    │
+│ Auth Response    │                  │                    │
+│ (RES*)           │                  │                    │
+│─────────────────►│─────────────────►│                    │
+│                  │                  │                    │
+│                  │                  │ Verify RES*        │
+│                  │                  │───────────────────►│
+│                  │                  │                    │
+│                  │                  │ Auth confirmed     │
+│                  │                  │◄───────────────────│
+│                  │                  │                    │
+│ Security Mode    │                  │                    │
+│ Command          │◄─────────────────│                    │
+│◄─────────────────│                  │                    │
+│                  │                  │                    │
+│ Security Mode    │                  │                    │
+│ Complete         │                  │                    │
+│─────────────────►│─────────────────►│                    │
+│                  │                  │                    │
+│                  │                  │ Nudm_UECM_Reg      │
+│                  │                  │ (register at AMF)  │
+│                  │                  │───────────────────►│
+│                  │                  │                    │
+│                  │                  │ Nudm_SDM_Get       │
+│                  │                  │ (get subscription) │
+│                  │                  │───────────────────►│
+│                  │                  │                    │
+│ Registration     │                  │                    │
+│ Accept           │◄─────────────────│                    │
+│ (5G-GUTI, NSSAI) │                  │                    │
+│◄─────────────────│                  │                    │
+│                  │                  │                    │
+│ Registration     │                  │                    │
+│ Complete         │                  │                    │
+│─────────────────►│─────────────────►│                    │
+│                  │                  │                    │
+```
+
+### Registration states
+
+```
+Registration Management (RM) States:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│        ┌──────────────────┐                             │
+│        │  RM-DEREGISTERED │                             │
+│        │                  │                             │
+│        │  UE not known    │                             │
+│        │  to network      │                             │
+│        └────────┬─────────┘                             │
+│                 │                                        │
+│                 │ Registration Accept                    │
+│                 ▼                                        │
+│        ┌──────────────────┐                             │
+│        │  RM-REGISTERED   │                             │
+│        │                  │                             │
+│        │  UE known, has   │                             │
+│        │  5G-GUTI, can    │                             │
+│        │  request services│                             │
+│        └────────┬─────────┘                             │
+│                 │                                        │
+│                 │ Deregistration / Timer expiry          │
+│                 │ / Implicit deregistration              │
+│                 ▼                                        │
+│        ┌──────────────────┐                             │
+│        │  RM-DEREGISTERED │                             │
+│        └──────────────────┘                             │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Key IEs in registration
+
+```
+Registration Request IEs:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Mandatory:                                             │
+│  ├── 5GS registration type                              │
+│  │   (initial / mobility / periodic / emergency)        │
+│  ├── 5GS mobile identity                                │
+│  │   (SUCI for initial, 5G-GUTI for mobility)          │
+│  └── UE security capability                             │
+│                                                          │
+│  Optional (commonly used):                              │
+│  ├── Requested NSSAI (which slices UE wants)           │
+│  ├── Last visited registered TAI                        │
+│  ├── UE status (update type flag)                       │
+│  ├── S1 UE network capability (for 4G interop)         │
+│  └── PDU session status (active sessions list)         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+Registration Accept IEs:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Key outputs:                                           │
+│  ├── 5G-GUTI (new temporary identity)                  │
+│  ├── Allowed NSSAI (approved slices)                   │
+│  ├── TAI list (tracking areas where no re-reg needed)  │
+│  ├── T3512 value (periodic reg timer)                  │
+│  └── Configured NSSAI (for HPLMN)                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Mobility registration
+
+```
+Mobility Registration Update:
+
+UE moves from TAI_A to TAI_B (not in TAI list):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TAI List from Registration Accept:                     │
+│  [TAI_A, TAI_C, TAI_D]                                  │
+│                                                          │
+│  UE moves to TAI_B (NOT in list)                        │
+│           │                                              │
+│           ▼                                              │
+│  UE triggers Mobility Registration Update               │
+│  - 5GS reg type: mobility registration                  │
+│  - Mobile identity: 5G-GUTI (not SUCI)                 │
+│  - Last visited TAI: TAI_A                              │
+│           │                                              │
+│           ▼                                              │
+│  AMF updates UDM with new location                      │
+│  Returns new TAI list including TAI_B                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Periodic registration
+
+```
+Periodic Registration:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  T3512 Timer (from Registration Accept):                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Typical value: 54 minutes (3240 seconds)        │    │
+│  │                                                  │    │
+│  │ Purpose: Network knows UE is still reachable    │    │
+│  │ If timer expires without update: implicit dereg │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Timeline:                                              │
+│  ────────────────────────────────────────────────────   │
+│  0         54 min        108 min       162 min          │
+│  │          │              │              │             │
+│  ▼          ▼              ▼              ▼             │
+│  Reg     Periodic       Periodic       Periodic        │
+│  Accept   Update         Update         Update         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Common registration parameters:**
+
+| Parameter | Typical Value | Purpose |
+|-----------|---------------|---------|
+| T3512 | 54 min | Periodic registration timer |
+| T3502 | 12 sec | Retry after registration reject |
+| TAI list size | 16-64 TAIs | Reduce mobility updates |
+
+**Troubleshooting registration:**
+
+| Symptom | Possible Cause | Check |
+|---------|---------------|-------|
+| Reg reject (cause 3) | Illegal UE | SIM blocked/invalid |
+| Reg reject (cause 5) | IMEI not accepted | Device blacklisted |
+| Reg reject (cause 11) | PLMN not allowed | Roaming config |
+| Reg timeout | AUSF/UDM unreachable | Core connectivity |
+| Repeated reg | TAI list too small | Expand TAI list |
+
+**Debugging commands:**
+
+```bash
+# Wireshark filter for NAS registration
+nas-5gs.mm.message_type == 0x41 || nas-5gs.mm.message_type == 0x42
+
+# tcpdump for N2 (NGAP)
+tcpdump -i any port 38412 -w registration.pcap
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **SUCI vs 5G-GUTI confusion.** Initial registration uses SUCI (encrypted SUPI). Mobility/periodic use 5G-GUTI. Sending wrong ID type causes failure.
+
+2. **TAI list too small.** If TAI list doesn't cover UE's movement pattern, excessive mobility updates occur.
+
+3. **T3512 too short.** Aggressive periodic timer wastes UE battery and network resources.
+
+4. **Missing NSSAI.** If UE doesn't request slices, default slice is used. May not match UE's service needs.
+
+5. **Old AMF unreachable.** During mobility, new AMF contacts old AMF for context. If old AMF is down, context transfer fails.
+
+6. **Authentication timeout.** Slow AUSF/UDM response causes registration timeout. Monitor SBI latency.
+
+7. **SIM/credential mismatch.** K/OPc in UDR must match USIM. Any mismatch = auth failure = reg reject.
+
+8. **Ignoring reject causes.** Different reject causes need different handling. Don't treat all rejects the same.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.502, "Procedures for 5GS"
+- 3GPP TS 24.501, "NAS protocol for 5GS"
+- 3GPP TS 23.501, "System architecture for 5GS"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Deregistration](/en/core-network/mobility-management/deregistration/) — leaving the network
+- [Handover](/en/core-network/mobility-management/handover/) — seamless movement
+- [PDU session establishment](/en/core-network/session-management-deep-dive/pdu-session-establishment/) — getting data connectivity
+
+</section>

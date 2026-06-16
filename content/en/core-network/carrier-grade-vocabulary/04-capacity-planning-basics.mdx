@@ -8,17 +8,352 @@ track: n0
 unit: carrier-grade-vocabulary
 order: 4
 level: L2
-estimatedReadingMinutes: 5
-title: "Capacity planning basics"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-carrier-grade-vocabulary-03-redundancy-patterns"]
+spiralRevisits: ["core-network-n2-carrier-grade-vocabulary-05-advanced-capacity-planning"]
+title: "Capacity Planning Basics"
+description: "Forecasting demand, sizing infrastructure, and avoiding the capacity crunch."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["ITU-T E.500"]
+tags: ["capacity-planning", "traffic-engineering", "dimensioning", "networking"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Capacity planning basics
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Too little capacity: congestion, dropped calls, angry customers. Too much capacity: wasted money, idle equipment.
+
+Capacity planning finds the sweet spot. It's how telecom networks handle traffic growth, seasonal peaks, and failure scenarios without either over-provisioning or under-delivering.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The capacity planning cycle
+
+```
+┌────────────────────────────────────────────────────────────┐
+│                                                            │
+│   ┌─────────┐    ┌─────────┐    ┌─────────┐    ┌─────────┐│
+│   │Measure  │───►│Forecast │───►│  Plan   │───►│ Deploy  ││
+│   │ Current │    │ Future  │    │Upgrades │    │ & Test  ││
+│   └─────────┘    └─────────┘    └─────────┘    └─────────┘│
+│        ▲                                            │      │
+│        └────────────────────────────────────────────┘      │
+│                     Repeat                                  │
+└────────────────────────────────────────────────────────────┘
+```
+
+**The goal:** Stay ahead of demand without wasting resources.
+
+### Key questions
+
+| Question | Why it matters |
+|----------|----------------|
+| What's current utilization? | Baseline for planning |
+| How fast is traffic growing? | Determines upgrade timing |
+| What are the peaks? | Size for burst, not average |
+| What if something fails? | N-1 capacity requirement |
+| How long to deploy? | Lead time affects planning horizon |
+
+### Capacity vs utilization
+
+```
+Capacity:    ████████████████████████████████  100 Gbps
+             │
+Utilization: ████████████████░░░░░░░░░░░░░░░░   50 Gbps (50%)
+             │
+Headroom:    ░░░░░░░░░░░░░░░░████████████████   50 Gbps remaining
+
+Target:      Keep utilization under threshold (e.g., 70%)
+             Above threshold → plan upgrade
+```
+
+**Why not 100%?** At high utilization:
+- Latency spikes (queuing)
+- No room for traffic bursts
+- No room for failure scenarios
+- Service quality degrades
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Measuring current state
+
+**What to measure:**
+
+| Metric | Unit | Where to get it |
+|--------|------|-----------------|
+| Interface utilization | % or bps | SNMP, streaming telemetry |
+| CPU utilization | % | Device monitoring |
+| Memory utilization | % | Device monitoring |
+| Session count | Sessions | Device monitoring |
+| Queue depth | Packets | Device monitoring |
+
+**Measurement granularity:**
+
+```
+5-minute average:  ████████████████░░░░░░░░  65%
+1-minute average:  ████████████████████░░░░  80%
+Peak instant:      ████████████████████████  95%
+
+The 5-min average hides the burst.
+Plan for the burst, not the average.
+```
+
+**Key insight:** Average utilization of 50% might have peaks of 95%. Always look at percentiles (p95, p99).
+
+### Forecasting demand
+
+**Historical trend:**
+
+```
+Traffic
+(Gbps)
+  │
+60├                                    ╱
+  │                                 ╱
+50├                              ╱
+  │                           ╱
+40├                        ╱
+  │                     ╱
+30├                  ╱
+  │               ╱
+20├            ╱
+  │         ╱
+10├──────╱
+  │
+  └────┬──────┬──────┬──────┬──────┬──────► Time
+      Jan    Feb   Mar    Apr   May   Jun
+```
+
+**Growth rate calculation:**
+
+```
+Monthly growth rate = (Current - Previous) / Previous × 100%
+
+Example:
+January: 30 Gbps
+June: 55 Gbps
+5-month growth: (55 - 30) / 30 = 83%
+Average monthly growth: ~13%
+```
+
+**Projection:**
+
+```
+Future traffic = Current × (1 + growth_rate)^months
+
+Example:
+Current: 55 Gbps
+Monthly growth: 10%
+In 12 months: 55 × (1.10)^12 = 172 Gbps
+```
+
+**Caution:** Linear extrapolation works short-term. Long-term forecasting needs business input (new services, market changes).
+
+### Sizing for failure
+
+**N-1 principle:** The network must handle full load with one component failed.
+
+```
+Normal operation (3 links, each 100 Gbps):
+
+Link A: ████████░░  80 Gbps
+Link B: ████████░░  80 Gbps
+Link C: ████████░░  80 Gbps
+Total:  240 Gbps capacity, 240 Gbps demand
+
+Link B fails:
+
+Link A: ████████████████████  120 Gbps (overloaded!)
+Link C: ████████████████████  120 Gbps (overloaded!)
+Total:  200 Gbps capacity, 240 Gbps demand → CONGESTION
+```
+
+**Correct N-1 sizing:**
+
+```
+Demand: 240 Gbps
+Links: 3 × 100 Gbps
+N-1 capacity: 200 Gbps < 240 Gbps → FAIL
+
+Fix: 4 × 100 Gbps
+N-1 capacity: 300 Gbps > 240 Gbps → OK
+```
+
+### Utilization thresholds
+
+**Typical thresholds:**
+
+| Utilization | Action |
+|-------------|--------|
+| < 50% | Comfortable headroom |
+| 50-70% | Monitor closely |
+| 70-80% | Plan upgrade |
+| > 80% | Urgent upgrade needed |
+
+**Why 70%?**
+```
+Current: 70 Gbps on 100 Gbps link
+
+Scenario 1: 30% traffic burst
+  70 + 21 = 91 Gbps → Still under capacity ✓
+
+Scenario 2: Failover from parallel link
+  70 + 35 = 105 Gbps → Over capacity ✗
+
+At 70%, you have room for one scenario but not both.
+```
+
+### Lead time planning
+
+```
+Timeline:
+              ▼ Order today
+──────────────┼─────────────────────────────────────────►
+              │
+              ├──── Equipment procurement: 4-8 weeks
+              │
+              ├──── Circuit provisioning: 2-4 weeks
+              │
+              ├──── Installation: 1-2 weeks
+              │
+              ├──── Testing: 1 week
+              │
+              └──── Total lead time: 8-16 weeks
+```
+
+**Planning horizon = Lead time + buffer**
+
+If upgrades take 3 months, you need to plan 4-6 months ahead.
+
+### Capacity planning report
+
+**Monthly capacity review template:**
+
+| Link/System | Capacity | Current (p95) | Utilization | Growth trend | Upgrade needed |
+|-------------|----------|---------------|-------------|--------------|----------------|
+| Core-A to Core-B | 100G | 65G | 65% | +8%/mo | Q3 |
+| Edge-North uplink | 40G | 32G | 80% | +12%/mo | Urgent |
+| DC interconnect | 200G | 90G | 45% | +5%/mo | No |
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Capacity planning process:**
+
+1. **Collect data:** Pull utilization metrics for past 6-12 months
+2. **Calculate trends:** Monthly/quarterly growth rates
+3. **Project forward:** When will threshold be hit?
+4. **Factor in lead time:** Back-calculate order date
+5. **Budget and approve:** Get funding early
+6. **Execute upgrade:** Before threshold is reached
+7. **Verify:** Confirm new capacity meets needs
+
+**Practical example: Link upgrade planning**
+
+```
+Given:
+- Current link: 100 Gbps
+- Current traffic (p95): 60 Gbps (60% utilization)
+- Monthly growth: 8%
+- Upgrade threshold: 70%
+- Lead time: 3 months
+
+Question: When to start upgrade?
+
+70 Gbps threshold at 60 × (1.08)^n = 70
+n = log(70/60) / log(1.08) = 2.0 months
+
+Start upgrade now! (2 months to threshold, 3 months lead time)
+```
+
+**Seasonal adjustment:**
+
+```
+Traffic pattern:
+            Year-end        Summer
+               peak          lull
+  ▲             │              │
+  │      ╱╲    │       ╱╲    │
+  │    ╱    ╲  │     ╱    ╲  │
+  │  ╱        ╲│   ╱        ╲│
+  │╱           ╲  ╱          ╲
+  └────────────────────────────► Time
+
+Plan for peak, not average.
+Account for seasonal patterns in forecasting.
+```
+
+**What-if analysis:**
+
+| Scenario | Impact | Mitigation |
+|----------|--------|------------|
+| 50% traffic spike | Congestion on 3 links | Add capacity |
+| Major customer churn | Over-provisioned | Defer upgrades |
+| New service launch | Double traffic in 3 months | Accelerate upgrades |
+| Competitor outage | 20% traffic influx | Ensure N-1 headroom |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Planning to the average.** Average utilization of 40% might have p99 of 90%. Always plan for peaks.
+
+2. **Forgetting N-1.** A link upgrade that still fails under N-1 scenario isn't a real upgrade.
+
+3. **Underestimating lead time.** "We can deploy in 2 weeks" is optimistic. Supply chain, approvals, and testing take time.
+
+4. **Ignoring seasonality.** Traffic doubles in December for e-commerce. Planning based on June data will fail in December.
+
+5. **Linear extrapolation.** Traffic doesn't grow forever at 20%/month. Models need reality checks.
+
+6. **Capacity ≠ performance.** A 100G link at 50% utilization might still have latency problems due to microbursts.
+
+7. **Forgetting control plane.** Data plane has capacity, but routing protocol struggles with table size.
+
+8. **Planning in isolation.** One link upgraded doesn't help if the next hop is still bottlenecked.
+
+9. **No buffer for uncertainty.** Forecasts are wrong. Build margin into plans.
+
+10. **Reactive planning.** Upgrading after customers complain means you're already behind.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU-T E.500, "Traffic intensity measurement principles"
+- ITU-T E.506, "Forecasting international traffic"
+- Cisco, "Capacity Planning for the Data Center"
+- Gunther, *Guerrilla Capacity Planning*, Springer
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Traffic engineering](/en/core-network/traffic-engineering/traffic-engineering-intro/) — optimizing traffic flow
+- [KPIs and SLAs](/en/core-network/carrier-grade-vocabulary/kpis-and-slas/) — metrics that drive planning
+- [Erlang models](/en/core-network/carrier-grade-vocabulary/erlang-models/) — voice traffic dimensioning
+
+</section>

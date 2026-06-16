@@ -8,17 +8,387 @@ track: n3
 unit: why-sba-architectural-shift
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "Microservices trong boi canh vien thong"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-why-sba-architectural-shift-02-sba-design-principles"]
+spiralRevisits: ["core-network-n4-5g-core-functions-01-nrf"]
+title: "Microservice trong Vien Thong"
+description: "Pattern trien khai cloud-native cho cac chuc nang mang loi 5G."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "CNCF Cloud Native Definition"]
+tags: ["microservices", "kubernetes", "cnf", "cloud-native", "5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Microservices trong boi canh vien thong
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+SBA dinh nghia cach cac chuc nang mang 5G giao tiep. Nhung ban thuc su **trien khai** chung nhu the nao?
+
+Cau tra loi: **microservice cloud-native**. Container, Kubernetes, va cac pattern ma cac cong ty web su dung o quy mo lon — bay gio ap dung cho vien thong. Day la cuoc cach mang van hanh dang sau 5G.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Tu VNF sang CNF
+
+```
+Tien hoa cua Network Function:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Physical NF (PNF):                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Phan cung telecom chuyen dung                   │    │
+│  │  Vendor cu the, thoi gian giao hang dai          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                         │                                │
+│                         ▼ NFV (~2014)                    │
+│  Virtual NF (VNF):                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  VM tren phan cung COTS                          │    │
+│  │  Van monolithic, overhead hypervisor             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                         │                                │
+│                         ▼ Cloud-native (~2020)          │
+│  Cloud-native NF (CNF):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Container tren Kubernetes                       │    │
+│  │  Microservice, auto-scaling, tu phuc hoi        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Thay doi chinh:** Tu "VM chay nhu hop phan cung" sang "he thong phan tan thiet ke cho cloud."
+
+### Nguyen tac cloud-native cho telecom
+
+| Nguyen tac | Y nghia cho 5G |
+|------------|----------------|
+| **Container** | NF dong goi voi dependency, portable |
+| **Microservice** | Moi dich vu scale doc lap |
+| **Orchestration dong** | Kubernetes quan ly lifecycle |
+| **Cau hinh khai bao** | Trang thai mong muon, khong phai buoc thu cong |
+| **Infrastructure bat bien** | Thay the, khong va |
+
+### Lop Kubernetes
+
+```
+Stack trien khai 5G CNF:
+
+┌─────────────────────────────────────────────────────────┐
+│                    5G NF (CNF)                          │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐          │
+│  │ AMF │  │ SMF │  │ UPF │  │ NRF │  │ UDM │   ...    │
+│  └──┬──┘  └──┬──┘  └──┬──┘  └──┬──┘  └──┬──┘          │
+├─────┴────────┴───────┴───────┴───────┴───────────────────┤
+│                                                          │
+│                     Kubernetes                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Pod  │  Service  │  ConfigMap  │  Secret       │    │
+│  │  Deployment  │  StatefulSet  │  Operator        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│                 Container Runtime (containerd)           │
+│                                                          │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│              Phan cung COTS / Ha tang Cloud              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Phan tach NF thanh microservice
+
+Mot 5G NF khong phai mot container — no la nhieu dich vu hop tac:
+
+```
+Phan tach AMF thanh Microservice:
+
+┌─────────────────────────────────────────────────────────┐
+│                         AMF                              │
+│                                                          │
+│  ┌───────────┐  ┌───────────┐  ┌───────────┐           │
+│  │   N1/N2   │  │  Mobility │  │  Context  │           │
+│  │  Handler  │  │  Manager  │  │  Store    │           │
+│  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘           │
+│        │              │              │                   │
+│  ┌─────┴──────────────┴──────────────┴─────┐           │
+│  │            Message Bus (noi bo)          │           │
+│  └─────────────────────┬───────────────────┘           │
+│                        │                                 │
+│  ┌─────────────────────┴───────────────────┐           │
+│  │         Giao dien SBI (HTTP/2)           │           │
+│  └──────────────────────────────────────────┘           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+Moi o: container co the scale doc lap
+```
+
+**Loi ich:**
+- Scale N1/N2 handler cho signaling nang
+- Scale context store cho co so thue bao lon
+- Scale mobility manager cho ty le handover cao
+
+### Pattern Kubernetes cho 5G
+
+**StatefulSet cho NF co trang thai:**
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: amf
+spec:
+  serviceName: "amf"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: amf
+  template:
+    metadata:
+      labels:
+        app: amf
+    spec:
+      containers:
+      - name: amf
+        image: vendor/amf:v1.2.3
+        ports:
+        - containerPort: 80
+          name: sbi
+        - containerPort: 38412
+          name: ngap
+```
+
+**Horizontal Pod Autoscaler:**
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: amf-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: amf
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+```
+
+### Service mesh cho kha nang quan sat
+
+```
+Service Mesh trong 5G:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────┐        ┌─────────┐        ┌─────────┐     │
+│  │   AMF   │        │   SMF   │        │   UDM   │     │
+│  │         │        │         │        │         │     │
+│  │ ┌─────┐ │        │ ┌─────┐ │        │ ┌─────┐ │     │
+│  │ │Sidecar│ │◄──────►│ │Sidecar│ │◄──────►│ │Sidecar│ │     │
+│  │ └─────┘ │        │ └─────┘ │        │ └─────┘ │     │
+│  └─────────┘        └─────────┘        └─────────┘     │
+│       │                  │                  │           │
+│       └──────────────────┼──────────────────┘           │
+│                          │                              │
+│                    ┌─────┴─────┐                       │
+│                    │  Control   │                       │
+│                    │   Plane    │                       │
+│                    │ (Istio/...) │                      │
+│                    └───────────┘                        │
+│                                                          │
+│  Sidecar cung cap: mTLS, tracing, metrics, can bang tai │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Loi ich service mesh:**
+- mTLS tu dong giua cac NF
+- Distributed tracing qua cac cuoc goi NF
+- Quan ly traffic va canary release
+- Kha nang quan sat khong can thay doi code
+
+### Pattern operator cho lifecycle
+
+**5G NF Operator** tu dong hoa cac thao tac phuc tap:
+
+```
+Lifecycle NF do Operator quan ly:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Operator theo doi:         Operator hanh dong:         │
+│                                                          │
+│  - Custom Resource (CR)     - Trien khai pod NF         │
+│  - Suc khoe NF              - Cau hinh dang ky NRF      │
+│  - Su kien K8s              - Xu ly scaling             │
+│                             - Quan ly chung chi         │
+│                             - Thuc hien nang cap        │
+│                                                          │
+│  ┌─────────────┐           ┌─────────────────┐         │
+│  │   AMF CR    │──watch──► │  AMF Operator   │         │
+│  │             │           │                 │          │
+│  │ replicas: 5 │           │ reconcile()     │          │
+│  │ version: 2.1│           │ scale()         │          │
+│  └─────────────┘           │ upgrade()       │          │
+│                            └────────┬────────┘          │
+│                                     │                    │
+│                                     ▼                    │
+│                            ┌─────────────────┐          │
+│                            │  AMF Pod (5)    │          │
+│                            └─────────────────┘          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Tang toc data plane
+
+UPF yeu cau xu ly goi tin thong luong cao — can xem xet dac biet:
+
+```
+Tuy chon trien khai UPF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Option 1: DPDK (Data Plane Development Kit)            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  User space networking, bo qua kernel            │    │
+│  │  Nhanh hon 10-100x so voi kernel stack          │    │
+│  │  Can loi CPU danh rieng (CPU pinning)           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Option 2: SR-IOV (Single Root I/O Virtualization)      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  NIC ao truc tiep den container                  │    │
+│  │  Hieu nang gan native                            │    │
+│  │  Phu thuoc phan cung                             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Option 3: eBPF/XDP                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Lap trinh kernel networking                     │    │
+│  │  Overhead thap hon DPDK                          │    │
+│  │  Dang duoc ap dung rong rai                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Checklist trien khai CNF:**
+
+| Component | Xem xet |
+|-----------|---------|
+| Container image | Base toi gian, khong secret, da ky |
+| Resource limit | CPU/memory request va limit dat |
+| Health check | Liveness va readiness probe |
+| Cau hinh | ConfigMap/Secret, khong bake in |
+| Networking | Lua chon CNI anh huong hieu nang |
+| Storage | PersistentVolume cho state |
+| Bao mat | Pod security policy, RBAC |
+
+**Yeu cau resource 5G CNF dien hinh:**
+
+| NF | CPU (request) | Memory (request) | Ghi chu |
+|----|---------------|------------------|---------|
+| AMF | 2-4 core | 4-8 GB | Signaling nang |
+| SMF | 2-4 core | 4-8 GB | Trang thai session |
+| UPF | 4-16 core | 8-32 GB | Data plane, DPDK |
+| NRF | 1-2 core | 2-4 GB | Nhe |
+| UDM | 2-4 core | 4-8 GB | Truy cap database |
+
+**Stack giam sat:**
+
+```
+Kha nang quan sat cho 5G CNF:
+
+Metric:     Prometheus + Grafana
+Log:        Fluentd/Loki + Grafana
+Trace:      Jaeger/Tempo
+Alert:      AlertManager
+Dashboard:  Dashboard 5G san co
+
+Metric quan trong can theo doi:
+- Trang thai dang ky NF (NRF)
+- Do tre SBI request (P50, P95, P99)
+- Ty le thiet lap session thanh cong
+- Thanh cong/that bai authentication
+- Su dung resource moi NF
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **"Chi can container hoa VNF."** Goi monolith trong container khong phai cloud-native. Ban nhan overhead container khong co loi ich microservice.
+
+2. **Bo qua yeu cau telecom.** Nhu cau carrier-grade (nam chin, thoi gian thuc) yeu cau cau hinh Kubernetes can than. Cai dat mac dinh khong du.
+
+3. **Danh gia thap phuc tap networking.** Cau hinh Multus, SR-IOV, DPDK phuc tap. Test hieu nang data plane som.
+
+4. **Quan ly state la viec sau.** 5G co nhieu state (UE context, session). Lap ke hoach cho StatefulSet, store ben ngoai, hoac UDSF tu dau.
+
+5. **Bao mat la viec sau.** Container image, network policy, RBAC, quan ly secret — giai quyet som, khong phai khi co van de production.
+
+6. **Bo qua duong cong hoc operator.** Kubernetes operator don gian hoa van hanh nhung can chuyen mon de phat trien va bao tri.
+
+7. **Over-engineering ban dau.** Bat dau voi trien khai don gian, them service mesh va operator khi can. Khong xay cho hyperscale ngay dau.
+
+8. **Bo qua chaos engineering.** 5G phai song sot khi co loi. Test loi pod, phan vung mang, mat node truoc production.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.501, "System architecture for 5G System"
+- CNCF, "Cloud Native Definition"
+- ETSI GS NFV-SOL 001, "NFV Descriptors Based on TOSCA"
+- Kubernetes Documentation, "Production Best Practices"
+- O-RAN Alliance, "Cloud Platform Reference Design"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [NRF chi tiet](/vi/core-network/5g-core-functions/nrf/) — dang ky dich vu trong boi canh cloud-native
+- [Tong quan chuc nang 5G core](/vi/core-network/5g-core-functions/overview/) — chi tiet moi NF
+- [Network slicing](/vi/core-network/network-slicing/overview/) — cloud-native cho phep dieu nay
+
+</section>

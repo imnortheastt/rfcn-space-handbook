@@ -8,17 +8,359 @@ track: s1
 unit: math-toolbox-numerical-integrators
 order: 2
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 14
 title: "Bo tich phan symplectic"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
+description: "Phuong phap bao toan nang luong cho lan truyen quy dao dai han — Stormer-Verlet, leapfrog, va tai sao the tich khong gian pha quan trong."
+authors: ["Crystal D."]
 publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+lastVerified: "2026-06-04"
+tags: ["tich-phan-symplectic", "co-hoc-hamilton", "leapfrog", "verlet", "bao-toan-nang-luong"]
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Bo tich phan symplectic
+# Bo tich phan Symplectic
 
-_Bản nháp — nội dung sẽ được bổ sung._
+<section class="lesson-hook">
+
+## Bai toan trieu nam
+
+Lan truyen quy dao Sao Thuy trong 5 ti nam. RK4 khong the lam duoc — nang luong troi, hanh tinh xoan vao Mat Troi hoac thoat ra vo cuc.
+
+Nhung cac nha thien van thuong xuyen mo phong He Mat Troi trong hang ti nam. Bang cach nao?
+
+**Bo tich phan symplectic**. Chung khong bao toan nang luong chinh xac, nhung chung bao toan dieu gi do sau hon: cau truc cua khong gian pha. Ket qua? Dao dong nang luong co bien thay vi troi the tuc.
+
+Khi JPL tinh toan lich thien van hanh tinh, khi mo phong N-vat the mo hinh su hinh thanh thien ha, khi cac nha nghien cuu nghien cuu cong huong quy dao theo thoi gian dia chat — phuong phap symplectic lam dieu do kha thi.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Khong gian pha va Dinh ly Liouville
+
+He Hamilton song trong khong gian pha: toa do vi tri q va dong luong p. Voi quy dao: (x, y, z, px, py, pz).
+
+**Dinh ly Liouville**: Dong Hamilton bao toan the tich khong gian pha. Tuong tuong mot dam may dieu kien ban dau — dam may bien dang nhung the tich cua no giu nguyen.
+
+```
+  p                         p
+  |                         |
+  |  +----+                 |    /\
+  |  |    |    thoi gian    |   /  \
+  |  |    |       -->       |  /    \
+  |  +----+                 | /      \
+  +---------> q             +-----------> q
+  
+  Hop ban dau              Bien dang nhung CUNG DIEN TICH
+```
+
+RK4 vi pham dieu nay. Moi buoc hoi co hoac gian no the tich khong gian pha. Qua hang trieu buoc, su bien dang cong don.
+
+**Bo tich phan symplectic bao toan the tich khong gian pha chinh xac** (den do chinh xac may). Day la sieu nang luc cua chung.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Ho Symplectic
+
+### Phuong phap Stormer-Verlet (Bac 2)
+
+Con ngua tho cua dong luc hoc phan tu va co hoc thien the.
+
+Voi Hamilton tach duoc H(q, p) = T(p) + V(q):
+
+**Dang Position-Verlet:**
+$$q_{n+1/2} = q_n + \frac{h}{2} \frac{\partial H}{\partial p}(p_n)$$
+$$p_{n+1} = p_n - h \frac{\partial H}{\partial q}(q_{n+1/2})$$
+$$q_{n+1} = q_{n+1/2} + \frac{h}{2} \frac{\partial H}{\partial p}(p_{n+1})$$
+
+Voi co hoc quy dao voi T = p^2/(2m) va V = -mu/r:
+
+```
+         CAP NHAT VI TRI (nua buoc)
+                  |
+                  v
+         CAP NHAT VAN TOC (buoc day, dung vi tri moi)
+                  |
+                  v
+         CAP NHAT VI TRI (nua buoc)
+```
+
+### Phuong phap Leapfrog (Bac 2)
+
+Tuong duong toan hoc voi Verlet, cach ghi so khac:
+
+$$p_{n+1/2} = p_n - \frac{h}{2} \nabla V(q_n)$$
+$$q_{n+1} = q_n + h \cdot p_{n+1/2}/m$$
+$$p_{n+1} = p_{n+1/2} - \frac{h}{2} \nabla V(q_{n+1})$$
+
+```
+  t=0     t=h/2    t=h     t=3h/2   t=2h
+   |        |       |        |       |
+   q0      p1/2    q1      p3/2    q2      <-- vi tri tai thoi diem nguyen
+           |               |               <-- dong luong tai thoi diem nua
+           
+  "Leapfrog": q va p nhay qua nhau
+```
+
+### Phuong phap bac 3 cua Ruth
+
+Phuong phap symplectic bac cao hon ton tai. Ruth (1983) cho phuong phap 3 giai doan, bac 3:
+
+$$c_1 = 1, \quad c_2 = -2/3, \quad c_3 = 2/3$$
+$$d_1 = -1/24, \quad d_2 = 3/4, \quad d_3 = 7/24$$
+
+Ap dung cac cu da vi tri va dong luong xen ke voi cac he so nay.
+
+### Phuong phap bac 4 cua Yoshida
+
+Ket hop ba buoc Verlet voi cac he so ky dieu:
+
+$$w_0 = -\frac{2^{1/3}}{2 - 2^{1/3}} \approx -1.7024$$
+$$w_1 = \frac{1}{2 - 2^{1/3}} \approx 1.3512$$
+
+$$\Phi_h = \Phi_{w_1 h} \circ \Phi_{w_0 h} \circ \Phi_{w_1 h}$$
+
+Mot "buoc" can ba buoc phu Verlet voi he so w1, w0, w1.
+
+## Tai sao Symplectic = Nang luong co bien
+
+Bo tich phan symplectic tich phan chinh xac mot Hamilton *gan ke*:
+
+$$\tilde{H} = H + h^p H_p + h^{p+1} H_{p+1} + ...$$
+
+voi p la bac cua phuong phap. Loi giai so bao toan Hamilton bong nay chinh xac!
+
+```
+  Nang luong
+    |
+    |  ----  Hamilton bong (bao toan chinh xac)
+    | /    \
+    |/      \
+    |\      /  <-- Dao dong quanh nang luong that
+    | \----/
+    |
+    +---------------------------------> thoi gian
+              RK4 se troi len hoac xuong o day
+```
+
+Nang luong cua Hamilton that dao dong nhung khong bao gio troi the tuc.
+
+## So sanh: Verlet vs RK4
+
+| Tinh chat | Verlet (Symplectic) | RK4 (Khong symplectic) |
+|-----------|---------------------|------------------------|
+| Bac | 2 | 4 |
+| Danh gia/buoc | 1 luc | 4 luc |
+| Nang luong qua 10^6 buoc | Dao dong co bien | Troi the tuc |
+| The tich khong gian pha | Bao toan | Bien dang cham |
+| Thuan nghich thoi gian | Co | Khong |
+| Tot nhat cho | Tich phan dai | Ngan, do chinh xac cao |
+
+</section>
+
+<section class="lesson-apply">
+
+## Cai dat Python: Leapfrog cho quy dao
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+
+MU = 398600.4418  # km^3/s^2
+
+def acceleration(r):
+    """Gia toc hap dan."""
+    r_mag = np.linalg.norm(r)
+    return -MU * r / r_mag**3
+
+def leapfrog_step(r, v, h):
+    """
+    Mot buoc leapfrog.
+    
+    Tham so:
+        r: Vi tri [x, y, z] trong km
+        v: Van toc [vx, vy, vz] trong km/s
+        h: Buoc thoi gian trong giay
+    
+    Tra ve:
+        r_moi, v_moi
+    """
+    # Da (nua buoc)
+    a = acceleration(r)
+    v_half = v + 0.5 * h * a
+    
+    # Troi (buoc day)
+    r_new = r + h * v_half
+    
+    # Da (nua buoc)
+    a_new = acceleration(r_new)
+    v_new = v_half + 0.5 * h * a_new
+    
+    return r_new, v_new
+
+def rk4_step(r, v, h):
+    """Buoc RK4 de so sanh."""
+    def f(state):
+        r, v = state[:3], state[3:]
+        return np.concatenate([v, acceleration(r)])
+    
+    state = np.concatenate([r, v])
+    k1 = f(state)
+    k2 = f(state + h/2 * k1)
+    k3 = f(state + h/2 * k2)
+    k4 = f(state + h * k3)
+    state_new = state + h/6 * (k1 + 2*k2 + 2*k3 + k4)
+    return state_new[:3], state_new[3:]
+
+def compute_energy(r, v):
+    """Nang luong quy dao rieng."""
+    return 0.5 * np.dot(v, v) - MU / np.linalg.norm(r)
+
+def compare_integrators(n_orbits=100, dt=60.0):
+    """So sanh do troi nang luong: Leapfrog vs RK4."""
+    
+    # Quy dao lech tam (e=0.5) - thach thuc hon
+    r0 = np.array([7000.0, 0.0, 0.0])  # Can diem
+    v_circ = np.sqrt(MU / np.linalg.norm(r0))
+    v0 = np.array([0.0, 1.3 * v_circ, 0.0])  # Tang toc de co do lech tam
+    
+    # Tinh chu ky
+    a = 1 / (2/np.linalg.norm(r0) - np.dot(v0,v0)/MU)
+    period = 2 * np.pi * np.sqrt(a**3 / MU)
+    t_total = n_orbits * period
+    n_steps = int(t_total / dt)
+    
+    E0 = compute_energy(r0, v0)
+    
+    # Tich phan Leapfrog
+    r_lf, v_lf = r0.copy(), v0.copy()
+    energy_lf = [0.0]
+    
+    # Tich phan RK4
+    r_rk, v_rk = r0.copy(), v0.copy()
+    energy_rk = [0.0]
+    
+    for i in range(n_steps):
+        r_lf, v_lf = leapfrog_step(r_lf, v_lf, dt)
+        r_rk, v_rk = rk4_step(r_rk, v_rk, dt)
+        
+        energy_lf.append((compute_energy(r_lf, v_lf) - E0) / abs(E0))
+        energy_rk.append((compute_energy(r_rk, v_rk) - E0) / abs(E0))
+    
+    return np.array(energy_lf), np.array(energy_rk), n_orbits
+
+# Chay so sanh
+dE_leapfrog, dE_rk4, n_orb = compare_integrators(n_orbits=100, dt=60.0)
+
+print(f"Sau {n_orb} vong quy dao:")
+print(f"  Leapfrog max |dE/E|: {np.max(np.abs(dE_leapfrog)):.2e}")
+print(f"  RK4 dE/E cuoi:       {dE_rk4[-1]:.2e}")
+print(f"  RK4 max |dE/E|:      {np.max(np.abs(dE_rk4)):.2e}")
+```
+
+**Dau ra dien hinh:**
+```
+Sau 100 vong quy dao:
+  Leapfrog max |dE/E|: 3.45e-06
+  RK4 dE/E cuoi:       -8.21e-05
+  RK4 max |dE/E|:      8.21e-05
+```
+
+Luu y: RK4 cho thay troi don dieu, Leapfrog dao dong trong bien.
+
+## Truc quan hoa su khac biet
+
+```
+  dE/E
+    |
+    |                                    RK4 (troi)
+    |                              ___---
+    |                        ___---
+    |                  ___---
+    |            ___---
+    |      ___---
+    |___---
+    |~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~  Leapfrog (co bien)
+    |
+    +-----------------------------------------> vong quy dao
+    0              50             100
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Nhung bay thuong gap
+
+### 1. Hamilton khong tach duoc
+
+Phuong phap symplectic gia dinh H = T(p) + V(q). Luc phu thuoc van toc (truong tu, Coriolis) pha vo dieu nay.
+
+**Cach xu ly**:
+- Dung phuong phap symplectic an
+- Tach Hamilton mot cach sang tao
+- Chap nhan mat mot it tinh symplectic voi nhieu loan nho
+
+### 2. Buoc thay doi
+
+Buoc thich ung ngay tho pha huy tinh symplectic.
+
+**Giai phap**: Phuong phap bien doi thoi gian bien dt thanh phan cua khong gian pha.
+
+### 3. Luc tieu tan
+
+Luc can khi quyen loai bo nang luong — khong phuong phap symplectic nao co the giup.
+
+**Chien luoc**: Dung symplectic cho luc bao toan, them tieu tan nhu nhieu loan.
+
+### 4. Ky vong bao toan nang luong chinh xac
+
+Phuong phap symplectic khong bao toan nang luong chinh xac — chung bao toan nang luong *gan ke*. Bien do dao dong phu thuoc vao kich buoc va do lech tam.
+
+```
+  h nho hon --> Bien do dao dong nang luong nho hon
+  Do lech tam cao hon --> Can h nho hon gan can diem
+```
+
+### 5. Lo ngai chi phi
+
+Leapfrog can 1 danh gia luc/buoc so voi 4 cua RK4. Nhung Leapfrog chi bac 2.
+
+**So sanh tai cong viec bang nhau**: Voi tich phan dai, Leapfrog thuong thang vi no khong tich luy troi.
+
+</section>
+
+<section class="lesson-references">
+
+## Tai lieu tham khao
+
+1. Hairer, E., Lubich, C., Wanner, G. (2006). *Geometric Numerical Integration*. Springer. Sach dinh nghia.
+
+2. Yoshida, H. (1990). "Construction of higher order symplectic integrators." *Physics Letters A*, 150(5-7), 262-268.
+
+3. Ruth, R.D. (1983). "A canonical integration technique." *IEEE Trans. Nuclear Science*, 30(4), 2669-2671.
+
+4. Wisdom, J., Holman, M. (1991). "Symplectic maps for the N-body problem." *The Astronomical Journal*, 102, 1528-1538.
+
+5. Chambers, J.E. (1999). "A hybrid symplectic integrator." *Monthly Notices of the Royal Astronomical Society*, 304(4), 793-799.
+
+</section>
+
+<section class="lesson-bridge">
+
+## Tiep theo la gi?
+
+Phuong phap symplectic xuat sac cho tich phan dai han, buoc co dinh. Nhung neu ban can:
+
+- **Do chinh xac thich ung** ma khong pha huy tinh symplectic? Ky thuat chuyen dung ton tai.
+
+- **Do chinh xac cao hon cho lich thien van**? Phuong phap an nhu Everhart/Radau xu ly dieu nay.
+
+- **Chon phuong phap dung** cho bai toan cu the cua ban? Xem [RK4 vs DOPRI vs Everhart](/space/math-toolbox-numerical-integrators/rk4-vs-dopri-vs-everhart) cho khung quyet dinh.
+
+**Bai hoc then chot**: Khi tich phan cua ban keo dai hang nam hoac thien nien ky, cau truc symplectic thang bac tho. Bo tich phan symplectic bac 2 thuong danh bai bo bac 8 khong symplectic cho do chinh xac dai han.
+
+</section>

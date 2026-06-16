@@ -8,17 +8,469 @@ track: s11
 unit: satellite-5g-integration
 order: 2
 level: L4
-estimatedReadingMinutes: 5
-title: "Quan ly di dong NTN"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["ue-registration-on-5g-leo"]
+spiralRevisits: []
+title: "Quan ly Di dong NTN"
+description: "Handover trong chom sao LEO: conditional handover, cell co dinh ve tinh vs co dinh trai dat, va di dong du doan."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 38.300", "3GPP TS 38.331"]
+tags: ["5g-ntn", "handover", "di-dong", "leo", "conditional-handover"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Quan ly di dong NTN
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Trong LEO NTN, ve tinh di chuyen voi van toc 7 km/s—mot cell bao phu ban bay gio se bien mat trong 60-90 giay. Handover truyen thong, duoc thiet ke cho nguoi dung di bo va cell tinh, that bai duoi dong luc hoc nay. 3GPP da gioi thieu conditional handover (CHO) va co che thay doi cell du doan dac biet cho NTN. Hieu nhung dieu nay la can thiet de thiet ke ket noi ve tinh dang tin cay.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Thach thuc di dong
+
+```
+Van de Di dong LEO NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  5G MAT DAT:                                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    📱 ─────di chuyen────▶    📱                       │         │
+│  │     │                         │                       │         │
+│  │     │                         │                       │         │
+│  │    📡                        📡                       │         │
+│  │  Cell A (tinh)            Cell B (tinh)               │         │
+│  │                                                        │         │
+│  │  Nguoi dung di chuyen giua cac cell co dinh           │         │
+│  │  Handover: kich hoat boi do luong                     │         │
+│  │  Thang thoi gian: phut den gio                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LEO NTN:                                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    🛰 ─────7 km/s────▶    🛰                          │         │
+│  │     │                      │                          │         │
+│  │     │                      │                          │         │
+│  │    📱 (nguoi dung dung yen)  📱                       │         │
+│  │                                                        │         │
+│  │  Cell di chuyen QUA nguoi dung dung yen               │         │
+│  │  Handover: kich hoat boi thoi gian (du doan duoc)     │         │
+│  │  Thang thoi gian: 60-90 giay moi ve tinh              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  NHAN THUC CHINH:                                                   │
+│  Trong mat dat: chuyen dong nguoi dung khong du doan duoc           │
+│  Trong NTN: chuyen dong ve tinh du doan duoc (co hoc quy dao)       │
+│  → Handover co the duoc LEN LICH, khong chi kich hoat               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Cac loai cell va tac dong
+
+```
+Cell Co dinh Trai dat vs Co dinh Ve tinh:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CELL CO DINH VE TINH (ve tinh don gian hon):                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │     🛰 ───────────────────▶                           │         │
+│  │    ╱   ╲                                              │         │
+│  │   ╱ Cell ╲   Cell di chuyen theo ve tinh              │         │
+│  │  ╱───────╲                                            │         │
+│  │ ╱         ╲                                           │         │
+│  │                                                        │         │
+│  │  📱 ... 📱 ... 📱    UE trai nghiem quet cell         │         │
+│  │                                                        │         │
+│  │  • Cell ID thay doi khi bup song di qua tren dau     │         │
+│  │  • Handover thuong xuyen (moi 60-90 giay)            │         │
+│  │  • Ve tinh don gian (khong lai bup song)             │         │
+│  │  • Mang biet hinh hoc cell tu ephemeris              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CELL CO DINH TRAI DAT (ve tinh phuc tap):                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │     🛰 ───────────────────▶                           │         │
+│  │    ╱   ╲    Bup song lai de duy tri vung phu         │         │
+│  │   ╱     ╲◀──────────────────────────────────┐        │         │
+│  │  ╱       ╲                                   │        │         │
+│  │           ▼                                  │        │         │
+│  │  ┌─────────────┐                            │        │         │
+│  │  │  Cell A     │ ←── Vung dia ly co dinh    │        │         │
+│  │  │   📱 📱 📱  │                            │        │         │
+│  │  └─────────────┘                            │        │         │
+│  │                                              │        │         │
+│  │  • Cell ID on dinh khi trong vung phu       │        │         │
+│  │  • Handover chi tai bien cell               │        │         │
+│  │  • Ve tinh phuc tap (lai mang pha)          │        │         │
+│  │  • Handover giua cac ve tinh, khong phai cell│       │         │
+│  │                                              │        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Conditional handover (CHO)
+
+```
+Luong Conditional Handover NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  VAN DE VOI HANDOVER TRUYEN THONG:                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. UE do: "tin hieu tu Sat B tot hon"                │         │
+│  │  2. UE gui bao cao do luong (RTT 8-20 ms)             │         │
+│  │  3. Mang quyet dinh: "handover den Sat B"             │         │
+│  │  4. Mang gui lenh HO (RTT 8-20 ms)                    │         │
+│  │  5. UE thuc hien handover                             │         │
+│  │                                                        │         │
+│  │  Tong: 16-40 ms chi cho tin hieu                      │         │
+│  │  Trong thoi gian nay, ve tinh da di chuyen 100+ km!   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  GIAI PHAP: CONDITIONAL HANDOVER (CHO)                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Mang cau hinh truoc UE voi nhieu muc tieu:        │         │
+│  │     "Neu dieu kien A: handover den Cell X"            │         │
+│  │     "Neu dieu kien B: handover den Cell Y"            │         │
+│  │     "Neu dieu kien C: handover den Cell Z"            │         │
+│  │                                                        │         │
+│  │  2. UE giam sat dieu kien tai cho                     │         │
+│  │                                                        │         │
+│  │  3. Khi dieu kien thoa man: UE thuc hien ngay lap tuc │         │
+│  │     Khong can khu hoi den mang!                       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CAC LOAI DIEU KIEN CHO CHO NTN:                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Dua tren thoi gian: "Tai SFN=X, thuc hien HO"      │         │
+│  │  • Dua tren vi tri: "Khi tai lat/lon, chuyen"         │         │
+│  │  • Dua tren tin hieu: "Khi RSRP tu B > A + offset"   │         │
+│  │  • Ket hop: thoi gian + nguong tin hieu               │         │
+│  │                                                        │         │
+│  │  NTN ua chuong DUA TREN THOI GIAN: vi tri ve tinh la  │         │
+│  │  du doan duoc tu ephemeris, nen thoi gian handover    │         │
+│  │  co the tinh truoc                                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Handover giua cac ve tinh
+
+```
+Handover Ve tinh-den-Ve tinh:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  THOI GIAN = T0:                                                    │
+│                                                                      │
+│      🛰 Sat A (phuc vu)        🛰 Sat B (muc tieu)                  │
+│         ╲                         ╱                                 │
+│          ╲  ← goc nang 45°       ╱  ← goc nang 15°                  │
+│           ╲                     ╱                                   │
+│            📱 UE                                                     │
+│                                                                      │
+│  THOI GIAN = T0 + 60s:                                              │
+│                                                                      │
+│  🛰 Sat A (dang lan)           🛰 Sat B (dang len)                  │
+│     ╲                              ╱                                │
+│      ╲  ← goc nang 15°            ╱  ← goc nang 45°                 │
+│       ╲                          ╱                                  │
+│        📱 UE ─────────CHO──────▶                                    │
+│                                                                      │
+│  CAC YEU TO QUYET DINH HANDOVER:                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Goc nang: cao hon = mat mat duong truyen ngan hon │         │
+│  │  2. Toc do Doppler: dang den vs dang di              │         │
+│  │  3. Tai cell: can bang luu luong qua cac ve tinh     │         │
+│  │  4. Cua so nhin thay: thoi gian con lai trong vung   │         │
+│  │                                                        │         │
+│  │  Mang tinh thoi gian handover toi uu tu              │         │
+│  │  ephemeris va gui cau hinh CHO cho UE truoc          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  VOI ISL (Lien ket Giua Ve tinh):                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │      🛰 ════════ ISL ════════ 🛰                      │         │
+│  │         ╲                    ╱                        │         │
+│  │          ╲                  ╱                         │         │
+│  │           📱                                          │         │
+│  │                                                        │         │
+│  │  Chuyen ngu canh qua ISL:                            │         │
+│  │  • Ngu canh UE duoc chuyen tiep ve tinh-den-ve tinh  │         │
+│  │  • Khong can khu hoi qua phan mat dat               │         │
+│  │  • Cho phep handover lien mach                       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Di dong du doan
+
+```
+Di dong Du doan Dua tren Ephemeris:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DAU VAO DA BIET:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Ephemeris ve tinh: vi tri/van toc cho tat ca      │         │
+│  │    ve tinh trong chom sao                             │         │
+│  │  • Vi tri UE: tu GNSS                                │         │
+│  │  • Mau bup song cell: hinh hoc co dinh               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DU DOAN CO THE TINH:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Thoi gian  Phuc vu    Goc nang   HO tiep   Muc tieu │         │
+│  │  ────────   ───────    ────────   ───────   ──────── │         │
+│  │  T+0s       Sat 47     72°        T+45s     Sat 48   │         │
+│  │  T+45s      Sat 48     68°        T+92s     Sat 49   │         │
+│  │  T+92s      Sat 49     71°        T+138s    Sat 50   │         │
+│  │  ...                                                   │         │
+│  │                                                        │         │
+│  │  Mang tinh truoc toan bo trinh tu handover!           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  BAN TIN CAU HINH CHO:                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  RRCReconfiguration {                                 │         │
+│  │    conditionalReconfiguration {                       │         │
+│  │      condReconfigToAddModList [                       │         │
+│  │        {                                              │         │
+│  │          condReconfigId: 1,                          │         │
+│  │          condExecutionCond: {                        │         │
+│  │            condEventId: t1,     // dua tren thoi gian│         │
+│  │            executionTime: SFN_X  // tinh truoc      │         │
+│  │          },                                           │         │
+│  │          condRRCReconfig: <cau hinh cell muc tieu>   │         │
+│  │        },                                             │         │
+│  │        { condReconfigId: 2, ... },  // du phong      │         │
+│  │        { condReconfigId: 3, ... }   // du phong      │         │
+│  │      ]                                                │         │
+│  │    }                                                  │         │
+│  │  }                                                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Du doan thoi gian handover:**
+
+```python
+import numpy as np
+from dataclasses import dataclass
+
+@dataclass
+class Satellite:
+    id: int
+    lat: float  # vi do diem duoi ve tinh
+    lon: float  # kinh do diem duoi ve tinh
+    altitude_km: float
+    velocity_km_s: float
+    heading_deg: float  # huong di chuyen
+
+def elevation_angle(ue_lat, ue_lon, sat_lat, sat_lon, sat_alt_km):
+    """Tinh goc nang tu UE den ve tinh."""
+    earth_radius_km = 6371
+    
+    # Goc phan cach (don gian hoa hinh cau)
+    lat1, lat2 = np.radians(ue_lat), np.radians(sat_lat)
+    dlon = np.radians(sat_lon - ue_lon)
+    
+    central_angle = np.arccos(
+        np.sin(lat1) * np.sin(lat2) + 
+        np.cos(lat1) * np.cos(lat2) * np.cos(dlon)
+    )
+    
+    # Goc nang
+    slant_range = np.sqrt(
+        earth_radius_km**2 + (earth_radius_km + sat_alt_km)**2 - 
+        2 * earth_radius_km * (earth_radius_km + sat_alt_km) * np.cos(central_angle)
+    )
+    
+    elevation = np.arcsin(
+        ((earth_radius_km + sat_alt_km) * np.cos(central_angle) - earth_radius_km) / 
+        slant_range
+    )
+    
+    return np.degrees(elevation)
+
+def predict_handover_times(ue_lat, ue_lon, satellites, min_elevation_deg=10):
+    """
+    Du doan trinh tu handover cho UE voi chom sao ve tinh da cho.
+    
+    Tra ve danh sach (time_s, serving_sat_id, target_sat_id, trigger_elevation)
+    """
+    handovers = []
+    current_serving = None
+    
+    # Mo phong trong 10 phut
+    for t in range(0, 600, 1):  # buoc 1 giay
+        elevations = {}
+        
+        for sat in satellites:
+            # Lan truyen tuyen tinh don gian diem duoi ve tinh
+            new_lat = sat.lat + (sat.velocity_km_s * t / 111) * np.cos(np.radians(sat.heading_deg))
+            new_lon = sat.lon + (sat.velocity_km_s * t / 111) * np.sin(np.radians(sat.heading_deg)) / np.cos(np.radians(sat.lat))
+            
+            elev = elevation_angle(ue_lat, ue_lon, new_lat, new_lon, sat.altitude_km)
+            if elev > min_elevation_deg:
+                elevations[sat.id] = elev
+        
+        if not elevations:
+            continue
+            
+        # Tim ve tinh tot nhat (goc nang cao nhat)
+        best_sat = max(elevations.keys(), key=lambda x: elevations[x])
+        
+        if current_serving is None:
+            current_serving = best_sat
+        elif best_sat != current_serving:
+            # Dieu kien handover: goc nang muc tieu vuot phuc vu theo bien
+            if elevations.get(best_sat, 0) > elevations.get(current_serving, 0) + 5:
+                handovers.append({
+                    'time_s': t,
+                    'from_sat': current_serving,
+                    'to_sat': best_sat,
+                    'from_elev': elevations.get(current_serving, 0),
+                    'to_elev': elevations.get(best_sat, 0)
+                })
+                current_serving = best_sat
+    
+    return handovers
+
+# Vi du: Mo phong chom sao Walker
+print("Vi du Du doan Handover NTN")
+print("=" * 55)
+
+# Tao chom sao ve tinh don gian (3 ve tinh trong cung mat phang)
+satellites = [
+    Satellite(id=47, lat=30, lon=-10, altitude_km=550, velocity_km_s=7.5, heading_deg=80),
+    Satellite(id=48, lat=25, lon=5, altitude_km=550, velocity_km_s=7.5, heading_deg=80),
+    Satellite(id=49, lat=20, lon=20, altitude_km=550, velocity_km_s=7.5, heading_deg=80),
+]
+
+# UE tai vi tri co dinh
+ue_lat, ue_lon = 35, 0
+
+handovers = predict_handover_times(ue_lat, ue_lon, satellites)
+
+print(f"\nVi tri UE: ({ue_lat}°B, {ue_lon}°D)")
+print(f"Chom sao: 3 ve tinh LEO tai 550 km")
+print(f"\nTrinh tu handover du doan:")
+print("-" * 55)
+
+for ho in handovers[:5]:  # Hien thi 5 dau tien
+    print(f"  T+{ho['time_s']:3d}s: Sat {ho['from_sat']} → Sat {ho['to_sat']}")
+    print(f"         Goc nang: {ho['from_elev']:.1f}° → {ho['to_elev']:.1f}°")
+
+# Tinh toan thoi gian cau hinh CHO
+print("\n" + "=" * 55)
+print("Cau hinh CHO (tinh truoc):")
+print("-" * 55)
+
+for i, ho in enumerate(handovers[:3]):
+    # Gui cau hinh CHO 30 giay truoc handover
+    config_time = max(0, ho['time_s'] - 30)
+    print(f"  Config {i+1}: Gui tai T+{config_time}s, thuc hien tai T+{ho['time_s']}s")
+    print(f"            Muc tieu: Sat {ho['to_sat']}, dieu kien: dua tren thoi gian")
+```
+
+**Uoc tinh khoang cach handover:**
+
+| Chom sao | Do cao | Chu ky Quy dao | Khoang cach HO Dien hinh |
+|----------|--------|----------------|--------------------------|
+| Starlink Gen1 | 550 km | 95 phut | 60-90 giay |
+| OneWeb | 1200 km | 109 phut | 90-150 giay |
+| Kuiper | 630 km | 97 phut | 70-100 giay |
+| O3b mPower (MEO) | 8000 km | 288 phut | 5-8 phut |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Het han cau hinh CHO.** Handover cau hinh truoc tro nen cu; can co che lam moi.
+
+2. **Do phuc tap da bup song.** Cell co dinh trai dat voi lai bup song them do phuc tap timing.
+
+3. **Kha dung ISL.** Khong phai tat ca chom sao co ISL; chuyen ngu canh co the qua mat dat.
+
+4. **Tac dong mat GNSS.** Khong GNSS = khong vi tri = du doan handover suy giam.
+
+5. **Gian doan Doppler.** Handover thay doi dau Doppler; UE phai thu lai nhanh chong.
+
+6. **Can Cell ID.** Cell co dinh ve tinh quay vong qua nhieu Cell ID moi quy dao.
+
+7. **Khong khop timer.** Timer thuc hien CHO phai tinh den do tre lan truyen NTN.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 38.300 (Mo ta tong the NR)
+- 3GPP TS 38.331 (Giao thuc RRC)
+- 3GPP TR 38.821 (Nghien cuu NTN)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Handover NTN vs Mat dat](/vi/space/satellite-5g-integration/ntn-vs-terrestrial-handover/) — cac kich ban da ket noi
+- [Kien truc Chom sao LEO](/vi/space/leo-constellation-architecture/walker-constellations/) — co hoc quy dao
+- [Lien ket Giua Ve tinh](/vi/space/inter-satellite-links-laser-rf/isl-architectures/) — duong chuyen ngu canh
+
+</section>

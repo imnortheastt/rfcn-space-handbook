@@ -8,17 +8,401 @@ track: n6
 unit: functional-splits
 order: 2
 level: L4
-estimatedReadingMinutes: 5
-title: "Tuy chon 7.2x chi tiet"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n6-functional-splits-01-split-options-overview"]
+spiralRevisits: []
+title: "Tuy chon 7-2x Chi tiet"
+description: "Lua chon phan tach cua O-RAN — Category A vs B, loai section, timing, va interface Open Fronthaul."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG4.CUS", "O-RAN.WG4.MP"]
+tags: ["o-ran", "5g", "split", "7-2x", "fronthaul", "ecpri"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tuy chon 7.2x chi tiet
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Option 7-2x la lua chon ky thuat dinh nghia cua O-RAN. No xac dinh gi di qua fronthaul, RU phai lam gi, va cach cac vendor tuong tac.
+
+Hieu 7-2x chi tiet la can thiet cho trien khai O-RAN — no anh huong den lap ke hoach dung luong, lua chon thiet bi, va xu ly su co.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Diem phan tach 7-2x
+
+```
+Vi tri Phan tach Option 7-2x:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Xu ly O-DU:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ RLC → MAC → High-PHY                            │    │
+│  │                                                  │    │
+│  │ Dau ra High-PHY:                                │    │
+│  │ ┌───────────────────────────────────────────┐   │    │
+│  │ │ - Anh xa phan tu tai nguyen xong          │   │    │
+│  │ │ - Symbol dieu che (QPSK, 16/64/256QAM)    │   │    │
+│  │ │ - Anh xa layer xong                        │   │    │
+│  │ │ - Precoding xong (Cat-A) hoac weights(Cat-B)│  │    │
+│  │ │ - Mau IQ mien tan so                      │   │    │
+│  │ └───────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                          │                               │
+│                          │ Open Fronthaul (eCPRI)       │
+│                          │ - C-Plane: thong tin lap lich│
+│                          │ - U-Plane: du lieu IQ        │
+│                          ▼                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Xu ly O-RU (Low-PHY):                           │    │
+│  │                                                  │    │
+│  │ ┌───────────────────────────────────────────┐   │    │
+│  │ │ - IFFT (tan so → mien thoi gian)          │   │    │
+│  │ │ - Chen cyclic prefix                       │   │    │
+│  │ │ - Beamforming so (chi Cat-B)              │   │    │
+│  │ │ - DFE (CFR, DPD)                          │   │    │
+│  │ │ - DAC, RF, antenna                        │   │    │
+│  │ └───────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Category A vs Category B
+
+```
+Cac loai O-RU:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Category A:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  DU lam:                                        │    │
+│  │  - Precoding day du (ma tran beamforming)       │    │
+│  │  - Xuat mau IQ moi cong antenna                 │    │
+│  │                                                  │    │
+│  │  RU lam:                                        │    │
+│  │  - Chi IFFT (khong beamforming)                 │    │
+│  │  - Don gian, re hon                             │    │
+│  │                                                  │    │
+│  │  Fronthaul:                                     │    │
+│  │  - Mot luong moi cong antenna                   │    │
+│  │  - BW cao hon (ty le voi so antenna)            │    │
+│  │                                                  │    │
+│  │  Truong hop: 2T2R, 4T4R (MIMO thap)            │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Category B:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  DU lam:                                        │    │
+│  │  - Xuat IQ moi layer + trong so beamforming     │    │
+│  │  - Beam, khong phai antenna                     │    │
+│  │                                                  │    │
+│  │  RU lam:                                        │    │
+│  │  - Beamforming so (ap dung trong so)            │    │
+│  │  - IFFT moi antenna                             │    │
+│  │  - Phuc tap hon                                 │    │
+│  │                                                  │    │
+│  │  Fronthaul:                                     │    │
+│  │  - It luong hon (layers << antennas)            │    │
+│  │  - BW thap hon cho massive MIMO                 │    │
+│  │                                                  │    │
+│  │  Truong hop: 32T32R, 64T64R (massive MIMO)     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cau truc tin nhan eCPRI
+
+```
+Dinh dang Khung eCPRI:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Khung Ethernet:                                        │
+│  ┌────────┬────────┬─────────────────────────────────┐  │
+│  │ Dst MAC│ Src MAC│ EtherType (0xAEFE = eCPRI)      │  │
+│  └────────┴────────┴─────────────────────────────────┘  │
+│                                                          │
+│  Header eCPRI (8 bytes):                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Byte 0: Phien ban giao thuc (0x10)              │    │
+│  │ Byte 1: Loai tin nhan                           │    │
+│  │         0x00: Du lieu IQ (U-Plane)              │    │
+│  │         0x02: Dieu khien thoi gian thuc (C-Plane)│   │
+│  │ Bytes 2-3: Kich thuoc payload                   │    │
+│  │ Bytes 4-5: RTC_ID / PC_ID                       │    │
+│  │ Bytes 6-7: SEQ_ID (so thu tu)                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Header Section O-RAN (cho du lieu IQ):                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Huong du lieu (UL/DL)                         │    │
+│  │ - Phien ban payload                             │    │
+│  │ - Chi so bo loc                                 │    │
+│  │ - Frame ID, subframe ID, slot ID, symbol ID     │    │
+│  │ - Section ID                                    │    │
+│  │ - PRB bat dau, so PRB                           │    │
+│  │ - Mat na RE (RE nao trong PRB)                  │    │
+│  │ - Header nen (neu nen)                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Mau IQ:                                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ [I0, Q0], [I1, Q1], ... moi RE, moi PRB         │    │
+│  │ Do rong bit: 9-16 bit moi I/Q (cau hinh duoc)   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac loai section C-Plane
+
+```
+Loai Section C-Plane O-RAN:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Section Type 0: Khoi tai nguyen khong dung             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Chi ra PRB khong co du lieu                     │    │
+│  │ RU co the giam cong suat trong cac PRB nay      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Section Type 1: Dung nhieu nhat (du lieu DL/UL)       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Cap phat PRB (bat dau, so luong)              │    │
+│  │ - Thong tin beamforming (beam ID hoac weights)  │    │
+│  │ - Mat na symbol                                 │    │
+│  │ - Thong so nen                                  │    │
+│  │                                                  │    │
+│  │ Mot section moi nhom PRB cung beam              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Section Type 3: PRACH                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Cau hinh kenh truy cap ngau nhien               │    │
+│  │ - Dinh dang PRACH                               │    │
+│  │ - Offset thoi gian/tan so                       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Section Type 5: Beamforming rieng UE                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Cho Cat-B: trong so beam gui inline             │    │
+│  │ Huong beam tung UE                              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Section Type 6: Thong tin / phan hoi kenh             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Cau hinh CSI-RS, SRS                            │    │
+│  │ Dung de tinh trong so beamforming               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Timing advance
+
+```
+Timing Fronthaul O-RAN:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  DL Timing (DU → RU):                                   │
+│                                                          │
+│  DU                                   RU                │
+│  │ Tin nhan C-Plane                   │                 │
+│  │ (T2a som truoc)                    │                 │
+│  │─────────────────────────────────────►                │
+│  │                                    │ Xu ly C-Plane   │
+│  │                                    │                 │
+│  │ Tin nhan U-Plane                   │                 │
+│  │ (Ta3 som truoc)                    │                 │
+│  │─────────────────────────────────────►                │
+│  │                                    │ IFFT, truyen    │
+│  │                                    │                 │
+│  │                        Giao dien khong khi │         │
+│  │                                    │─────────────────►
+│  │                                    │                 │
+│                                                          │
+│  Tham so Timing:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  T2a_min_cp: Advance C-Plane toi thieu          │    │
+│  │  T2a_max_cp: Advance C-Plane toi da             │    │
+│  │                                                  │    │
+│  │  Ta3_min: Advance U-Plane toi thieu             │    │
+│  │  Ta3_max: Advance U-Plane toi da                │    │
+│  │                                                  │    │
+│  │  Gia tri dien hinh (µs):                        │    │
+│  │  T2a_min_cp: 285                                │    │
+│  │  T2a_max_cp: 429                                │    │
+│  │  Ta3_min: 25                                    │    │
+│  │  Ta3_max: 131                                   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Goi tre (den sau Ta3_min):                             │
+│  - BI BO boi RU                                         │
+│  - Dan den mat symbol                                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Nen IQ
+
+```
+Phuong phap Nen Fronthaul:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Block Floating Point (BFP):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Raw: 16-bit I, 16-bit Q moi mau                │    │
+│  │                                                  │    │
+│  │  Nen:                                           │    │
+│  │  - 9-bit I, 9-bit Q (mantissa)                  │    │
+│  │  - 4-bit exponent chia se moi PRB               │    │
+│  │                                                  │    │
+│  │  Ty le nen: ~56%                                │    │
+│  │                                                  │    │
+│  │  PRB (12 subcarriers):                          │    │
+│  │  Raw:    12 × 32 bits = 384 bits               │    │
+│  │  BFP:    12 × 18 bits + 4 = 220 bits           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Nen theo Dieu che:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Dung thong tin dieu che tu C-Plane             │    │
+│  │  QPSK: 2 bits → mo rong toi thieu              │    │
+│  │  256QAM: 8 bits → can mo rong nhieu hon        │    │
+│  │                                                  │    │
+│  │  Nen cao hon cho dieu che thap hon              │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Danh doi:                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Nen nhieu → BW thap hon, EVM cao hon            │    │
+│  │ Nen it → BW cao hon, EVM thap hon               │    │
+│  │                                                  │    │
+│  │ Dien hinh: BFP 9-bit can bang ca hai            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Vi du cau hinh:**
+
+| Tham so | Cat-A (4T4R) | Cat-B (64T64R) |
+|---------|--------------|----------------|
+| Streams | 4 (moi antenna) | 8 (moi layer) |
+| BW (100 MHz, BFP) | ~10 Gbps | ~25 Gbps |
+| Beamforming RU | Khong | Co |
+| Trong so beam | N/A | Moi PRB hoac codebook |
+
+**Debug fronthaul:**
+
+```bash
+# Bat luu luong eCPRI
+tcpdump -i eth0 ether proto 0xaefe -w fronthaul.pcap
+
+# Kiem tra vi pham timing
+grep "late_packet\|timing_error" /var/log/du/fronthaul.log
+
+# O-RAN M-Plane: kiem tra trang thai RU
+netconf-cli get --filter "<o-ran-delay-management/>"
+
+# Xac minh cai dat nen
+netconf-cli get --filter "<o-ran-compression-factors/>"
+
+# Phan tich section header (bo loc Wireshark)
+# oran.c_section.type == 1
+```
+
+**Vi du ngan sach timing:**
+
+```
+Xu ly DU:         100 µs
+Switch Ethernet:   10 µs (moi hop)
+Do tre cap quang:   5 µs/km
+Xu ly RU:          50 µs
+
+Cho cap quang 10 km + 2 switch:
+Tong do tre = 100 + 20 + 50 + 50 = 220 µs
+
+Ta3_max = 131 µs → VAN DE: can duong ngan hon hoac DU edge
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Khong khop Cat-A/B.** DU va RU phai thong nhat category. Cau hinh sai pha vo beamforming hoan toan.
+
+2. **Nham loai section.** Dung sai loai section cho PRACH hoac SRS gay loi phat hien.
+
+3. **Vi pham cua so timing.** Goi C-Plane hoac U-Plane tre bi bo im lang. Khong truyen lai.
+
+4. **Thuong luong nen.** DU va RU phai thong nhat nen. Khong khop lam hong du lieu IQ.
+
+5. **Uu tien VLAN.** C-Plane can uu tien cao hon U-Plane. QoS sai bo tin dieu khien.
+
+6. **Loi so thu tu.** SEQ_ID bi mat chi ra mat goi. Giam sat chat luong fronthaul.
+
+7. **Timing trong so beam.** Cho Cat-B, trong so beam phai den truoc U-Plane. Lech gay sai beam.
+
+8. **Thang hang ranh gioi symbol.** Du lieu IQ phai thang hang voi ranh gioi symbol. Troi gay nhieu lien symbol.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- O-RAN Alliance WG4, "Management Plane Specification"
+- eCPRI Specification V2.0, "Common Public Radio Interface: eCPRI"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Yeu cau fronthaul](/vi/core-network/functional-splits/fronthaul-requirements/) — tinh kich co transport
+- [O-RU](/vi/core-network/o-ran-architecture/o-ru/) — chi tiet Don vi Vo tuyen
+- [O-DU](/vi/core-network/o-ran-architecture/o-du/) — Don vi Phan tan
+
+</section>

@@ -8,17 +8,352 @@ track: n3
 unit: service-based-interface-http2
 order: 4
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n3-service-based-interface-http2-01-sbi-overview"]
+spiralRevisits: []
 title: "JSON va OpenAPI trong 5G"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Cach 3GPP dinh nghia API su dung OpenAPI 3.0 — cau truc schema, cac kieu du lieu chung, va tuong thich thuc te."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 29.501", "3GPP TS 29.571", "OpenAPI 3.0"]
+tags: ["openapi", "json", "5g", "sbi", "api"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# JSON va OpenAPI trong 5G
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+API SBI 5G khong duoc tai lieu hoa bang van ban — chung duoc dinh nghia trong cac dac ta OpenAPI doc duoc bang may. Moi request body, response, va loi deu duoc chi dinh chinh thuc.
+
+Dieu nay co nghia ban co the tao ma client, xac thuc tin nhan, va debug van de tuong thich bang cach doc spec. Hieu OpenAPI trong boi canh 5G la can thiet cho trien khai va xu ly su co.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### OpenAPI nhu hop dong
+
+```
+OpenAPI trong He sinh thai 5G:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dac ta 3GPP (TS 29.xxx)                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Mo ta Van ban          YAML OpenAPI            │    │
+│  │  (van ban chuan)        (doc duoc bang may)     │    │
+│  │        │                         │              │    │
+│  │        └─────────┬───────────────┘              │    │
+│  │                  │                              │    │
+│  │                  ▼                              │    │
+│  │  ┌──────────────────────────────────────┐      │    │
+│  │  │ Ca hai deu la chuan!                 │      │    │
+│  │  │ OpenAPI la nguon su that cho         │      │    │
+│  │  │ cau truc API, kieu, va xac thuc      │      │    │
+│  │  └──────────────────────────────────────┘      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Vendor tao ma tu OpenAPI → tuong thich                 │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### JSON thay vi cac phuong an khac
+
+```
+Tai sao JSON cho 5G SBI:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Phuong an khac   │ Tai sao Khong Dung                  │
+│  ─────────────────┼────────────────────────────────────│
+│  ASN.1 (4G)       │ Phuc tap, can cong cu dac biet     │
+│  Protocol Buffers │ Nhi phan, kho doc boi nguoi        │
+│  XML              │ Day dong, overhead parsing          │
+│  YAML             │ Tap cha cua JSON, khong them gia tri│
+│                                                          │
+│  Uu diem JSON:                                          │
+│  ├── Doc duoc boi nguoi de debug                       │
+│  ├── Ban dia trong he sinh thai HTTP/REST              │
+│  ├── Ho tro cong cu rong                               │
+│  ├── HPACK nen header lap lai                          │
+│  └── He thong kieu don gian phu hop nhu cau telecom   │
+│                                                          │
+│  Danh doi: JSON lon ~30-50% hon dinh dang nhi phan     │
+│  nhung nen HTTP/2 + HPACK bu dap dieu nay              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cau truc OpenAPI cho 5G
+
+```
+Cau truc OpenAPI API 5G Dien hinh:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  openapi: 3.0.0                                         │
+│  info:                                                  │
+│    title: Nsmf_PDUSession                              │
+│    version: 1.0.0                                      │
+│                                                          │
+│  servers:                                               │
+│    - url: '{apiRoot}/nsmf-pdusession/v1'              │
+│                                                          │
+│  paths:                                                 │
+│    /sm-contexts:                                       │
+│      post:                                             │
+│        operationId: CreateSMContext                    │
+│        requestBody:                                    │
+│          content:                                      │
+│            application/json:                           │
+│              schema:                                   │
+│                $ref: '#/components/schemas/...'       │
+│        responses:                                      │
+│          '201':                                        │
+│            description: Created                        │
+│          '400':                                        │
+│            $ref: 'TS29571_CommonData.yaml#/...'       │
+│                                                          │
+│  components:                                            │
+│    schemas:                                            │
+│      SmContextCreateData:                              │
+│        type: object                                    │
+│        required:                                       │
+│          - supi                                        │
+│          - pduSessionId                               │
+│        properties:                                     │
+│          supi:                                         │
+│            $ref: 'TS29571_CommonData.yaml#/.../Supi'  │
+│          pduSessionId:                                │
+│            $ref: 'TS29571_CommonData.yaml#/.../...'   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac kieu du lieu chung (TS 29.571)
+
+```
+Cac Kieu Du lieu Chung 3GPP:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Kieu          │ Dinh dang             │ Vi du          │
+│  ──────────────┼───────────────────────┼────────────────│
+│  Supi          │ imsi-{mcc}{mnc}{msin} │ imsi-310001... │
+│  Gpsi          │ msisdn-{so}           │ msisdn-141...  │
+│  Pei           │ imei-{15 chu so}      │ imei-35462...  │
+│  Dnn           │ chuoi                 │ "internet"     │
+│  Snssai        │ {"sst":1,"sd":"..."}  │ {"sst":1}      │
+│  PlmnId        │ {"mcc":"...","mnc":..}│ {"mcc":"310"...│
+│  Tai           │ {"plmnId":...,"tac":} │ {"plmnId":...} │
+│  Guami         │ object phuc tap       │ {...}          │
+│  DateTime      │ RFC 3339              │ 2025-06-03T... │
+│  Bytes         │ ma hoa base64         │ "SGVsbG8="     │
+│  Uri           │ RFC 3986              │ https://...    │
+│                                                          │
+│  Cac kieu nay duoc tai su dung trong TAT CA API SBI 5G │
+│  Dinh nghia mot lan trong TS29571_CommonData.yaml      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Dinh dang phan hoi loi
+
+```
+Chi tiet Van de 3GPP (RFC 7807):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  HTTP/2 400 Bad Request                                 │
+│  Content-Type: application/problem+json                │
+│                                                          │
+│  {                                                      │
+│    "type": "https://example.org/errors/invalid-supi", │
+│    "title": "Dinh dang SUPI khong hop le",            │
+│    "status": 400,                                      │
+│    "detail": "SUPI phai bat dau bang 'imsi-'",        │
+│    "instance": "/nsmf-pdusession/v1/sm-contexts/123", │
+│    "cause": "MANDATORY_IE_INCORRECT",                  │
+│    "invalidParams": [                                  │
+│      {                                                 │
+│        "param": "supi",                               │
+│        "reason": "Dinh dang khong khop imsi-..."      │
+│      }                                                 │
+│    ]                                                   │
+│  }                                                      │
+│                                                          │
+│  Gia tri cause chuan 5G:                                │
+│  - MANDATORY_IE_MISSING                                │
+│  - MANDATORY_IE_INCORRECT                              │
+│  - UNSPECIFIED_NF_FAILURE                              │
+│  - SYSTEM_FAILURE                                      │
+│  - NF_CONGESTION                                       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Tin nhan multipart
+
+```
+Nhi phan + JSON trong Mot Request:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dung khi gui tin nhan NAS qua SBI:                    │
+│                                                          │
+│  POST /nsmf-pdusession/v1/sm-contexts                  │
+│  Content-Type: multipart/related; boundary=boundary123 │
+│                                                          │
+│  --boundary123                                         │
+│  Content-Type: application/json                        │
+│                                                          │
+│  {                                                      │
+│    "supi": "imsi-310001234567890",                    │
+│    "pduSessionId": 5,                                  │
+│    "n1SmMsg": {                                        │
+│      "contentId": "n1SmMsg"                           │
+│    }                                                   │
+│  }                                                      │
+│                                                          │
+│  --boundary123                                         │
+│  Content-Type: application/vnd.3gpp.5gnas              │
+│  Content-Id: n1SmMsg                                   │
+│                                                          │
+│  <PDU NAS nhi phan>                                    │
+│                                                          │
+│  --boundary123--                                       │
+│                                                          │
+│  Phan JSON tham chieu phan nhi phan qua contentId     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Tham chieu schema
+
+```
+Cach Spec 3GPP Tham chieu Nhau:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TS29502_Nsmf_PDUSession.yaml                          │
+│  │                                                      │
+│  ├── $ref: 'TS29571_CommonData.yaml#/components/...'   │
+│  │   (kieu chung: Supi, Snssai, PlmnId)               │
+│  │                                                      │
+│  ├── $ref: 'TS29503_Nudm_SDM.yaml#/components/...'    │
+│  │   (kieu du lieu thue bao)                          │
+│  │                                                      │
+│  └── $ref: 'TS29510_Nnrf_NFDiscovery.yaml#/...'       │
+│      (kieu NF profile)                                 │
+│                                                          │
+│  Cac file dac ta quan trong:                            │
+│  - TS29571: Kieu du lieu chung (dung boi TAT CA)       │
+│  - TS29502: API SMF PDU Session                        │
+│  - TS29518: API AMF Communication                      │
+│  - TS29503: API UDM Subscriber Data                    │
+│  - TS29509: API AUSF Authentication                    │
+│  - TS29510: API NRF Management/Discovery               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tim spec OpenAPI:**
+
+| Nguon | Vi tri |
+|-------|--------|
+| 3GPP chinh thuc | https://www.3gpp.org/ftp/Specs/archive/ |
+| Thu muc API | Chuoi TS 29.5xx (moi NF co spec rieng) |
+| Kieu chung | TS 29.571 |
+| Dinh dang | File YAML trong archive spec |
+
+**Xac thuc tin nhan:**
+
+```bash
+# Tao kieu tu OpenAPI
+openapi-generator generate -i TS29502_Nsmf.yaml -g python
+
+# Xac thuc JSON voi schema
+ajv validate -s schema.json -d message.json
+
+# Wireshark: xem body JSON
+http2.data && json
+
+# In dep JSON tu log
+jq '.' /var/log/smf/sbi-trace.json
+```
+
+**Mau xac thuc pho bien:**
+
+| Truong | Xac thuc | Regex/Pattern |
+|--------|----------|---------------|
+| SUPI | imsi-[15 chu so] | `^imsi-[0-9]{15}$` |
+| GPSI | msisdn-[chu so] | `^msisdn-[0-9]{5,15}$` |
+| DNN | Chuoi ASCII | `^[a-zA-Z0-9.-]+$` |
+| S-NSSAI SST | 0-255 | so nguyen |
+| S-NSSAI SD | 6 chu so hex | `^[0-9A-Fa-f]{6}$` |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Khong khop version spec.** Spec OpenAPI phat trien theo cac release 3GPP. Dam bao ban dung dung version (R15, R16, R17).
+
+2. **Xu ly field khong biet.** Mot so trien khai tu choi field JSON khong biet. So khac bo qua. Test interop can than.
+
+3. **Null vs vang mat.** JSON null khac voi field vang mat. Mot so API nghiem ngat ve dieu nay.
+
+4. **Ma hoa Base64.** Du lieu nhi phan phai duoc ma hoa base64 dung. Van de padding pho bien.
+
+5. **Dinh dang DateTime.** Phai la RFC 3339 (ISO 8601). Yeu cau time zone. "Z" cho UTC.
+
+6. **Giai quyet $ref.** Tham chieu cheo file yeu cau tat ca spec duoc tham chieu phai co san.
+
+7. **Parse multipart.** Xu ly boundary kho. Content-Id phai khop chinh xac.
+
+8. **Phan biet hoa thuong enum.** Enum 3GPP thuong la UPPER_CASE. "registered" ≠ "REGISTERED".
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 29.501, "Principles and Guidelines for Services Definition"
+- 3GPP TS 29.571, "Common Data Types"
+- OpenAPI Specification 3.0, https://spec.openapis.org/oas/v3.0.3
+- RFC 7807, "Problem Details for HTTP APIs"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Tong quan SBI](/vi/core-network/service-based-interface-http2/sbi-overview/) — mo hinh service
+- [HTTP/2 trong 5G](/vi/core-network/service-based-interface-http2/http2-in-5g/) — lop truyen tai
+- [Doc spec 3GPP](/vi/core-network/reading-3gpp/3gpp-structure/) — huong dan dieu huong
+
+</section>

@@ -8,17 +8,487 @@ track: s7
 unit: leo-constellation-architecture
 order: 4
 level: L4
-estimatedReadingMinutes: 5
-title: "Handover between satellites"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["starlink-class-design", "gateway-placement"]
+spiralRevisits: []
+title: "Handover Between LEO Satellites"
+description: "How user terminals and gateways switch beams as satellites pass overhead."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["handover", "beam-switching", "mobility", "leo", "phased-array"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Handover between satellites
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+A LEO satellite at 550 km crosses overhead in about 5-10 minutes. To maintain continuous service, user terminals and gateways must seamlessly switch from one satellite to another—often every few minutes. This handover process is fundamentally different from cellular handoff: both endpoints are moving (satellite at 7.5 km/s, Earth rotating), and the timing is predictable from orbital mechanics. Understanding handover strategies is essential for designing low-latency, high-availability LEO services.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Why handover is constant in LEO
+
+```
+LEO Satellite Motion (550 km orbit):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SATELLITE PASS TIMELINE:                                           │
+│                                                                      │
+│  Time (min)  0    2    4    6    8    10   12   14   16            │
+│              │    │    │    │    │    │    │    │    │             │
+│              ▼    ▼    ▼    ▼    ▼    ▼    ▼    ▼    ▼             │
+│             ↗   ↗   ↗   ↗   ↗   ↗   ↗   ↗   ↗                     │
+│           🛰️──→🛰️──→🛰️──→🛰️──→🛰️──→🛰️──→🛰️──→🛰️──→🛰️ out         │
+│            │    │    │    │    │    │    │    │    │               │
+│            └────┴────┴────┴────┴────┴────┴────┴────┘               │
+│                         ●  User Terminal                           │
+│                                                                      │
+│  Visibility window: ~8-12 minutes (elevation > 25°)                │
+│  Orbital velocity: 7.5 km/s (27,000 km/hr)                        │
+│  Ground track speed: ~6.8 km/s                                     │
+│  Distance change: 0 → 950 km → 0 (to horizon)                     │
+│                                                                      │
+│  HANDOVER FREQUENCY:                                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Constellation │ Handovers/hour │ Avg service time   │         │
+│  │  ──────────────┼────────────────┼───────────────────│         │
+│  │  Starlink 550km│ 6-10           │ 6-10 min           │         │
+│  │  OneWeb 1200km │ 3-5            │ 12-20 min          │         │
+│  │  GEO 35786km   │ 0              │ ∞ (stationary)     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Handover types
+
+```
+Three Types of Handover in LEO Systems:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. INTRA-SATELLITE (Beam Handover):                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │         🛰️ (same satellite)                           │         │
+│  │        ╱│╲                                            │         │
+│  │       ╱ │ ╲  Multiple spot beams                     │         │
+│  │      ╱  │  ╲                                          │         │
+│  │     B1  B2  B3                                        │         │
+│  │      │   │   │                                        │         │
+│  │      └───●───┘  User moves between beams             │         │
+│  │                                                        │         │
+│  │  Latency impact: Minimal (~1-5 ms)                   │         │
+│  │  Complexity: Low (same satellite, just beam switch)  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  2. INTER-SATELLITE (Satellite Handover):                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │       🛰️A (setting) ─────→ 🛰️B (rising)              │         │
+│  │         ╲                    ╱                        │         │
+│  │          ╲                  ╱                         │         │
+│  │           ╲                ╱                          │         │
+│  │            ╲──── ● ─────╱   User terminal            │         │
+│  │                                                        │         │
+│  │  Latency impact: 10-50 ms disruption possible        │         │
+│  │  Complexity: High (re-authenticate, re-route)        │         │
+│  │  Trigger: Elevation angle, signal quality, load      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  3. GATEWAY HANDOVER:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │       🛰️ ─────────────────→ 🛰️                       │         │
+│  │         │                       │                     │         │
+│  │         ▼                       ▼                     │         │
+│  │        GW1 ──────────────────► GW2                   │         │
+│  │         (setting)              (acquiring)            │         │
+│  │                                                        │         │
+│  │  User doesn't see this directly (transparent)        │         │
+│  │  ISL can mask this entirely (traffic re-routes)      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Handover decision algorithm
+
+```
+Handover Trigger Logic:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PREDICTIVE HANDOVER (LEO advantage):                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Unlike cellular, LEO handovers are PREDICTABLE       │         │
+│  │                                                        │         │
+│  │  Inputs:                                              │         │
+│  │  • TLE/ephemeris of all satellites                   │         │
+│  │  • User terminal GPS position                        │         │
+│  │  • Current time (GPS-synced)                         │         │
+│  │                                                        │         │
+│  │  Network can compute:                                 │         │
+│  │  • Exact time current satellite sets below threshold │         │
+│  │  • Which satellite will be best at T+1 min          │         │
+│  │  • Pre-schedule handover with minimal disruption     │         │
+│  │                                                        │         │
+│  │          ┌──────────────────────────────────┐        │         │
+│  │          │  t = T-30s: Notify target sat    │        │         │
+│  │          │  t = T-10s: Begin soft handover  │        │         │
+│  │          │  t = T:     Complete switch      │        │         │
+│  │          │  t = T+5s:  Release old sat      │        │         │
+│  │          └──────────────────────────────────┘        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  HANDOVER TRIGGERS:                                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Trigger          │ Threshold    │ Priority │         │         │
+│  │  ─────────────────┼──────────────┼──────────│         │         │
+│  │  Elevation angle  │ < 25°        │ Critical │         │         │
+│  │  Signal quality   │ SNR < 5 dB   │ High     │         │         │
+│  │  Satellite load   │ > 90%        │ Medium   │         │         │
+│  │  ISL path quality │ > 100ms RTT  │ Medium   │         │         │
+│  │  Scheduled event  │ Ephemeris    │ Normal   │         │         │
+│  │                                                        │         │
+│  │  Decision priority: Critical > High > Medium > Normal │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Phased array enables fast handover
+
+```
+Phased Array Beam Steering:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MECHANICAL vs PHASED ARRAY:                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Mechanical dish:                                     │         │
+│  │  ┌───────┐                                            │         │
+│  │  │   ◡   │ ← Must physically rotate                  │         │
+│  │  │  / \  │   Slew rate: ~3°/sec                      │         │
+│  │  │ Motor │   Handover time: 30-60 seconds            │         │
+│  │  └───────┘   Can only track ONE satellite            │         │
+│  │                                                        │         │
+│  │  Phased array:                                        │         │
+│  │  ┌────────────────────────────────────────┐          │         │
+│  │  │ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ │ ← Flat   │         │
+│  │  │ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ │   panel  │         │
+│  │  │ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ │          │         │
+│  │  └────────────────────────────────────────┘          │         │
+│  │  Electronic steering: < 1 microsecond                │         │
+│  │  Can form MULTIPLE beams simultaneously              │         │
+│  │  Make-before-break handover possible                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  MAKE-BEFORE-BREAK HANDOVER:                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Time: ─────────────────────────────────────────→    │         │
+│  │                                                        │         │
+│  │  Old Sat:  ████████████████████▓▓▓▓░░░░░░░░░░        │         │
+│  │  New Sat:  ░░░░░░░░░░░░░░▓▓▓▓████████████████        │         │
+│  │                      ↑                               │         │
+│  │                      │ Overlap period                │         │
+│  │                      │ (both links active)           │         │
+│  │                                                        │         │
+│  │  Result: Zero disruption to user traffic             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Session continuity
+
+```
+Maintaining Sessions Across Handovers:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CHALLENGE: User has TCP connection, VoIP call, video stream       │
+│             IP address and routing must survive handover            │
+│                                                                      │
+│  SOLUTION: Network-layer mobility (not application-aware)          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ┌─────────────────────────────────────────────────┐  │         │
+│  │  │              CORE NETWORK / PGW                 │  │         │
+│  │  │  IP anchor point (user IP doesn't change)      │  │         │
+│  │  └─────────────────────┬───────────────────────────┘  │         │
+│  │                        │                              │         │
+│  │              GTP tunnel (or QUIC/Wireguard)          │         │
+│  │                        │                              │         │
+│  │         ┌──────────────┼──────────────┐              │         │
+│  │         │              │              │              │         │
+│  │         ▼              ▼              ▼              │         │
+│  │       🛰️A           🛰️B           🛰️C             │         │
+│  │                                                        │         │
+│  │  Handover: Tunnel endpoint moves from A to B         │         │
+│  │  User sees: Same IP, same session, brief jitter      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  HANDOVER LATENCY BUDGET:                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Component            │ Time      │                   │         │
+│  │  ─────────────────────┼───────────│                   │         │
+│  │  Decision + signaling │ 10-20 ms  │                   │         │
+│  │  New link acquisition │ 5-10 ms   │ (phased array)   │         │
+│  │  Authentication       │ 5-20 ms   │                   │         │
+│  │  Routing convergence  │ 10-30 ms  │                   │         │
+│  │  ─────────────────────┼───────────│                   │         │
+│  │  Total (soft HO)      │ 30-80 ms  │ ← With overlap   │         │
+│  │  Total (hard HO)      │ 100-500 ms│ ← Break-then-make│         │
+│  │                                                        │         │
+│  │  For real-time apps, soft handover essential         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Handover timing calculator:**
+
+```python
+import numpy as np
+from math import radians, degrees, sin, cos, asin, sqrt, atan2
+
+R_EARTH = 6371  # km
+MU = 398600.4418  # km³/s²
+
+def orbital_velocity_km_s(altitude_km):
+    """Orbital velocity at given altitude."""
+    r = R_EARTH + altitude_km
+    return sqrt(MU / r)
+
+def orbital_period_min(altitude_km):
+    """Orbital period in minutes."""
+    r = R_EARTH + altitude_km
+    return 2 * np.pi * sqrt(r**3 / MU) / 60
+
+def visibility_duration_min(altitude_km, min_elevation_deg):
+    """Time satellite is visible above minimum elevation."""
+    r = R_EARTH + altitude_km
+    el_rad = radians(min_elevation_deg)
+    
+    # Central angle for visibility
+    rho = np.arcsin(R_EARTH / r * np.cos(el_rad)) - el_rad
+    
+    # Arc fraction
+    arc_fraction = 2 * rho / (2 * np.pi)
+    
+    # Period
+    T = orbital_period_min(altitude_km)
+    
+    return T * arc_fraction
+
+def handovers_per_hour(altitude_km, min_elevation_deg, sats_in_view=2.5):
+    """Estimate handover frequency."""
+    visibility = visibility_duration_min(altitude_km, min_elevation_deg)
+    return 60 / visibility * sats_in_view
+
+def elevation_vs_time(altitude_km, max_elevation_deg, time_array_min):
+    """Elevation angle during a satellite pass (simplified)."""
+    # Parabolic approximation for pass geometry
+    pass_duration = visibility_duration_min(altitude_km, 5)  # to 5° minimum
+    t_peak = pass_duration / 2
+    
+    elevations = []
+    for t in time_array_min:
+        # Simple parabolic model
+        el = max_elevation_deg * (1 - ((t - t_peak) / t_peak)**2)
+        elevations.append(max(0, el))
+    return elevations
+
+def handover_decision(
+    current_el_deg,
+    next_sat_el_deg,
+    current_snr_db,
+    threshold_el_deg=25,
+    threshold_snr_db=5,
+    hysteresis_db=2
+):
+    """Decide if handover should occur."""
+    reasons = []
+    
+    # Check elevation
+    if current_el_deg < threshold_el_deg:
+        reasons.append(f"elevation {current_el_deg:.1f}° < {threshold_el_deg}°")
+    
+    # Check SNR
+    if current_snr_db < threshold_snr_db:
+        reasons.append(f"SNR {current_snr_db:.1f} dB < {threshold_snr_db} dB")
+    
+    # Check if next satellite is better (with hysteresis)
+    if next_sat_el_deg > current_el_deg + hysteresis_db:
+        reasons.append(f"next sat elevation {next_sat_el_deg:.1f}° > current + hysteresis")
+    
+    should_handover = len(reasons) > 0
+    return should_handover, reasons
+
+# Analysis
+print("LEO Handover Analysis")
+print("=" * 70)
+
+# Compare different altitudes
+altitudes = [340, 550, 1200]
+
+print("\n1. Visibility and Handover Frequency")
+print("-" * 70)
+print(f"{'Altitude':<12} {'Velocity':<12} {'Period':<12} {'Visibility':<12} {'HO/hour':<12}")
+print(f"{'(km)':<12} {'(km/s)':<12} {'(min)':<12} {'(min)':<12} {'(approx)':<12}")
+print("-" * 70)
+
+for alt in altitudes:
+    vel = orbital_velocity_km_s(alt)
+    period = orbital_period_min(alt)
+    vis = visibility_duration_min(alt, 25)  # 25° minimum elevation
+    ho_rate = handovers_per_hour(alt, 25)
+    print(f"{alt:<12} {vel:<12.2f} {period:<12.1f} {vis:<12.1f} {ho_rate:<12.1f}")
+
+# Handover timing example
+print("\n2. Satellite Pass Simulation (550 km, 85° max elevation)")
+print("-" * 70)
+
+times = np.linspace(0, 10, 21)  # 0 to 10 minutes
+elevations = elevation_vs_time(550, 85, times)
+
+print(f"{'Time (min)':<12} {'Elevation':<12} {'Handover?':<12}")
+print("-" * 70)
+
+for t, el in zip(times, elevations):
+    # Simulate next satellite rising
+    next_el = max(0, 20 + t * 8 - (t - 5)**2)  # Rising satellite
+    
+    should_ho, reasons = handover_decision(el, next_el, snr_db=10 + el/5)
+    ho_str = "YES - " + reasons[0][:20] if should_ho and reasons else "NO"
+    print(f"{t:<12.1f} {el:<12.1f}° {ho_str:<30}")
+
+# Handover latency budget
+print("\n3. Handover Latency Budget")
+print("-" * 70)
+
+components = [
+    ("Decision signaling", 15),
+    ("Beam acquisition (phased array)", 5),
+    ("Authentication exchange", 15),
+    ("Routing table update", 20),
+    ("Buffer flush/sync", 10),
+]
+
+total = 0
+print(f"{'Component':<35} {'Time (ms)':<12}")
+print("-" * 70)
+for name, ms in components:
+    print(f"{name:<35} {ms:<12}")
+    total += ms
+print("-" * 70)
+print(f"{'Total (soft handover)':<35} {total:<12}")
+print(f"{'+ Link break penalty (hard HO)':<35} {'+100-400':<12}")
+
+# Session impact
+print("\n4. Impact on Different Traffic Types")
+print("-" * 70)
+
+traffic_types = [
+    ("TCP bulk transfer", "OK", "Brief throughput dip, no loss"),
+    ("Video streaming (buffered)", "OK", "~500ms buffer absorbs jitter"),
+    ("Real-time video (WebRTC)", "Minor", "~100ms spike, decoder handles"),
+    ("VoIP call", "Minor", "Brief audio artifact"),
+    ("Gaming (< 50ms budget)", "Noticeable", "Frame skip or input lag"),
+    ("Financial trading", "Critical", "May trigger failover"),
+]
+
+print(f"{'Traffic Type':<28} {'Impact':<12} {'Notes':<30}")
+print("-" * 70)
+for traffic, impact, notes in traffic_types:
+    print(f"{traffic:<28} {impact:<12} {notes:<30}")
+```
+
+**Handover summary:**
+
+| Metric | Starlink (550 km) | OneWeb (1200 km) | GEO |
+|--------|-------------------|------------------|-----|
+| Pass duration | 6-10 min | 12-20 min | ∞ |
+| Handovers/hour | 6-10 | 3-5 | 0 |
+| Handover latency | 30-80 ms | 30-80 ms | N/A |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Mechanical antennas.** Can't do make-before-break; handover takes 30-60 seconds.
+
+2. **Ping-pong effect.** Poorly tuned hysteresis causes rapid switching between two satellites.
+
+3. **ISL routing lag.** Handover at user terminal doesn't help if ISL path takes time to converge.
+
+4. **Authentication overhead.** Full re-auth on every handover wastes time; use session tickets.
+
+5. **Load imbalance.** All users in a cell hand over simultaneously → thundering herd on new satellite.
+
+6. **TCP sensitivity.** Large RTT spikes trigger congestion control backoff; use QUIC where possible.
+
+7. **Maritime edge cases.** Ships at extreme latitude see fewer satellites; handover gaps possible.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TR 38.821: Solutions for NR to Support NTN
+- Starlink Phased Array Patent US10862198B2
+- ITU-R M.2514: Technical Characteristics for NGSO Systems
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Capacity Dynamics](/en/space/leo-constellation-architecture/capacity-dynamics/) — load balancing
+- [Link Budget](/en/space/link-budget-master-class/) — signal quality calculations
+- [5G NTN](/en/5g-ntn/) — 3GPP non-terrestrial networks
+
+</section>

@@ -8,17 +8,413 @@ track: n6
 unit: ric-xapps-rapps
 order: 1
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n6-o-ran-architecture-04-ric-overview"]
+spiralRevisits: []
 title: "Near-RT RIC"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Near-Real-Time RAN Intelligent Controller: kien truc, giao dien E2, va timing vong dieu khien cho toi uu RAN thong minh."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG3.E2AP", "O-RAN.WG3.E2SM"]
+tags: ["o-ran", "ric", "near-rt-ric", "e2", "xapps"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Near-RT RIC
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+RAN truyen thong hoat dong voi thuat toan tinh. Near-RT RIC cho phep toi uu thoi gian thuc — dua ra quyet dinh trong 10ms den 1s dua tren dieu kien mang song.
+
+Day la noi AI/ML gap RAN. Hieu Near-RT RIC la can thiet cho trien khai O-RAN hien dai.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Vi tri Near-RT RIC
+
+```
+Near-RT RIC trong Kien truc O-RAN:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │            SMO / Non-RT RIC                       │  │
+│  │            (vong dieu khien >1s)                  │  │
+│  └───────────────────────────────────────────────────┘  │
+│                        │ A1                             │
+│                        ▼                                │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │              Near-RT RIC                          │  │
+│  │              (vong dieu khien 10ms - 1s)          │  │
+│  │                                                    │  │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐              │  │
+│  │  │ xApp 1  │ │ xApp 2  │ │ xApp 3  │   ...        │  │
+│  │  │ (MLB)   │ │ (MRO)   │ │ (ES)    │              │  │
+│  │  └─────────┘ └─────────┘ └─────────┘              │  │
+│  │                                                    │  │
+│  │  ┌─────────────────────────────────────────────┐  │  │
+│  │  │ Dich vu Nen tang Near-RT RIC                │  │  │
+│  │  │ - E2 Termination                            │  │  │
+│  │  │ - Subscription Manager                      │  │  │
+│  │  │ - Conflict Mitigation                       │  │  │
+│  │  │ - SDL (Shared Data Layer)                   │  │  │
+│  │  └─────────────────────────────────────────────┘  │  │
+│  └───────────────────────────────────────────────────┘  │
+│                        │ E2                             │
+│                        ▼                                │
+│  ┌─────────┐  ┌─────────┐  ┌─────────┐                 │
+│  │  O-CU   │  │  O-DU   │  │  O-CU   │   E2 Nodes     │
+│  │  (CP)   │  │         │  │  (UP)   │                 │
+│  └─────────┘  └─────────┘  └─────────┘                 │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Timing vong dieu khien
+
+```
+Thu bac Vong Dieu khien RAN:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Ngan sach Thoi gian:                                   │
+│                                                          │
+│  │◄──────────── 1s ─────────────►│                      │
+│  │                                │                      │
+│  │◄─── 10ms-1s ──►│               │                      │
+│  │    Near-RT     │    Non-RT     │                      │
+│  │    RIC         │    RIC        │                      │
+│  │                │               │                      │
+│  │◄─ &lt;10ms ─►│    │               │                      │
+│  │   DU/CU   │    │               │                      │
+│  │   cuc bo  │    │               │                      │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  &lt;10ms (Thoi gian thuc, trong DU/CU):           │    │
+│  │  - Quyet dinh lap lich                          │    │
+│  │  - Phan hoi HARQ                                │    │
+│  │  - Dieu khien cong suat                         │    │
+│  │                                                  │    │
+│  │  10ms-1s (Near-RT RIC qua E2):                  │    │
+│  │  - Toi uu chuyen giao                           │    │
+│  │  - Can bang tai giua cac cell                   │    │
+│  │  - Dieu chinh chinh sach RRM                    │    │
+│  │  - Quan ly nhieu                                │    │
+│  │                                                  │    │
+│  │  >1s (Non-RT RIC qua A1):                       │    │
+│  │  - Huan luyen/cap nhat mo hinh ML               │    │
+│  │  - Tao chinh sach                               │    │
+│  │  - Lap ke hoach dung luong                      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Giao dien E2
+
+```
+Giao dien E2 (Near-RT RIC den E2 Nodes):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  E2AP (E2 Application Protocol):                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  E2 Setup:                                      │    │
+│  │  - E2 Node ket noi den Near-RT RIC              │    │
+│  │  - Bao cao kha nang (RAN functions)             │    │
+│  │  - Thiet lap lien ket SCTP                      │    │
+│  │                                                  │    │
+│  │  ┌───────────┐                ┌───────────┐     │    │
+│  │  │ Near-RT   │◄── E2 Setup ──│  E2 Node  │     │    │
+│  │  │ RIC       │    Request    │  (O-CU)   │     │    │
+│  │  │           │               │           │     │    │
+│  │  │           │── E2 Setup ──►│           │     │    │
+│  │  │           │   Response    │           │     │    │
+│  │  └───────────┘                └───────────┘     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  E2 Subscription:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  xApp dang ky du lieu RAN qua E2SM              │    │
+│  │                                                  │    │
+│  │  ┌───────────┐                ┌───────────┐     │    │
+│  │  │  xApp     │── Subscribe ──►│  E2 Node  │     │    │
+│  │  │           │   (qua RIC)    │           │     │    │
+│  │  │           │◄── Indication ─│           │     │    │
+│  │  │           │    (dinh ky)   │           │     │    │
+│  │  │           │── Control ────►│           │     │    │
+│  │  │           │   (hanh dong)  │           │     │    │
+│  │  └───────────┘                └───────────┘     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### E2 Service Models (E2SM)
+
+```
+E2 Service Models:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  E2SM dinh nghia ngu nghia cho cac chuc nang RAN cu the:│
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ E2SM-KPM (Key Performance Measurement)          │    │
+│  │ - Dang ky KPIs                                  │    │
+│  │ - Su dung PRB, throughput, do tre              │    │
+│  │ - So lieu cap cell va cap UE                   │    │
+│  │ - Bao cao dinh ky hoac theo su kien            │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ E2SM-RC (RAN Control)                           │    │
+│  │ - Dieu khien hanh vi RAN                        │    │
+│  │ - Kich hoat chuyen giao                         │    │
+│  │ - Dieu chinh tham so RRM                        │    │
+│  │ - Chen/sua chinh sach                           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ E2SM-NI (Network Interface)                     │    │
+│  │ - Giam sat/dieu khien giao dien X2/Xn          │    │
+│  │ - Phoi hop giua cac node                        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ E2SM-CCC (Cell Configuration and Control)       │    │
+│  │ - Cau hinh tham so cell                         │    │
+│  │ - Cau hinh antenna                              │    │
+│  │ - Quan ly carrier                               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Nen tang Near-RT RIC
+
+```
+Cac Thanh phan Nen tang Near-RT RIC:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  E2 Termination                                 │    │
+│  │  - May chu SCTP cho ket noi E2                  │    │
+│  │  - Ma hoa/giai ma ban tin E2AP                  │    │
+│  │  - Quan ly E2 Node                              │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Subscription Manager                           │    │
+│  │  - Dinh tuyen dang ky xApp den E2 nodes         │    │
+│  │  - Gop dang ky trung lap                        │    │
+│  │  - Theo doi trang thai dang ky                  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Conflict Mitigation                            │    │
+│  │  - Phat hien hanh dong xApp xung dot            │    │
+│  │  - Ap dung chinh sach giai quyet xung dot       │    │
+│  │  - Trong tai dua tren uu tien                   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  SDL (Shared Data Layer)                        │    │
+│  │  - Luu tru key-value dua tren Redis             │    │
+│  │  - Ngu canh UE, du lieu cell                    │    │
+│  │  - Luu tru trang thai xApp                      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  A1 Mediator                                    │    │
+│  │  - Nhan chinh sach tu Non-RT RIC                │    │
+│  │  - Phan phoi den cac xApp lien quan             │    │
+│  │  - Bao cao trang thai chinh sach                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Tuong tac xApp
+
+```
+Tuong tac xApp voi Near-RT RIC:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Vong doi xApp:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. Trien khai xApp (container/pod)             │    │
+│  │     ▼                                           │    │
+│  │  2. Dang ky voi xApp Manager                    │    │
+│  │     ▼                                           │    │
+│  │  3. Dang ky du lieu E2 (qua E2SM-KPM/RC)        │    │
+│  │     ▼                                           │    │
+│  │  4. Nhan RIC Indications (luong du lieu)        │    │
+│  │     ▼                                           │    │
+│  │  5. Xu ly du lieu, chay mo hinh ML              │    │
+│  │     ▼                                           │    │
+│  │  6. Gui RIC Control Request (hanh dong)         │    │
+│  │     ▼                                           │    │
+│  │  7. Nhan RIC Control Acknowledge                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  APIs xApp SDK:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  // Dang ky KPIs cell                           │    │
+│  │  rmr_subscribe(E2SM_KPM, cell_id, metrics)      │    │
+│  │                                                  │    │
+│  │  // Callback nhan indication                    │    │
+│  │  on_indication(data) { process(data); }         │    │
+│  │                                                  │    │
+│  │  // Gui hanh dong dieu khien                    │    │
+│  │  rmr_control(E2SM_RC, target, action)           │    │
+│  │                                                  │    │
+│  │  // Doc/ghi du lieu chia se                     │    │
+│  │  sdl_get(namespace, key)                        │    │
+│  │  sdl_set(namespace, key, value)                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cac loai ban tin E2AP:**
+
+| Ban tin | Huong | Muc dich |
+|---------|-------|----------|
+| E2 Setup Request | E2 Node → RIC | Ket noi ban dau |
+| E2 Setup Response | RIC → E2 Node | Chap nhan ket noi |
+| RIC Subscription | RIC → E2 Node | Dang ky du lieu |
+| RIC Indication | E2 Node → RIC | Bao cao du lieu |
+| RIC Control | RIC → E2 Node | Gui hanh dong |
+| E2 Node Config Update | E2 Node → RIC | Thay doi kha nang |
+
+**Trien khai OSC Near-RT RIC:**
+
+```bash
+# Trien khai OSC Near-RT RIC (Kubernetes)
+helm repo add oran-sc https://gerrit.o-ran-sc.org/r/ric-plt/ric-dep
+helm install ric oran-sc/ric-platform
+
+# Kiem tra RIC pods
+kubectl get pods -n ricplt
+
+# Xem ket noi E2
+kubectl logs -n ricplt -l app=e2term | grep "E2 Setup"
+
+# Trien khai mot xApp
+curl -X POST http://appmgr:8080/ric/v1/xapps \
+  -d '{"xappName": "my-xapp", "helmVersion": "1.0.0"}'
+```
+
+**Vi du dang ky E2:**
+
+```json
+{
+  "subscriptionId": "sub-001",
+  "clientEndpoint": {"host": "xapp", "port": 4560},
+  "meid": "gnb_001_001_00001",
+  "ranFunctionId": 1,
+  "subscriptionDetails": [{
+    "eventTriggers": {"reportPeriod": 100},
+    "actionDefinitions": [{
+      "actionId": 1,
+      "actionType": "report",
+      "subsequentAction": {"subsequentActionType": "continue"}
+    }]
+  }]
+}
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Vuot qua do tre E2.** Vong dieu khien phai hoan thanh trong &lt;1s. Do tre mang + xu ly phai vua ngan sach.
+
+2. **Qua tai dang ky.** Qua nhieu xApps dang ky cung du lieu. Dung gop dang ky.
+
+3. **Hanh dong xApp xung dot.** xApp MLB va xApp MRO ra lenh xung dot. Bat giam thieu xung dot.
+
+4. **Khong khop phien ban E2SM.** E2 node va xApp dung phien ban E2SM khac. Kiem tra tuong thich.
+
+5. **Nghẽn SDL.** Tat ca xApps do xo vao Redis. Toi uu mau doc/ghi, dung cache cuc bo.
+
+6. **Thieu RAN function.** xApp dang ky chuc nang E2 node khong ho tro. Kiem tra phan hoi E2 Setup.
+
+7. **Hanh dong dieu khien bi tu choi.** E2 node tu choi hanh dong do rang buoc. Xu ly RIC Control Failure.
+
+8. **Phuc hoi khi xApp crash.** xApp khoi dong lai, mat trang thai dang ky. Dung subscription manager de luu tru.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- O-RAN Alliance WG3, "Near-RT RIC Architecture"
+- O-RAN Alliance WG3, "E2 Application Protocol (E2AP)"
+- O-RAN Alliance WG3, "E2 Service Model specifications"
+- O-RAN SC, "Near-RT RIC Platform Documentation"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [xApps](/vi/core-network/ric-xapps-rapps/xapps/) — phat trien ung dung
+- [Non-RT RIC](/vi/core-network/ric-xapps-rapps/non-rt-ric/) — vong dieu khien cham hon
+- [Tong quan RIC](/vi/core-network/o-ran-architecture/ric-overview/) — ngu canh kien truc
+
+</section>

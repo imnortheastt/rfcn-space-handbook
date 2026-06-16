@@ -8,12 +8,12 @@ track: r0
 unit: maxwells-equations-engineers-view
 order: 2
 level: L2
-estimatedReadingMinutes: 6
+estimatedReadingMinutes: 13
 prerequisites: ["rf-r0-maxwells-equations-engineers-view-01-gauss-law"]
 spiralRevisits: []
 title: "Faraday's law"
 description: "Changing magnetic flux induces electric field."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,7 +27,11 @@ status: published
 
 ## Why Faraday's law?
 
-Faraday's law explains how changing magnetic fields create electric fields. Without it, there would be no transformers, no radio reception, no electromagnetic waves. For RF, this law is half of the wave-propagation mechanism — time-varying B creates E.
+Faraday's law is the engine of electromagnetic induction — and induction is the mechanism behind roughly half of all electromagnetic phenomena you encounter in RF work. Without it, there would be no transformers, no inductors, no loop antennas, no receive coils in NMR/MRI, and no electromagnetic wave propagation.
+
+More specifically, Faraday's law is the first of two "coupling" equations in Maxwell's system: it says that a time-varying magnetic field creates an electric field with curl — a circulating E-field that drives currents around loops. The second coupling equation (Ampere-Maxwell) says the reverse: a time-varying electric field creates a magnetic field. Together, they create the self-sustaining oscillation we call an electromagnetic wave.
+
+For the RF engineer: Faraday's law explains inductor behavior ($V = L\,dI/dt$), transformer coupling, why loop antennas are sensitive to $\mathbf{H}$ not $\mathbf{E}$, why probe lead placement matters, and why the skin effect drives current to the conductor surface at high frequencies.
 
 </section>
 
@@ -35,9 +39,25 @@ Faraday's law explains how changing magnetic fields create electric fields. With
 
 ## Intuition
 
-A changing magnetic field is like a pump that pushes electric charges around. The faster B changes, the harder it pushes. This "push" is an induced electric field that exists even without charges.
+### The time-varying B acts like a pump
 
-Loops of wire convert this electric field into measurable voltage — that's how receive antennas work.
+Imagine you freeze time and look at a snapshot of a magnetic field. Static — nothing interesting happens to charge carriers. Now allow the field to change. The moment $\partial \mathbf{B}/\partial t \neq 0$, an electric field appears around the region where $\mathbf{B}$ is changing. This E-field forms closed loops — it has curl. Place a wire loop in this region and the circulating E-field pushes charges around the loop, producing a current. No wire? The E-field still exists; it just has nothing to push.
+
+The faster $\mathbf{B}$ changes, the stronger the induced E-field. This is why the EMF of an inductor scales with $dI/dt$ (faster current change = faster flux change = larger back-EMF), and why all induction effects grow with frequency.
+
+### Lenz's law: nature resists change
+
+The minus sign in $\mathcal{E} = -d\Phi_B/dt$ is Lenz's law in mathematical form. The induced EMF always opposes the change that caused it. If the magnetic flux through a loop is increasing, the induced current creates a magnetic field opposing the increase. If the flux is decreasing, the induced current tries to maintain it.
+
+This self-opposing behavior is not optional — it is required by energy conservation. If induced currents aided the change instead of opposing it, you would get runaway amplification: unlimited energy from nothing.
+
+In RF, Lenz's law is why inductors resist sudden changes in current (the back-EMF opposes $dI/dt$), why eddy currents form in conducting material in the presence of time-varying fields (opposing the field change), and why high-permeability cores at high frequencies develop significant losses.
+
+### The EMF is a closed-loop property
+
+A key subtlety: the EMF $\mathcal{E} = \oint \mathbf{E} \cdot d\mathbf{l}$ is a property of a closed path, not a property of two endpoints. In static fields, $\oint \mathbf{E} \cdot d\mathbf{l} = 0$ (conservative field) and you can assign a unique voltage to every point. When $\partial \mathbf{B}/\partial t \neq 0$, the loop integral is nonzero and "voltage" between two points becomes path-dependent.
+
+This is what makes RF circuit analysis with Faraday's law surprising: two probes touching the same nodes but forming different loop areas will read different voltages. This is correct physics, not a measurement error. The correct statement is always the full loop integral, not a point-to-point potential difference.
 
 </section>
 
@@ -47,51 +67,59 @@ Loops of wire convert this electric field into measurable voltage — that's how
 
 ### Integral form
 
-$$\oint_C \mathbf{E} \cdot d\mathbf{l} = -\frac{d\Phi_B}{dt}$$
+$$\oint_C \mathbf{E} \cdot d\mathbf{l} = -\frac{d\Phi_B}{dt} = -\frac{d}{dt}\iint_S \mathbf{B} \cdot d\mathbf{A}$$
 
-The EMF around any closed loop equals the negative rate of change of magnetic flux through it.
+The EMF around any closed loop $C$ equals the negative rate of change of magnetic flux through any surface $S$ bounded by $C$.
 
-- $\Phi_B = \int_S \mathbf{B} \cdot d\mathbf{S}$ = magnetic flux
-- Negative sign = Lenz's law (opposes change)
+- $\Phi_B = \iint_S \mathbf{B} \cdot d\mathbf{A}$ = magnetic flux through loop (Wb)
+- Negative sign enforces Lenz's law
+- For a coil with $N$ turns: $\mathcal{E} = -N\,d\Phi_B/dt$
 
 ### Differential form
 
 $$\nabla \times \mathbf{E} = -\frac{\partial \mathbf{B}}{\partial t}$$
 
-The curl of E is the negative time derivative of B.
+The curl of $\mathbf{E}$ equals the negative time derivative of $\mathbf{B}$ at every point. This is the local, instantaneous form of Faraday's law. It holds in free space, in dielectrics, in conductors, everywhere.
 
-### EMF and voltage
+### Phasor domain (sinusoidal steady state)
 
-$$\mathcal{E} = -\frac{d\Phi_B}{dt} = -\frac{d}{dt}\int_S \mathbf{B} \cdot d\mathbf{S}$$
+For time dependence $e^{j\omega t}$, replace $\partial/\partial t \to j\omega$:
 
-For a coil with N turns:
-$$\mathcal{E} = -N\frac{d\Phi_B}{dt}$$
+$$\nabla \times \tilde{\mathbf{E}} = -j\omega \tilde{\mathbf{B}} = -j\omega\mu \tilde{\mathbf{H}}$$
 
-### Sinusoidal steady state
+The phasor form is essential for antenna analysis, transmission line theory, and microwave circuit design. The factor $j\omega$ introduces a 90° phase shift and linear frequency scaling — this is why inductive reactance is $X_L = \omega L$.
 
-For $B = B_0 \sin(\omega t)$:
+### EMF scaling
 
-$$\mathcal{E} = -\omega B_0 A \cos(\omega t)$$
+For a loop of area $A$ and $N$ turns in a uniform sinusoidal field $\mathbf{B} = B_0\cos(\omega t)\hat{\mathbf{z}}$:
 
-- EMF amplitude ∝ frequency
-- EMF amplitude ∝ loop area
-- EMF amplitude ∝ field strength
+$$\Phi_B = B_0 A \cos(\omega t)$$
 
-### Motional EMF
+$$\mathcal{E} = -N\frac{d\Phi_B}{dt} = N B_0 \omega A \sin(\omega t)$$
 
-Moving conductor in static B field:
+Peak EMF: $\mathcal{E}_\text{peak} = N B_0 \omega A$
 
-$$\mathcal{E} = \int (\mathbf{v} \times \mathbf{B}) \cdot d\mathbf{l}$$
+EMF is proportional to:
+- $N$ — number of turns
+- $B_0$ — field amplitude
+- $\omega$ — angular frequency (EMF doubles for each octave)
+- $A$ — loop area
 
-Same physics, different perspective.
+### Motional EMF (moving conductor in static B)
 
-### Boundary condition
+When a conductor moves with velocity $\mathbf{v}$ through a static magnetic field $\mathbf{B}$:
 
-Tangential E is continuous across any interface:
+$$\mathcal{E} = \int_C (\mathbf{v} \times \mathbf{B}) \cdot d\mathbf{l}$$
+
+This is the same phenomenon from a different reference frame. In a rotating generator, the wire loop moves through a static $\mathbf{B}$ — the motional EMF drives the output voltage.
+
+### Boundary condition from Faraday's law
+
+Apply Faraday's law to a thin rectangular loop spanning a material interface, then take the limit as loop height → 0:
 
 $$E_{t1} = E_{t2}$$
 
-This holds even at conductor surfaces (E = 0 inside good conductors).
+Tangential $\mathbf{E}$ is continuous across any interface. This is the fundamental reason why reflected and transmitted waves at a boundary have the same tangential E-field.
 
 </section>
 
@@ -99,41 +127,70 @@ This holds even at conductor surfaces (E = 0 inside good conductors).
 
 ## Apply
 
-**Example: Loop antenna**
+### Example 1: Inductor voltage and back-EMF
 
-Circular loop, radius 10 cm, 10 turns.
+An RF choke has inductance $L = 100$ nH. Current through it: $i(t) = I_0\sin(\omega t)$ with $I_0 = 100$ mA and $f = 100$ MHz.
 
-Incident field: $B = 1\ \mu\text{T}$ at 1 MHz.
+Flux linkage: $\Lambda = Li$.
 
-Loop area: $A = \pi \times 0.1^2 = 0.0314$ m².
+By Faraday's law: $v = -d\Lambda/dt = -L\,di/dt$.
 
-EMF: $\mathcal{E} = \omega N B A = 2\pi \times 10^6 \times 10 \times 10^{-6} \times 0.0314$
+$$v(t) = -L \cdot I_0\omega\cos(\omega t) = -100 \times 10^{-9} \times 0.1 \times 2\pi \times 10^8 \cos(\omega t)$$
 
-$\mathcal{E} = 1.97$ mV peak.
+$$v_\text{peak} = 2\pi \approx 6.28 \text{ V}$$
 
-**Example: Transformer coupling**
+The 100 nH choke creates a 6.28 V back-EMF for a 100 mA signal at 100 MHz. Its inductive reactance is $X_L = \omega L = 2\pi \times 10^8 \times 10^{-7} \approx 62.8\,\Omega$.
 
-Primary: 100 turns, secondary: 10 turns, core flux peak 1 mT at 50 Hz.
+This is directly Faraday's law: $V = j\omega L I$ in phasor form, derived from $\nabla \times \mathbf{E} = -\partial \mathbf{B}/\partial t$ and the definition of inductance.
 
-Primary EMF: $\mathcal{E}_1 = \omega N_1 \Phi = 2\pi \times 50 \times 100 \times 10^{-3} = 31.4$ V.
+### Example 2: Loop antenna sensitivity and design trade-offs
 
-Secondary: $\mathcal{E}_2 = \mathcal{E}_1 \times (N_2/N_1) = 3.14$ V.
+A circular loop antenna with $N = 5$ turns and radius $r = 3$ cm receives an AM signal at $f = 1$ MHz with $B_0 = 10$ pT.
 
-**Example: Why higher frequency = smaller inductors**
+Loop area: $A = \pi r^2 = \pi \times (0.03)^2 = 2.83 \times 10^{-3}$ m²
 
-Inductor EMF: $V = L \frac{dI}{dt} = j\omega L I$.
+Peak EMF:
 
-At higher frequency, same voltage needs less L (or same L gives more reactance).
+$$\mathcal{E}_\text{peak} = N B_0 \omega A = 5 \times 10^{-11} \times 2\pi \times 10^6 \times 2.83 \times 10^{-3}$$
 
-RF inductors: nanohenries. Power inductors: millihenries.
+$$\mathcal{E}_\text{peak} \approx 0.89\,\mu\text{V}$$
 
-**Example: Magnetic field probe**
+**Design insight:** To double the received signal, you can:
+- Double $N$ (5 → 10 turns): same result, more wire, more series resistance.
+- Double the area by increasing radius by $\sqrt{2}$ (3 → 4.24 cm): often preferable.
+- Double the frequency: works for wideband antennas but not tunable loops.
 
-Small loop at end of coax measures local B field.
+In practice, ferrite cores are used to boost the effective permeability, increasing the effective area without increasing physical size. This is the "loopstick" antenna in portable AM radios.
 
-EMF ∝ $\omega \cdot A \cdot B$ → calibration depends on frequency.
+### Example 3: Transformer EMF ratio
 
-Near-field probes measure $\partial B/\partial t$, not B directly.
+A transformer with $N_1 = 200$ primary turns and $N_2 = 40$ secondary turns. Core cross-section $A_c = 4$ cm², peak flux density $B_0 = 1$ T at $f = 50$ Hz.
+
+Peak flux: $\Phi_0 = B_0 A_c = 1 \times 4 \times 10^{-4} = 4 \times 10^{-4}$ Wb
+
+Primary EMF:
+
+$$\mathcal{E}_1 = N_1 \omega \Phi_0 = 200 \times 2\pi \times 50 \times 4 \times 10^{-4} = 25.1 \text{ V peak}$$
+
+Secondary EMF:
+
+$$\mathcal{E}_2 = \frac{N_2}{N_1} \mathcal{E}_1 = \frac{40}{200} \times 25.1 = 5.0 \text{ V peak}$$
+
+The EMF ratio equals the turns ratio. This is the transformer equation, derived entirely from Faraday's law applied to two coils sharing the same magnetic flux path.
+
+### Example 4: Skin effect origin
+
+Inside a good conductor carrying AC current, a time-varying current creates a time-varying $\mathbf{B}$ (Ampere's law). That time-varying $\mathbf{B}$ creates a curl in $\mathbf{E}$ (Faraday's law). The induced $\mathbf{E}$ opposes the original current inside the conductor.
+
+The net effect: current is pushed toward the surface. The depth at which current density falls to $1/e$ of the surface value is the skin depth:
+
+$$\delta = \sqrt{\frac{2}{\omega\mu\sigma}}$$
+
+At 1 GHz for copper ($\sigma = 5.8 \times 10^7$ S/m, $\mu \approx \mu_0$):
+
+$$\delta = \sqrt{\frac{2}{2\pi \times 10^9 \times 4\pi \times 10^{-7} \times 5.8 \times 10^7}} \approx 2.1\,\mu\text{m}$$
+
+At 1 GHz, all current flows within 2 μm of the surface. A 1 mm diameter copper wire behaves as a thin hollow tube at GHz frequencies. This is why RF conductors must be plated (silver or gold) — only the outer skin layer matters.
 
 </section>
 
@@ -141,15 +198,15 @@ Near-field probes measure $\partial B/\partial t$, not B directly.
 
 ## Pitfalls
 
-1. **Forgetting the negative sign.** Lenz's law: induced EMF opposes the change. Get the sign wrong and your circuit analysis fails.
+1. **Forgetting the minus sign (Lenz's law).** The induced EMF opposes the flux change. Getting the sign wrong gives a current that aids the change — which would violate energy conservation. In circuit analysis, the back-EMF of an inductor ($V = -L\,dI/dt$) has the minus sign precisely because of Faraday's law.
 
-2. **Confusing EMF with voltage.** EMF is the closed-loop integral of E. In a loop with resistance, some EMF drops across R. In a perfect conductor, induced E is balanced by electrostatic E.
+2. **Confusing EMF with voltage.** EMF is the closed-loop line integral of $\mathbf{E}$. In a resistive loop, the EMF drives a current through the resistance. The "voltage" across each element of the loop sums to the EMF. In a purely reactive loop (superconductor), the EMF is balanced by the back-EMF of the induced current's own inductance — no net current, just flux conservation.
 
-3. **Applying to partial loops.** Faraday's law applies to closed loops. Open-circuit voltage needs a complete path to define.
+3. **Assuming path-independent voltage near inductors.** When $\partial \mathbf{B}/\partial t \neq 0$, the electric field has curl and $\oint \mathbf{E} \cdot d\mathbf{l} \neq 0$. "Voltage" is path-dependent. Probe placement near inductors, transformers, and RF traces can give different readings for different lead routing — all are correct.
 
-4. **Ignoring frequency dependence.** Induced EMF scales with ω. A sensor designed for 1 kHz gives 1000× more voltage at 1 MHz (if it can respond).
+4. **Applying Faraday's law to open segments.** The EMF requires a closed loop. For an open circuit, the induced EMF equals the open-circuit voltage at the terminals, but only when the external path is defined. Always close the loop mentally before applying Faraday's law.
 
-5. **Assuming B is uniform.** Real fields have spatial variation. Integrate properly, or use average field only for small loops.
+5. **Ignoring frequency scaling.** Induced EMF scales with $\omega$. A sensor calibrated at 1 kHz reads 1000× higher at 1 MHz (if it's wideband). A ferrite core that works at 100 kHz may be useless at 100 MHz due to core loss. Always check frequency range.
 
 </section>
 
@@ -157,8 +214,8 @@ Near-field probes measure $\partial B/\partial t$, not B directly.
 
 ## References
 
-- Griffiths, *Introduction to Electrodynamics*, Chapter 7.
-- Pozar, *Microwave Engineering*, Chapter 1.
-- Balanis, *Antenna Theory*, Chapter 5 (loop antennas).
+- Griffiths, *Introduction to Electrodynamics*, Chapter 7 — Faraday's law, Lenz's law, motional EMF.
+- Pozar, *Microwave Engineering*, Chapter 1 — phasor form and application to microwave circuits.
+- Balanis, *Antenna Theory*, Chapter 5 — loop antennas and receiving properties via Faraday's law.
 
 </section>

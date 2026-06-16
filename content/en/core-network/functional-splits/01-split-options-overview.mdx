@@ -8,17 +8,334 @@ track: n6
 unit: functional-splits
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "Split options overview"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n6-o-ran-architecture-01-o-cu"]
+spiralRevisits: []
+title: "Functional Split Options Overview"
+description: "3GPP and O-RAN split options — from Option 1 to Option 8, and why Option 7-2x won."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TR 38.801", "O-RAN.WG4.CUS"]
+tags: ["o-ran", "5g", "split", "cu-du", "fronthaul"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Split options overview
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Traditional base stations bundle everything: RF, baseband, control, and backhaul. Splitting enables flexibility — run parts centrally, parts at the edge, mix vendors.
+
+But where to split? Each option trades off fronthaul bandwidth, latency tolerance, and pooling gain. The industry converged on Option 7-2x for O-RAN, but understanding why requires knowing the alternatives.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The full stack
+
+```
+5G RAN Protocol Stack:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Higher Layers:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ RRC (Radio Resource Control)                    │    │
+│  │ - Connection management                          │    │
+│  │ - Mobility (handover)                            │    │
+│  │ - System information                             │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PDCP (Packet Data Convergence Protocol)         │    │
+│  │ - Ciphering / deciphering                        │    │
+│  │ - Header compression                             │    │
+│  │ - Sequence numbering                             │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ RLC (Radio Link Control)                        │    │
+│  │ - Segmentation / reassembly                      │    │
+│  │ - ARQ retransmission                             │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ MAC (Medium Access Control)                     │    │
+│  │ - Scheduling                                     │    │
+│  │ - HARQ                                           │    │
+│  │ - Multiplexing                                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Physical Layer:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ High-PHY                                        │    │
+│  │ - Scrambling, modulation                         │    │
+│  │ - Layer mapping, precoding                       │    │
+│  │ - Resource element mapping                       │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Low-PHY                                         │    │
+│  │ - IFFT / FFT                                    │    │
+│  │ - Cyclic prefix                                  │    │
+│  │ - Beamforming                                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ RF                                              │    │
+│  │ - DAC / ADC                                     │    │
+│  │ - Power amplifier                                │    │
+│  │ - Antenna                                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Split options
+
+```
+3GPP Split Options (TR 38.801):
+
+Split    │ Boundary                    │ What's Centralized
+─────────┼─────────────────────────────┼─────────────────────
+Option 1 │ Above RRC                   │ Nothing (all at site)
+Option 2 │ RRC / PDCP                  │ RRC
+Option 3 │ PDCP / RLC                  │ RRC, PDCP
+Option 4 │ RLC-high / RLC-low          │ RRC, PDCP, RLC-high
+Option 5 │ RLC / MAC                   │ RRC, PDCP, RLC
+Option 6 │ MAC-high / MAC-low          │ + MAC-high
+Option 7 │ MAC / PHY (various sub-opts)│ + MAC (all)
+Option 8 │ PHY / RF                    │ + Full PHY
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Option 8 ◄─────────── Fronthaul BW ───────────► Option 1
+│  (most BW)                                     (least BW)
+│                                                          │
+│  Option 8 ◄─────────── Latency strict ─────────► Option 1
+│  (strictest)                                   (relaxed)
+│                                                          │
+│  Option 8 ◄─────────── Pooling gain ───────────► Option 1
+│  (most gain)                                   (no gain)
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Option comparison
+
+```
+Split Option Details:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Option 2 (RRC-PDCP split):                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ CU: RRC                                         │    │
+│  │ DU: PDCP, RLC, MAC, PHY                         │    │
+│  │                                                  │    │
+│  │ Fronthaul: IP packets (after PDCP)              │    │
+│  │ BW: Low (user data rate)                        │    │
+│  │ Latency: Relaxed (10+ ms OK)                    │    │
+│  │                                                  │    │
+│  │ Use: 3GPP standard CU-DU split                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Option 6 (MAC-high / MAC-low):                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Central: RRC, PDCP, RLC, MAC scheduler          │    │
+│  │ Remote: MAC HARQ, PHY                           │    │
+│  │                                                  │    │
+│  │ Fronthaul: Transport blocks                     │    │
+│  │ BW: Moderate                                    │    │
+│  │ Latency: Tight (< 1 ms for HARQ)               │    │
+│  │                                                  │    │
+│  │ Challenge: Scheduler centralized but HARQ RTT   │    │
+│  │            requires fast fronthaul              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Option 7 (intra-PHY split):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Central: RRC, PDCP, RLC, MAC, High-PHY          │    │
+│  │ Remote: Low-PHY, RF                             │    │
+│  │                                                  │    │
+│  │ Fronthaul: IQ samples (freq domain)             │    │
+│  │ BW: High (but < Option 8)                       │    │
+│  │ Latency: Strict (< 250 µs)                      │    │
+│  │                                                  │    │
+│  │ O-RAN choice: 7-2x (split within Low-PHY)       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Option 8 (PHY-RF split):                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Central: All digital processing                 │    │
+│  │ Remote: RF only                                 │    │
+│  │                                                  │    │
+│  │ Fronthaul: Time-domain IQ samples               │    │
+│  │ BW: Very high (CPRI: 24 Gbps for 100 MHz)      │    │
+│  │ Latency: Very strict (< 100 µs)                │    │
+│  │                                                  │    │
+│  │ Legacy: Traditional CPRI fronthaul              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Bandwidth comparison
+
+```
+Fronthaul Bandwidth Requirements (100 MHz, 64T64R):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Split Option    │ Fronthaul BW    │ Compression        │
+│  ────────────────┼─────────────────┼────────────────────│
+│                  │                 │                    │
+│  Option 2        │ ~10 Gbps        │ N/A (user data)    │
+│  (PDCP-RLC)      │ (peak user)     │                    │
+│                  │                 │                    │
+│  Option 6        │ ~15 Gbps        │ N/A                │
+│  (MAC split)     │                 │                    │
+│                  │                 │                    │
+│  Option 7-2x     │ ~25 Gbps        │ BFP, mod-comp      │
+│  (O-RAN)         │ (compressed)    │ (~50% reduction)   │
+│                  │                 │                    │
+│  Option 8        │ ~157 Gbps       │ Traditional CPRI   │
+│  (PHY-RF)        │ (uncompressed)  │                    │
+│                  │                 │                    │
+│  Note: 64T64R needs 64x the single-antenna rate        │
+│        Option 7-2x compresses in frequency domain      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Why Option 7-2x
+
+```
+Option 7-2x Rationale:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Requirements:                                          │
+│  1. Multi-vendor interoperability (need clean boundary) │
+│  2. Centralized scheduling (pooling, CoMP)             │
+│  3. Manageable fronthaul bandwidth                      │
+│  4. RU simplicity (cost, power)                        │
+│                                                          │
+│  Option 7-2x achieves:                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ✓ Clean interface: IQ samples + control        │    │
+│  │  ✓ Scheduler at DU: coordinated, pooled         │    │
+│  │  ✓ ~25 Gbps fronthaul: 25G Ethernet works       │    │
+│  │  ✓ Simple RU: IFFT + RF only                    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  7-2x sub-options:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Category A: Precoding at DU                    │    │
+│  │  - DU sends per-layer IQ                        │    │
+│  │  - RU does IFFT only                            │    │
+│  │  - Higher fronthaul BW                          │    │
+│  │                                                  │    │
+│  │  Category B: Precoding at RU                    │    │
+│  │  - DU sends beamformed IQ + weights             │    │
+│  │  - RU does beamforming + IFFT                   │    │
+│  │  - Lower fronthaul BW                           │    │
+│  │  - More complex RU                              │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Split option selection:**
+
+| Use Case | Recommended Split | Reason |
+|----------|-------------------|--------|
+| Macro cell | Option 2 + 7-2x | CU pooling + O-RAN |
+| Small cell | Option 2 + 7-2x | Same ecosystem |
+| Massive MIMO | 7-2x Cat-B | Fronthaul efficiency |
+| Rural (limited transport) | Option 2 only | Minimize FH BW |
+| Cloud RAN | 7-2x | Maximum pooling |
+
+**Fronthaul sizing:**
+
+```bash
+# Calculate fronthaul for 100 MHz TDD, 64T64R, Cat-B
+# IQ bits: 2 (I+Q) × 9 bits × 12 subcarriers × 273 PRBs × 14 symbols
+# Per ms: ~7.5 Gbps per direction (before compression)
+# With BFP: ~4 Gbps per direction
+# Bidirectional: ~8-10 Gbps typical, 25 Gbps peak
+
+# Recommended transport:
+# - 25G Ethernet for single sector
+# - 100G Ethernet for aggregated sites
+```
+
+**Interface summary:**
+
+| Interface | Protocol | Location |
+|-----------|----------|----------|
+| F1 | GTP-U/SCTP | CU ↔ DU |
+| Open Fronthaul | eCPRI | DU ↔ RU |
+| E1 | SCTP | CU-CP ↔ CU-UP |
+| E2 | SCTP | Near-RT RIC ↔ CU/DU |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Underestimating fronthaul.** 64T64R needs 25G+ even with compression. Plan transport capacity.
+
+2. **Latency budget blown.** Option 7-2x needs < 250 µs RTT. Fiber length and switch hops add up.
+
+3. **Mixing splits.** Different vendors may implement slightly different 7-2x. Verify interoperability.
+
+4. **Ignoring timing.** All splits need precise sync. Option 7-2x needs ±1.5 µs phase for TDD.
+
+5. **Cat-A/B mismatch.** DU must match RU category. Wrong pairing breaks beamforming.
+
+6. **Compression artifacts.** Aggressive IQ compression degrades EVM. Balance bandwidth vs quality.
+
+7. **CPRI lock-in.** Option 8 (CPRI) is proprietary per vendor. O-RAN 7-2x is the open choice.
+
+8. **Upgrade complexity.** Changing split requires new hardware at both ends. Plan for lifecycle.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TR 38.801, "Study on new radio access technology: Radio access architecture and interfaces"
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- Small Cell Forum, "Functional Splits and Use Cases"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Option 7-2x](/en/core-network/functional-splits/option-7-2x/) — O-RAN's choice
+- [Fronthaul requirements](/en/core-network/functional-splits/fronthaul-requirements/) — transport needs
+- [O-DU](/en/core-network/o-ran-architecture/o-du/) — Distributed Unit
+
+</section>

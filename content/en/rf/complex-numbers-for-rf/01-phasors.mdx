@@ -8,12 +8,12 @@ track: r0
 unit: complex-numbers-for-rf
 order: 1
 level: L1
-estimatedReadingMinutes: 8
+estimatedReadingMinutes: 12
 prerequisites: []
 spiralRevisits: []
 title: "Phasors"
 description: "Complex numbers as rotating arrows — the shortcut for sinusoidal analysis."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,11 @@ status: published
 
 ## Why phasors?
 
-Every RF signal is a sinusoid — or a sum of sinusoids. Analyzing sinusoids directly means wrestling with trigonometric identities. Phasors replace sines and cosines with complex exponentials, turning differentiation into multiplication and addition of waves into addition of vectors.
+Every RF signal is a sinusoid — or a sum of sinusoids. Analyzing sinusoids directly means wrestling with trigonometric identities that multiply with every added stage. Phasors replace sines and cosines with complex exponentials, turning differentiation into multiplication and addition of waves into addition of 2-D vectors.
 
-The entire field of AC circuit analysis, filter design, and antenna impedance matching rests on this one trick: represent sinusoids as rotating complex numbers.
+The entire field of AC circuit analysis, filter design, impedance matching, and antenna theory rests on this one trick: represent sinusoids as rotating complex numbers, do the algebra in the complex plane, then read off the real part at the end.
+
+If you have ever worked with Fourier transforms or frequency-domain analysis in DSP, you have already been using phasors — this lesson makes the geometry explicit.
 
 </section>
 
@@ -37,11 +39,34 @@ The entire field of AC circuit analysis, filter design, and antenna impedance ma
 
 ## Intuition
 
-A sinusoid like $v(t) = V_0 \cos(\omega t + \phi)$ oscillates endlessly. But its essential information is just two numbers: amplitude $V_0$ and phase $\phi$. A phasor captures exactly that: a complex number $\tilde{V} = V_0 e^{j\phi}$.
+A sinusoid like $v(t) = V_0 \cos(\omega t + \phi)$ oscillates endlessly. But its essential information is just two numbers: amplitude $V_0$ and phase $\phi$. A phasor captures exactly that — a single complex number $\tilde{V} = V_0 e^{j\phi}$.
 
-Picture a rotating arrow (vector) in the complex plane. Its length is the amplitude; its angle is the phase. As time advances, the arrow spins at angular frequency $\omega$. The projection onto the real axis traces out the cosine wave.
+```
+The phasor as a rotating arrow in the complex plane:
 
-Adding two sinusoids of the same frequency? Just add their phasors as complex numbers. The arrow lengths and angles combine naturally — no trig identities needed.
+        Im
+         |
+         |     ← arrow tip traces a circle
+         |    /
+    V0  / ← length = amplitude V0
+       /  φ ← angle = phase φ
+  ────┼────────── Re
+         |
+         |
+
+  At time t, the arrow has rotated to angle (ωt + φ).
+  The cosine wave is just the shadow (projection) on the Re axis.
+
+  v(t) = Re( V0 · e^{j(ωt + φ)} )
+       = Re( V0·e^{jφ} · e^{jωt} )
+       = Re( Ṽ · e^{jωt} )
+              ↑
+         this is the phasor
+```
+
+Adding two sinusoids of the same frequency? Add their phasors as 2-D vectors — tip-to-tail in the complex plane. No trig identities needed. The result's length is the new amplitude; its angle is the new phase.
+
+This is why phasors are so powerful: a problem that requires page-long trigonometric expansions in the time domain becomes a short complex-number arithmetic problem in the phasor domain.
 
 </section>
 
@@ -49,40 +74,91 @@ Adding two sinusoids of the same frequency? Just add their phasors as complex nu
 
 ## Mechanism
 
-### Euler's formula
+### Euler's formula — the bridge
 
-The bridge between exponentials and sinusoids:
+The foundational identity connecting exponentials and sinusoids:
 
 $$e^{j\theta} = \cos\theta + j\sin\theta$$
 
 Therefore:
-$$\cos\theta = \text{Re}(e^{j\theta}), \quad \sin\theta = \text{Im}(e^{j\theta})$$
 
-### Phasor representation
+$$\cos\theta = \text{Re}(e^{j\theta}), \qquad \sin\theta = \text{Im}(e^{j\theta})$$
 
-For a sinusoidal signal:
+This means any sinusoidal signal can be written as the real part of a complex exponential. The imaginary part is not "imaginary" in the sense of fictitious — it carries the phase information that makes the algebra work.
+
+### Phasor definition
+
+For a sinusoidal signal at angular frequency $\omega$:
+
 $$v(t) = V_0 \cos(\omega t + \phi)$$
 
-The phasor is:
-$$\tilde{V} = V_0 e^{j\phi} = V_0 \angle \phi$$
+The **phasor** is the complex amplitude (time-independent):
+
+$$\tilde{V} = V_0 e^{j\phi} = V_0 \angle\phi$$
 
 The full time-domain signal is recovered by:
-$$v(t) = \text{Re}(\tilde{V} e^{j\omega t})$$
 
-### Operations become simple
+$$v(t) = \text{Re}\!\left(\tilde{V}\, e^{j\omega t}\right)$$
 
-| Time domain | Phasor domain |
-|-------------|---------------|
-| $\frac{d}{dt}$ | $\times j\omega$ |
-| $\int dt$ | $\div j\omega$ |
-| Add same-frequency sinusoids | Add complex numbers |
+The $e^{j\omega t}$ factor is the common "rotation engine" shared by every signal at the same frequency. In steady-state AC analysis, it factors out and can be ignored — leaving only the phasors to manipulate.
+
+### Operations in the phasor domain
+
+The payoff of the phasor representation:
+
+```
+  Operation        Time domain          Phasor domain
+  ───────────────────────────────────────────────────────
+  Differentiate    d/dt → ω·sin(ωt+φ)  multiply by jω
+  Integrate        ∫ dt                divide by jω
+  Add same-freq    trig identity hell   complex addition
+  Multiply by gain scale amplitude     multiply |phasor|
+  Phase shift      shift arg of cos    rotate phasor angle
+```
+
+Differentiation becomes multiplication by $j\omega$. This is why impedance of a capacitor is $1/(j\omega C)$ and of an inductor is $j\omega L$ — the derivative in $i = C\,dv/dt$ becomes a multiplication.
 
 ### Rectangular vs. polar form
 
-- **Rectangular:** $\tilde{V} = a + jb$ (good for addition)
-- **Polar:** $\tilde{V} = V_0 \angle \phi$ or $V_0 e^{j\phi}$ (good for multiplication)
+Two equivalent representations, each useful for different operations:
 
-Convert: $V_0 = \sqrt{a^2 + b^2}$, $\phi = \arctan(b/a)$
+**Rectangular (Cartesian):** $\tilde{V} = a + jb$
+- $a$ = real part, $b$ = imaginary part
+- Best for **addition**: $(a_1+jb_1)+(a_2+jb_2) = (a_1+a_2)+j(b_1+b_2)$
+
+**Polar:** $\tilde{V} = V_0 \angle\phi$ or $V_0 e^{j\phi}$
+- $V_0$ = magnitude, $\phi$ = phase angle
+- Best for **multiplication**: $V_0 e^{j\phi_1} \cdot I_0 e^{j\phi_2} = V_0 I_0\, e^{j(\phi_1+\phi_2)}$
+
+Conversion formulas:
+
+$$V_0 = \sqrt{a^2 + b^2}, \qquad \phi = \arctan\!\left(\frac{b}{a}\right)$$
+
+$$a = V_0 \cos\phi, \qquad b = V_0 \sin\phi$$
+
+### Complex exponential — the deeper view
+
+The phasor $\tilde{V} = V_0 e^{j\phi}$ is a point in the complex plane. Multiplying it by $e^{j\omega t}$ rotates it counterclockwise at angular speed $\omega$ (rad/s). The cosine wave emerges as the horizontal projection of this rotating point.
+
+This geometric picture explains phase relationships directly:
+
+```
+  Voltage phasor: Ṽ = V₀∠0°  (reference)
+  Current phasor: Ĩ = I₀∠−90° (lags by 90°)
+
+       Im
+        |   Ṽ
+        |  /
+        | /  ← Ṽ points along Re axis
+  ──────┼──────── Re
+        |
+        |\ ← Ĩ points downward (−90° from Ṽ)
+        | \
+        |  Ĩ
+
+  The angle between Ṽ and Ĩ is the power factor angle.
+  cos(90°) = 0: purely reactive, zero real power.
+```
 
 </section>
 
@@ -90,27 +166,68 @@ Convert: $V_0 = \sqrt{a^2 + b^2}$, $\phi = \arctan(b/a)$
 
 ## Apply
 
-**Example: Adding two voltages**
+### Example 1 — Adding two voltages
 
-Two voltage sources in series:
-- $v_1(t) = 10\cos(\omega t)$ → $\tilde{V}_1 = 10\angle 0°$
-- $v_2(t) = 5\cos(\omega t + 90°)$ → $\tilde{V}_2 = 5\angle 90° = 5j$
+Two voltage sources in series, same frequency:
 
-Sum of phasors:
-$$\tilde{V}_\text{total} = 10 + 5j$$
+- $v_1(t) = 10\cos(\omega t)$ → $\tilde{V}_1 = 10\angle 0° = 10 + j0$
+- $v_2(t) = 6\cos(\omega t + 90°)$ → $\tilde{V}_2 = 6\angle 90° = 0 + j6$
 
-Magnitude: $\sqrt{10^2 + 5^2} = 11.18$ V
-Phase: $\arctan(5/10) = 26.6°$
+Phasor sum:
 
-Result: $v_\text{total}(t) = 11.18\cos(\omega t + 26.6°)$
+$$\tilde{V}_\text{total} = (10 + j0) + (0 + j6) = 10 + j6$$
 
-**Example: Capacitor voltage-current relationship**
+Magnitude: $\sqrt{10^2 + 6^2} = \sqrt{136} \approx 11.66\ \text{V}$
 
-For a capacitor: $i = C\frac{dv}{dt}$
+Phase: $\arctan(6/10) = 31.0°$
 
-In phasor form: $\tilde{I} = j\omega C \tilde{V}$
+Result: $v_\text{total}(t) = 11.66\cos(\omega t + 31°)$
 
-Current leads voltage by 90° — the factor of $j$ rotates the phasor.
+Without phasors this requires expanding $\cos(\omega t) + \cos(\omega t + 90°)$ and applying sum-to-product identities. The phasor version is two lines of arithmetic.
+
+### Example 2 — Capacitor voltage-current relationship
+
+For a capacitor: $i = C\dfrac{dv}{dt}$
+
+In phasor form — replace $d/dt$ with $j\omega$:
+
+$$\tilde{I} = j\omega C\, \tilde{V}$$
+
+Rearranging: $\tilde{V} = \dfrac{\tilde{I}}{j\omega C} = \tilde{I} \cdot Z_C$
+
+The capacitor's impedance is $Z_C = \dfrac{1}{j\omega C}$.
+
+The factor $j$ represents a 90° rotation: current leads voltage by 90° in a capacitor. This is not a coincidence — it is a direct consequence of the derivative-to-multiplication rule.
+
+### Example 3 — RF phase shift in a cable
+
+A coaxial cable introduces a propagation delay. At 2.4 GHz, a 3 cm cable (quarter-wavelength at 2.4 GHz in air) introduces a 90° phase shift.
+
+```
+  Input:   Ṽ_in  = 1∠0°    (reference)
+  Output:  Ṽ_out = 1∠−90°  (delayed by λ/4)
+
+  Phase shift = −β·L where β = 2π/λ, L = cable length
+  At 2.4 GHz, λ ≈ 12.5 cm, so β·(3 cm) = 2π/12.5 × 3 = 1.508 rad ≈ 86°
+```
+
+This quarter-wave phase shift is exploited deliberately in impedance matching networks — the cable transforms impedances according to the phasor rotation it applies.
+
+### Example 4 — Phasor arithmetic for a link budget phase margin
+
+In a coherent receiver, two multipath copies of a signal arrive:
+- Direct path: $\tilde{S}_1 = 1\angle 0°$
+- Reflected path (0.5× amplitude, 150° phase shift): $\tilde{S}_2 = 0.5\angle 150°$
+
+Combined received phasor:
+
+$$\tilde{S}_\text{total} = (1 + j0) + (0.5\cos 150° + j \cdot 0.5\sin 150°)$$
+
+$$= 1 + (-0.433 + j0.25) = 0.567 + j0.25$$
+
+$$|\tilde{S}_\text{total}| = \sqrt{0.567^2 + 0.25^2} = 0.620$$
+
+The combined signal is 0.62 of the direct path alone — a loss of $20\log_{10}(0.620) \approx -4.2\ \text{dB}$ from multipath interference. Phasor arithmetic makes this visible in seconds.
 
 </section>
 
@@ -118,15 +235,17 @@ Current leads voltage by 90° — the factor of $j$ rotates the phasor.
 
 ## Pitfalls
 
-1. **Same frequency only.** Phasor addition only works for sinusoids at the same frequency. Mixing 1 kHz and 2 kHz signals requires separate phasor analysis or Fourier methods.
+1. **Same frequency only.** Phasor addition only works for sinusoids at the same frequency. Mixing a 1 GHz and a 2 GHz signal requires separate phasor analyses or Fourier methods. Applying phasor addition across frequencies gives meaningless results.
 
-2. **$j$ vs. $i$.** Engineers use $j = \sqrt{-1}$ because $i$ denotes current. Physicists use $i$. Don't mix conventions.
+2. **$j$ vs. $i$.** Engineers use $j = \sqrt{-1}$ because $i$ denotes current. Physicists use $i$. When reading physics textbooks or quantum mechanics papers, mentally swap $i \leftrightarrow j$. Also watch out for the convention $e^{-j\omega t}$ (engineering) vs. $e^{+i\omega t}$ (physics) — they define conjugate phasors.
 
-3. **Peak vs. RMS.** A phasor can represent peak amplitude or RMS amplitude — be consistent. Power calculations typically use RMS phasors.
+3. **Peak vs. RMS phasors.** A phasor can represent peak amplitude $V_0$ or RMS amplitude $V_0/\sqrt{2}$. Power calculations typically use RMS phasors ($P = \frac{1}{2}|\tilde{V}||\tilde{I}|\cos\theta$ for peak, $P = |\tilde{V}_\text{rms}||\tilde{I}_\text{rms}|\cos\theta$ for RMS). Be consistent within a calculation.
 
-4. **Phase reference.** Phasors are relative. Saying "$\tilde{V} = 10\angle 30°$" only makes sense if you define what $0°$ means (usually the source or a reference signal).
+4. **Phase reference.** Phasors are relative. Saying "$\tilde{V} = 10\angle 30°$" only makes sense if you define what $0°$ means. Convention: assign $0°$ to the source or the signal you are most interested in, then express all other phasors relative to it.
 
-5. **DC signals.** A DC signal has $\omega = 0$ and no phase — it's just a real constant. Phasor analysis doesn't add value for DC.
+5. **DC signals.** A DC signal has $\omega = 0$ — no rotation, no phase. Phasor analysis adds no value for DC; use simple Ohm's law.
+
+6. **Recovering the time-domain signal.** After computing a phasor result $\tilde{V}_\text{out}$, the time-domain signal is $\text{Re}(\tilde{V}_\text{out} e^{j\omega t})$, not $\tilde{V}_\text{out}$ itself. Reporting a complex number as a voltage is a sign you forgot the final step.
 
 </section>
 
@@ -136,5 +255,6 @@ Current leads voltage by 90° — the factor of $j$ rotates the phasor.
 
 - Hayt & Buck, *Engineering Electromagnetics*, Chapter 11 — phasors in EM context.
 - Alexander & Sadiku, *Fundamentals of Electric Circuits*, Chapter 9 — AC phasor analysis.
+- Pozar, *Microwave Engineering*, Chapter 1 — phasors in microwave circuit analysis.
 
 </section>

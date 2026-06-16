@@ -8,16 +8,16 @@ track: r2
 unit: propagation-in-real-environments
 order: 4
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 15
 prerequisites: ["rf-r2-propagation-in-real-environments-03-multipath"]
 spiralRevisits: []
 title: "Fading"
-description: "Time-varying signal strength from multipath and mobility."
-authors: ["tindang"]
+description: "Time-varying signal strength: Rayleigh/Rician statistics, Doppler, and coherence time."
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
-tags: ["fading", "rayleigh", "rician", "doppler", "coherence-time"]
+tags: ["fading", "rayleigh", "rician", "doppler", "coherence-time", "k-factor"]
 widgets: []
 license: CC-BY-SA-4.0
 status: published
@@ -27,7 +27,11 @@ status: published
 
 ## Why understand fading?
 
-Signal strength varies dramatically — 20-40 dB swings within half a wavelength. This isn't noise; it's multipath interference changing as you move. Understanding fading statistics (Rayleigh, Rician) and dynamics (Doppler, coherence time) lets you design systems that survive these fluctuations.
+You are designing a link that delivers 20 dBm of average received power, well above receiver sensitivity. Yet your system drops calls in the same spot every time. The problem is fading: on a sub-second timescale, the received signal fluctuates 20–40 dB around the mean as the multipath components shift phase with every fraction of a wavelength of movement.
+
+Fading is the most misunderstood phenomenon in wireless system design. It is not noise. It is not path loss. It is the deterministic-but-unpredictable interference between multiple coherent copies of your signal. Understanding its statistics (Rayleigh, Rician) and its time dynamics (Doppler shift, coherence time) is prerequisite to designing fade margins, diversity schemes, HARQ retransmission timers, and channel estimation intervals.
+
+For satellite systems, fading takes a different form: the dominant Rician K-factor is high (strong LOS), but shadowing from buildings and trees modulates it slowly as the terminal moves. For LEO satellites, Doppler can exceed 40 kHz at S-band — orders of magnitude larger than terrestrial fading rates.
 
 </section>
 
@@ -35,81 +39,158 @@ Signal strength varies dramatically — 20-40 dB swings within half a wavelength
 
 ## Intuition
 
-Multiple signal paths arrive with different phases. As you move, path lengths change, phases shift, and the paths combine differently. Sometimes they add constructively (strong signal); sometimes destructively (deep fade). The faster you move, the faster the fading.
+### Phase shifts from tiny movements
+
+A receiver at fixed distance $d$ from a transmitter receives the direct path plus many reflected paths. Each path has a phase $\phi_i = 2\pi d_i / \lambda$ determined by its length $d_i$. At 2 GHz, $\lambda = 15$ cm — moving just 7.5 cm changes one path's phase by $\pi$ (180°). If that path was previously adding constructively to the direct path, it now subtracts — the signal drops suddenly by potentially 20–30 dB.
+
+This is small-scale fading. The statistical distribution of the received signal envelope depends on whether there is a dominant LOS component:
+
+- **No LOS component** (pure scatter): many independent paths, each with random phase. The in-phase and quadrature components each sum to Gaussian (by CLT). The envelope follows a **Rayleigh** distribution.
+- **Strong LOS component** plus scatter: the envelope follows a **Rician** distribution. The ratio of LOS power to scatter power is the **K-factor**.
+
+### The K-factor spectrum
+
+```
+K-factor and channel character:
+
+K = -∞ dB   K = 0 dB     K = 5 dB    K = 10 dB    K → ∞
+   |            |            |            |            |
+   ▼            ▼            ▼            ▼            ▼
+  NLOS       Rayleigh    Mild LOS    Strong LOS    AWGN-like
+  deep       (scatter    (suburbs,   (open area,   (clear sky
+  urban      only)       some LOS)    satellite)    satellite)
+  
+  Worst fading ←─────────────────────────────→ Best fading
+  Deepest fade depth                           Shallowest fades
+```
+
+### Doppler — fading speed
+
+As the receiver moves, path lengths change, phases shift, and the superposition changes. A receiver moving at velocity $v$ sees the carrier frequency Doppler-shifted by:
+
+$$f_D = \frac{v}{\lambda} \cos\theta = \frac{v f_c}{c} \cos\theta$$
+
+where $\theta$ is the angle between direction of motion and the incoming wave.
+
+Different multipath components arrive from different angles, so each has a different Doppler shift. The received signal has a Doppler spectrum spanning $[-f_{D,max}, +f_{D,max}]$. The fading rate (how fast the channel changes) is proportional to $f_{D,max}$. Moving faster or using higher frequency = faster fading.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How it works
 
-### Small-scale fading distributions
+### Rayleigh fading distribution
 
-**Rayleigh fading (no LOS):**
+When there is no dominant LOS component and many independent scattered paths exist, the received envelope $r$ follows a Rayleigh distribution:
 
-When many scattered paths, no dominant LOS:
+$$f_R(r) = \frac{r}{\sigma^2} \exp\left(-\frac{r^2}{2\sigma^2}\right), \quad r \geq 0$$
 
-$$f_R(r) = \frac{r}{\sigma^2} e^{-r^2/2\sigma^2}, \quad r \geq 0$$
+where $\sigma^2$ is the power of one of the two quadrature components (total mean power = $2\sigma^2$).
 
-Mean: $E[R] = \sigma\sqrt{\pi/2}$
-Power: $E[R^2] = 2\sigma^2$
+Key statistics:
+- Mean: $E[r] = \sigma\sqrt{\pi/2} \approx 1.25\sigma$
+- Mean power: $E[r^2] = 2\sigma^2$
+- CDF: $P(r \leq R) = 1 - \exp(-R^2 / 2\sigma^2)$
 
-**Rician fading (with LOS):**
+**Probability of being X dB below mean power:**
 
-Dominant LOS path plus scattered paths:
+For Rayleigh fading, the probability that instantaneous power is more than $x$ dB below mean power is approximately:
 
-$$f_R(r) = \frac{r}{\sigma^2} e^{-(r^2+s^2)/2\sigma^2} I_0\left(\frac{rs}{\sigma^2}\right)$$
+$$P(\text{fade depth} > x \text{ dB}) \approx 1 - e^{-10^{-x/10}}$$
 
-where s = amplitude of LOS component, $I_0$ = modified Bessel function.
+| Fade depth | Probability |
+|------------|-------------|
+| 10 dB | 10% |
+| 20 dB | 1% |
+| 30 dB | 0.1% |
 
-**K-factor:**
-$$K = \frac{s^2}{2\sigma^2} = \frac{\text{LOS power}}{\text{scattered power}}$$
+A 10% probability of 10 dB fade means a properly designed system must have at least 10 dB of fade margin to achieve 90% instantaneous reliability — even if the mean SNR is adequate.
 
-K = 0: Rayleigh
-K → ∞: No fading (AWGN-like)
-Typical: K = 3-10 dB for moderate LOS.
+### Rician fading distribution
 
-### Doppler effect
+With a dominant LOS component of amplitude $s$ plus scattered components with power $2\sigma^2$:
 
-Moving at velocity v, carrier frequency f_c:
+$$f_R(r) = \frac{r}{\sigma^2} \exp\left(-\frac{r^2 + s^2}{2\sigma^2}\right) I_0\left(\frac{rs}{\sigma^2}\right), \quad r \geq 0$$
 
-**Maximum Doppler shift:**
-$$f_D = \frac{v}{\lambda} = \frac{vf_c}{c}$$
+where $I_0$ is the modified Bessel function of the first kind, order zero.
 
-**Doppler spectrum (Jakes model):**
+**K-factor (Rician factor):**
 
-$$S(f) = \frac{1}{\pi f_D \sqrt{1 - (f/f_D)^2}}, \quad |f| < f_D$$
+$$K = \frac{s^2}{2\sigma^2} = \frac{\text{power in LOS component}}{\text{power in scattered components}}$$
 
-U-shaped spectrum with peaks at ±f_D.
+Key limiting cases:
+- $K = 0$: $s = 0$, no LOS → Rayleigh distribution
+- $K \to \infty$: scatter vanishes → constant envelope (no fading, AWGN-like)
+
+Typical K-factor values:
+
+| Scenario | K (dB) |
+|----------|---------|
+| Dense urban NLOS | -3 to 0 |
+| Urban with some LOS | 0 to 6 |
+| Suburban outdoor | 5 to 10 |
+| Open rural | 10 to 15 |
+| LEO satellite (rural) | 10 to 20 |
+| GEO satellite (clear sky) | 15 to 25 |
+
+### Doppler shift and spectrum
+
+A transmitter at rest, receiver moving at velocity $v$:
+
+**Maximum Doppler frequency:**
+$$f_{D,max} = \frac{v f_c}{c} = \frac{v}{\lambda}$$
+
+**Jakes (Clarke) Doppler spectrum** — the classical model for isotropic scattering:
+
+$$S(f) = \frac{1}{\pi f_{D,max} \sqrt{1 - \left(\frac{f}{f_{D,max}}\right)^2}}, \quad |f| < f_{D,max}$$
+
+This U-shaped spectrum peaks at $\pm f_{D,max}$ and has a singularity at these edges — a direct consequence of the concentration of scatterers near the horizon (at angles close to the direction of motion).
+
+**Reference Doppler values:**
+
+| Scenario | $f_c$ | $v$ | $f_{D,max}$ |
+|----------|--------|-----|-------------|
+| Walking | 2 GHz | 1.5 m/s | 10 Hz |
+| Urban car | 2 GHz | 50 km/h | 93 Hz |
+| Highway | 2 GHz | 120 km/h | 222 Hz |
+| High-speed rail | 3.5 GHz | 300 km/h | 972 Hz |
+| LEO satellite (horizon) | 2 GHz | 7500 m/s | 50 kHz |
+| mmWave pedestrian | 28 GHz | 1.5 m/s | 140 Hz |
 
 ### Coherence time
 
-Time over which channel remains approximately constant:
+The coherence time $T_c$ is the time interval over which the channel impulse response remains approximately constant. It is inversely related to the maximum Doppler:
 
-$$T_c \approx \frac{0.423}{f_D} = \frac{0.423c}{vf_c}$$
+$$T_c \approx \frac{0.423}{f_{D,max}}$$
 
-Or: $T_c \approx \frac{1}{f_D}$ (order of magnitude).
+(This is the exact expression from Clarke's model for the 50% correlation time.)
 
-### Fast vs. slow fading
+A rougher but widely used approximation:
+$$T_c \approx \frac{1}{f_{D,max}}$$
 
-| Condition | Type | Effect |
-|-----------|------|--------|
-| $T_s << T_c$ | Slow fading | Channel constant over symbol |
-| $T_s >> T_c$ | Fast fading | Channel varies within symbol |
+**Slow vs. fast fading:**
 
-### Level crossing rate
+| Condition | Fading type | Effect |
+|-----------|-------------|--------|
+| Symbol duration $T_s \ll T_c$ | Slow fading | Channel constant over many symbols; channel estimation valid for long intervals |
+| Symbol duration $T_s \gg T_c$ | Fast fading | Channel changes within one symbol; severe distortion |
 
-Average number of times envelope crosses level R per second:
+LTE slot = 0.5 ms. Walking ($T_c = 42$ ms): $T_s \ll T_c$ → slow fading. The channel estimate obtained at the start of a slot remains valid for the whole slot. LTE pilot spacing is designed around this.
 
-$$N_R = \sqrt{2\pi} f_D \rho e^{-\rho^2}$$
+### Level crossing rate and average fade duration
 
-where $\rho = R/R_{rms}$.
+**Level crossing rate** (LCR) — average number of times per second the envelope crosses level $r_0 = R \cdot R_{rms}$ in the downward direction:
 
-### Average fade duration
+$$N_R = \sqrt{2\pi} \, f_{D,max} \, \rho \, e^{-\rho^2}$$
 
-Average time below threshold R:
+where $\rho = R/R_{rms}$ (normalized threshold).
 
-$$\bar{\tau} = \frac{e^{\rho^2} - 1}{\rho \sqrt{2\pi} f_D}$$
+**Average fade duration** (AFD) — average time the envelope stays below threshold $r_0$:
+
+$$\bar{t}_{fade} = \frac{e^{\rho^2} - 1}{\rho \, \sqrt{2\pi} \, f_{D,max}}$$
+
+These quantities are critical for protocol design: ARQ timeout must account for AFD. An interleaver depth must exceed the coherence time to achieve time diversity.
 
 </section>
 
@@ -117,45 +198,67 @@ $$\bar{\tau} = \frac{e^{\rho^2} - 1}{\rho \sqrt{2\pi} f_D}$$
 
 ## Apply
 
-**Example: Vehicular at 60 mph**
+### Example 1: Vehicular fading at 60 km/h
 
-Frequency: 2 GHz
-Velocity: 60 mph ≈ 27 m/s
+Frequency: 2 GHz, $v = 60$ km/h = 16.7 m/s.
 
-$$f_D = \frac{27 \times 2 \times 10^9}{3 \times 10^8} = 180 \text{ Hz}$$
+$$f_{D,max} = \frac{16.7 \times 2 \times 10^9}{3 \times 10^8} = 111 \text{ Hz}$$
 
-Coherence time:
-$$T_c = \frac{0.423}{180} = 2.4 \text{ ms}$$
+$$T_c = \frac{0.423}{111} = 3.8 \text{ ms}$$
 
-LTE slot = 0.5 ms < 2.4 ms — slow fading per slot ✓.
+LTE slot = 0.5 ms $\ll$ 3.8 ms → slow fading. Channel estimate valid per slot. But reference signal (DMRS) every slot is still needed since channel drifts between slots.
 
-**Example: Pedestrian**
+LTE subframe = 1 ms $< T_c$ → each subframe sees approximately one channel realization.
 
-Velocity: 1.5 m/s (walking), 900 MHz
+### Example 2: Fade margin design for Rayleigh channel
 
-$$f_D = \frac{1.5 \times 900 \times 10^6}{3 \times 10^8} = 4.5 \text{ Hz}$$
+Target: 99% of time above receiver sensitivity.
 
-$$T_c = \frac{0.423}{4.5} = 94 \text{ ms}$$
+Required: probability of fade depth $> M$ is less than 1%.
 
-Channel changes ~10× per second — slow enough for accurate CSI.
+From Rayleigh CDF: $P(\text{fade} > M) = e^{-10^{M/10}} < 0.01$.
 
-**Example: Deep fade probability**
+$$10^{M/10} > -\ln(0.01) = 4.6 \Rightarrow M > 10\log_{10}(4.6) = 6.6 \text{ dB}$$
 
-Rayleigh fading. What's P(signal 20 dB below mean)?
+So a 6.6 dB fade margin achieves 99% instantaneous reliability in Rayleigh fading. For 99.9%: $M = 10\log_{10}(6.9) = 8.4$ dB.
 
-20 dB below = $10^{-2}$ of mean power.
+This is the small-scale fade margin, separate from the shadow fade margin discussed in the shadowing lesson.
 
-$$P(|h|^2 < 0.01) = 1 - e^{-0.01} \approx 1\%$$
+### Example 3: LCR and AFD at highway speeds
 
-~1% of time in 20 dB fade.
+$f_{D,max} = 222$ Hz (120 km/h, 2 GHz), threshold at -10 dB below RMS ($\rho = 10^{-10/20} = 0.316$).
 
-**Example: Fade duration**
+Level crossing rate:
+$$N_R = \sqrt{2\pi} \times 222 \times 0.316 \times e^{-0.316^2} = 2.507 \times 222 \times 0.316 \times 0.906 = 160 \text{ crossings/s}$$
 
-180 Hz Doppler, 10 dB fade threshold (ρ = 0.316).
+Average fade duration:
+$$\bar{t}_{fade} = \frac{e^{0.1} - 1}{0.316 \times \sqrt{2\pi} \times 222} = \frac{0.105}{175.4} = 0.6 \text{ ms}$$
 
-$$\bar{\tau} = \frac{e^{0.1} - 1}{0.316 \times \sqrt{2\pi} \times 180} = \frac{0.105}{142} = 0.74 \text{ ms}$$
+Interpretation: at 120 km/h, a -10 dB fade occurs ~160 times per second and lasts ~0.6 ms on average. At 128 kbps, a 0.6 ms fade erases ~77 bits. Forward error correction must handle bursts of this length.
 
-Average 10 dB fade lasts 0.74 ms — ~100 bits at 128 kbps.
+### Example 4: Satellite K-factor effect
+
+LEO satellite at 45° elevation, suburban environment. K-factor = 8 dB (moderate LOS).
+
+Converting: $K_{linear} = 10^{0.8} = 6.3$.
+
+Power fraction in LOS: $K/(K+1) = 6.3/7.3 = 86\%$.
+Power fraction in scatter: $1/7.3 = 14\%$.
+
+Deep fade probability for Rician vs. Rayleigh at -20 dB threshold:
+
+Rayleigh: ~1%.
+Rician (K=8 dB): much lower — the LOS component prevents deep fades. The system needs less fade margin compared to terrestrial NLOS.
+
+### Example 5: mmWave pedestrian — Doppler at 28 GHz
+
+Walking at 1.5 m/s, 28 GHz.
+
+$$f_{D,max} = \frac{1.5 \times 28 \times 10^9}{3 \times 10^8} = 140 \text{ Hz}$$
+
+$$T_c = \frac{0.423}{140} = 3 \text{ ms}$$
+
+At 28 GHz, even walking produces 140 Hz Doppler — comparable to vehicular fading at 2 GHz. mmWave systems must re-estimate the channel every few milliseconds even for pedestrian users. This drives the dense reference signal design in 5G NR at mmWave.
 
 </section>
 
@@ -163,15 +266,17 @@ Average 10 dB fade lasts 0.74 ms — ~100 bits at 128 kbps.
 
 ## Pitfalls
 
-1. **Assuming Rayleigh everywhere.** Indoor/urban may have LOS → Rician. Satellite almost always Rician.
+1. **Assuming Rayleigh everywhere.** Urban NLOS is Rayleigh. Suburban, indoor corridor, satellite, and rural links often have LOS — use Rician. The K-factor strongly affects required fade margin; using Rayleigh for a K=10 dB Rician channel wastes 5–8 dB of link budget.
 
-2. **Ignoring Doppler at low speeds.** Even 5 m/s at 60 GHz gives 1 kHz Doppler — significant for mmWave.
+2. **Ignoring Doppler at high frequencies.** At 60 GHz, even a pedestrian at 1.5 m/s produces 300 Hz Doppler. For single-carrier wideband systems this may be negligible, but for OFDM with narrow subcarrier spacing it causes ICI. Always check $f_D \ll \Delta f_{subcarrier}$.
 
-3. **Confusing coherence time and delay spread.** Coherence time is temporal; coherence bandwidth is frequency. Different phenomena.
+3. **Confusing coherence time and delay spread.** Coherence time is a temporal property (how fast the channel changes); delay spread/coherence bandwidth is a frequency property (how frequency-selective the channel is). They are independent. A pedestrian channel can be slow-fading AND frequency-selective simultaneously.
 
-4. **Static channel assumption.** Channel estimation stales. Re-estimate at least every Tc.
+4. **Static channel for channel estimation.** Channel estimation assumes the channel is constant over the estimation interval. If the coherence time is shorter than the pilot spacing, the channel estimate stales and equalizer performance degrades. In 5G NR, the pilot density in time is configured based on the UE velocity class.
 
-5. **Underestimating fade depth.** Rayleigh fades can exceed 30 dB. Design margin for outage, not average.
+5. **Underestimating fade depth.** Rayleigh fading can produce 30–40 dB instantaneous fades. A system designed with only 10 dB fade margin will experience outage ~1% of the time in Rayleigh — unacceptable for voice. Critical services require 20+ dB margin or diversity combining.
+
+6. **AFD vs. burst error length.** Average fade duration gives the mean. Individual fades can be much longer. An interleaver or ARQ system sized for the mean AFD will fail during the long tail of the fade duration distribution. Use the 90th or 99th percentile fade duration for robust design.
 
 </section>
 
@@ -179,8 +284,10 @@ Average 10 dB fade lasts 0.74 ms — ~100 bits at 128 kbps.
 
 ## References
 
-- Rappaport, *Wireless Communications*, Chapter 5.
-- Goldsmith, *Wireless Communications*, Chapter 3.
-- Jakes, *Microwave Mobile Communications*, Chapter 1.
+- Rappaport, T.S., *Wireless Communications*, 2nd ed., Chapter 5 — Rayleigh, Rician, Doppler, LCR, AFD.
+- Goldsmith, A., *Wireless Communications*, Chapter 3 — statistical fading models and channel capacity implications.
+- Jakes, W.C., *Microwave Mobile Communications*, Chapter 1 — the classic reference for Doppler spectrum and Clarke's model.
+- 3GPP TR 38.901 v17.0, Section 7.7 — K-factor models for 5G NR environments.
+- Parsons, J.D., *The Mobile Radio Propagation Channel*, Chapter 5 — statistical characterization of fading channels.
 
 </section>

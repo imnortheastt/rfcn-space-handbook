@@ -9,16 +9,537 @@ unit: multiple-access-satellite
 order: 4
 level: L3
 estimatedReadingMinutes: 5
-title: "MF-TDMA"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "MF-TDMA — Multi-Frequency Time Division Multiple Access"
+description: "The dominant modern VSAT access scheme combining FDMA's flexibility with TDMA's efficiency for dynamic bandwidth allocation."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["mf-tdma", "dvb-rcs2", "vsat", "dynamic-bandwidth", "satellite"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# MF-TDMA
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+MF-TDMA is the workhorse of modern VSAT systems. It combines FDMA (multiple frequency carriers) with TDMA (time slots on each carrier). The result: a network management system can dynamically assign any terminal to any slot on any carrier, matching capacity to demand in real-time. This is why your Viasat or HughesNet connection can burst to high speeds when needed but share resources efficiently across millions of subscribers. DVB-RCS2, the global standard, is built on MF-TDMA.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The grid analogy
+
+```
+MF-TDMA: A 2D grid of frequency × time slots
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Think of a parking garage with multiple floors (frequencies)      │
+│  and multiple parking spots per floor (time slots).                │
+│                                                                      │
+│  You can park in ANY available spot on ANY floor.                  │
+│  The garage manager assigns spots dynamically based on demand.     │
+│                                                                      │
+│                                                                      │
+│  Frequency                                                          │
+│      ▲                                                              │
+│      │                                                              │
+│  f4 ─┼──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┬──┐   │
+│      │A │  │B │  │A │C │  │  │D │  │A │B │  │C │  │  │D │A │  │   │
+│  f3 ─┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤   │
+│      │  │D │  │A │  │  │B │A │  │C │  │  │A │  │D │B │  │  │C │   │
+│  f2 ─┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤   │
+│      │B │  │C │  │D │A │  │B │  │  │C │D │  │A │  │  │B │C │  │   │
+│  f1 ─┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┼──┤   │
+│      │  │A │  │B │  │  │C │  │A │D │  │  │B │  │A │C │  │  │D │   │
+│      └──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┴──┘   │
+│      │◄──────────────── Superframe ───────────────────────────►│   │
+│                                                                      │
+│  • Each cell = one time slot on one frequency                      │
+│  • Terminals hop between frequencies and slots                     │
+│  • Hub assigns slots via Terminal Burst Time Plan (TBTP)           │
+│  • Empty slots = available capacity for bursting                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Dynamic bandwidth allocation
+
+```
+Why MF-TDMA Beats Pure TDMA or FDMA:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SCENARIO: 100 terminals, mostly idle, occasional bursts           │
+│                                                                      │
+│  PURE FDMA:                                                         │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Each terminal gets fixed 360 kHz (36 MHz / 100)            │   │
+│  │  Peak rate: 360 kHz × 2 bps/Hz = 720 kbps                   │   │
+│  │  If 5% active: 95% of bandwidth wasted                      │   │
+│  │  NO BURSTING - stuck at 720 kbps                            │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  PURE TDMA (single carrier):                                        │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  36 MHz carrier, 100 slots per frame                        │   │
+│  │  Each terminal: 1 slot = 1% of time at 72 Mbps              │   │
+│  │  Peak rate: 720 kbps sustained                              │   │
+│  │  Inefficient for small terminals (big preamble overhead)    │   │
+│  │  LIMITED BURSTING - constrained by slot size                │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  MF-TDMA:                                                           │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  4 carriers × 6 MHz, 25 slots per carrier per frame         │   │
+│  │  Small terminal: 1 slot on 1 carrier = 360 kbps             │   │
+│  │  Medium burst: 4 slots across 2 carriers = 2.9 Mbps         │   │
+│  │  Large burst: 20 slots across 4 carriers = 14 Mbps          │   │
+│  │  DYNAMIC - grab as many slots as needed!                    │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  MF-TDMA provides flexible bursting while efficiently sharing      │
+│  bandwidth across terminals with different needs.                  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### DVB-RCS2 frame structure
+
+```
+DVB-RCS2 MF-TDMA Frame Hierarchy:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SUPERFRAME (48-750 ms, configurable)                              │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                               │   │
+│  │  ┌─────────┬─────────┬─────────┬─────────┬─────────┐        │   │
+│  │  │ Frame 0 │ Frame 1 │ Frame 2 │  ...    │ Frame N │        │   │
+│  │  └─────────┴─────────┴─────────┴─────────┴─────────┘        │   │
+│  │                                                               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  FRAME (carrier × time)                                            │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │         │  Slot 0  │  Slot 1  │  Slot 2  │  ...  │  Slot M  │   │
+│  │  Carr 0 │──────────┼──────────┼──────────┼───────┼──────────│   │
+│  │  Carr 1 │──────────┼──────────┼──────────┼───────┼──────────│   │
+│  │  Carr 2 │──────────┼──────────┼──────────┼───────┼──────────│   │
+│  │  ...    │──────────┼──────────┼──────────┼───────┼──────────│   │
+│  │  Carr K │──────────┼──────────┼──────────┼───────┼──────────│   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  TIMESLOT (single transmission unit)                               │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  ┌──────┬─────────┬────────────────────────┬──────┐         │   │
+│  │  │Guard │Preamble │      Payload Data      │Guard │         │   │
+│  │  │      │  + UW   │   (ATM/IP/MPEG)        │      │         │   │
+│  │  └──────┴─────────┴────────────────────────┴──────┘         │   │
+│  │                                                               │   │
+│  │  Guard: 1-5 symbols (timing tolerance)                      │   │
+│  │  Preamble: CR + BTR + UW ≈ 48-96 symbols                   │   │
+│  │  Payload: 64-2048 bytes typical                             │   │
+│  │                                                               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Bandwidth allocation mechanisms
+
+```
+MF-TDMA Capacity Assignment:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  THREE TYPES OF CAPACITY:                                          │
+│                                                                      │
+│  1. CRA (Constant Rate Assignment)                                 │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  • Fixed slots every frame (like SCPC, but shared)            │ │
+│  │  • Guaranteed bandwidth, highest priority                     │ │
+│  │  • Used for: VoIP, video conferencing, critical data         │ │
+│  │  • Example: 256 kbps CRA for enterprise voice                │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  2. RBDC (Rate-Based Dynamic Capacity)                             │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  • Terminal requests rate (kbps), hub assigns slots           │ │
+│  │  • Persists until terminal requests lower rate                │ │
+│  │  • Used for: Streaming, downloads, interactive data          │ │
+│  │  • Example: Request 2 Mbps for video streaming               │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  3. VBDC (Volume-Based Dynamic Capacity)                           │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  • Terminal requests volume (bytes), hub assigns slots        │ │
+│  │  • One-shot: capacity granted once per request                │ │
+│  │  • Used for: Email, web browsing, bursts                     │ │
+│  │  • Example: Request 50 KB for HTTP response                  │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  4. FCA (Free Capacity Assignment)                                 │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  • Hub distributes unused capacity to active terminals        │ │
+│  │  • Best-effort, lowest priority                               │ │
+│  │  • Absorbs CRA + RBDC + VBDC leftovers                       │ │
+│  │  • Used for: Background transfers, software updates          │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TOTAL CAPACITY = CRA + RBDC + VBDC + FCA ≤ System capacity       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Terminal burst time plan (TBTP)
+
+```
+How Slots Are Assigned:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  FORWARD LINK (Hub → Terminals):                                   │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                │ │
+│  │  Hub broadcasts TBTP (Terminal Burst Time Plan):              │ │
+│  │                                                                │ │
+│  │  "In superframe 1234:                                         │ │
+│  │     Terminal 001: Carrier 2, Slots 5-7                       │ │
+│  │     Terminal 002: Carrier 1, Slot 12                         │ │
+│  │     Terminal 003: Carrier 3, Slots 1-4, 8-10                 │ │
+│  │     ..."                                                      │ │
+│  │                                                                │ │
+│  │  Sent 2-3 superframes in advance (scheduling latency)        │ │
+│  │                                                                │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  RETURN LINK (Terminals → Hub):                                    │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                │ │
+│  │  Terminals transmit capacity requests via:                   │ │
+│  │  • SAC (Satellite Access Control) field in each burst        │ │
+│  │  • Dedicated contention slots (for initial access)           │ │
+│  │                                                                │ │
+│  │  Request format:                                              │ │
+│  │    "Terminal 001 requests: CRA=128kbps, RBDC=0, VBDC=8KB"   │ │
+│  │                                                                │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TIMING LOOP:                                                       │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                │ │
+│  │  Superframe N:   Terminal sends capacity request              │ │
+│  │  Superframe N+1: Hub processes, computes TBTP                │ │
+│  │  Superframe N+2: Hub broadcasts TBTP                         │ │
+│  │  Superframe N+3: Terminal transmits in assigned slots        │ │
+│  │                                                                │ │
+│  │  Total delay: ~3 superframes = 150-500 ms typical            │ │
+│  │                                                                │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**MF-TDMA capacity and efficiency calculator:**
+
+```python
+import numpy as np
+
+def mf_tdma_frame_capacity(num_carriers, carrier_bw_mhz, symbol_rate_msps,
+                           bits_per_symbol, code_rate, slots_per_frame,
+                           preamble_symbols, guard_symbols):
+    """
+    Calculate MF-TDMA frame capacity.
+    """
+    symbols_per_slot = (carrier_bw_mhz * 1e6 / symbol_rate_msps / 1e6 / 
+                        slots_per_frame * symbol_rate_msps * 1e6 / 1e6)
+    
+    slot_duration_us = 1000000 / symbol_rate_msps / slots_per_frame
+    
+    payload_symbols = int(slot_duration_us * symbol_rate_msps) - preamble_symbols - guard_symbols
+    
+    bits_per_slot = payload_symbols * bits_per_symbol * code_rate
+    bytes_per_slot = bits_per_slot / 8
+    
+    total_slots = num_carriers * slots_per_frame
+    
+    frame_duration_ms = 1000 / symbol_rate_msps * slots_per_frame * (preamble_symbols + guard_symbols + payload_symbols) / 1000
+    
+    return {
+        "num_carriers": num_carriers,
+        "slots_per_frame": slots_per_frame,
+        "total_slots": total_slots,
+        "bytes_per_slot": int(bytes_per_slot),
+        "payload_symbols": payload_symbols
+    }
+
+def capacity_allocation(total_slots, terminals):
+    """
+    Simulate MF-TDMA capacity allocation.
+    
+    Args:
+        total_slots: Total slots per superframe
+        terminals: List of dicts with {id, cra_slots, rbdc_slots, vbdc_slots}
+    
+    Returns:
+        Allocation results
+    """
+    cra_total = sum(t.get("cra_slots", 0) for t in terminals)
+    rbdc_total = sum(t.get("rbdc_slots", 0) for t in terminals)
+    vbdc_total = sum(t.get("vbdc_slots", 0) for t in terminals)
+    
+    committed = cra_total + rbdc_total + vbdc_total
+    fca_available = max(0, total_slots - committed)
+    
+    active_terminals = len([t for t in terminals if 
+                           t.get("cra_slots", 0) + t.get("rbdc_slots", 0) + t.get("vbdc_slots", 0) > 0])
+    
+    fca_per_terminal = fca_available // max(1, active_terminals) if active_terminals > 0 else 0
+    
+    return {
+        "total_slots": total_slots,
+        "cra_slots": cra_total,
+        "rbdc_slots": rbdc_total,
+        "vbdc_slots": vbdc_total,
+        "fca_slots": fca_available,
+        "utilization": committed / total_slots,
+        "fca_per_terminal": fca_per_terminal
+    }
+
+def terminal_throughput(cra_kbps, rbdc_kbps, vbdc_burst_kb, fca_kbps,
+                        cir_kbps, mir_kbps):
+    """
+    Calculate terminal throughput with QoS constraints.
+    
+    Args:
+        cra_kbps: Constant rate allocation
+        rbdc_kbps: Rate-based dynamic capacity
+        vbdc_burst_kb: Volume-based burst (one-shot)
+        fca_kbps: Free capacity estimate
+        cir_kbps: Committed Information Rate
+        mir_kbps: Maximum Information Rate
+    
+    Returns:
+        Effective throughput
+    """
+    total = cra_kbps + rbdc_kbps + fca_kbps
+    
+    guaranteed = min(cra_kbps, cir_kbps)
+    
+    peak = min(total, mir_kbps)
+    
+    return {
+        "guaranteed_kbps": guaranteed,
+        "typical_kbps": cra_kbps + rbdc_kbps,
+        "peak_kbps": peak,
+        "vbdc_burst_kb": vbdc_burst_kb
+    }
+
+def compare_access_methods(num_terminals, activity_factor, 
+                           peak_rate_kbps, system_capacity_mbps):
+    """
+    Compare FDMA, TDMA, and MF-TDMA for a given scenario.
+    """
+    fdma_per_terminal = system_capacity_mbps * 1000 / num_terminals
+    fdma_effective = fdma_per_terminal * activity_factor
+    fdma_peak = fdma_per_terminal  # No bursting
+    
+    tdma_frame_eff = 0.85
+    tdma_capacity = system_capacity_mbps * 1000 * tdma_frame_eff
+    tdma_per_terminal = tdma_capacity / num_terminals
+    tdma_peak = tdma_capacity / (num_terminals * activity_factor)  # Burst to full
+    
+    mf_tdma_eff = 0.88
+    mf_tdma_capacity = system_capacity_mbps * 1000 * mf_tdma_eff
+    mf_tdma_burst_ratio = 1 / activity_factor
+    mf_tdma_peak = min(mf_tdma_capacity * 0.5, peak_rate_kbps * mf_tdma_burst_ratio)
+    
+    return {
+        "fdma": {"sustained": fdma_per_terminal, "peak": fdma_peak},
+        "tdma": {"sustained": tdma_per_terminal, "peak": min(tdma_peak, tdma_capacity * 0.3)},
+        "mf_tdma": {"sustained": mf_tdma_capacity / num_terminals, "peak": mf_tdma_peak}
+    }
+
+print("MF-TDMA Capacity Analysis")
+print("=" * 70)
+
+# System configuration
+print("\n1. MF-TDMA System Configuration (DVB-RCS2 Example)")
+print("-" * 70)
+
+print("""
+  Typical DVB-RCS2 Return Link Configuration:
+
+  ┌────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  Parameter              │ Value                                │
+  │  ───────────────────────┼──────────────────────────────────── │
+  │  Return bandwidth       │ 36 MHz (Ku-band transponder)        │
+  │  Number of carriers     │ 6 × 6 MHz                           │
+  │  Symbol rate per carrier│ 4.5 Msps                            │
+  │  Modulation             │ QPSK                                │
+  │  FEC code rate          │ 1/2 to 3/4 (adaptive)               │
+  │  Slots per frame        │ 32 per carrier                      │
+  │  Total slots per frame  │ 6 × 32 = 192                        │
+  │  Superframe duration    │ 48 ms                               │
+  │  Slot payload           │ 188 bytes (ATM cell compatible)     │
+  │                                                                 │
+  └────────────────────────────────────────────────────────────────┘
+""")
+
+# Capacity allocation example
+print("\n2. Capacity Allocation Example")
+print("-" * 70)
+
+terminals = [
+    {"id": "Enterprise 1", "cra_slots": 4, "rbdc_slots": 8, "vbdc_slots": 2},
+    {"id": "Enterprise 2", "cra_slots": 4, "rbdc_slots": 4, "vbdc_slots": 0},
+    {"id": "Consumer 1", "cra_slots": 0, "rbdc_slots": 2, "vbdc_slots": 4},
+    {"id": "Consumer 2", "cra_slots": 0, "rbdc_slots": 1, "vbdc_slots": 2},
+    {"id": "Consumer 3", "cra_slots": 0, "rbdc_slots": 0, "vbdc_slots": 6},
+]
+
+total_slots = 192
+alloc = capacity_allocation(total_slots, terminals)
+
+print(f"\n  Total slots per superframe: {alloc['total_slots']}")
+print(f"\n  Allocation breakdown:")
+print(f"    CRA (guaranteed):  {alloc['cra_slots']:>3} slots ({alloc['cra_slots']/total_slots*100:>5.1f}%)")
+print(f"    RBDC (rate-based): {alloc['rbdc_slots']:>3} slots ({alloc['rbdc_slots']/total_slots*100:>5.1f}%)")
+print(f"    VBDC (volume):     {alloc['vbdc_slots']:>3} slots ({alloc['vbdc_slots']/total_slots*100:>5.1f}%)")
+print(f"    FCA (free):        {alloc['fca_slots']:>3} slots ({alloc['fca_slots']/total_slots*100:>5.1f}%)")
+print(f"\n  System utilization: {alloc['utilization']:.1%}")
+print(f"  FCA per active terminal: {alloc['fca_per_terminal']} slots")
+
+# Terminal QoS
+print("\n3. Terminal QoS Profile")
+print("-" * 70)
+
+profiles = [
+    ("Enterprise Gold", 512, 2048, 100, 1024, 512, 10240),
+    ("Enterprise Silver", 256, 1024, 50, 512, 256, 5120),
+    ("Consumer Premium", 128, 512, 25, 512, 128, 2048),
+    ("Consumer Basic", 0, 256, 10, 256, 64, 1024),
+]
+
+print(f"\n  {'Profile':<20} {'CRA':>8} {'RBDC':>8} {'CIR':>8} {'MIR':>8} {'Peak':>10}")
+print(f"  {'-'*62}")
+
+for name, cra, rbdc, vbdc, fca, cir, mir in profiles:
+    tp = terminal_throughput(cra, rbdc, vbdc, fca, cir, mir)
+    print(f"  {name:<20} {cra:>6}k {rbdc:>6}k {tp['guaranteed_kbps']:>6}k {mir:>6}k {tp['peak_kbps']:>8}k")
+
+# Comparison
+print("\n4. Access Method Comparison")
+print("-" * 70)
+
+print(f"\n  Scenario: 500 terminals, 10% activity, 36 Mbps system capacity")
+
+comparison = compare_access_methods(500, 0.10, 10000, 36)
+
+print(f"\n  {'Method':<12} {'Sustained Rate':>15} {'Peak Rate':>15}")
+print(f"  {'-'*42}")
+print(f"  {'FDMA':<12} {comparison['fdma']['sustained']:>13.0f}k {comparison['fdma']['peak']:>13.0f}k")
+print(f"  {'TDMA':<12} {comparison['tdma']['sustained']:>13.0f}k {comparison['tdma']['peak']:>13.0f}k")
+print(f"  {'MF-TDMA':<12} {comparison['mf_tdma']['sustained']:>13.0f}k {comparison['mf_tdma']['peak']:>13.0f}k")
+
+print("""
+
+  KEY INSIGHT:
+  MF-TDMA achieves higher peak rates through statistical multiplexing.
+  With 10% activity, inactive terminals' capacity becomes burst headroom.
+""")
+
+# Latency analysis
+print("\n5. MF-TDMA Latency Components")
+print("-" * 70)
+
+print("""
+  ┌────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  Component                    │ Typical Value                  │
+  │  ─────────────────────────────┼──────────────────────────────  │
+  │  Propagation (GEO round-trip) │ 540-600 ms                     │
+  │  Superframe scheduling delay  │ 48-100 ms (2-3 superframes)   │
+  │  Processing at hub            │ 5-20 ms                        │
+  │  Processing at terminal       │ 5-10 ms                        │
+  │  ─────────────────────────────┼──────────────────────────────  │
+  │  TOTAL (first packet)         │ 600-750 ms                     │
+  │  TOTAL (subsequent packets)   │ 540-640 ms                     │
+  │                                                                 │
+  │  For comparison:                                               │
+  │  • SCPC: 540-560 ms (no scheduling)                           │
+  │  • Terrestrial: 20-100 ms                                      │
+  │                                                                 │
+  └────────────────────────────────────────────────────────────────┘
+""")
+```
+
+**Key formulas:**
+
+| Metric | Formula |
+|--------|---------|
+| Total slots | Num_carriers × Slots_per_carrier |
+| Slot capacity | (Slot_symbols - Preamble - Guard) × Bits/symbol × Code_rate / 8 |
+| CIR guarantee | min(CRA_rate, Committed_rate) |
+| Peak rate | min(CRA + RBDC + FCA, MIR) |
+| Utilization | (CRA + RBDC + VBDC) / Total_slots |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring scheduling latency.** MF-TDMA adds 2-3 superframes of delay for capacity requests. First-packet latency can be 100-200 ms higher than SCPC.
+
+2. **Over-subscribing CRA.** CRA is guaranteed — if you promise more CRA than system capacity, you'll fail at peak load. Keep total CRA < 70% of capacity.
+
+3. **Expecting instant bursts.** VBDC/RBDC requests take 2-3 superframes to fulfill. Bursty web traffic feels this latency.
+
+4. **Forgetting rain fade margin.** MF-TDMA systems use adaptive coding/modulation. Heavy rain reduces slots per terminal — budget for degraded mode.
+
+5. **Underestimating preamble overhead.** Small slots have higher preamble percentage. 64-byte slots with 96-symbol preambles lose ~20% to overhead.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ETSI EN 301 545-2 — DVB-RCS2 Lower Layer specification
+- ETSI EN 301 545-4 — DVB-RCS2 Guidelines for implementation
+- Hughes JUPITER System documentation — commercial MF-TDMA
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [FDMA](/en/space/multiple-access-satellite/fdma/) — compare with pure frequency division
+- [TDMA](/en/space/multiple-access-satellite/tdma/) — compare with pure time division
+- [CDMA & SCPC](/en/space/multiple-access-satellite/cdma-scpc/) — dedicated carrier alternatives
+
+</section>

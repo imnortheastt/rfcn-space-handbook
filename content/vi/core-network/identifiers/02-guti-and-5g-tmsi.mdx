@@ -8,17 +8,339 @@ track: n3
 unit: identifiers
 order: 2
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-identifiers-01-supi-and-suci"]
+spiralRevisits: ["core-network-n4-security-03-identifier-privacy"]
 title: "GUTI va 5G-TMSI"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Globally Unique Temporary Identifier — bao ve danh tinh thue bao sau dang ky."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 23.003", "3GPP TS 24.501"]
+tags: ["guti", "5g-tmsi", "identity", "5g", "privacy"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# GUTI va 5G-TMSI
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Ngay ca khi SUCI ma hoa danh tinh cua ban trong qua trinh dang ky, viec su dung cung mot identifier lap lai se cho phep ke tan cong theo doi ban.
+
+**5G-GUTI** la danh tinh tam thoi ma mang gan cho ban sau khi authentication. No thay doi thuong xuyen, pha vo lien ket giua cac session va lam viec theo doi kho khan hon nhieu.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### 5G-GUTI la gi?
+
+**5G-GUTI (5G Globally Unique Temporary Identifier)** la danh tinh tam thoi do AMF gan sau khi authentication thanh cong. No thay the SUPI vinh vien cho tat ca signaling tiep theo.
+
+```
+Vong doi danh tinh:
+
+Dang ky ban dau:
+  UE ──── SUCI ────► Mang
+  UE ◄─── 5G-GUTI ── Mang
+
+Thu tuc tiep theo:
+  UE ──── 5G-GUTI ──► Mang
+  (SUPI khong bao gio gui lai)
+```
+
+**Loi ich chinh:** Ngay ca neu ke tan cong chan 5G-GUTI cua ban, ho khong the lien ket no voi danh tinh vinh vien hoac cac session truoc (neu GUTI duoc lam moi dung).
+
+### Cau truc 5G-GUTI
+
+```
+5G-GUTI = GUAMI + 5G-TMSI
+
+┌─────────────────────────────────────────────────────────┐
+│                        5G-GUTI                           │
+│                                                          │
+│  ┌───────────────────────────┬──────────────────────┐   │
+│  │         GUAMI             │       5G-TMSI        │   │
+│  │    (48 bit)               │      (32 bit)        │   │
+│  └───────────────────────────┴──────────────────────┘   │
+│                                                          │
+│  GUAMI = MCC + MNC + AMF Region + AMF Set + AMF Pointer │
+│                                                          │
+│  ┌─────┬─────┬───────────┬─────────┬────────────┐       │
+│  │ MCC │ MNC │ AMF       │ AMF Set │ AMF        │       │
+│  │ 3   │ 2-3 │ Region ID │ ID      │ Pointer    │       │
+│  │so   │so   │ (8 bit)   │ (10 bit)│ (6 bit)    │       │
+│  └─────┴─────┴───────────┴─────────┴────────────┘       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 5G-TMSI la gi?
+
+**5G-TMSI (5G Temporary Mobile Subscriber Identity)** la phan ngau nhien cua GUTI xac dinh duy nhat UE trong mot AMF.
+
+```
+Tinh chat 5G-TMSI:
+- 32 bit (4 byte)
+- Do AMF gan
+- Duy nhat trong AMF do
+- Thay doi dinh ky
+- Khong tuong quan voi SUPI
+```
+
+**Ket hop:** GUAMI xac dinh AMF, 5G-TMSI xac dinh UE trong AMF do.
+
+### GUTI vs TMSI vs S-TMSI
+
+| Identifier | Pham vi | Su dung |
+|------------|---------|---------|
+| 5G-GUTI | Toan cau | Danh tinh day du cho inter-AMF |
+| 5G-TMSI | Trong AMF | Dang ngan cho signaling |
+| 5G-S-TMSI | Trong AMF Set | Paging, thiet lap ket noi |
+
+```
+5G-S-TMSI = AMF Set ID + AMF Pointer + 5G-TMSI
+          = 16 bit cuoi cua GUAMI + 5G-TMSI
+          = 48 bit tong cong
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cap phat GUTI
+
+AMF cap phat GUTI moi trong hoac sau dang ky:
+
+```
+UE                            AMF                          UDM
+│                              │                            │
+│   Registration Request       │                            │
+│   (SUCI hoac GUTI cu)        │                            │
+│─────────────────────────────►│                            │
+│                              │                            │
+│                              │   Authentication           │
+│                              │◄──────────────────────────►│
+│                              │                            │
+│                              │   Cap phat 5G-GUTI moi     │
+│                              │   ┌─────────────────────┐  │
+│                              │   │ Chon 5G-TMSI ngau nhien│
+│                              │   │ Ket hop voi GUAMI   │  │
+│                              │   └─────────────────────┘  │
+│                              │                            │
+│   Registration Accept        │                            │
+│   (5G-GUTI moi)              │                            │
+│◄─────────────────────────────│                            │
+│                              │                            │
+│   Luu GUTI moi               │   Anh xa GUTI → SUPI      │
+│                              │                            │
+```
+
+### Cap phat lai GUTI
+
+Mang co the cap phat lai GUTI bat cu luc nao de cai thien privacy:
+
+**Trigger cap phat lai bat buoc:**
+- Dang ky ban dau
+- Dang ky sau thoi gian dai idle
+- Di dong inter-AMF
+
+**Trigger cap phat lai tuy chon:**
+- Het timer dinh ky
+- Su kien bao mat
+- Chinh sach mang
+
+```
+Cap phat lai GUTI (trong session dang hoat dong):
+
+UE                            AMF
+│                              │
+│   Thu tuc NAS nao do         │
+│◄────────────────────────────►│
+│                              │
+│   Configuration Update Cmd   │
+│   (5G-GUTI moi)              │
+│◄─────────────────────────────│
+│                              │
+│   Configuration Update Cmplt │
+│─────────────────────────────►│
+│                              │
+│   UE bay gio dung GUTI moi   │
+│                              │
+```
+
+### Dung GUTI cho dang ky tiep theo
+
+```
+UE                            AMF
+│                              │
+│   Registration Request       │
+│   Mobile Identity: 5G-GUTI   │
+│─────────────────────────────►│
+│                              │
+│                              │   Tim GUTI trong context
+│                              │   ┌─────────────────────┐
+│                              │   │ Tim thay: lay SUPI  │
+│                              │   │ Khong thay: yeu cau │
+│                              │   │   SUCI tu UE        │
+│                              │   └─────────────────────┘
+│                              │
+```
+
+**Neu tim GUTI that bai:**
+1. AMF yeu cau SUCI tu UE
+2. Authentication day du xay ra
+3. GUTI moi duoc gan
+
+### Paging voi 5G-S-TMSI
+
+Khi mang can paging UE dang idle, no dung 5G-S-TMSI (khong phai GUTI day du):
+
+```
+AMF                         gNB                         UE
+ │                           │                           │
+ │   Paging Request          │                           │
+ │   (danh sach 5G-S-TMSI)   │                           │
+ │──────────────────────────►│                           │
+ │                           │                           │
+ │                           │   Paging (qua vo tuyen)   │
+ │                           │   (5G-S-TMSI)             │
+ │                           │──────────────────────────►│
+ │                           │                           │
+ │                           │   Service Request         │
+ │                           │   (5G-S-TMSI)             │
+ │                           │◄──────────────────────────│
+ │                           │                           │
+```
+
+**Tai sao 5G-S-TMSI cho paging?**
+- Ngan hon GUTI day du (48 vs 80 bit)
+- Du trong AMF set
+- Giam overhead vo tuyen
+
+### Di dong inter-AMF
+
+Khi UE di chuyen den AMF moi, GUTI cu giup lay context:
+
+```
+UE                      AMF Moi                    AMF Cu
+│                          │                          │
+│   Registration Req       │                          │
+│   (5G-GUTI cu)           │                          │
+│─────────────────────────►│                          │
+│                          │                          │
+│                          │   Context Request        │
+│                          │   (5G-GUTI cu)           │
+│                          │─────────────────────────►│
+│                          │                          │
+│                          │   Context Response       │
+│                          │   (UE context, SUPI)     │
+│                          │◄─────────────────────────│
+│                          │                          │
+│                          │   Cap phat GUTI moi      │
+│                          │                          │
+│   Registration Accept    │                          │
+│   (5G-GUTI moi)          │                          │
+│◄─────────────────────────│                          │
+│                          │                          │
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**GUTI trong trace:**
+
+```
+Registration Request:
+  5GS mobile identity
+    Type of identity: 5G-GUTI
+    MCC: 310
+    MNC: 260
+    AMF Region ID: 0x01
+    AMF Set ID: 0x001
+    AMF Pointer: 0x02
+    5G-TMSI: 0x12345678
+
+Giai ma:
+  GUAMI = 310-260-01-001-02
+  GUTI day du = 310-260-01-001-02-12345678
+```
+
+**Troubleshooting van de GUTI:**
+
+| Trieu chung | Nguyen nhan co the | Kiem tra |
+|-------------|--------------------| ---------|
+| GUTI khong nhan dien | AMF restart, mat context | Kiem tra log AMF |
+| Fallback SUCI thuong xuyen | Cap phat lai GUTI qua aggressive | Review timer GUTI |
+| Co the theo doi | GUTI khong thay doi | Kiem tra chinh sach cap phat lai |
+| Loi inter-AMF | Chuyen context hong | Xac nhan giao dien N14 |
+
+**Xem xet chinh sach cap phat lai GUTI:**
+
+| Cach tiep can | Privacy | Overhead | Use case |
+|---------------|---------|----------|----------|
+| Khong thay doi | Thap | Thap | Khong khuyen nghi |
+| Moi lan dang ky | Trung binh | Thap | Mac dinh |
+| Dinh ky (v.d., hang gio) | Cao | Trung binh | Quan tam privacy |
+| Moi giao dich | Rat cao | Cao | Bao mat cao |
+
+**Checklist debug:**
+
+1. **UE gui GUTI cu:** Binh thuong sau idle, AMF nen xu ly
+2. **AMF tu choi GUTI:** Kiem tra context timeout, AMF restart
+3. **AMF sai nhan GUTI:** Kiem tra phan tich GUAMI, routing
+4. **Loi paging:** Xac nhan tinh toan 5G-S-TMSI, config AMF set
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Tai su dung GUTI qua cac session.** Neu cung GUTI dung qua lau, no cho phep theo doi. Dam bao cap phat lai dinh ky.
+
+2. **GUTI co the du doan.** Neu cap phat 5G-TMSI co the du doan (tuan tu), ke tan cong co the doan danh tinh. Dung cap phat ngau nhien.
+
+3. **Mat context khi AMF loi.** Neu AMF mat context, tat ca GUTI tro nen khong hop le. UE phai fallback ve SUCI, gay bao authentication.
+
+4. **Routing inter-AMF.** GUTI cu phai den AMF cu de chuyen context. Dam bao routing N14/Namf dung.
+
+5. **GUTI vs native 5G-GUTI.** UE tu 4G (qua N26) co the co dinh dang 4G-GUTI. Xu ly su khac biet dinh dang.
+
+6. **Xung dot 5G-S-TMSI.** Trong AMF set, 5G-S-TMSI phai duy nhat. Dam bao phoi hop dung giua cac AMF.
+
+7. **Paging area vs GUTI.** GUTI gan voi AMF, khong phai vi tri. UE co the di chuyen trong paging area ma khong thay doi GUTI.
+
+8. **GUTI trong log.** GUTI it nhay cam hon SUPI nhung van xac dinh session. Xu ly voi privacy phu hop.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.003, "Numbering, addressing and identification"
+- 3GPP TS 24.501, "NAS protocol for 5G System"
+- 3GPP TS 23.502, "Procedures for 5G System"
+- 3GPP TS 33.501, "Security architecture for 5G"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [GPSI va IMEI](/vi/core-network/identifiers/gpsi-and-imei/) — identifier cong khai va thiet bi
+- [Thu tuc dang ky](/vi/core-network/registration/registration-procedures/) — noi GUTI duoc gan
+- [Thu tuc paging](/vi/core-network/mobility/paging-procedures/) — cach GUTI cho phep paging
+
+</section>

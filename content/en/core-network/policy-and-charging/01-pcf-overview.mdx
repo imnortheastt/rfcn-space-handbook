@@ -8,17 +8,360 @@ track: n3
 unit: policy-and-charging
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "PCF overview"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-network-functions-overview-05-nrf-nssf-pcf-nef"]
+spiralRevisits: ["core-network-n3-session-management-deep-dive-02-pdu-session-modification"]
+title: "PCF Overview"
+description: "Policy control in 5G — what PCF decides, how it interacts with SMF/AMF, and real-world policy scenarios."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.503", "3GPP TS 29.512", "3GPP TS 29.507"]
+tags: ["pcf", "5g", "policy", "pcc", "qos"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# PCF overview
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+PCF is the brain that decides what each user can do on the network. Can this user start a video call? What QoS should they get? Have they exceeded their data limit?
+
+Without PCF, every subscriber would get the same treatment — no differentiation, no enforcement, no business model.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What PCF controls
+
+```
+PCF Policy Domains:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Session Management (SM) Policy:                        │
+│  ├── QoS decisions (5QI, AMBR, GBR)                    │
+│  ├── Session rules (what flows are allowed)            │
+│  ├── Charging method selection                          │
+│  └── Traffic steering (UL classifier, SSC mode)        │
+│                                                          │
+│  Access and Mobility (AM) Policy:                       │
+│  ├── Service area restrictions                         │
+│  ├── RAT/frequency selection priority                  │
+│  ├── UE route selection policy (URSP)                  │
+│  └── Network slice selection assistance                │
+│                                                          │
+│  UE Policy:                                             │
+│  ├── Route selection rules sent to UE                  │
+│  └── Operator-specific UE configuration                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### PCF interfaces
+
+```
+PCF in SBA:
+
+              ┌─────────┐
+              │   AF    │ (Application Function)
+              │  N5/Rx  │
+              └────┬────┘
+                   │ Npcf_PolicyAuthorization
+                   ▼
+          ┌────────────────┐
+          │      PCF       │
+          │                │
+          │  Policy Engine │
+          │  + SPR/UDR     │
+          └───────┬────────┘
+        ┌─────────┼─────────┐
+        │         │         │
+        ▼         ▼         ▼
+   ┌─────────┐ ┌─────────┐ ┌─────────┐
+   │   AMF   │ │   SMF   │ │   CHF   │
+   │ N15/Rx  │ │ N7/Rx   │ │ N28/Gy  │
+   └─────────┘ └─────────┘ └─────────┘
+   
+   Npcf_AMPolicy  Npcf_SMPolicy  Charging
+   Access policy   Session QoS   integration
+```
+
+### From PCRF to PCF
+
+```
+4G vs 5G Policy:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  4G (EPC):                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  PCRF (Policy & Charging Rules Function)        │    │
+│  │  - Gx interface to PGW (Diameter)               │    │
+│  │  - Rx interface to AF (Diameter)                │    │
+│  │  - Sp interface to SPR (subscriber data)        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  5G (5GC):                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  PCF (Policy Control Function)                   │    │
+│  │  - N7 to SMF (HTTP/2)                           │    │
+│  │  - N5 to AF (HTTP/2)                            │    │
+│  │  - N15 to AMF (HTTP/2)                          │    │
+│  │  - Nudr to UDR (subscriber data)                │    │
+│  │  - SBA, service-based                           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Key changes:                                           │
+│  - Diameter → HTTP/2                                    │
+│  - Separate AM and SM policy                            │
+│  - UDR replaces SPR                                     │
+│  - Network slice awareness                              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### SM policy association
+
+```
+PDU Session Establishment with PCF:
+
+UE       AMF       SMF       PCF       UDR
+│         │         │         │         │
+│ PDU Sess│         │         │         │
+│ Establ  │         │         │         │
+│ Request │         │         │         │
+│────────►│────────►│         │         │
+│         │         │         │         │
+│         │         │ Npcf_SM │         │
+│         │         │ Policy  │         │
+│         │         │ Create  │         │
+│         │         │ (SUPI,  │         │
+│         │         │  DNN,   │         │
+│         │         │  S-NSSAI)        │
+│         │         │────────►│         │
+│         │         │         │         │
+│         │         │         │ Nudr    │
+│         │         │         │ (get    │
+│         │         │         │ policy  │
+│         │         │         │ data)   │
+│         │         │         │────────►│
+│         │         │         │         │
+│         │         │         │ Subscriber
+│         │         │         │ policy  │
+│         │         │         │ profile │
+│         │         │         │◄────────│
+│         │         │         │         │
+│         │         │ SM Policy        │
+│         │         │ Decision │        │
+│         │         │ (QoS,    │        │
+│         │         │  rules)  │        │
+│         │         │◄────────│         │
+│         │         │         │         │
+│         │         │ Apply   │         │
+│         │         │ policy  │         │
+│         │         │         │         │
+```
+
+### Policy decision structure
+
+```
+SM Policy Decision Contents:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Session Rules:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Session AMBR (DL/UL)                          │    │
+│  │ - Default QoS (5QI, ARP)                        │    │
+│  │ - Charging method                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  PCC Rules (per-flow):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rule 1:                                          │    │
+│  │ - SDF filter: UDP, port 5060-5061               │    │
+│  │ - QoS: 5QI=5, ARP=1                             │    │
+│  │ - Charging: online                              │    │
+│  │ - Gate: open                                    │    │
+│  │                                                  │    │
+│  │ Rule 2:                                          │    │
+│  │ - SDF filter: RTP ports                         │    │
+│  │ - QoS: 5QI=1, GBR=64kbps                       │    │
+│  │ - Charging: offline                             │    │
+│  │ - Gate: open                                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Traffic Control:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - UL classifier rules                           │    │
+│  │ - SSC mode                                      │    │
+│  │ - Traffic steering policy                       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### AF-triggered policy
+
+```
+Application Function Requests QoS:
+
+AF               PCF              SMF
+│                 │                │
+│ Npcf_Policy    │                │
+│ Authorization  │                │
+│ Create         │                │
+│ (media info,   │                │
+│  AF session)   │                │
+│───────────────►│                │
+│                 │                │
+│                 │ SM Policy     │
+│                 │ Update        │
+│                 │ Notify        │
+│                 │───────────────►│
+│                 │                │
+│                 │                │ SMF creates
+│                 │                │ dedicated
+│                 │                │ QoS flow
+│                 │                │
+│ Authorization  │                │
+│ Response       │                │
+│ (success)      │                │
+│◄───────────────│                │
+│                 │                │
+
+Example: IMS P-CSCF (AF) requests voice bearer
+```
+
+### Policy update on event
+
+```
+Policy Change Scenarios:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Trigger: Data cap reached                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 1. CHF notifies PCF: usage threshold            │    │
+│  │ 2. PCF evaluates policy rules                   │    │
+│  │ 3. PCF sends SM Policy Update to SMF            │    │
+│  │    - New session AMBR: 1 Mbps                   │    │
+│  │ 4. SMF applies throttling via UPF               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Trigger: Time-of-day                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 1. PCF timer fires (off-peak hours start)       │    │
+│  │ 2. PCF sends SM Policy Update                   │    │
+│  │    - AMBR increased to full speed               │    │
+│  │ 3. SMF updates UPF QER                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Trigger: Location change                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 1. AMF notifies PCF: user in roaming area       │    │
+│  │ 2. PCF applies roaming policy                   │    │
+│  │    - Different QoS, restricted services         │    │
+│  │ 3. PCF updates AM and SM policy                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Common policy scenarios:**
+
+| Scenario | PCF Action | SMF Effect |
+|----------|------------|------------|
+| Premium subscriber | Higher AMBR, priority 5QI | Better QoS flows |
+| Data cap reached | AMBR = 1 Mbps | Throttling at UPF |
+| VoLTE call start | Add GBR rule | Dedicated voice bearer |
+| Roaming | Apply visited PLMN policy | Restricted services |
+| Enterprise slice | Slice-specific rules | Dedicated QoS |
+
+**Debugging PCF:**
+
+```bash
+# Wireshark: PCF service operations
+http2 && sbi && pcf
+
+# N7 policy create
+http2.header.path contains "sm-policies"
+
+# N5 AF authorization
+http2.header.path contains "app-sessions"
+
+# Check policy decision
+grep "PccRule" /var/log/pcf/*.log
+```
+
+**Key API operations:**
+
+| Interface | Operation | Purpose |
+|-----------|-----------|---------|
+| N7 (SMF) | SMPoliciesPost | Create SM policy |
+| N7 (SMF) | SMPoliciesUpdate | Modify policy |
+| N15 (AMF) | AMPoliciesPost | Create AM policy |
+| N5 (AF) | PolicyAuthorizationCreate | AF requests QoS |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Missing policy association.** SMF must create SM policy before session completes. No association = default/reject.
+
+2. **UDR unavailable.** PCF can't fetch subscriber policy if UDR is down. Need fallback rules.
+
+3. **Policy timing.** PCF update may arrive while session is being modified. Race conditions possible.
+
+4. **AF authorization mismatch.** AF requests QoS that subscription doesn't allow. PCF must reject or downgrade.
+
+5. **Stale policy.** Policy decision based on old data (subscription changed, location changed). Subscribe to events.
+
+6. **Slice policy conflict.** Different slices may have different policy rules. Ensure correct slice context.
+
+7. **Charging integration.** PCF relies on CHF for usage events. Missing integration = no usage-based policy.
+
+8. **Local breakout.** Roaming scenarios need V-PCF/H-PCF interaction. Policy authority depends on roaming agreement.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.503, "Policy and Charging Control Framework"
+- 3GPP TS 29.512, "SMF Policy Control Service"
+- 3GPP TS 29.507, "AF Policy Authorization Service"
+- 3GPP TS 29.514, "Policy Authorization Service"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [CHF overview](/en/core-network/policy-and-charging/chf-overview/) — charging side of PCC
+- [Policy rules](/en/core-network/policy-and-charging/policy-and-charging-rules/) — PCC rule structure
+- [QoS flows](/en/core-network/session-management-deep-dive/qos-flows/) — what policy decisions create
+
+</section>

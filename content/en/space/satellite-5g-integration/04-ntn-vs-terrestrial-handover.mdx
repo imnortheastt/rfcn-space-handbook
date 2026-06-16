@@ -8,17 +8,507 @@ track: s11
 unit: satellite-5g-integration
 order: 4
 level: L5
-estimatedReadingMinutes: 5
-title: "Why NTN handovers are not like terrestrial handovers"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["ntn-mobility-management"]
+spiralRevisits: []
+title: "NTN vs Terrestrial Handover: Key Differences"
+description: "Multi-connectivity scenarios, inter-system handover, and why NTN mobility fundamentally differs from terrestrial."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 38.300", "3GPP TS 23.501"]
+tags: ["5g-ntn", "handover", "multi-connectivity", "terrestrial", "inter-system"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Why NTN handovers are not like terrestrial handovers
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+The future of mobile connectivity is hybrid: terrestrial 5G in cities, satellite NTN in rural areas and at sea. Understanding how handover between these systems works—and why it's fundamentally different from terrestrial-to-terrestrial handover—is essential for designing seamless global coverage. The differences stem from physics, not just implementation choices.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Fundamental differences
+
+```
+Terrestrial vs NTN Handover Comparison:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DIMENSION        │ TERRESTRIAL           │ NTN (LEO)               │
+│  ─────────────────┼───────────────────────┼─────────────────────────│
+│  Cell motion      │ Static                │ Moving at 7 km/s        │
+│  User motion      │ 0-120 km/h            │ Usually stationary      │
+│  RTT              │ &lt;1 ms                 │ 8-50 ms                 │
+│  Doppler          │ ±Hz to ±kHz           │ ±50 kHz                 │
+│  Cell size        │ 100m - 10 km          │ 100 - 1000 km           │
+│  HO trigger       │ Signal quality        │ Time/geometry           │
+│  HO frequency     │ Minutes to hours      │ Every 60-90 seconds     │
+│  Predictability   │ Low (user movement)   │ High (orbital mech.)    │
+│  GNSS required    │ No                    │ Yes                     │
+│                                                                      │
+│  ═══════════════════════════════════════════════════════════════    │
+│                                                                      │
+│  KEY INSIGHT: Terrestrial HO is REACTIVE                            │
+│               NTN HO can be PROACTIVE                               │
+│                                                                      │
+│  Terrestrial: measure → report → decide → execute                   │
+│  NTN: predict → pre-configure → execute on schedule                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Multi-connectivity scenarios
+
+```
+NTN + Terrestrial Multi-Connectivity:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SCENARIO 1: SATELLITE FILLS COVERAGE GAPS                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │           🛰                                          │         │
+│  │          ╱│╲                                          │         │
+│  │         ╱ │ ╲                                         │         │
+│  │   ┌────╱──┼──╲────┐                                   │         │
+│  │   │       │       │                                   │         │
+│  │   │   📡  │   📡  │                                   │         │
+│  │   │  Urban│  Urban│                                   │         │
+│  │   └───────┴───────┘                                   │         │
+│  │              │                                        │         │
+│  │         📱 ────▶ 📱 (moving to rural)                │         │
+│  │                                                        │         │
+│  │  In urban: UE on terrestrial                          │         │
+│  │  Moving rural: handover to satellite                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SCENARIO 2: DUAL CONNECTIVITY (DC)                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │           🛰 (NR-NTN)                                 │         │
+│  │          ╱                                            │         │
+│  │         ╱                                             │         │
+│  │        📱 ─────── 📡 (NR terrestrial)                 │         │
+│  │                                                        │         │
+│  │  UE connected to BOTH simultaneously:                 │         │
+│  │  • Master: Terrestrial (low latency control)         │         │
+│  │  • Secondary: NTN (capacity boost)                   │         │
+│  │                                                        │         │
+│  │  Or reversed for maritime/aviation:                   │         │
+│  │  • Master: NTN (always available)                    │         │
+│  │  • Secondary: Terrestrial (when in range)            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SCENARIO 3: SEAMLESS SERVICE CONTINUITY                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Flight path: City → Ocean → City                     │         │
+│  │                                                        │         │
+│  │  📡 ─────────▶ 🛰 ─────────▶ 📡                       │         │
+│  │  Terrestrial    NTN           Terrestrial             │         │
+│  │                                                        │         │
+│  │  VoNR call maintained throughout:                     │         │
+│  │  • HO terrestrial → NTN at coastline                 │         │
+│  │  • NTN maintains call over ocean                     │         │
+│  │  • HO NTN → terrestrial approaching land             │         │
+│  │                                                        │         │
+│  │  QoS adaptation: latency increases over NTN          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Inter-system handover
+
+```
+Terrestrial ↔ NTN Handover Procedure:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  HANDOVER: TERRESTRIAL → NTN                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  UE         Terr gNB       NTN gNB          AMF       │         │
+│  │  │              │              │              │        │         │
+│  │  │◄── serving ──│              │              │        │         │
+│  │  │              │              │              │        │         │
+│  │  │ 1. Measure report (signal degrading)      │        │         │
+│  │  │─────────────▶│              │              │        │         │
+│  │  │              │              │              │        │         │
+│  │  │              │ 2. HO Required (Xn or N2)  │        │         │
+│  │  │              │─────────────▶│─────────────▶│        │         │
+│  │  │              │              │              │        │         │
+│  │  │              │ 3. HO Request              │        │         │
+│  │  │              │─────────────▶│              │        │         │
+│  │  │              │              │              │        │         │
+│  │  │              │◄─── 4. HO Ack ────         │        │         │
+│  │  │              │    (NTN config + TA info)  │        │         │
+│  │  │              │              │              │        │         │
+│  │  │◄── 5. HO Cmd ─│              │              │        │         │
+│  │  │  (includes ephemeris, common TA)          │        │         │
+│  │  │              │              │              │        │         │
+│  │  │ 6. UE acquires GNSS position              │        │         │
+│  │  │    Calculates TA and Doppler              │        │         │
+│  │  │              │              │              │        │         │
+│  │  │ 7. RACH to NTN (pre-compensated)          │        │         │
+│  │  │────────────────────────────▶│              │        │         │
+│  │  │              │              │              │        │         │
+│  │  │◄────────── 8. HO Complete ─────────────── │        │         │
+│  │  │              │              │              │        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CRITICAL DIFFERENCES FROM INTRA-TERRESTRIAL HO:                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. GNSS ACQUISITION TIME                             │         │
+│  │     • Cold start: 30-60 seconds                       │         │
+│  │     • Warm/hot start: 1-5 seconds                     │         │
+│  │     • UE should maintain GNSS fix proactively         │         │
+│  │                                                        │         │
+│  │  2. TIMING ADVANCE CALCULATION                        │         │
+│  │     • UE must compute TA from ephemeris + position    │         │
+│  │     • No prior radio link for ranging                 │         │
+│  │                                                        │         │
+│  │  3. DOPPLER PRE-COMPENSATION                          │         │
+│  │     • Terrestrial: Doppler negligible                 │         │
+│  │     • NTN: Must pre-compensate before first Tx       │         │
+│  │                                                        │         │
+│  │  4. HANDOVER PREPARATION TIME                         │         │
+│  │     • Terrestrial: ~50 ms                            │         │
+│  │     • To NTN: ~100-500 ms (GNSS + computation)       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### QoS adaptation during handover
+
+```
+QoS Handling Across Systems:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SERVICE: VoNR (Voice over NR)                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  QoS Parameter    │ Terrestrial   │ NTN (LEO)         │         │
+│  │  ─────────────────┼───────────────┼───────────────────│         │
+│  │  Latency budget   │ 100 ms        │ 150-400 ms        │         │
+│  │  Jitter buffer    │ 40 ms         │ 80-100 ms         │         │
+│  │  Codec            │ EVS 13.2 kbps │ EVS 5.9 kbps      │         │
+│  │  FEC              │ Light         │ Heavy             │         │
+│  │                                                        │         │
+│  │  On HO terrestrial → NTN:                             │         │
+│  │  • AMF triggers QoS flow modification                 │         │
+│  │  • Jitter buffer expands                              │         │
+│  │  • Codec may downshift                                │         │
+│  │  • User perceives slight quality change               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SERVICE: VIDEO STREAMING                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Adaptation strategy:                                 │         │
+│  │                                                        │         │
+│  │  Terrestrial:  [────────────────────────] 1080p       │         │
+│  │                      ▼ HO to NTN                      │         │
+│  │  NTN:          [──────────────] 720p (lower bitrate)  │         │
+│  │                      ▼ HO to terrestrial              │         │
+│  │  Terrestrial:  [────────────────────────] 1080p       │         │
+│  │                                                        │         │
+│  │  ABR (Adaptive Bitrate) handles transition            │         │
+│  │  Buffer absorbs HO gap (~200-500 ms)                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  5QI MAPPING:                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  5QI │ Service              │ Terr delay │ NTN delay  │         │
+│  │  ────┼──────────────────────┼────────────┼────────────│         │
+│  │  1   │ Conversational voice │ 100 ms     │ 150 ms *   │         │
+│  │  2   │ Conversational video │ 150 ms     │ 300 ms *   │         │
+│  │  3   │ Real-time gaming     │ 50 ms      │ N/A **     │         │
+│  │  5   │ IMS signaling        │ 100 ms     │ 200 ms     │         │
+│  │  6   │ Video (buffered)     │ 300 ms     │ 500 ms     │         │
+│  │  8   │ TCP-based (web)      │ 300 ms     │ 500 ms     │         │
+│  │                                                        │         │
+│  │  * Extended packet delay budget for NTN               │         │
+│  │  ** Some services cannot be supported over NTN        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Network architecture for hybrid coverage
+
+```
+Hybrid Terrestrial + NTN Architecture:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                          ┌─────────────────┐                        │
+│                          │     5G Core     │                        │
+│                          │  ┌───┐  ┌───┐   │                        │
+│                          │  │AMF│  │SMF│   │                        │
+│                          │  └─┬─┘  └─┬─┘   │                        │
+│                          │    │      │     │                        │
+│                          │  ┌─┴──────┴─┐   │                        │
+│                          │  │   UPF    │   │                        │
+│                          │  └────┬─────┘   │                        │
+│                          └───────┼─────────┘                        │
+│                                  │                                  │
+│              ┌───────────────────┼───────────────────┐              │
+│              │                   │                   │              │
+│         ┌────┴────┐        ┌─────┴─────┐       ┌─────┴─────┐       │
+│         │Terr gNB │        │ NTN GW/gNB│       │Terr gNB   │       │
+│         │  (CU)   │        │  (CU)     │       │  (CU)     │       │
+│         └────┬────┘        └─────┬─────┘       └─────┬─────┘       │
+│              │                   │                   │              │
+│         ┌────┴────┐              │             ┌─────┴─────┐       │
+│         │   DU    │              │             │    DU     │       │
+│         └────┬────┘              │             └─────┬─────┘       │
+│              │                   │                   │              │
+│         ┌────┴────┐         ┌────┴────┐        ┌─────┴─────┐       │
+│         │   📡    │         │   🛰    │        │    📡     │       │
+│         │  RRU    │         │ Payload │        │   RRU     │       │
+│         └─────────┘         └─────────┘        └───────────┘       │
+│              │                   │                   │              │
+│              ▼                   ▼                   ▼              │
+│         ┌─────────┐         ┌─────────┐        ┌─────────┐         │
+│         │  Urban  │         │  Rural  │        │ Suburban │         │
+│         │   📱    │         │   📱    │        │    📱    │         │
+│         └─────────┘         └─────────┘        └─────────┘         │
+│                                                                      │
+│  MOBILITY ANCHOR:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  AMF maintains UE context across both access types    │         │
+│  │  UPF provides common anchor for IP continuity         │         │
+│  │  Xn interface enables direct gNB-to-gNB HO           │         │
+│  │  N2/N3 interfaces support inter-system HO via core   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Handover timing comparison:**
+
+```python
+from dataclasses import dataclass
+from enum import Enum
+
+class AccessType(Enum):
+    TERRESTRIAL = "terrestrial"
+    NTN_LEO = "ntn_leo"
+    NTN_GEO = "ntn_geo"
+
+@dataclass
+class HandoverTiming:
+    measurement_report_ms: float
+    ho_preparation_ms: float
+    ho_execution_ms: float
+    service_interruption_ms: float
+
+def get_handover_timing(source: AccessType, target: AccessType) -> HandoverTiming:
+    """
+    Estimate handover timing between access types.
+    """
+    timings = {
+        # Intra-terrestrial
+        (AccessType.TERRESTRIAL, AccessType.TERRESTRIAL): HandoverTiming(
+            measurement_report_ms=5,
+            ho_preparation_ms=50,
+            ho_execution_ms=30,
+            service_interruption_ms=20
+        ),
+        # Terrestrial to LEO NTN
+        (AccessType.TERRESTRIAL, AccessType.NTN_LEO): HandoverTiming(
+            measurement_report_ms=5,
+            ho_preparation_ms=150,  # GNSS warm start + TA calculation
+            ho_execution_ms=100,    # Higher RTT for RACH
+            service_interruption_ms=100
+        ),
+        # LEO NTN to Terrestrial
+        (AccessType.NTN_LEO, AccessType.TERRESTRIAL): HandoverTiming(
+            measurement_report_ms=25,  # Higher RTT for measurement report
+            ho_preparation_ms=80,
+            ho_execution_ms=30,
+            service_interruption_ms=50
+        ),
+        # Intra-NTN (satellite to satellite)
+        (AccessType.NTN_LEO, AccessType.NTN_LEO): HandoverTiming(
+            measurement_report_ms=0,   # Time-based trigger, no report
+            ho_preparation_ms=100,     # Pre-configured via CHO
+            ho_execution_ms=50,
+            service_interruption_ms=30
+        ),
+        # LEO to GEO (rare but possible)
+        (AccessType.NTN_LEO, AccessType.NTN_GEO): HandoverTiming(
+            measurement_report_ms=25,
+            ho_preparation_ms=300,
+            ho_execution_ms=600,  # GEO RTT ~600ms
+            service_interruption_ms=300
+        ),
+    }
+    
+    return timings.get(
+        (source, target),
+        HandoverTiming(100, 200, 200, 200)  # Default fallback
+    )
+
+def estimate_call_quality_impact(
+    source: AccessType,
+    target: AccessType,
+    service: str
+) -> dict:
+    """
+    Estimate quality impact during handover.
+    """
+    timing = get_handover_timing(source, target)
+    total_ho_time = (
+        timing.measurement_report_ms + 
+        timing.ho_preparation_ms + 
+        timing.ho_execution_ms
+    )
+    
+    # Service-specific impact
+    impacts = {
+        'voice': {
+            'acceptable_interruption_ms': 200,
+            'jitter_buffer_ms': 80,
+            'quality_impact': 'none' if timing.service_interruption_ms < 200 else 'audible gap'
+        },
+        'video': {
+            'acceptable_interruption_ms': 500,
+            'buffer_ms': 2000,
+            'quality_impact': 'none' if timing.service_interruption_ms < 500 else 'rebuffer'
+        },
+        'web': {
+            'acceptable_interruption_ms': 1000,
+            'tcp_timeout_ms': 3000,
+            'quality_impact': 'none' if timing.service_interruption_ms < 1000 else 'retry'
+        }
+    }
+    
+    return {
+        'source': source.value,
+        'target': target.value,
+        'total_ho_time_ms': total_ho_time,
+        'service_interruption_ms': timing.service_interruption_ms,
+        'service': service,
+        **impacts.get(service, {})
+    }
+
+# Example: Compare handover scenarios
+print("Handover Timing Comparison")
+print("=" * 60)
+
+scenarios = [
+    (AccessType.TERRESTRIAL, AccessType.TERRESTRIAL, "voice"),
+    (AccessType.TERRESTRIAL, AccessType.NTN_LEO, "voice"),
+    (AccessType.NTN_LEO, AccessType.TERRESTRIAL, "voice"),
+    (AccessType.NTN_LEO, AccessType.NTN_LEO, "voice"),
+]
+
+for source, target, service in scenarios:
+    result = estimate_call_quality_impact(source, target, service)
+    print(f"\n{result['source']} → {result['target']}:")
+    print(f"  Total HO time: {result['total_ho_time_ms']} ms")
+    print(f"  Interruption: {result['service_interruption_ms']} ms")
+    print(f"  Impact on {service}: {result['quality_impact']}")
+
+# Typical latency comparison
+print("\n" + "=" * 60)
+print("End-to-End Latency Comparison:")
+print("-" * 60)
+latencies = [
+    ("Terrestrial 5G", "10-20 ms"),
+    ("LEO NTN (direct)", "25-50 ms"),
+    ("LEO NTN (bent-pipe)", "40-80 ms"),
+    ("GEO NTN", "550-650 ms"),
+]
+for system, latency in latencies:
+    print(f"  {system:25} {latency}")
+```
+
+**Service continuity requirements:**
+
+| Service | Max HO Interruption | NTN Support |
+|---------|---------------------|-------------|
+| VoNR | 200 ms | Yes (with adaptation) |
+| Video call | 500 ms | Yes |
+| Live streaming | 2 s | Yes |
+| Web browsing | 3 s | Yes |
+| Real-time gaming | 50 ms | No (LEO), Never (GEO) |
+| AR/VR | 20 ms | No |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **GNSS cold start.** Handover to NTN may fail if UE hasn't maintained GNSS fix.
+
+2. **QoS mismatch.** Some 5QIs can't be satisfied over NTN; service may degrade.
+
+3. **Dual connectivity complexity.** DC between terrestrial and NTN has timing challenges.
+
+4. **Measurement gap scheduling.** UE needs gaps to measure NTN while on terrestrial.
+
+5. **Policy coordination.** Roaming agreements must cover both terrestrial and NTN access.
+
+6. **UE capability.** Not all 5G UEs support NTN; capability exchange required.
+
+7. **Emergency services.** E911/eCall location may be impacted during NTN coverage.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 38.300 (NR overall description)
+- 3GPP TS 23.501 (5G system architecture)
+- 3GPP TR 38.821 (NTN study)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [LEO Constellation Architecture](/en/space/leo-constellation-architecture/coverage-geometry/) — orbital mechanics
+- [Inter-Satellite Links](/en/space/inter-satellite-links-laser-rf/optical-isl/) — backbone connectivity
+- [Satcom Link Budget](/en/space/satcom-link-in-one-diagram/satcom-link-overview/) — RF fundamentals
+
+</section>

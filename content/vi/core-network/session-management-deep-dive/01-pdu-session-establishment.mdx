@@ -8,17 +8,390 @@ track: n3
 unit: session-management-deep-dive
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "Thiet lap phien PDU"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 14
+prerequisites: ["core-network-n3-mobility-management-01-registration", "core-network-n3-network-functions-overview-02-smf"]
+spiralRevisits: ["core-network-n4-qos-01-5qi"]
+title: "Thiet Lap PDU Session"
+description: "Co ket noi du lieu — luong day du tu yeu cau den gan dia chi IP."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.502", "3GPP TS 24.501"]
+tags: ["pdu-session", "5g", "smf", "upf", "dnn"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Thiet lap phien PDU
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Dang ky dua ban len mang. Nhung de thuc su su dung du lieu — luot web, xem video, gui tin nhan — ban can **PDU session**. Day la khi ban co dia chi IP va mang thiet lap duong du lieu.
+
+Moi lan ban mo ung dung can internet, PDU session lam cho no hoat dong.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### PDU session cung cap gi
+
+```
+PDU Session = Ket noi Du lieu:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Truoc PDU Session:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ UE da dang ky (co 5G-GUTI)                      │    │
+│  │ Nhung KHONG CO dia chi IP, KHONG CO duong du lieu│   │
+│  │ Chi co the lam bao hieu (tin nhan NAS)          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Sau PDU Session:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ UE co dia chi IP (vd: 10.0.0.5)                │    │
+│  │ Duong du lieu: UE → gNB → UPF → Internet       │    │
+│  │ Quy tac QoS duoc ap dung (5QI, AMBR)           │    │
+│  │ Co the gui/nhan du lieu nguoi dung              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Tham so PDU session
+
+| Tham so | Y nghia | Vi du |
+|---------|---------|-------|
+| **DNN** | Ten Mang Du lieu (nhu APN) | "internet", "ims" |
+| **S-NSSAI** | Dinh danh slice | SST=1 (eMBB) |
+| **PDU type** | Phien ban IP | IPv4, IPv6, IPv4v6 |
+| **SSC mode** | Lien tuc session | Mode 1, 2, hoac 3 |
+
+### Co the co nhieu session
+
+```
+UE voi Nhieu PDU Session:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE (smartphone)                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  PDU Session 1: Luot Internet                   │    │
+│  │  - DNN: "internet"                              │    │
+│  │  - S-NSSAI: SST=1 (eMBB)                       │    │
+│  │  - IP: 10.0.1.5                                │    │
+│  │                                                  │    │
+│  │  PDU Session 2: Thoai qua 5G                   │    │
+│  │  - DNN: "ims"                                   │    │
+│  │  - S-NSSAI: SST=1                              │    │
+│  │  - IP: 10.0.2.10                               │    │
+│  │                                                  │    │
+│  │  PDU Session 3: VPN Doanh nghiep               │    │
+│  │  - DNN: "corp.acme.com"                        │    │
+│  │  - S-NSSAI: SST=1, SD=0x000001                 │    │
+│  │  - IP: 172.16.0.50                             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cac chuc nang mang tham gia
+
+```
+Thanh phan Thiet lap PDU Session:
+
+UE ◄──► gNB ◄──► AMF ◄──► SMF ◄──► UPF ◄──► DN
+                  │        │
+                  │        └──► PCF (policy)
+                  │        └──► UDM (thue bao)
+                  │
+                  └──► NSSF (chon slice, neu can)
+```
+
+### Luong thiet lap day du
+
+```
+Thiet lap PDU Session:
+
+UE           gNB          AMF          SMF          UPF         PCF
+│             │            │            │            │           │
+│ PDU Session │            │            │            │           │
+│ Est Request │            │            │            │           │
+│ (DNN, NSSAI)│            │            │            │           │
+│────────────►│            │            │            │           │
+│             │            │            │            │           │
+│             │ UL NAS     │            │            │           │
+│             │ Transport  │            │            │           │
+│             │───────────►│            │            │           │
+│             │            │            │            │           │
+│             │      ┌─────┴─────┐      │            │           │
+│             │      │ Chon SMF  │      │            │           │
+│             │      │ dua tren  │      │            │           │
+│             │      │ DNN, NSSAI│      │            │           │
+│             │      └─────┬─────┘      │            │           │
+│             │            │            │            │           │
+│             │            │ Nsmf_PDU   │            │           │
+│             │            │ Session    │            │           │
+│             │            │ CreateSM   │            │           │
+│             │            │ Context    │            │           │
+│             │            │───────────►│            │           │
+│             │            │            │            │           │
+│             │            │            │ Lay du lieu│           │
+│             │            │            │ thue bao   │           │
+│             │            │            │ (UDM)      │           │
+│             │            │            │◄──────────►│           │
+│             │            │            │            │           │
+│             │            │            │ Lay policy │           │
+│             │            │            │───────────────────────►│
+│             │            │            │            │           │
+│             │            │            │ Quy tac PCC│           │
+│             │            │            │◄───────────────────────│
+│             │            │            │            │           │
+│             │            │            │ Chon UPF   │           │
+│             │            │            │───────────►│           │
+│             │            │            │            │           │
+│             │            │            │ N4 Session │           │
+│             │            │            │ Est (PFCP) │           │
+│             │            │            │───────────►│           │
+│             │            │            │            │           │
+│             │            │            │ N4 Session │           │
+│             │            │            │ Est Resp   │           │
+│             │            │            │◄───────────│           │
+│             │            │            │            │           │
+│             │            │ SM Context │            │           │
+│             │            │ Created    │            │           │
+│             │            │◄───────────│            │           │
+│             │            │            │            │           │
+│             │ N2 PDU Sess│            │            │           │
+│             │ Resource   │            │            │           │
+│             │ Setup Req  │            │            │           │
+│             │◄───────────│            │            │           │
+│             │            │            │            │           │
+│ RRC Reconfig│            │            │            │           │
+│ (DRB setup) │            │            │            │           │
+│◄────────────│            │            │            │           │
+│             │            │            │            │           │
+│ RRC Reconfig│            │            │            │           │
+│ Complete    │            │            │            │           │
+│────────────►│            │            │            │           │
+│             │            │            │            │           │
+│             │ N2 PDU Sess│            │            │           │
+│             │ Resource   │            │            │           │
+│             │ Setup Resp │            │            │           │
+│             │───────────►│            │            │           │
+│             │            │            │            │           │
+│             │            │ Update SM  │            │           │
+│             │            │ Context    │            │           │
+│             │            │───────────►│            │            │
+│             │            │            │            │           │
+│ PDU Session │            │            │            │           │
+│ Est Accept  │            │            │            │           │
+│ (dia chi IP)│            │            │            │           │
+│◄────────────│◄───────────│◄───────────│            │           │
+│             │            │            │            │           │
+```
+
+### Tin nhan chinh
+
+```
+PDU Session Establishment Request (UE → AMF):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Loai tin nhan: PDU Session Establishment Request       │
+│                                                          │
+│  Noi dung:                                              │
+│  ├── PDU session ID: 1-15 (UE chon)                    │
+│  ├── Request type: initial / existing / modification   │
+│  ├── S-NSSAI: SST=1                                    │
+│  ├── DNN: "internet"                                   │
+│  ├── PDU session type: IPv4 / IPv6 / IPv4v6           │
+│  ├── SSC mode: 1 / 2 / 3                               │
+│  └── Extended protocol config options:                 │
+│      ├── Yeu cau DNS server                            │
+│      └── Yeu cau P-CSCF (cho IMS)                     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+PDU Session Establishment Accept (Mang → UE):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Loai tin nhan: PDU Session Establishment Accept        │
+│                                                          │
+│  Noi dung:                                              │
+│  ├── PDU session ID: 1                                  │
+│  ├── PDU session type duoc chon: IPv4                  │
+│  ├── SSC mode duoc chon: 1                              │
+│  ├── Quy tac QoS duoc phep:                            │
+│  │   ├── QRI 1: quy tac mac dinh, 5QI=9                │
+│  │   └── QRI 2: video, 5QI=7                           │
+│  ├── Session AMBR: 100 Mbps DL / 50 Mbps UL           │
+│  ├── Dia chi PDU: 10.0.0.5                             │
+│  └── Extended protocol config options:                 │
+│      └── DNS: 8.8.8.8, 8.8.4.4                        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Chon SMF
+
+```
+AMF Chon SMF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  AMF chon SMF dua tren:                                 │
+│                                                          │
+│  1. DNN (Ten Mang Du lieu)                              │
+│     - "internet" → SMF-A                                │
+│     - "ims" → SMF-B (chuyen biet cho VoNR)             │
+│     - "enterprise.acme" → SMF-C                        │
+│                                                          │
+│  2. S-NSSAI (Slice)                                     │
+│     - SST=1 → pool SMF chung                           │
+│     - SST=2 (URLLC) → SMF do tre thap                  │
+│                                                          │
+│  3. Vi tri UE (TAI)                                     │
+│     - Uu tien SMF local cho trien khai edge           │
+│                                                          │
+│  4. Can bang tai                                        │
+│     - NRF cung cap thong tin dung luong SMF            │
+│                                                          │
+│  AMF truy van NRF:                                      │
+│  GET /nnrf-disc/v1/nf-instances?                       │
+│      target-nf-type=SMF&                               │
+│      dnn=internet&                                      │
+│      snssai={"sst":1}                                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Chon UPF
+
+```
+SMF Chon UPF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SMF chon UPF dua tren:                                 │
+│                                                          │
+│  1. Ho tro DNN                                          │
+│     - UPF phai ket noi voi mang du lieu yeu cau        │
+│                                                          │
+│  2. Vi tri UE                                           │
+│     - Uu tien UPF gan gNB (do tre thap)                │
+│     - UPF edge cho URLLC                               │
+│                                                          │
+│  3. Yeu cau SSC mode                                    │
+│     - Mode 1: chon UPF on dinh (IP duoc giu)           │
+│     - Mode 3: co the chon nhieu UPF                    │
+│                                                          │
+│  4. Dung luong va tai                                   │
+│     - Tranh UPF qua tai                                │
+│                                                          │
+│  Sau khi chon, SMF thiet lap N4 session:               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PFCP Session Establishment Request              │    │
+│  │ - Quy tac PDR (phat hien)                       │    │
+│  │ - Quy tac FAR (hanh dong chuyen tiep)           │    │
+│  │ - Quy tac QER (thuc thi QoS)                    │    │
+│  │ - Quy tac URR (bao cao su dung)                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cau hinh DNN pho bien:**
+
+| DNN | Muc dich | Cai dat thuong gap |
+|-----|----------|-------------------|
+| internet | Du lieu chung | IPv4v6, SSC mode 1 |
+| ims | Cuoc goi thoai/video | IPv6, 5QI chuyen biet |
+| mms | Nhan tin da phuong tien | IPv4, uu tien thap |
+| enterprise | Truy cap doanh nghiep | IPv4, tunnel VPN |
+
+**Debug PDU session:**
+
+```bash
+# Bo loc Wireshark cho tin nhan PDU session
+nas-5gs.sm.message_type == 0xc1 || nas-5gs.sm.message_type == 0xc2
+
+# Kiem tra chon SMF
+curl "https://nrf.5gc/nnrf-disc/v1/nf-instances?target-nf-type=SMF&dnn=internet"
+
+# PFCP session tren N4
+pfcp.message_type == 1 || pfcp.message_type == 2
+```
+
+**Van de thuong gap:**
+
+| Van de | Kiem tra |
+|--------|----------|
+| Khong tim thay SMF | DNN/NSSAI duoc ho tro? NRF co the lien lac? |
+| N4 that bai | UPF co the lien lac? Cong PFCP mo? |
+| Khong gan duoc IP | Pool IP da cau hinh? Pool can? |
+| Session bi tu choi | Thue bao cho phep DNN? Policy tu choi? |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **DNN khong trong thue bao.** UE yeu cau DNN="enterprise" nhung thue bao chi cho phep "internet". Session bi tu choi.
+
+2. **NSSAI khong khop.** UE yeu cau slice khong trong Allowed NSSAI. Phai dung slice duoc phep hoac dang ky lai.
+
+3. **Can pool IP.** UPF het dia chi IP. Session that bai cho den khi IP duoc giai phong.
+
+4. **Timeout N4.** SMF khong the lien lac UPF tren giao dien N4. Kiem tra ket noi mang va cong PFCP 8805.
+
+5. **Policy tu choi.** PCF tu choi session dua tren policy (thoi diem trong ngay, gioi han du lieu, v.v.).
+
+6. **SSC mode khong tuong thich.** UE yeu cau SSC mode 3, nhung mang chi ho tro mode 1 cho DNN nay.
+
+7. **Thieu quy tac QoS.** Session thiet lap nhung khong co quy tac QoS → luu luong bi drop hoac chi best-effort.
+
+8. **Session GBR khong co tai nguyen.** Yeu cau bitrate dam bao khi mang tac nghen → tu choi.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.502, "Procedures for 5GS"
+- 3GPP TS 24.501, "NAS protocol for 5GS"
+- 3GPP TS 29.502, "SMF Services"
+- 3GPP TS 29.244, "PFCP Protocol"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Sua doi PDU session](/vi/core-network/session-management-deep-dive/pdu-session-modification/) — thay doi session dang hoat dong
+- [QoS flow](/vi/core-network/session-management-deep-dive/qos-flows/) — phan biet luu luong
+- [Chon UPF](/vi/core-network/session-management-deep-dive/upf-selection/) — chon UPF phu hop
+
+</section>

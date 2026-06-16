@@ -8,17 +8,377 @@ track: n3
 unit: service-based-interface-http2
 order: 1
 level: L2
-estimatedReadingMinutes: 5
-title: "Tong quan SBI"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 11
+prerequisites: ["core-network-n3-5g-core-architecture-why-sba-02-sba-design-principles"]
+spiralRevisits: []
+title: "Tổng quan Service-Based Interface"
+description: "Cách các NF 5G giao tiếp qua HTTP/2 API — mô hình producer/consumer, service operation, SCP indirect communication, và nơi phép loại suy service-mesh đúng và sai."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-04"
+standards: ["3GPP TS 29.500", "3GPP TS 29.501", "3GPP TS 29.510"]
+tags: ["sbi", "5g", "http2", "rest", "sba", "scp", "nrf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tong quan SBI
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+4G EPC dùng interface điểm-nối-điểm — S1, S5, S6a — mỗi cái có protocol và specification riêng. Thêm tính năng mới đồng nghĩa với cập nhật nhiều interface đồng thời và phối hợp qua nhiều hợp đồng vendor.
+
+5G SBA thay thế bằng Service-Based Interface (SBI). Network Function expose service qua HTTP/2 API. Bất kỳ NF nào cũng có thể khám phá và consume bất kỳ service nào qua NRF. Đây là lý do 5G core có thể phát triển nhanh hơn 4G: thêm một khả năng nghĩa là thêm một API endpoint, không phải đàm phán một interface standard mới.
+
+Với kỹ sư cloud, SBI trông giống kiến trúc microservices với service registry. Phép loại suy đó hữu ích và đúng phần lớn — với các điểm khác biệt quan trọng mà bài học này làm rõ.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+### Điểm-nối-điểm vs dịch-vụ-trung-tâm
+
+```
+4G EPC: Interface Điểm-nối-điểm
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  MME ─────S1-MME────► eNB                               │
+│   │                                                      │
+│   ├─────S6a─────────► HSS                               │
+│   │                                                      │
+│   ├─────S11──────────► SGW ─────S5─────► PGW            │
+│   │                                                      │
+│   └─────S10──────────► MME khác                         │
+│                                                          │
+│  Mỗi interface: protocol khác, spec khác                │
+│  Thêm tính năng → cập nhật nhiều interface              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+5G SBA: Service-Based Interfaces
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│           ┌─────────────────────────────────┐            │
+│           │     Service Bus (HTTP/2)        │            │
+│           └───┬───┬───┬───┬───┬───┬───┬───┬┘            │
+│               │   │   │   │   │   │   │   │             │
+│  ┌────────────▼───▼───▼───▼───▼───▼───▼───▼──────────┐  │
+│  │  AMF   SMF  UDM  AUSF  NRF  PCF  NEF  CHF  ...    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  Tất cả NF: cùng protocol (HTTP/2), cùng API style      │
+│  Thêm tính năng → thêm API endpoint                     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Phép loại suy service-mesh — và nơi nó bị lỗi
+
+Kỹ sư cloud ngay lập tức nhận ra SBI như pattern microservices:
+
+| Khái niệm microservices | Tương đương 5G SBI |
+|------------------------|-------------------|
+| Service registry (Consul, etcd) | NRF (Network Repository Function) |
+| Service discovery | Nnrf_NFDiscovery |
+| REST call giữa service | SBI HTTP/2 request |
+| Sidecar proxy (Envoy, Linkerd) | SCP (Service Communication Proxy) |
+| Health check endpoint | NF heartbeat đến NRF |
+| Circuit breaker | Overload control (HTTP 503 + Retry-After) |
+| mTLS giữa service | SBI mutual TLS (3GPP TS 33.501) |
+| API versioning | SBI URI versioning (/v1, /v2) |
+
+**Nơi phép loại suy bị lỗi:**
+
+1. **Đảm bảo telecom, không phải best-effort.** Microservice có thể trả 503 và người dùng retry. AMF trả 503 trong khi UE đăng ký nghĩa là thiết bị không thể gọi được. Overload control trong 5G có cơ chế rõ ràng (NF load broadcast qua NRF, SCP-based routing) để ngăn cascade failure thay vì chỉ lan truyền chúng.
+
+2. **State phải đạt carrier-grade.** Trong microservices, bạn có thể chấp nhận eventual consistency cho dữ liệu profile. Trong 5G, UE context phải recoverable trong failover window (dưới 50ms cho cuộc gọi đang active). External state store (UDSF) không phải tùy chọn.
+
+3. **Subscription tồn tại lâu dài.** Webhook subscription trong web API là nhẹ nhàng. PCF subscription đến AMF event cho UE có thể kéo dài suốt lifetime của PDU session (giờ đến ngày). Subscriber phải xử lý notification delivery failure và re-subscribe nếu cần.
+
+4. **Authorization theo NF-type, không phải per-user.** OAuth 2.0 token trong SBI được scoped đến NF type và service, không phải user session riêng lẻ. Token của SMF cấp quyền gọi `Nudm_SubscriberDataManagement` cho bất kỳ SUPI nào.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### Quy ước đặt tên SBI
+
+Tên service theo pattern nghiêm ngặt được định nghĩa trong 3GPP TS 29.501:
+
+```
+Định dạng: N{tên-nf}_{TênService}
+
+Ví dụ:
+├── Namf_Communication      (AMF: xử lý N1/N2 message)
+├── Namf_EventExposure      (AMF: subscription sự kiện)
+├── Namf_Location           (AMF: vị trí UE)
+├── Nsmf_PDUSession         (SMF: vòng đời PDU session)
+├── Nsmf_EventExposure      (SMF: subscription sự kiện session)
+├── Nudm_SubscriberDataManagement  (UDM: dữ liệu subscription)
+├── Nudm_UEContextManagement       (UDM: UE context)
+├── Nausf_UEAuthentication  (AUSF: xác thực)
+├── Nnrf_NFManagement       (NRF: đăng ký/hủy đăng ký NF)
+├── Nnrf_NFDiscovery        (NRF: khám phá NF)
+├── Npcf_SMPolicyControl    (PCF: policy session)
+├── Npcf_AMPolicyControl    (PCF: policy truy cập/di động)
+├── Nnef_EventExposure      (NEF: expose sự kiện bên ngoài)
+└── Nchf_ConvergedCharging  (CHF: tính cước)
+```
+
+Mỗi service có nhiều **operation** (API endpoint). Operation theo quy ước REST: GET để lấy, POST để tạo hoặc kích hoạt action, PUT/PATCH để cập nhật, DELETE để xóa.
+
+### Các loại service operation
+
+**Request/Response (đồng bộ):**
+
+```
+Consumer ──── POST /nsmf-pdusession/v1/sm-contexts ──────► SMF
+         ◄─── 201 Created + SmContextCreatedData ─────────
+
+Dùng cho: tạo, lấy, cập nhật, xóa
+Response: ngay lập tức (đồng bộ trong HTTP timeout)
+```
+
+**Subscribe/Notify (bất đồng bộ):**
+
+```
+1. Consumer subscribe:
+   NEF ──── POST /namf-evts/v1/subscriptions ──────────► AMF
+        ◄─── 201 Created + subscription-id ─────────────
+
+2. Sự kiện xảy ra (UE thay đổi vị trí):
+   AMF ──── POST https://nef.example.com/callback ──────► NEF
+   (notification giao đến callback URI của consumer)
+
+3. Consumer unsubscribe:
+   NEF ──── DELETE /namf-evts/v1/subscriptions/{subId} ► AMF
+        ◄─── 204 No Content ─────────────────────────────
+```
+
+Subscribe/Notify dùng cho: thay đổi vị trí, chuyển trạng thái session, cập nhật policy, trigger tính cước, thông báo UE reachability.
+
+### Cấu trúc URI API
+
+```
+https://{nf-host}/{api-name}/{api-version}/{resource-path}
+
+Ví dụ — tạo PDU session:
+  https://smf.5gc.mnc001.mcc310.3gppnetwork.org
+          /nsmf-pdusession
+          /v1
+          /sm-contexts
+
+  POST → Tạo SM context (thiết lập PDU session mới)
+  GET  → Lấy danh sách SM context
+
+Ví dụ — lấy dữ liệu subscription:
+  https://udm.5gc.mnc001.mcc310.3gppnetwork.org
+          /nudm-sdm
+          /v2
+          /310260123456789         (SUPI)
+          /am-data                 (dữ liệu subscription Access and Mobility)
+```
+
+Versioning trong URI cho phép nhiều version API song song trong quá trình upgrade. Rel-15 giới thiệu `/v1` cho hầu hết API; Rel-16 giới thiệu `/v2` cho UDM-SDM và những API khác có breaking change.
+
+### Khám phá service qua NRF
+
+```
+Luồng Khám phá Dựa trên NRF:
+
+1. Producer đăng ký (khi khởi động):
+   SMF ── PUT /nnrf-nfm/v1/nf-instances/{smf-instance-id} ──► NRF
+   Body: NFProfile (loại NF, service, IP, slice, khu vực, capacity)
+   ◄── 201 Created
+
+2. Producer gửi heartbeat (định kỳ):
+   SMF ── PATCH /nnrf-nfm/v1/nf-instances/{id} ─────────────► NRF
+   Body: {"heartBeatTimer": 60}
+   ◄── 200 OK
+
+3. Consumer khám phá:
+   AMF ── GET /nnrf-disc/v1/nf-instances ────────────────────► NRF
+          ?target-nf-type=SMF
+          &requester-nf-type=AMF
+          &snssai={"sst":1,"sd":"000001"}
+   ◄── 200 OK + SearchResult (danh sách SMF NFProfile)
+
+4. Consumer gọi producer trực tiếp:
+   AMF ── POST /nsmf-pdusession/v1/sm-contexts ─────────────► SMF
+   (dùng IP/FQDN từ NFProfile đã khám phá)
+```
+
+**Cache profile đã khám phá:** Consumer nên cache kết quả NRF discovery với validity timer từ response. Query NRF cho mỗi request sẽ làm quá tải NRF. NRF thông báo consumer về thay đổi profile qua subscription (Nnrf_NFManagement_NFStatusSubscribe).
+
+### Indirect communication qua SCP (Rel-16 trở lên)
+
+Trong triển khai lớn, 3GPP Rel-16 giới thiệu Service Communication Proxy (SCP) như intermediary:
+
+```
+Direct communication (Rel-15):
+AMF ──────────────────────────────────────────────► UDM
+    (AMF query NRF, chọn UDM, gọi trực tiếp)
+
+Indirect communication qua SCP (Rel-16):
+AMF ──────────► SCP ──────────────────────────────► UDM
+                 │
+                 ├── NRF discovery (thay mặt AMF)
+                 ├── Load balancing qua các UDM instance
+                 ├── Message routing và topology hiding
+                 ├── Overload throttling
+                 └── Observability tập trung
+
+Delegated discovery (Rel-16 hybrid):
+AMF ── NRF discovery ──────────────────────────────► NRF
+       (nhận địa chỉ SCP, không phải UDM)
+AMF ──────────► SCP ──────────────────────────────► UDM
+```
+
+SCP tương tự Envoy sidecar hoặc API gateway — nó tách routing NF-to-NF khỏi logic NF riêng lẻ. AMF không cần code load-balancing; SCP xử lý nó.
+
+**Cải tiến SCP Rel-17:** 3GPP Rel-17 (TS 29.500 v17) làm rõ các chế độ routing SCP và thêm hỗ trợ cho kịch bản roaming nơi SCP làm trung gian giữa mạng home và visited.
+
+### HTTP method và status code trong SBI
+
+| Method | Operation | Ví dụ |
+|--------|-----------|-------|
+| POST | Tạo resource hoặc kích hoạt action | Tạo SM context, gửi N1 message |
+| GET | Lấy resource | Lấy UE context, lấy dữ liệu subscription |
+| PUT | Thay thế resource hoàn toàn | Đăng ký NF instance |
+| PATCH | Cập nhật một phần (JSON Merge Patch) | Cập nhật QoS profile, heartbeat |
+| DELETE | Xóa resource | Xóa PDU session, hủy đăng ký NF |
+
+**Status code quan trọng:**
+
+| Code | Ý nghĩa trong SBI |
+|------|------------------|
+| 200 OK | Lấy hoặc cập nhật thành công |
+| 201 Created | Resource đã tạo (POST/PUT) |
+| 204 No Content | Xóa hoặc cập nhật thành công không có body |
+| 307 Temporary Redirect | NF đã di chuyển; theo Location header |
+| 400 Bad Request | Request không hợp lệ |
+| 403 Forbidden | Không đủ quyền |
+| 404 Not Found | Resource không tồn tại |
+| 503 Service Unavailable | NF quá tải; tôn trọng Retry-After header |
+
+**Định dạng error body (ProblemDetails theo RFC 7807):**
+
+```json
+{
+  "status": 404,
+  "cause": "SUBSCRIPTION_NOT_FOUND",
+  "detail": "No subscription for SUPI 310260123456789",
+  "instance": "/nudm-sdm/v2/310260123456789/am-data",
+  "invalidParams": []
+}
+```
+
+Trường `cause` dùng chuỗi được định nghĩa bởi 3GPP (ví dụ: `USER_NOT_FOUND`, `CONTEXT_NOT_FOUND`, `INSUFFICIENT_RESOURCES`) cho phép xử lý lỗi tự động ngoài HTTP status code chung.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+### Các service SBI chính theo NF
+
+| NF | Service Chính | Consumer Chính |
+|----|--------------|----------------|
+| AMF | Namf_Communication, Namf_EventExposure, Namf_Location | SMF, PCF, NEF |
+| SMF | Nsmf_PDUSession, Nsmf_EventExposure | AMF, CHF, PCF |
+| UDM | Nudm_SubscriberDataManagement, Nudm_UEContextManagement, Nudm_UEAuthentication | AMF, SMF, AUSF |
+| AUSF | Nausf_UEAuthentication | AMF |
+| NRF | Nnrf_NFManagement, Nnrf_NFDiscovery | Tất cả NF |
+| PCF | Npcf_SMPolicyControl, Npcf_AMPolicyControl | SMF, AMF |
+| NEF | Nnef_EventExposure, Nnef_NIDD | External AF, nền tảng IoT |
+| CHF | Nchf_ConvergedCharging | SMF, AMF |
+
+### Debug SBI call
+
+```bash
+# Wireshark: filter HTTP/2 SBI traffic theo NF
+http2.header.path contains "nsmf" or http2.header.path contains "namf"
+
+# tshark: decode HTTP/2 trên port không chuẩn
+tshark -i eth0 -d tcp.port==29502,http2 -Y "http2"
+
+# Kiểm tra reachability SMF service
+curl -k --http2 https://smf.local:29502/nsmf-pdusession/v1/sm-contexts
+
+# Query NRF discovery cho SMF instance
+curl -k --http2 "https://nrf.local:29510/nnrf-disc/v1/nf-instances?nf-type=SMF&requester-nf-type=AMF"
+
+# Kiểm tra TLS certificate chain
+openssl s_client -connect smf.local:29502 -servername smf.local -showcerts
+
+# Xác minh HTTP/2 negotiation (ALPN)
+openssl s_client -connect smf.local:29502 -alpn h2 2>&1 | grep ALPN
+```
+
+### Port SBI mặc định phổ biến
+
+| NF | Port SBI Mặc định |
+|----|------------------|
+| AMF | 29518 |
+| SMF | 29502 |
+| UDM | 29503 |
+| AUSF | 29509 |
+| NRF | 29510 |
+| PCF | 29507 |
+| NEF | 29505 |
+| CHF | 29520 |
+
+Các port này không được 3GPP bắt buộc nhưng được các open-source implementation (free5GC, Open5GS, OAI) sử dụng rộng rãi.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **TLS ở mọi nơi — certificate hết hạn.** SBI bắt buộc mutual TLS 1.2+. Hết hạn certificate là nguyên nhân phổ biến nhất gây ra lỗi giao tiếp NF đột ngột trong production. Implement tự động rotate certificate và monitor ngày hết hạn với cảnh báo ít nhất 30 ngày.
+
+2. **Version service không khớp.** `/v1` và `/v2` không thể hoán đổi. UDM Rel-16 với `/nudm-sdm/v2` sẽ trả 404 cho AMF Rel-15 gọi `/nudm-sdm/v1`. Lên kế hoạch API version negotiation trong triển khai cross-release.
+
+3. **NRF là single point of failure.** Nếu NRF không available, discovery fail cho tất cả NF. Giải pháp: (a) cache profile đã khám phá cục bộ với validity timer, (b) deploy NRF active-active với load balancer, (c) dùng SCP có thể duy trì NRF state độc lập.
+
+4. **Callback URI reachability.** Subscribe/Notify yêu cầu callback URI của consumer phải reachable từ producer. NAT, firewall rule, và Kubernetes service topology đều có thể phá vỡ callback im lặng. Test callback delivery trong network topology của bạn trước khi deploy event-driven logic.
+
+5. **HTTP/2 bị proxy downgrade.** SBI yêu cầu HTTP/2. Một số API gateway, load balancer, hoặc service mesh downgrade sang HTTP/1.1 theo mặc định. Điều này phá vỡ multiplexing và có thể gây ra vấn đề hiệu suất tinh tế. Xác minh ALPN negotiation với `openssl s_client -alpn h2`.
+
+6. **Bỏ qua Retry-After khi nhận 503.** Khi NF trả HTTP 503 với `Retry-After: 5`, đó là tín hiệu overload. Retry ngay lập tức khuếch đại overload — cùng pattern cascade failure làm sụp data center. Tôn trọng header này.
+
+7. **Nghiêm ngặt về JSON unknown field.** 3GPP TS 29.501 yêu cầu consumer bỏ qua JSON field không biết (forward compatibility). Một số implementation nghiêm ngặt và reject request có field thêm. Test interoperability giữa các implementation trước khi triển khai production.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- 3GPP TS 29.500 v17, "5G System; Technical Realization of Service Based Architecture"
+- 3GPP TS 29.501 v17, "5G System; Principles and Guidelines for Services Definition"
+- 3GPP TS 29.510 v17, "5G System; Network Function Repository Services"
+- 3GPP TS 33.501, "Security Architecture and Procedures for 5G System" (yêu cầu TLS)
+- RFC 7807, "Problem Details for HTTP APIs" (định dạng ProblemDetails)
+- RFC 7540, "Hypertext Transfer Protocol Version 2 (HTTP/2)"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [HTTP/2 trong 5G](/vi/core-network/service-based-interface-http2/http2-in-5g/) — multiplexing, HPACK, và lý do HTTP/2 được chọn
+- [Đăng ký NF service](/vi/core-network/service-based-interface-http2/nf-service-registration/) — cơ chế đăng ký NRF và heartbeat
+- [JSON và OpenAPI trong 5G](/vi/core-network/service-based-interface-http2/json-and-openapi-in-5g/) — cách 3GPP định nghĩa API với OpenAPI 3.0
+
+</section>

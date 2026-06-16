@@ -9,16 +9,563 @@ unit: ntn-in-3gpp
 order: 4
 level: L4
 estimatedReadingMinutes: 5
-title: "IoT-NTN"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "IoT-NTN — Narrowband Satellite for Massive IoT"
+description: "LTE-M and NB-IoT over satellite: how 3GPP adapted narrowband protocols for global IoT coverage with minimal UE changes."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 36.331", "3GPP TS 36.300", "3GPP TR 36.763"]
+tags: ["iot-ntn", "nb-iot", "lte-m", "3gpp", "satellite-iot"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# IoT-NTN
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+There are billions of IoT devices that need connectivity outside cellular coverage: shipping containers in mid-ocean, cattle trackers in remote ranches, pipeline sensors in deserts. NR-NTN targets smartphones, but IoT-NTN targets the long tail — devices that transmit kilobytes per day, sleep for hours, and run on a single battery for a decade. Release 17 adapted NB-IoT and LTE-M for satellite, enabling truly global IoT coverage with minimal changes to existing chipsets.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### IoT-NTN vs NR-NTN
+
+```
+Why Two Standards?
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  NR-NTN (5G):                                                       │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Target: Smartphones, broadband devices                        │ │
+│  │  Bandwidth: 5-100 MHz                                          │ │
+│  │  Data rates: 1-100+ Mbps                                       │ │
+│  │  Power: Always-on capable                                      │ │
+│  │  Battery: Daily charging                                       │ │
+│  │  Complexity: Full 5G NR stack                                  │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  IoT-NTN (LTE):                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Target: Sensors, trackers, meters                             │ │
+│  │  Bandwidth: 180 kHz (NB-IoT) or 1.4 MHz (LTE-M)               │ │
+│  │  Data rates: 10 kbps - 1 Mbps                                  │ │
+│  │  Power: Ultra-low, PSM/eDRX                                    │ │
+│  │  Battery: 10+ year life                                        │ │
+│  │  Complexity: Simplified LTE subset                             │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  KEY INSIGHT: Existing NB-IoT/LTE-M chipsets can be upgraded      │
+│  for satellite with firmware update (GNSS + timing changes)        │ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Coverage classes
+
+```
+IoT-NTN Coverage Enhancement:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  NB-IoT COVERAGE CLASSES (Extended for NTN):                       │
+│                                                                      │
+│  ┌─────────────┬───────────────────────────────────────────────┐  │
+│  │ Class       │ Description                                     │  │
+│  ├─────────────┼───────────────────────────────────────────────┤  │
+│  │ Normal      │ MCL 144 dB — urban/suburban terrestrial        │  │
+│  │ Robust      │ MCL 154 dB — deep indoor terrestrial           │  │
+│  │ Extreme     │ MCL 164 dB — basement, underground             │  │
+│  │ NTN         │ MCL 170+ dB — LEO satellite link               │  │
+│  └─────────────┴───────────────────────────────────────────────┘  │
+│                                                                      │
+│  ACHIEVING NTN COVERAGE:                                           │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Repetition: Up to 2048× for NPDSCH/NPDCCH                    │ │
+│  │  Time spreading: Single transmission can span minutes         │ │
+│  │  Power boosting: Satellite beam concentration                  │ │
+│  │  Lower data rates: 160 bps floor for extreme coverage         │ │
+│  │                                                                 │ │
+│  │  Trade-off: Coverage ↔ Throughput ↔ Battery                   │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Frequency bands
+
+```
+IoT-NTN Spectrum Allocation:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  S-BAND (Primary):                                                  │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Band 23 (S-band):                                             │ │
+│  │    UL: 2000-2020 MHz                                           │ │
+│  │    DL: 2180-2200 MHz                                           │ │
+│  │    Use case: Global IoT (Globalstar spectrum)                  │ │
+│  │                                                                 │ │
+│  │  Band 256 equivalent for NB-IoT/LTE-M:                        │ │
+│  │    Same spectrum as NR-NTN n256                                │ │
+│  │    1980-2010 MHz UL / 2170-2200 MHz DL                        │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  L-BAND (Secondary):                                                │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Band 255 equivalent:                                          │ │
+│  │    Inmarsat/Iridium spectrum                                   │ │
+│  │    Legacy maritime/aviation IoT                                │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  CHANNEL BANDWIDTH:                                                 │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  NB-IoT: 180 kHz (single PRB)                                 │ │
+│  │  LTE-M: 1.4 MHz (6 PRBs minimum)                              │ │
+│  │                                                                 │ │
+│  │  Satellite can support 50+ NB-IoT carriers per beam           │ │
+│  │  Massive capacity for low-rate devices                        │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### NTN adaptations for NB-IoT
+
+```
+Key Protocol Changes for IoT-NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. TIMING ADVANCE (Same as NR-NTN):                               │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  N_TA = N_TA,common + N_TA,offset + N_TA,UE                   │ │
+│  │                                                                 │ │
+│  │  • TA-Common broadcast in SIB-NTN                              │ │
+│  │  • UE computes offset from GNSS + ephemeris                    │ │
+│  │  • Extended range: up to 40 ms (GEO support)                   │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  2. GNSS INTEGRATION:                                              │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Mandatory for IoT-NTN UEs                                     │ │
+│  │  But: GNSS acquisition is power-expensive                      │ │
+│  │                                                                 │ │
+│  │  Optimization:                                                  │ │
+│  │  • Assisted GNSS from network (SUPL over NTN)                 │ │
+│  │  • Last-known position + age validity                          │ │
+│  │  • Position accuracy: ±5 km sufficient for TA                  │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  3. HARQ OPERATION:                                                │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  NB-IoT: HARQ typically disabled (as in terrestrial extreme)  │ │
+│  │  LTE-M: Extended HARQ RTT timer                                │ │
+│  │                                                                 │ │
+│  │  Rationale: NB-IoT already relies on repetitions               │ │
+│  │  No efficiency gain from HARQ at extreme coverage              │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  4. DISCONTINUOUS RECEPTION (eDRX):                                │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Terrestrial eDRX max: ~43 minutes                             │ │
+│  │  NTN eDRX max: Extended to hours                               │ │
+│  │                                                                 │ │
+│  │  Why longer? Satellite passes over sleeping UE                 │ │
+│  │  UE needs to align wake-up with satellite visibility           │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### SIB-NTN broadcast
+
+```
+NTN System Information (NB-IoT specific):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SIB31 (NTN Configuration for NB-IoT):                             │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  ntn-ConfigCommon:                                             │ │
+│  │    ├── epochTime                (reference for TA)             │ │
+│  │    ├── ta-Common                (common delay)                 │ │
+│  │    ├── ta-CommonDrift           (drift rate)                   │ │
+│  │    └── ta-CommonDriftVariation  (second derivative)            │ │
+│  │                                                                 │ │
+│  │  satelliteInfo:                                                │ │
+│  │    ├── positionVelocityTime     (ECEF state vector)           │ │
+│  │    └── orbitalParams            (Keplerian alternative)        │ │
+│  │                                                                 │ │
+│  │  cellSpecificParams:                                           │ │
+│  │    ├── k-Offset                 (scheduling offset)            │ │
+│  │    └── minimumElevation         (visibility threshold)         │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  BROADCAST PERIOD:                                                  │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  SIB31 period: 64-512 radio frames (640 ms - 5.12 s)          │ │
+│  │                                                                 │ │
+│  │  Trade-off:                                                     │ │
+│  │    Shorter period → faster acquisition, more overhead          │ │
+│  │    Longer period → less overhead, stale ephemeris              │ │
+│  │                                                                 │ │
+│  │  LEO: Update every few seconds (fast orbit)                    │ │
+│  │  GEO: Update every minute (stable position)                    │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Power saving modes
+
+```
+IoT-NTN Power Optimization:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  POWER SAVING MODE (PSM):                                          │
+│                                                                      │
+│     Active           TAU Timer          PSM Sleep                   │
+│   ┌─────────┐      ┌──────────┐      ┌───────────────────────┐    │
+│   │ TX/RX   │─────>│ eDRX     │─────>│ Radio OFF             │    │
+│   │ ~100 mA │      │ ~1 mA    │      │ ~3 µA                 │    │
+│   └─────────┘      └──────────┘      └───────────────────────┘    │
+│       │                 │                      │                    │
+│    Seconds          Minutes              Hours to Days              │
+│                                                                      │
+│  NTN ENHANCEMENT:                                                   │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Problem: Satellite not always visible                         │ │
+│  │                                                                 │ │
+│  │  Solution: Scheduled wake-up aligned with satellite pass       │ │
+│  │                                                                 │ │
+│  │    1. UE knows satellite orbit from ephemeris                  │ │
+│  │    2. UE computes next visibility window                       │ │
+│  │    3. UE sleeps until window approaches                        │ │
+│  │    4. UE wakes, acquires satellite, transmits                  │ │
+│  │    5. UE returns to PSM                                        │ │
+│  │                                                                 │ │
+│  │  Result: Battery optimized for satellite availability          │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  eDRX FOR NTN:                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Standard eDRX: UE wakes at fixed intervals                    │ │
+│  │  NTN eDRX: Intervals can extend to satellite pass period       │ │
+│  │                                                                 │ │
+│  │  LEO period: ~90 minutes orbit, ~10 min visibility window     │ │
+│  │  eDRX could align to 90-minute cycle                           │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**IoT-NTN link budget and battery life calculator:**
+
+```python
+import math
+
+def iot_ntn_link_budget(freq_ghz, sat_alt_km, elevation_deg,
+                         ue_power_dbm, ue_antenna_dbi, sat_gt_db,
+                         bandwidth_khz, repetitions):
+    """
+    Calculate IoT-NTN link budget with repetition gain.
+    """
+    earth_radius = 6371
+    el_rad = math.radians(elevation_deg)
+    
+    slant_range = (-earth_radius * math.sin(el_rad) + 
+                   math.sqrt((earth_radius * math.sin(el_rad))**2 + 
+                            2 * earth_radius * sat_alt_km + sat_alt_km**2))
+    
+    fspl = 32.45 + 20 * math.log10(freq_ghz * 1000) + 20 * math.log10(slant_range)
+    
+    ue_eirp = ue_power_dbm + ue_antenna_dbi
+    
+    repetition_gain = 10 * math.log10(repetitions)
+    
+    received_power = ue_eirp - fspl + sat_gt_db + repetition_gain
+    
+    noise_figure = 3.0
+    k_boltz = -228.6
+    thermal_noise = k_boltz + 10 * math.log10(bandwidth_khz * 1000) + noise_figure
+    
+    snr = received_power - thermal_noise
+    
+    mcl = fspl - ue_antenna_dbi - sat_gt_db - repetition_gain
+    
+    return {
+        "slant_range_km": slant_range,
+        "fspl_db": fspl,
+        "ue_eirp_dbm": ue_eirp,
+        "repetition_gain_db": repetition_gain,
+        "received_power_dbm": received_power,
+        "snr_db": snr,
+        "mcl_db": mcl
+    }
+
+def nb_iot_throughput(coverage_class, repetitions):
+    """
+    Estimate NB-IoT throughput based on coverage class.
+    """
+    base_rate_bps = 160000
+    
+    effective_rate = base_rate_bps / repetitions
+    
+    if coverage_class == "normal":
+        overhead = 0.7
+    elif coverage_class == "robust":
+        overhead = 0.5
+    elif coverage_class == "extreme":
+        overhead = 0.3
+    else:
+        overhead = 0.2
+    
+    throughput_bps = effective_rate * overhead
+    
+    return {
+        "coverage_class": coverage_class,
+        "repetitions": repetitions,
+        "base_rate_bps": base_rate_bps,
+        "effective_rate_bps": effective_rate,
+        "throughput_bps": throughput_bps,
+        "throughput_kbps": throughput_bps / 1000
+    }
+
+def battery_life_estimate(battery_mah, tx_ma, rx_ma, sleep_ua,
+                           tx_time_s_per_day, rx_time_s_per_day):
+    """
+    Estimate IoT device battery life.
+    """
+    tx_hours_per_day = tx_time_s_per_day / 3600
+    rx_hours_per_day = rx_time_s_per_day / 3600
+    sleep_hours_per_day = 24 - tx_hours_per_day - rx_hours_per_day
+    
+    daily_consumption_mah = (
+        tx_ma * tx_hours_per_day +
+        rx_ma * rx_hours_per_day +
+        (sleep_ua / 1000) * sleep_hours_per_day
+    )
+    
+    battery_days = battery_mah / daily_consumption_mah
+    battery_years = battery_days / 365
+    
+    return {
+        "tx_hours_per_day": tx_hours_per_day,
+        "rx_hours_per_day": rx_hours_per_day,
+        "daily_consumption_mah": daily_consumption_mah,
+        "battery_days": battery_days,
+        "battery_years": battery_years
+    }
+
+def satellite_visibility(orbit_km, min_elevation_deg, latitude_deg):
+    """
+    Estimate LEO satellite visibility for IoT scheduling.
+    """
+    earth_radius = 6371
+    orbit_radius = earth_radius + orbit_km
+    
+    orbital_period_min = 2 * math.pi * math.sqrt(orbit_radius**3 / 398600.4) / 60
+    
+    el_rad = math.radians(min_elevation_deg)
+    
+    earth_angle = math.acos(earth_radius * math.cos(el_rad) / orbit_radius) - el_rad
+    
+    visibility_fraction = earth_angle / math.pi
+    
+    visibility_min = orbital_period_min * visibility_fraction
+    
+    passes_per_day = 1440 / orbital_period_min * 0.7
+    
+    return {
+        "orbital_period_min": orbital_period_min,
+        "visibility_per_pass_min": visibility_min,
+        "passes_per_day": passes_per_day,
+        "total_visibility_min_per_day": visibility_min * passes_per_day
+    }
+
+print("IoT-NTN Analysis")
+print("=" * 70)
+
+print("\n1. Link Budget Comparison")
+print("-" * 70)
+
+scenarios = [
+    ("Terrestrial NB-IoT", 0.9, 0, 90, 14, 0, 2, 1),
+    ("NTN Normal", 2.0, 600, 45, 23, 0, 10, 1),
+    ("NTN Robust", 2.0, 600, 30, 23, 0, 10, 128),
+    ("NTN Extreme", 2.0, 600, 20, 23, 0, 10, 2048),
+]
+
+print(f"  {'Scenario':<20} {'FSPL(dB)':<10} {'Rep':<6} {'Rep Gain':<10} {'MCL(dB)':<10}")
+print(f"  {'-'*20} {'-'*10} {'-'*6} {'-'*10} {'-'*10}")
+
+for name, freq, alt, elev, pwr, ant, gt, rep in scenarios:
+    if alt == 0:
+        print(f"  {name:<20} {'N/A':<10} {rep:<6} {'N/A':<10} {'144':<10}")
+    else:
+        lb = iot_ntn_link_budget(freq, alt, elev, pwr, ant, gt, 180, rep)
+        print(f"  {name:<20} {lb['fspl_db']:<10.1f} {rep:<6} {lb['repetition_gain_db']:<10.1f} {lb['mcl_db']:<10.1f}")
+
+print("\n2. Throughput vs Coverage Trade-off")
+print("-" * 70)
+
+coverage_classes = [
+    ("normal", 1),
+    ("robust", 32),
+    ("extreme", 512),
+    ("ntn", 2048),
+]
+
+print(f"  {'Coverage':<10} {'Repetitions':<12} {'Effective Rate':<15} {'Throughput':<12}")
+print(f"  {'-'*10} {'-'*12} {'-'*15} {'-'*12}")
+
+for cls, rep in coverage_classes:
+    tp = nb_iot_throughput(cls, rep)
+    print(f"  {cls:<10} {rep:<12} {tp['effective_rate_bps']:<15.0f} {tp['throughput_kbps']:<12.2f} kbps")
+
+print("\n3. Battery Life Estimation")
+print("-" * 70)
+
+print("""
+  Assumptions:
+    - 5000 mAh battery (AA lithium primary cells)
+    - TX current: 200 mA @ +23 dBm
+    - RX current: 10 mA
+    - Sleep current: 3 µA (PSM)
+""")
+
+usage_patterns = [
+    ("Asset tracker (1 msg/hr)", 30, 60),
+    ("Meter reading (1 msg/day)", 30, 10),
+    ("Emergency only (1 msg/week)", 5, 5),
+]
+
+for name, tx_s, rx_s in usage_patterns:
+    bl = battery_life_estimate(5000, 200, 10, 3, tx_s, rx_s)
+    print(f"  {name}: {bl['battery_years']:.1f} years")
+
+print("\n4. LEO Satellite Visibility")
+print("-" * 70)
+
+vis = satellite_visibility(600, 30, 45)
+print(f"""
+  LEO-600 satellite visibility (30° min elevation):
+    Orbital period: {vis['orbital_period_min']:.1f} minutes
+    Visibility per pass: {vis['visibility_per_pass_min']:.1f} minutes
+    Passes per day: {vis['passes_per_day']:.1f}
+    Total visibility: {vis['total_visibility_min_per_day']:.0f} min/day ({vis['total_visibility_min_per_day']/60:.1f} hours)
+""")
+
+print("\n5. IoT-NTN vs NR-NTN Comparison")
+print("-" * 70)
+print("""
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Parameter       │ IoT-NTN (NB-IoT)    │ NR-NTN                    │
+  │  ────────────────┼─────────────────────┼─────────────────────────  │
+  │  Bandwidth       │ 180 kHz             │ 5-100 MHz                 │
+  │  Peak rate       │ 160 kbps            │ 100+ Mbps                 │
+  │  Battery life    │ 10+ years           │ Daily charging            │
+  │  Typical device  │ Sensor, tracker     │ Smartphone                │
+  │  GNSS required   │ Yes                 │ Yes                       │
+  │  HARQ            │ Usually disabled    │ Enabled/disabled          │
+  │  Repetitions     │ Up to 2048×         │ Not needed                │
+  │  Cost per device │ $5-20               │ $200+                     │
+  └─────────────────────────────────────────────────────────────────────┘
+""")
+```
+
+**Key IoT-NTN formulas:**
+
+| Parameter | Formula |
+|-----------|---------|
+| Repetition gain | 10 × log₁₀(N_rep) dB |
+| Effective rate | Base_rate / N_rep |
+| Daily consumption | TX×I_tx + RX×I_rx + Sleep×I_sleep |
+| Battery life | Capacity / Daily_consumption |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring GNSS power.** GNSS acquisition consumes 20-50 mA for 30+ seconds. Budget for it in battery calculations.
+
+2. **Forgetting satellite visibility.** IoT device can't transmit when no satellite is overhead. Schedule transmissions for visibility windows.
+
+3. **Over-optimizing for throughput.** IoT-NTN is about coverage, not speed. 100 bytes/hour is fine for most sensors.
+
+4. **Underestimating repetition impact.** 2048× repetitions means a 100-byte message takes ~10 seconds of airtime. Plan accordingly.
+
+5. **Mixing terrestrial and NTN assumptions.** Terrestrial NB-IoT has 144 dB MCL. NTN needs 170+ dB. Design for the harder case.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TR 36.763 v17.0.0 — Study on NB-IoT/eMTC support for NTN
+- 3GPP TS 36.331 v17.3.0 — E-UTRA RRC (NTN extensions)
+- 3GPP TS 36.300 v17.2.0 — E-UTRAN overall description (NTN architecture)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [NR-NTN](/en/space/ntn-in-3gpp/nr-ntn/) — broadband variant for smartphones
+- [Satellite UE Problem](/en/space/ntn-in-3gpp/satellite-ue-problem/) — direct-to-device challenges
+- [DVB-S2](/en/space/dvb-s-standards/dvb-s2/) — broadcast satellite standard for comparison
+
+</section>

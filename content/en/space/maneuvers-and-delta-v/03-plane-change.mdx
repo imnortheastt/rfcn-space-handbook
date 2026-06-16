@@ -8,17 +8,455 @@ track: s1
 unit: maneuvers-and-delta-v
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "Plane change maneuver"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Plane Change — The Expensive Maneuver"
+description: "Understanding inclination changes and why they dominate delta-v budgets."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["plane-change", "inclination", "delta-v", "orbital-mechanics"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Plane change maneuver
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Plane changes are the most expensive maneuvers in orbital mechanics. Changing inclination by even a few degrees can cost more delta-v than a Hohmann transfer to GEO. This is why launch sites near the equator are so valuable—they minimize the inclination change needed to reach equatorial orbits. Understanding plane change costs is essential for mission planning.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The geometry of plane change
+
+```
+Plane Change Geometry:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                      ↑ North                                        │
+│                      │                                               │
+│            Initial   │        Final                                 │
+│             orbit  ╲ │ ╱      orbit                                 │
+│                     ╲│╱                                             │
+│               ───────●─────── Earth center                          │
+│                     ╱│╲                                             │
+│                   ╱  │  ╲                                           │
+│                 ╱    │    ╲                                         │
+│               ╱      │      ╲                                       │
+│             ╱   Δi   │        ╲                                     │
+│           ╱   (change)         ╲                                   │
+│         ╱            │           ╲                                  │
+│                                                                      │
+│  VIEW FROM ABOVE (looking at orbital plane edge):                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │           v₁ (initial velocity)                       │         │
+│  │            ↗                                          │         │
+│  │           ╱                                           │         │
+│  │          ╱                                            │         │
+│  │         ╱  Δi                                         │         │
+│  │        ╱ ╲                                            │         │
+│  │       ╱   ╲                                           │         │
+│  │      ●─────→ v₂ (final velocity)                     │         │
+│  │                                                        │         │
+│  │  Δv = 2v⋅sin(Δi/2)  ← depends on velocity!          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Why plane changes are expensive
+
+```
+Plane Change Cost Analysis:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KEY INSIGHT: Δv = 2v⋅sin(Δi/2)                                    │
+│                                                                      │
+│  The velocity (v) is in the SINE formula—not subtracted!           │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Comparison (at LEO, v ≈ 7.7 km/s):                  │         │
+│  │                                                        │         │
+│  │  Maneuver               │ Δv                         │         │
+│  │  ───────────────────────┼────────────────────────── │         │
+│  │  Hohmann LEO → GEO      │ 3.9 km/s                  │         │
+│  │  28.5° plane change     │ 3.8 km/s (same as above!) │         │
+│  │  90° plane change       │ 10.9 km/s                 │         │
+│  │  180° plane change      │ 15.4 km/s                 │         │
+│  │                                                        │         │
+│  │  A 28° inclination change costs as much as           │         │
+│  │  going from LEO to GEO!                              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WHY SO EXPENSIVE?                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • You're not changing speed—you're changing direction│         │
+│  │  • Must "pay" to cancel original velocity component  │         │
+│  │  • Then "pay again" to add new velocity component    │         │
+│  │  • The faster you're going, the more expensive       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Pure plane change equation
+
+```
+Simple Plane Change (Same Altitude):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  For circular orbit at velocity v, changing inclination by Δi:     │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │            Δv = 2v⋅sin(Δi/2)                          │         │
+│  │                                                        │         │
+│  │  Small angle approximation (Δi < 10°):               │         │
+│  │            Δv ≈ v⋅Δi  (Δi in radians)                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  OPTIMIZATION: Do plane changes at APOAPSIS (lowest v)             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Since Δv ∝ v, burning at lower velocity saves fuel  │         │
+│  │                                                        │         │
+│  │  Example: 28.5° plane change                         │         │
+│  │  • At LEO (v = 7.7 km/s): Δv = 3.8 km/s             │         │
+│  │  • At GEO (v = 3.1 km/s): Δv = 1.5 km/s             │         │
+│  │                                                        │         │
+│  │  → 60% fuel savings by doing it at GEO!             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Combined altitude and plane change
+
+```
+Optimal Combined Maneuver:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LEO (28.5°) to GEO (0°) — Three strategies:                       │
+│                                                                      │
+│  STRATEGY 1: Plane change first, then Hohmann                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  1. Plane change at LEO: 3.8 km/s                    │         │
+│  │  2. Hohmann to GEO: 3.9 km/s                         │         │
+│  │  TOTAL: 7.7 km/s ← WORST                             │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STRATEGY 2: Hohmann first, then plane change                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  1. Hohmann to GEO: 3.9 km/s                         │         │
+│  │  2. Plane change at GEO: 1.5 km/s                    │         │
+│  │  TOTAL: 5.4 km/s ← BETTER                            │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  STRATEGY 3: Combined burn at apogee (OPTIMAL)                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │       Δv_altitude      Δv_combined                   │         │
+│  │           ↑           ↗                               │         │
+│  │           │         ╱                                 │         │
+│  │           │       ╱                                   │         │
+│  │           │     ╱  α (combined angle)                │         │
+│  │           │   ╱                                       │         │
+│  │           │ ╱                                         │         │
+│  │           ●───────→ Δv_plane                         │         │
+│  │                                                        │         │
+│  │  Vector addition: Δv < Δv_alt + Δv_plane            │         │
+│  │  TOTAL: ~4.2 km/s ← BEST                             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SAVINGS: 45% less than Strategy 1!                                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Launch site latitude effect
+
+```
+Why Equatorial Launch Sites Matter:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Launch site → minimum achievable inclination                       │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Launch site        │ Latitude │ Min incl │ Δv to GEO│         │
+│  │  ───────────────────┼──────────┼──────────┼──────────│         │
+│  │  Kourou (ESA)       │ 5.2°     │ 5.2°     │ 1.5 km/s │         │
+│  │  Cape Canaveral     │ 28.5°    │ 28.5°    │ 1.8 km/s │         │
+│  │  Baikonur           │ 45.6°    │ 45.6°    │ 2.2 km/s │         │
+│  │  Plesetsk           │ 62.8°    │ 62.8°    │ 2.6 km/s │         │
+│  │                                                        │         │
+│  │  Note: Δv values for apogee circularization + plane  │         │
+│  │  change combined                                      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  RULE: Can't launch into inclination < launch latitude             │
+│  (without "dog-leg" maneuver which wastes even more fuel)          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Plane change calculations:**
+
+```python
+import numpy as np
+
+MU_EARTH = 398600.4418  # km³/s²
+
+def circular_velocity(r, mu=MU_EARTH):
+    """Circular orbit velocity."""
+    return np.sqrt(mu / r)
+
+def plane_change_dv(v, delta_i_deg):
+    """
+    Calculate delta-v for pure plane change.
+    
+    Args:
+        v: Orbital velocity (km/s)
+        delta_i_deg: Inclination change (degrees)
+    
+    Returns:
+        Delta-v required (km/s)
+    """
+    delta_i_rad = np.radians(delta_i_deg)
+    return 2 * v * np.sin(delta_i_rad / 2)
+
+def combined_maneuver_dv(v1, v2, delta_i_deg):
+    """
+    Calculate delta-v for combined altitude + plane change.
+    
+    Burning at apoapsis combines both maneuvers vectorially.
+    
+    Args:
+        v1: Initial velocity at burn point
+        v2: Final (target) velocity at burn point
+        delta_i_deg: Inclination change
+    
+    Returns:
+        Combined delta-v
+    """
+    delta_i_rad = np.radians(delta_i_deg)
+    # Vector addition formula
+    dv = np.sqrt(v1**2 + v2**2 - 2*v1*v2*np.cos(delta_i_rad))
+    return dv
+
+def altitude_to_radius(alt_km, r_earth=6371):
+    return alt_km + r_earth
+
+# Example calculations
+print("Plane Change Analysis")
+print("=" * 60)
+
+# Cost of plane changes at different altitudes
+print("\n1. Plane Change Cost vs Altitude")
+print("-" * 60)
+
+altitudes = [400, 2000, 10000, 20200, 35786]  # km
+delta_i = 28.5  # degrees (Cape Canaveral to equatorial)
+
+print(f"  Inclination change: {delta_i}°")
+print(f"")
+print(f"  {'Altitude':>12} {'Radius':>10} {'Velocity':>10} {'Δv':>10}")
+print(f"  {'(km)':>12} {'(km)':>10} {'(km/s)':>10} {'(km/s)':>10}")
+print("-" * 60)
+
+for alt in altitudes:
+    r = altitude_to_radius(alt)
+    v = circular_velocity(r)
+    dv = plane_change_dv(v, delta_i)
+    print(f"  {alt:>12} {r:>10.0f} {v:>10.2f} {dv:>10.2f}")
+
+# Different inclination changes at LEO
+print("\n2. Plane Change Costs at LEO (400 km)")
+print("-" * 60)
+
+r_leo = altitude_to_radius(400)
+v_leo = circular_velocity(r_leo)
+
+print(f"  LEO velocity: {v_leo:.2f} km/s")
+print(f"")
+print(f"  {'Δi (°)':>10} {'Δv (km/s)':>12} {'Equivalent to':>25}")
+print("-" * 60)
+
+comparisons = [
+    (5, "Minor adjustment"),
+    (10, "Significant change"),
+    (28.5, "Cape → Equatorial"),
+    (45, "Moderate → Polar"),
+    (90, "Equatorial → Polar"),
+    (180, "Retrograde flip"),
+]
+
+for delta_i, desc in comparisons:
+    dv = plane_change_dv(v_leo, delta_i)
+    print(f"  {delta_i:>10.1f} {dv:>12.2f} {desc:>25}")
+
+# LEO to GEO strategies
+print("\n3. LEO (28.5°) to GEO (0°) — Strategy Comparison")
+print("-" * 60)
+
+r_leo = altitude_to_radius(400)
+r_geo = altitude_to_radius(35786)
+v_leo = circular_velocity(r_leo)
+v_geo = circular_velocity(r_geo)
+delta_i = 28.5
+
+# GTO parameters
+a_gto = (r_leo + r_geo) / 2
+v_gto_perigee = np.sqrt(MU_EARTH * (2/r_leo - 1/a_gto))
+v_gto_apogee = np.sqrt(MU_EARTH * (2/r_geo - 1/a_gto))
+
+print(f"  LEO: r = {r_leo:.0f} km, v = {v_leo:.2f} km/s")
+print(f"  GEO: r = {r_geo:.0f} km, v = {v_geo:.2f} km/s")
+print(f"  GTO apogee v = {v_gto_apogee:.2f} km/s")
+print(f"")
+
+# Strategy 1: Plane change at LEO, then Hohmann
+dv1_pc = plane_change_dv(v_leo, delta_i)
+dv1_hoh1 = abs(v_gto_perigee - v_leo)
+dv1_hoh2 = abs(v_geo - v_gto_apogee)
+dv1_total = dv1_pc + dv1_hoh1 + dv1_hoh2
+
+print("  Strategy 1: Plane change at LEO, then Hohmann")
+print(f"    Plane change: {dv1_pc:.2f} km/s")
+print(f"    Hohmann burn 1: {dv1_hoh1:.2f} km/s")
+print(f"    Hohmann burn 2: {dv1_hoh2:.2f} km/s")
+print(f"    TOTAL: {dv1_total:.2f} km/s")
+print()
+
+# Strategy 2: Hohmann first, plane change at GEO
+dv2_hoh1 = abs(v_gto_perigee - v_leo)
+dv2_hoh2 = abs(v_geo - v_gto_apogee)
+dv2_pc = plane_change_dv(v_geo, delta_i)
+dv2_total = dv2_hoh1 + dv2_hoh2 + dv2_pc
+
+print("  Strategy 2: Hohmann first, plane change at GEO")
+print(f"    Hohmann burn 1: {dv2_hoh1:.2f} km/s")
+print(f"    Hohmann burn 2: {dv2_hoh2:.2f} km/s")
+print(f"    Plane change: {dv2_pc:.2f} km/s")
+print(f"    TOTAL: {dv2_total:.2f} km/s")
+print()
+
+# Strategy 3: Combined burn at apogee
+dv3_hoh1 = abs(v_gto_perigee - v_leo)
+dv3_combined = combined_maneuver_dv(v_gto_apogee, v_geo, delta_i)
+dv3_total = dv3_hoh1 + dv3_combined
+
+print("  Strategy 3: Combined burn at GTO apogee (OPTIMAL)")
+print(f"    Perigee burn: {dv3_hoh1:.2f} km/s")
+print(f"    Combined apogee burn: {dv3_combined:.2f} km/s")
+print(f"    TOTAL: {dv3_total:.2f} km/s")
+print()
+
+savings = (dv1_total - dv3_total) / dv1_total * 100
+print(f"  Savings vs Strategy 1: {savings:.1f}%")
+
+# Launch site comparison
+print("\n4. Launch Site Comparison for GEO Missions")
+print("-" * 60)
+
+launch_sites = [
+    ("Kourou (ESA)", 5.2),
+    ("Cape Canaveral", 28.5),
+    ("Tanegashima", 30.4),
+    ("Baikonur", 45.6),
+    ("Plesetsk", 62.8),
+]
+
+print(f"  {'Site':<20} {'Latitude':>10} {'Plane Δv':>12} {'Total GTO→GEO':>15}")
+print("-" * 60)
+
+for name, lat in launch_sites:
+    # Plane change at apogee combined with circularization
+    dv_combined = combined_maneuver_dv(v_gto_apogee, v_geo, lat)
+    dv_plane_only = plane_change_dv(v_geo, lat)
+    print(f"  {name:<20} {lat:>10.1f}° {dv_plane_only:>10.2f} km/s {dv_combined:>13.2f} km/s")
+```
+
+**Key values:**
+
+| Scenario | Δv |
+|----------|-----|
+| 28.5° plane change at LEO | 3.8 km/s |
+| 28.5° plane change at GEO | 1.5 km/s |
+| LEO→GEO (combined optimal) | 4.2 km/s |
+| 90° plane change at LEO | 10.9 km/s |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Burning at perigee for plane change.** Never do plane changes at perigee—velocity is maximum, cost is maximum.
+
+2. **Separate burns waste fuel.** Always combine altitude and plane changes when possible.
+
+3. **Underestimating cost.** A 45° plane change at LEO costs more than getting to GEO.
+
+4. **Launch site constraints.** Minimum inclination = launch latitude. Dog-leg maneuvers waste fuel.
+
+5. **Forgetting right ascension.** Plane change affects both inclination AND RAAN; timing matters.
+
+6. **Sun-synchronous precession.** Some inclinations use J2 perturbation instead of fuel for RAAN rotation.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Vallado, D.A. "Fundamentals of Astrodynamics and Applications"
+- Curtis, H. "Orbital Mechanics for Engineering Students"
+- ESA Launch Vehicle User Manuals
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Station Keeping](/en/space/maneuvers-and-delta-v/station-keeping/) — maintaining orbit
+- [Delta-V Budget](/en/space/maneuvers-and-delta-v/delta-v-budget/) — total mission costs
+- [Hohmann Transfer](/en/space/maneuvers-and-delta-v/hohmann-transfer/) — altitude changes
+
+</section>

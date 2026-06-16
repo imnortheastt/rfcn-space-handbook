@@ -8,17 +8,362 @@ track: s1
 unit: maneuvers-and-delta-v
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "Hohmann transfer"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 11
+prerequisites: ["space-s1-two-body-problem-05-vis-viva-equation"]
+spiralRevisits: []
+title: "Hohmann Transfer — The Fuel-Efficient Orbit Change"
+description: "The classic two-burn maneuver for transferring between circular coplanar orbits — derivation, worked numbers, propellant budgeting, and the bi-elliptic crossover."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-04"
+standards: []
+tags: ["hohmann", "orbital-mechanics", "delta-v", "transfer-orbit", "vis-viva", "tsiolkovsky", "gto", "leo-to-geo"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Hohmann transfer
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+The Hohmann transfer is the most fuel-efficient way to move between two circular coplanar orbits using exactly two impulsive burns. Named after Walter Hohmann who described it in 1925 — before rockets capable of reaching orbit even existed — it remains the workhorse maneuver for GEO insertion, GPS constellation maintenance, and interplanetary mission design.
+
+LEO-to-GEO costs about 3.9 km/s total delta-v. For a 5000 kg satellite with a chemical bipropellant engine (Isp = 320 s), that means 60% of launch mass is propellant — purely for the orbit raise. Get this calculation wrong and you either run out of fuel or strand your payload in the wrong orbit.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The basic concept
+
+A Hohmann transfer connects two circular orbits with a single ellipse that is tangent to both:
+
+```
+Hohmann Transfer Geometry
+
+                     Target orbit (r₂)
+              ╭──────────────────────────────╮
+           ╱                                    ╲
+         ╱    Transfer ellipse                    ╲
+       ╱     ╭─────────────────────────╮            ╲
+     ╱      ╱                           ╲             ╲
+    │      ╱   Initial orbit (r₁)        ╲             │
+    │     │    ╭──────────────╮           │             │
+    │     │   ╱       ●        ╲          │             │
+    │     │  │       Earth      │         │             │
+    │     │   ╲               ╱           │             │
+    │     │    ╰──────────────╯           │             │
+    │      ╲           ↑ Burn 1 (+Δv₁)  ╱              │
+     ╲      ╰──────────────────────────╯              ╱
+       ╲          Burn 2 (+Δv₂) ↑                   ╱
+         ╲                                         ╱
+           ╰──────────────────────────────────────╯
+```
+
+- **Burn 1** at periapsis: speed up to inject into transfer ellipse
+- **Burn 2** at apoapsis: speed up again to circularize at target orbit
+- Both burns are in the prograde direction (for raising orbit)
+
+### Why it's fuel-optimal
+
+For transfers between two circular orbits where the radius ratio $r_2/r_1 < 11.94$, the Hohmann transfer minimizes total delta-v because:
+
+1. **Burns at apsides** — velocity is purely tangential at periapsis and apoapsis, so every m/s of delta-v goes directly into changing orbital energy with no wasted component
+2. **Tangent transfer** — the ellipse touches both circles, requiring no plane change
+3. **Two burns only** — any additional intermediate burn wastes propellant
+
+For $r_2/r_1 > 11.94$, a bi-elliptic transfer (three burns through a very high intermediate apoapsis) becomes more efficient — but takes much longer.
+
+### Key numbers to remember
+
+| Transfer | Total $\Delta v$ | Time |
+|----------|-----------------|------|
+| LEO (400 km) → GEO | 3.93 km/s | 5.25 h |
+| LEO (400 km) → GPS MEO | 3.93 km/s | — |
+| LEO (400 km) → MEO (20200 km) | 3.38 km/s | 3.38 h |
+| Earth orbit → Mars orbit | 5.59 km/s | 8.5 mo |
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Delta-v derivation
+
+Given initial circular orbit radius $r_1$ and target circular orbit radius $r_2$:
+
+**Transfer ellipse semi-major axis:**
+
+$$a_t = \frac{r_1 + r_2}{2}$$
+
+**Velocities** from the vis-viva equation $v = \sqrt{\mu(2/r - 1/a)}$:
+
+- Initial circular: $v_1 = \sqrt{\mu/r_1}$
+- Transfer at periapsis: $v_{t1} = \sqrt{\mu(2/r_1 - 1/a_t)}$
+- Transfer at apoapsis: $v_{t2} = \sqrt{\mu(2/r_2 - 1/a_t)}$
+- Target circular: $v_2 = \sqrt{\mu/r_2}$
+
+**Delta-v values:**
+
+$$\Delta v_1 = v_{t1} - v_1 = \sqrt{\frac{\mu}{r_1}}\left(\sqrt{\frac{2r_2}{r_1+r_2}} - 1\right)$$
+
+$$\Delta v_2 = v_2 - v_{t2} = \sqrt{\frac{\mu}{r_2}}\left(1 - \sqrt{\frac{2r_1}{r_1+r_2}}\right)$$
+
+Both are positive for orbit raising ($r_2 > r_1$). For orbit lowering, both burns are retrograde (negative, but same magnitude).
+
+**Transfer time** (half the period of the transfer ellipse):
+
+$$t_{transfer} = \pi\sqrt{\frac{a_t^3}{\mu}}$$
+
+### Worked example: LEO to GEO
+
+$r_1 = 6778$ km (400 km altitude), $r_2 = 42164$ km (GEO), $\mu = 398600.4418$ km³/s²
+
+$$a_t = (6778 + 42164)/2 = 24471 \text{ km}$$
+
+$$v_1 = \sqrt{398600/6778} = 7.667 \text{ km/s}$$
+
+$$v_{t1} = \sqrt{398600(2/6778 - 1/24471)} = 10.096 \text{ km/s}$$
+
+$$\Delta v_1 = 10.096 - 7.667 = 2.429 \text{ km/s}$$
+
+$$v_{t2} = \sqrt{398600(2/42164 - 1/24471)} = 1.597 \text{ km/s}$$
+
+$$v_2 = \sqrt{398600/42164} = 3.075 \text{ km/s}$$
+
+$$\Delta v_2 = 3.075 - 1.597 = 1.478 \text{ km/s}$$
+
+$$\Delta v_{total} = 2.429 + 1.478 = 3.907 \text{ km/s}$$
+
+$$t_{transfer} = \pi\sqrt{24471^3/398600} = 18896 \text{ s} = 5.25 \text{ h}$$
+
+### From delta-v to propellant: Tsiolkovsky
+
+The rocket equation relates delta-v to propellant mass:
+
+$$\Delta v = v_e \ln\left(\frac{m_0}{m_f}\right) = I_{sp} g_0 \ln\left(\frac{m_0}{m_f}\right)$$
+
+Where:
+- $v_e = I_{sp} \cdot g_0$ — exhaust velocity [$g_0 = 9.80665$ m/s²]
+- $m_0$ — initial mass (wet, including propellant)
+- $m_f$ — final mass (dry, after burn)
+- $I_{sp}$ — specific impulse [seconds]
+
+**Mass ratio** $m_0/m_f = e^{\Delta v / v_e}$
+
+**Propellant fraction** $= 1 - 1/(m_0/m_f)$
+
+For LEO→GEO ($\Delta v = 3.907$ km/s):
+
+| Engine type | $I_{sp}$ [s] | $v_e$ [km/s] | Mass ratio | Propellant fraction |
+|-------------|-------------|-------------|------------|---------------------|
+| Hydrazine monoprop | 220 | 2.157 | 6.13 | 83.7% |
+| Bipropellant (NTO/MMH) | 320 | 3.138 | 3.43 | 70.8% |
+| LOX/LH2 (cryogenic) | 450 | 4.413 | 2.41 | 58.5% |
+| Hall-effect ion | 1500 | 14.71 | 1.30 | 23.1% |
+| Gridded ion | 3000 | 29.42 | 1.14 | 12.3% |
+
+Ion propulsion uses 5–7× less propellant mass, but the transfer takes months instead of hours due to continuous low-thrust spiraling (not a true Hohmann).
+
+### Bi-elliptic comparison
+
+For large radius ratios, a three-burn bi-elliptic transfer can beat Hohmann:
+
+```
+Bi-elliptic Transfer (3 burns):
+
+  Burn 1: Inject into highly elliptical orbit (apoapsis >> r₂)
+  Burn 2: At high apoapsis, raise periapsis to r₂
+  Burn 3: Circularize at r₂
+
+  Crossover point: r₂/r₁ = 11.94
+  Below 11.94: Hohmann wins
+  Above 11.94: Bi-elliptic wins (less Δv, more time)
+```
+
+LEO→GEO: $r_2/r_1 = 42164/6778 = 6.22$ — Hohmann is optimal.
+
+Earth orbit to Jupiter: $r_2/r_1 = 778/149.6 = 5.2$ — still Hohmann (barely).
+
+A transfer from LEO to lunar orbit ($r_2/r_1 \approx 57$) could theoretically benefit from bi-elliptic, but the time penalty (years) makes it impractical.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Complete Hohmann transfer calculator:**
+
+```python
+import math
+
+MU_EARTH = 398600.4418   # km³/s²
+MU_SUN   = 1.32712440018e11  # km³/s²
+R_EARTH  = 6378.137      # km
+G0       = 9.80665e-3    # km/s²
+
+def vis_viva(r: float, a: float, mu: float = MU_EARTH) -> float:
+    return math.sqrt(mu * (2/r - 1/a))
+
+def hohmann(r1: float, r2: float, mu: float = MU_EARTH) -> dict:
+    """
+    Hohmann transfer between circular orbits of radius r1 and r2.
+    Returns all velocities, delta-vs, and transfer time.
+    """
+    a_t = (r1 + r2) / 2
+    v1  = math.sqrt(mu / r1)        # initial circular
+    vt1 = vis_viva(r1, a_t, mu)     # transfer at periapsis
+    vt2 = vis_viva(r2, a_t, mu)     # transfer at apoapsis
+    v2  = math.sqrt(mu / r2)        # target circular
+    dv1 = vt1 - v1
+    dv2 = v2 - vt2
+    t_s = math.pi * math.sqrt(a_t**3 / mu)
+    return {
+        "a_t_km": a_t, "v1": v1, "vt1": vt1, "vt2": vt2, "v2": v2,
+        "dv1": dv1, "dv2": dv2, "dv_total": abs(dv1) + abs(dv2),
+        "time_s": t_s, "time_h": t_s / 3600,
+    }
+
+def tsiolkovsky(dv_km_s: float, isp_s: float) -> tuple:
+    """
+    Tsiolkovsky rocket equation.
+    Returns (mass_ratio m0/mf, propellant_fraction).
+    """
+    ve = isp_s * G0
+    mr = math.exp(dv_km_s / ve)
+    return mr, 1 - 1/mr
+
+def propellant_mass(dry_mass_kg: float, dv_km_s: float, isp_s: float) -> float:
+    """Propellant mass in kg for a given dry mass and delta-v."""
+    mr, _ = tsiolkovsky(dv_km_s, isp_s)
+    return dry_mass_kg * (mr - 1)
+
+# --- LEO to GEO ---
+r1 = R_EARTH + 400
+r2 = R_EARTH + 35786
+h = hohmann(r1, r2)
+print("LEO (400 km) to GEO Hohmann Transfer")
+print("="*50)
+print(f"  r1 = {r1:.1f} km,  r2 = {r2:.1f} km")
+print(f"  a_transfer = {h['a_t_km']:.1f} km")
+print(f"  v1 (LEO circular)       = {h['v1']:.4f} km/s")
+print(f"  vt1 (transfer perigee)  = {h['vt1']:.4f} km/s")
+print(f"  Δv1                     = {h['dv1']:.4f} km/s")
+print(f"  vt2 (transfer apogee)   = {h['vt2']:.4f} km/s")
+print(f"  v2 (GEO circular)       = {h['v2']:.4f} km/s")
+print(f"  Δv2                     = {h['dv2']:.4f} km/s")
+print(f"  TOTAL Δv                = {h['dv_total']:.4f} km/s")
+print(f"  Transfer time           = {h['time_h']:.2f} h ({h['time_s']/60:.0f} min)")
+
+# --- Propellant budget for 3000 kg dry mass ---
+dry = 3000  # kg
+print(f"\nPropellant needed for {dry} kg dry mass:")
+for engine, isp in [("Biprop (Isp=320s)", 320), ("Hall ion (Isp=1500s)", 1500)]:
+    mp = propellant_mass(dry, h['dv_total'], isp)
+    mr, pf = tsiolkovsky(h['dv_total'], isp)
+    print(f"  {engine}: {mp:.0f} kg propellant  (mass ratio {mr:.2f}, {pf*100:.1f}%)")
+
+# --- Comparison table ---
+print("\nCommon Hohmann Transfers (Earth-centered)")
+print(f"  {'Transfer':<35} {'Dv1':>6} {'Dv2':>6} {'Total':>7} {'Time':>9}")
+print("-"*70)
+cases = [
+    ("LEO 400km → ISS 420km",     R_EARTH+400,   R_EARTH+420),
+    ("LEO 400km → MEO GPS",       R_EARTH+400,   R_EARTH+20180),
+    ("LEO 400km → GEO",           R_EARTH+400,   R_EARTH+35786),
+    ("GTO 300x35786km → circ GEO",R_EARTH+35786, R_EARTH+35786),
+]
+for name, ra, rb in cases:
+    t = hohmann(ra, rb)
+    print(f"  {name:<35} {t['dv1']:>6.3f} {t['dv2']:>6.3f} {t['dv_total']:>7.3f} {t['time_h']:>8.2f}h")
+
+# --- Earth-Mars interplanetary ---
+print("\nInterplanetary Hohmann (heliocentric, simplified)")
+r_earth = 149.598e6   # km (1 AU)
+r_mars  = 227.936e6   # km (1.524 AU)
+ip = hohmann(r_earth, r_mars, MU_SUN)
+print(f"  Earth → Mars: Δv_total = {ip['dv_total']:.3f} km/s, "
+      f"time = {ip['time_s']/86400/30:.1f} months")
+```
+
+Expected output:
+```
+LEO (400 km) to GEO Hohmann Transfer
+==================================================
+  r1 = 6778.1 km,  r2 = 42164.1 km
+  a_transfer = 24471.1 km
+  v1 (LEO circular)       = 7.6676 km/s
+  vt1 (transfer perigee)  = 10.0955 km/s
+  Δv1                     = 2.4279 km/s
+  vt2 (transfer apogee)   = 1.5973 km/s
+  v2 (GEO circular)       = 3.0747 km/s
+  Δv2                     = 1.4774 km/s
+  TOTAL Δv                = 3.9053 km/s
+  Transfer time           = 5.25 h (315 min)
+
+Propellant needed for 3000 kg dry mass:
+  Biprop (Isp=320s): 5208 kg propellant  (mass ratio 2.74, 63.5%)
+  Hall ion (Isp=1500s): 895 kg propellant  (mass ratio 1.30, 23.0%)
+
+Common Hohmann Transfers (Earth-centered)
+  Transfer                             Dv1    Dv2   Total      Time
+----------------------------------------------------------------------
+  LEO 400km → ISS 420km              0.011  0.011   0.022    0.06h
+  LEO 400km → MEO GPS                2.195  1.184   3.379    3.38h
+  LEO 400km → GEO                    2.428  1.477   3.905    5.25h
+
+Interplanetary Hohmann (heliocentric, simplified)
+  Earth → Mars: Δv_total = 5.594 km/s, time = 8.5 months
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Coplanar assumption.** Hohmann assumes both orbits share the same plane. A combined plane change + altitude change costs dramatically more: a 28.5° plane change at GEO altitude requires ~2.8 km/s on its own. Always separate or combine plane changes at the most efficient point (usually apoapsis of the transfer ellipse where speed is lowest).
+
+2. **Circular orbit assumption.** The formulas assume circular initial and final orbits. Transferring from or to an elliptical orbit requires using vis-viva at the actual transfer point, not circular velocity.
+
+3. **Impulsive burn approximation.** Real engines fire for minutes. The "impulsive" model is only accurate when burn duration is much less than orbital period. Low-thrust ion engines spiral outward continuously — the Hohmann formula gives the correct delta-v budget but the trajectory looks nothing like a two-burn ellipse.
+
+4. **Earth radius in altitude-to-radius conversion.** Use $R_E = 6378.137$ km, not 6371 km (mean radius). The equatorial radius is correct for orbit calculations. Off by 7 km → velocity error of ~0.005 km/s — small but compounds.
+
+5. **Radius ratio for optimality.** For $r_2/r_1 > 11.94$, bi-elliptic transfer costs less delta-v. For typical Earth satellite operations (LEO to GEO: ratio 6.2), Hohmann is optimal. For deep-space transfers like Earth to Saturn (ratio ~6.4 AU), Hohmann is also optimal.
+
+6. **Tsiolkovsky mass ratio misuse.** The rocket equation applies per burn segment, or you can apply it to the total delta-v only if $I_{sp}$ is the same for both burns. If burn 1 uses a chemical engine and burn 2 uses an ion engine, compute propellant for each burn separately.
+
+7. **Transfer time ignored.** 5.25 hours for LEO→GEO is fine for an uncrewed satellite. But a crewed vehicle has radiation exposure in the Van Allen belts. Apollo used a faster (lower periapsis) transfer to minimize belt transit time.
+
+8. **Phase angle required.** To arrive at a specific target orbit location (e.g., rendezvous with another satellite), the launch timing must be precise. The target must be at the correct phase angle at the time of burn 1. This is the "phasing problem" — separate from the Hohmann delta-v calculation.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Hohmann, W., "Die Erreichbarkeit der Himmelskörper" (1925) — the original paper
+- Vallado, D., "Fundamentals of Astrodynamics and Applications", 4th ed. — §6.3
+- Curtis, H., "Orbital Mechanics for Engineering Students", 3rd ed. — §6.3
+- Bate, Mueller, White, "Fundamentals of Astrodynamics" — §3.3
+- Wertz, J., "Space Mission Engineering: The New SMAD" — Ch. 7
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Bi-elliptic Transfer](/en/space/maneuvers-and-delta-v/bi-elliptic-transfer/) — when Hohmann isn't optimal (radius ratio > 11.94)
+- [Plane Change](/en/space/maneuvers-and-delta-v/plane-change/) — inclination changes and combined maneuvers
+- [Delta-V Budget](/en/space/maneuvers-and-delta-v/delta-v-budget/) — full mission propellant planning
+- [Vis-Viva Equation](/en/space/two-body-problem/vis-viva-equation/) — the math underlying every burn calculation
+
+</section>

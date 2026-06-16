@@ -8,17 +8,338 @@ track: n3
 unit: why-sba-architectural-shift
 order: 1
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n1-4g-5g-not-like-aws-vpc-02-user-plane-control-plane-separation"]
+spiralRevisits: ["core-network-n3-why-sba-architectural-shift-02-sba-design-principles"]
 title: "Limitations of 4G EPC"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Why the Evolved Packet Core couldn't scale to meet 5G demands."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.401", "3GPP TS 23.501"]
+tags: ["4g", "epc", "architecture", "limitations", "5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Limitations of 4G EPC
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+4G EPC was revolutionary when it launched. But as traffic exploded and use cases diversified, its architectural choices became constraints.
+
+Understanding EPC's limitations explains why 5G needed a complete architectural rethink — not just faster radios, but a fundamentally different core network design.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The 4G EPC architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    4G EPC Architecture                   │
+│                                                          │
+│                    ┌─────────┐                          │
+│                    │   HSS   │  Subscriber data         │
+│                    └────┬────┘                          │
+│                         │                                │
+│  ┌─────────┐      ┌────┴────┐      ┌─────────┐         │
+│  │  PCRF   │◄────►│   MME   │◄────►│   SGW   │         │
+│  │ Policy  │      │ Mobility│      │Serving GW│         │
+│  └─────────┘      └────┬────┘      └────┬────┘         │
+│                        │                 │               │
+│                        │           ┌────┴────┐          │
+│                   ┌────┴────┐      │   PGW   │          │
+│                   │  eNodeB │      │PDN GW   │──► Internet
+│                   └─────────┘      └─────────┘          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key nodes:**
+- **MME:** Mobility Management Entity (control plane)
+- **SGW:** Serving Gateway (user plane anchor)
+- **PGW:** PDN Gateway (external connectivity)
+- **HSS:** Home Subscriber Server (subscriber data)
+- **PCRF:** Policy and Charging Rules Function
+
+### The monolithic problem
+
+Each EPC node is a **monolithic appliance** — all functions bundled together, scaling as a single unit.
+
+```
+Traditional EPC Node:
+
+┌─────────────────────────────────────────────────────────┐
+│                         MME                              │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  NAS Signaling  │  S1-AP  │  Diameter  │  GTPv2  │   │
+│  ├──────────────────────────────────────────────────┤   │
+│  │  Mobility Mgmt  │  Paging │  Auth  │  Security   │   │
+│  ├──────────────────────────────────────────────────┤   │
+│  │  Session Mgmt  │  Bearer Mgmt  │  Handover       │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                          │
+│  All functions scale together, regardless of need        │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Problem:** You can't scale authentication independently from paging. To handle more auth requests, you buy more MME capacity — even if paging is underutilized.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works (and doesn't)
+
+### Limitation 1: Monolithic scaling
+
+**The issue:** Each network function is a single software entity.
+
+```
+Scaling scenario:
+
+Before:  MME handles 100K subscribers
+After:   Need to handle 500K subscribers
+
+Option 1: Scale up (bigger box)
+┌──────────────┐        ┌──────────────────────┐
+│     MME      │   →    │        MME           │
+│   (small)    │        │      (large)         │
+└──────────────┘        └──────────────────────┘
+Expensive, limited ceiling
+
+Option 2: Scale out (MME pool)
+┌──────────────┐        ┌─────┐ ┌─────┐ ┌─────┐
+│     MME      │   →    │MME 1│ │MME 2│ │MME 3│
+└──────────────┘        └─────┘ └─────┘ └─────┘
+Still scaling entire monolith, complex state sharing
+```
+
+**5G solution:** Decompose into microservices. Scale each function independently.
+
+### Limitation 2: Point-to-point interfaces
+
+**The issue:** Every node pair has a dedicated protocol interface.
+
+```
+4G Interface Explosion:
+
+        S6a
+HSS ◄────────► MME
+        │
+        │ S11        S1-MME
+        ▼      ┌────────────► eNodeB
+       SGW ◄───┤
+        │      └────────────► eNodeB
+        │ S5/S8
+        ▼
+       PGW ◄────► PCRF
+        │   Gx
+        │ SGi
+        ▼
+    Internet
+
+Each interface: different protocol, different message format
+S1-AP, GTPv2-C, Diameter, GTP-U...
+```
+
+**Problems:**
+- Adding a new function requires new interfaces to every existing node
+- Testing matrix grows quadratically
+- Protocol translation overhead
+
+**5G solution:** Service-Based Architecture with HTTP/2 APIs. Any function talks to any other via standard REST/JSON.
+
+### Limitation 3: Tight coupling
+
+**The issue:** Functions are interdependent; changing one affects many.
+
+```
+Example: Adding a new mobility feature
+
+4G approach:
+1. Modify MME code
+2. Modify SGW code  
+3. Modify PGW code
+4. Update S11 interface
+5. Update S5/S8 interface
+6. Regression test everything
+7. Coordinate vendor updates
+
+Timeline: 12-18 months
+```
+
+**5G solution:** Loose coupling via service discovery. New services register themselves; existing services discover them dynamically.
+
+### Limitation 4: Limited traffic steering
+
+**The issue:** All user traffic goes through central PGW.
+
+```
+4G Traffic Path (always centralized):
+
+UE ──► eNodeB ──► SGW ──► PGW ──► Internet
+                          │
+                    (central location)
+
+Even for:
+- Local breakout scenarios
+- Edge computing
+- Ultra-low latency apps
+```
+
+**Problems:**
+- Suboptimal routing (traffic hairpins to central site)
+- Latency penalty
+- Bandwidth waste on backhaul
+
+**5G solution:** UPF (User Plane Function) can be placed anywhere. Multiple UPFs per session. Local breakout at edge.
+
+### Limitation 5: Session management rigidity
+
+**The issue:** One PDN connection = one PGW, fixed for session lifetime.
+
+```
+4G Session:
+
+UE ──────────────────────────────► PGW ──► APN
+     (entire session lifetime)       │
+                                     └── Same PGW, no change
+
+What if:
+- User moves to different region?
+- Service needs different QoS?
+- Edge processing needed?
+
+Answer: Limited options, complex workarounds
+```
+
+**5G solution:** Session and Service Continuity (SSC) modes. Session can be moved, broken, or recreated based on application needs.
+
+### Limitation 6: Vendor lock-in
+
+**The issue:** Proprietary implementations, limited interoperability.
+
+```
+Typical 4G deployment:
+
+┌────────────────────────────────────────────────┐
+│            Vendor A (complete solution)         │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  │
+│  │ MME │  │ SGW │  │ PGW │  │ HSS │  │PCRF │  │
+│  └─────┘  └─────┘  └─────┘  └─────┘  └─────┘  │
+└────────────────────────────────────────────────┘
+
+Mixing vendors? Good luck with:
+- Interface compatibility
+- Feature parity
+- Upgrade coordination
+- Support boundaries
+```
+
+**5G solution:** Standardized APIs (SBI), cloud-native design, container-based deployment. Multi-vendor by design.
+
+### Limitation 7: Hardware dependency
+
+**The issue:** Specialized telecom hardware (ATCA, proprietary blades).
+
+```
+4G Hardware Model:
+
+┌─────────────────────────────────────────────────────────┐
+│           Specialized Telecom Chassis                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Proprietary blade │ Proprietary blade │ ...    │    │
+│  │  (Vendor A only)   │ (Vendor A only)   │        │    │
+│  └─────────────────────────────────────────────────┘    │
+│  Custom backplane, custom management, custom licensing   │
+└─────────────────────────────────────────────────────────┘
+
+Problems:
+- Long lead times
+- Expensive maintenance contracts
+- Limited cloud deployment options
+```
+
+**5G solution:** COTS (Commercial Off-The-Shelf) hardware, VMs, containers, Kubernetes. Run on any cloud or data center.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**EPC limitation checklist:**
+
+| Limitation | 4G EPC | 5G SBA |
+|------------|--------|--------|
+| Scaling | Monolithic | Microservices |
+| Interfaces | Point-to-point | Service-based |
+| Coupling | Tight | Loose |
+| User plane | Centralized | Distributed |
+| Sessions | Rigid | Flexible (SSC) |
+| Vendors | Lock-in | Multi-vendor |
+| Hardware | Proprietary | COTS/Cloud |
+
+**When EPC limitations matter:**
+
+| Scenario | EPC struggle | 5G advantage |
+|----------|--------------|--------------|
+| IoT scale (millions of devices) | MME overload | Scale NFs independently |
+| Edge computing | Traffic hairpin | Local UPF |
+| Network slicing | Not supported | Native capability |
+| Rapid feature updates | 12+ month cycles | CI/CD deployment |
+| Multi-cloud | Not designed for | Cloud-native |
+
+**Migration considerations:**
+
+1. **Interworking phase:** 4G and 5G coexist (NSA, then SA)
+2. **Gradual shift:** Move traffic to 5G core over time
+3. **Skill transition:** Operations team learns cloud-native
+4. **Investment protection:** Some 4G functions evolve to 5G equivalents
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **"Just upgrade the hardware."** More powerful MME doesn't fix architectural limits. Monolithic scaling has a ceiling.
+
+2. **Underestimating interface complexity.** Adding 4G features required multi-vendor coordination across many interfaces. This slowed innovation.
+
+3. **Ignoring operational cost.** Proprietary hardware meant expensive spares, vendor-specific training, and long procurement cycles.
+
+4. **Centralized = simpler (false).** Central PGW simplified some routing but created bottlenecks and latency penalties that hurt new use cases.
+
+5. **"5G is just faster 4G."** The architectural shift is more significant than the radio improvements. Core network transformation enables new capabilities.
+
+6. **Forgetting backward compatibility.** 5G core still needs to interwork with 4G. Understanding EPC is essential for interworking design.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.401, "GPRS enhancements for E-UTRAN access"
+- 3GPP TS 23.501, "System architecture for 5G System"
+- GSMA, "Road to 5G: Introduction and Migration"
+- Huawei, "5G Network Architecture: A High-Level Perspective"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [SBA design principles](/en/core-network/why-sba-architectural-shift/sba-design-principles/) — how 5G solves these limitations
+- [Microservices in telecom](/en/core-network/why-sba-architectural-shift/microservices-in-telecom/) — cloud-native core network
+- [5G core functions overview](/en/core-network/5g-core-functions/overview/) — the new architecture
+
+</section>

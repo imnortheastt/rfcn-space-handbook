@@ -8,17 +8,512 @@ track: s11
 unit: satellite-5g-integration
 order: 4
 level: L5
-estimatedReadingMinutes: 5
-title: "Tai sao chuyen giao NTN khac chuyen giao tren mat dat"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["ntn-mobility-management"]
+spiralRevisits: []
+title: "Handover NTN vs Mat dat: Khac biet Chinh"
+description: "Cac kich ban da ket noi, handover lien he thong, va tai sao di dong NTN khac biet co ban voi mat dat."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 38.300", "3GPP TS 23.501"]
+tags: ["5g-ntn", "handover", "da-ket-noi", "mat-dat", "lien-he-thong"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tai sao chuyen giao NTN khac chuyen giao tren mat dat
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Tuong lai cua ket noi di dong la ket hop: 5G mat dat trong thanh pho, ve tinh NTN o vung nong thon va tren bien. Hieu cach handover giua cac he thong nay hoat dong—va tai sao no khac biet co ban voi handover mat dat-den-mat dat—la can thiet de thiet ke vung phu toan cau lien mach. Cac khac biet bat nguon tu vat ly, khong chi la lua chon trien khai.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Khac biet co ban
+
+```
+So sanh Handover Mat dat vs NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CHIEU        │ MAT DAT               │ NTN (LEO)                   │
+│  ─────────────┼───────────────────────┼─────────────────────────────│
+│  Chuyen dong  │ Tinh                  │ Di chuyen 7 km/s            │
+│  cell                                                               │
+│  Chuyen dong  │ 0-120 km/h            │ Thuong dung yen             │
+│  nguoi dung                                                         │
+│  RTT          │ &lt;1 ms                 │ 8-50 ms                     │
+│  Doppler      │ ±Hz den ±kHz          │ ±50 kHz                     │
+│  Kich thuoc   │ 100m - 10 km          │ 100 - 1000 km               │
+│  cell                                                               │
+│  Kich hoat HO │ Chat luong tin hieu   │ Thoi gian/hinh hoc          │
+│  Tan suat HO  │ Phut den gio          │ Moi 60-90 giay              │
+│  Kha nang du  │ Thap (chuyen dong     │ Cao (co hoc quy dao)        │
+│  doan         │ nguoi dung)                                         │
+│  GNSS bat buoc│ Khong                 │ Co                          │
+│                                                                      │
+│  ═══════════════════════════════════════════════════════════════    │
+│                                                                      │
+│  NHAN THUC CHINH: HO Mat dat la PHAN UNG                            │
+│                   HO NTN co the CHU DONG                            │
+│                                                                      │
+│  Mat dat: do → bao cao → quyet dinh → thuc hien                     │
+│  NTN: du doan → cau hinh truoc → thuc hien theo lich                │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Cac kich ban da ket noi
+
+```
+Da ket noi NTN + Mat dat:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KICH BAN 1: VE TINH LAP LO HONG VUNG PHU                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │           🛰                                          │         │
+│  │          ╱│╲                                          │         │
+│  │         ╱ │ ╲                                         │         │
+│  │   ┌────╱──┼──╲────┐                                   │         │
+│  │   │       │       │                                   │         │
+│  │   │   📡  │   📡  │                                   │         │
+│  │   │Thanh  │Thanh  │                                   │         │
+│  │   │ pho   │ pho   │                                   │         │
+│  │   └───────┴───────┘                                   │         │
+│  │              │                                        │         │
+│  │         📱 ────▶ 📱 (di chuyen den nong thon)        │         │
+│  │                                                        │         │
+│  │  Trong thanh pho: UE tren mat dat                     │         │
+│  │  Di chuyen nong thon: handover sang ve tinh           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KICH BAN 2: KET NOI KEP (DC)                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │           🛰 (NR-NTN)                                 │         │
+│  │          ╱                                            │         │
+│  │         ╱                                             │         │
+│  │        📱 ─────── 📡 (NR mat dat)                     │         │
+│  │                                                        │         │
+│  │  UE ket noi CA HAI dong thoi:                        │         │
+│  │  • Master: Mat dat (dieu khien do tre thap)          │         │
+│  │  • Secondary: NTN (tang dung luong)                  │         │
+│  │                                                        │         │
+│  │  Hoac dao nguoc cho hang hai/hang khong:             │         │
+│  │  • Master: NTN (luon co san)                         │         │
+│  │  • Secondary: Mat dat (khi trong tam)                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KICH BAN 3: LIEN TUC DICH VU LIEN MACH                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Duong bay: Thanh pho → Dai duong → Thanh pho         │         │
+│  │                                                        │         │
+│  │  📡 ─────────▶ 🛰 ─────────▶ 📡                       │         │
+│  │  Mat dat       NTN           Mat dat                  │         │
+│  │                                                        │         │
+│  │  Cuoc goi VoNR duy tri xuyen suot:                   │         │
+│  │  • HO mat dat → NTN tai duong bo                     │         │
+│  │  • NTN duy tri cuoc goi tren dai duong               │         │
+│  │  • HO NTN → mat dat khi den gan dat lien             │         │
+│  │                                                        │         │
+│  │  Thich ung QoS: do tre tang tren NTN                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Handover lien he thong
+
+```
+Thu tuc Handover Mat dat ↔ NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  HANDOVER: MAT DAT → NTN                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  UE       gNB Mat dat   gNB NTN           AMF         │         │
+│  │  │              │              │              │        │         │
+│  │  │◄── phuc vu ──│              │              │        │         │
+│  │  │              │              │              │        │         │
+│  │  │ 1. Bao cao do (tin hieu suy giam)         │        │         │
+│  │  │─────────────▶│              │              │        │         │
+│  │  │              │              │              │        │         │
+│  │  │              │ 2. HO Required (Xn hoac N2)│        │         │
+│  │  │              │─────────────▶│─────────────▶│        │         │
+│  │  │              │              │              │        │         │
+│  │  │              │ 3. HO Request              │        │         │
+│  │  │              │─────────────▶│              │        │         │
+│  │  │              │              │              │        │         │
+│  │  │              │◄─── 4. HO Ack ────         │        │         │
+│  │  │              │    (cau hinh NTN + thong tin TA)    │         │
+│  │  │              │              │              │        │         │
+│  │  │◄── 5. HO Cmd ─│              │              │        │         │
+│  │  │  (bao gom ephemeris, TA chung)            │        │         │
+│  │  │              │              │              │        │         │
+│  │  │ 6. UE thu vi tri GNSS                     │        │         │
+│  │  │    Tinh TA va Doppler                     │        │         │
+│  │  │              │              │              │        │         │
+│  │  │ 7. RACH den NTN (da bu truoc)             │        │         │
+│  │  │────────────────────────────▶│              │        │         │
+│  │  │              │              │              │        │         │
+│  │  │◄────────── 8. HO Complete ─────────────── │        │         │
+│  │  │              │              │              │        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KHAC BIET QUAN TRONG VOI HO NOI BO MAT DAT:                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. THOI GIAN THU GNSS                                │         │
+│  │     • Khoi dong lanh: 30-60 giay                      │         │
+│  │     • Khoi dong am/nong: 1-5 giay                     │         │
+│  │     • UE nen duy tri dinh vi GNSS chu dong            │         │
+│  │                                                        │         │
+│  │  2. TINH TOAN TIMING ADVANCE                          │         │
+│  │     • UE phai tinh TA tu ephemeris + vi tri          │         │
+│  │     • Khong co lien ket vo tuyen truoc de ranging    │         │
+│  │                                                        │         │
+│  │  3. BU TRUOC DOPPLER                                  │         │
+│  │     • Mat dat: Doppler khong dang ke                 │         │
+│  │     • NTN: Phai bu truoc truoc Tx dau tien          │         │
+│  │                                                        │         │
+│  │  4. THOI GIAN CHUAN BI HANDOVER                       │         │
+│  │     • Mat dat: ~50 ms                                │         │
+│  │     • Den NTN: ~100-500 ms (GNSS + tinh toan)        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Thich ung QoS trong qua trinh handover
+
+```
+Xu ly QoS Giua Cac He thong:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DICH VU: VoNR (Thoai tren NR)                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Tham so QoS      │ Mat dat       │ NTN (LEO)         │         │
+│  │  ─────────────────┼───────────────┼───────────────────│         │
+│  │  Ngan sach do tre │ 100 ms        │ 150-400 ms        │         │
+│  │  Bo dem jitter    │ 40 ms         │ 80-100 ms         │         │
+│  │  Codec            │ EVS 13.2 kbps │ EVS 5.9 kbps      │         │
+│  │  FEC              │ Nhe           │ Nang              │         │
+│  │                                                        │         │
+│  │  Khi HO mat dat → NTN:                                │         │
+│  │  • AMF kich hoat thay doi luong QoS                  │         │
+│  │  • Bo dem jitter mo rong                              │         │
+│  │  • Codec co the giam                                  │         │
+│  │  • Nguoi dung cam nhan thay doi chat luong nhe       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DICH VU: TRUYEN VIDEO                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Chien luoc thich ung:                                │         │
+│  │                                                        │         │
+│  │  Mat dat:  [────────────────────────] 1080p           │         │
+│  │                      ▼ HO den NTN                     │         │
+│  │  NTN:      [──────────────] 720p (bitrate thap hon)   │         │
+│  │                      ▼ HO den mat dat                 │         │
+│  │  Mat dat:  [────────────────────────] 1080p           │         │
+│  │                                                        │         │
+│  │  ABR (Bitrate Thich ung) xu ly chuyen tiep            │         │
+│  │  Bo dem hap thu khoang cach HO (~200-500 ms)          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ANH XA 5QI:                                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  5QI │ Dich vu             │ Do tre mat │ Do tre NTN │         │
+│  │  ────┼─────────────────────┼────────────┼────────────│         │
+│  │  1   │ Thoai dam thoai     │ 100 ms     │ 150 ms *   │         │
+│  │  2   │ Video dam thoai     │ 150 ms     │ 300 ms *   │         │
+│  │  3   │ Game thoi gian thuc │ 50 ms      │ N/A **     │         │
+│  │  5   │ Tin hieu IMS        │ 100 ms     │ 200 ms     │         │
+│  │  6   │ Video (dem bo)      │ 300 ms     │ 500 ms     │         │
+│  │  8   │ Dua tren TCP (web)  │ 300 ms     │ 500 ms     │         │
+│  │                                                        │         │
+│  │  * Ngan sach do tre goi mo rong cho NTN               │         │
+│  │  ** Mot so dich vu khong the ho tro qua NTN           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Kien truc mang cho vung phu ket hop
+
+```
+Kien truc Mat dat + NTN Ket hop:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                          ┌─────────────────┐                        │
+│                          │    5G Core      │                        │
+│                          │  ┌───┐  ┌───┐   │                        │
+│                          │  │AMF│  │SMF│   │                        │
+│                          │  └─┬─┘  └─┬─┘   │                        │
+│                          │    │      │     │                        │
+│                          │  ┌─┴──────┴─┐   │                        │
+│                          │  │   UPF    │   │                        │
+│                          │  └────┬─────┘   │                        │
+│                          └───────┼─────────┘                        │
+│                                  │                                  │
+│              ┌───────────────────┼───────────────────┐              │
+│              │                   │                   │              │
+│         ┌────┴────┐        ┌─────┴─────┐       ┌─────┴─────┐       │
+│         │gNB Mat  │        │ GW/gNB NTN│       │gNB Mat dat│       │
+│         │dat (CU) │        │  (CU)     │       │   (CU)    │       │
+│         └────┬────┘        └─────┬─────┘       └─────┬─────┘       │
+│              │                   │                   │              │
+│         ┌────┴────┐              │             ┌─────┴─────┐       │
+│         │   DU    │              │             │    DU     │       │
+│         └────┬────┘              │             └─────┴─────┘       │
+│              │                   │                   │              │
+│         ┌────┴────┐         ┌────┴────┐        ┌─────┴─────┐       │
+│         │   📡    │         │   🛰    │        │    📡     │       │
+│         │  RRU    │         │ Payload │        │   RRU     │       │
+│         └─────────┘         └─────────┘        └───────────┘       │
+│              │                   │                   │              │
+│              ▼                   ▼                   ▼              │
+│         ┌─────────┐         ┌─────────┐        ┌─────────┐         │
+│         │Thanh pho│         │Nong thon│        │Ngoai o   │         │
+│         │   📱    │         │   📱    │        │    📱    │         │
+│         └─────────┘         └─────────┘        └─────────┘         │
+│                                                                      │
+│  NEO DI DONG:                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  AMF duy tri ngu canh UE qua ca hai loai truy cap    │         │
+│  │  UPF cung cap neo chung cho lien tuc IP              │         │
+│  │  Giao dien Xn cho phep HO truc tiep gNB-den-gNB     │         │
+│  │  Giao dien N2/N3 ho tro HO lien he thong qua core   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**So sanh thoi gian handover:**
+
+```python
+from dataclasses import dataclass
+from enum import Enum
+
+class AccessType(Enum):
+    TERRESTRIAL = "mat_dat"
+    NTN_LEO = "ntn_leo"
+    NTN_GEO = "ntn_geo"
+
+@dataclass
+class HandoverTiming:
+    measurement_report_ms: float
+    ho_preparation_ms: float
+    ho_execution_ms: float
+    service_interruption_ms: float
+
+def get_handover_timing(source: AccessType, target: AccessType) -> HandoverTiming:
+    """
+    Uoc tinh thoi gian handover giua cac loai truy cap.
+    """
+    timings = {
+        # Noi bo mat dat
+        (AccessType.TERRESTRIAL, AccessType.TERRESTRIAL): HandoverTiming(
+            measurement_report_ms=5,
+            ho_preparation_ms=50,
+            ho_execution_ms=30,
+            service_interruption_ms=20
+        ),
+        # Mat dat den LEO NTN
+        (AccessType.TERRESTRIAL, AccessType.NTN_LEO): HandoverTiming(
+            measurement_report_ms=5,
+            ho_preparation_ms=150,  # Khoi dong am GNSS + tinh TA
+            ho_execution_ms=100,    # RTT cao hon cho RACH
+            service_interruption_ms=100
+        ),
+        # LEO NTN den Mat dat
+        (AccessType.NTN_LEO, AccessType.TERRESTRIAL): HandoverTiming(
+            measurement_report_ms=25,  # RTT cao hon cho bao cao do
+            ho_preparation_ms=80,
+            ho_execution_ms=30,
+            service_interruption_ms=50
+        ),
+        # Noi bo NTN (ve tinh den ve tinh)
+        (AccessType.NTN_LEO, AccessType.NTN_LEO): HandoverTiming(
+            measurement_report_ms=0,   # Kich hoat theo thoi gian, khong bao cao
+            ho_preparation_ms=100,     # Cau hinh truoc qua CHO
+            ho_execution_ms=50,
+            service_interruption_ms=30
+        ),
+        # LEO den GEO (hiem nhung co the)
+        (AccessType.NTN_LEO, AccessType.NTN_GEO): HandoverTiming(
+            measurement_report_ms=25,
+            ho_preparation_ms=300,
+            ho_execution_ms=600,  # RTT GEO ~600ms
+            service_interruption_ms=300
+        ),
+    }
+    
+    return timings.get(
+        (source, target),
+        HandoverTiming(100, 200, 200, 200)  # Du phong mac dinh
+    )
+
+def estimate_call_quality_impact(
+    source: AccessType,
+    target: AccessType,
+    service: str
+) -> dict:
+    """
+    Uoc tinh tac dong chat luong trong qua trinh handover.
+    """
+    timing = get_handover_timing(source, target)
+    total_ho_time = (
+        timing.measurement_report_ms + 
+        timing.ho_preparation_ms + 
+        timing.ho_execution_ms
+    )
+    
+    # Tac dong theo dich vu
+    impacts = {
+        'thoai': {
+            'gian_doan_chap_nhan_ms': 200,
+            'bo_dem_jitter_ms': 80,
+            'tac_dong_chat_luong': 'khong' if timing.service_interruption_ms < 200 else 'khoang trong nghe thay'
+        },
+        'video': {
+            'gian_doan_chap_nhan_ms': 500,
+            'bo_dem_ms': 2000,
+            'tac_dong_chat_luong': 'khong' if timing.service_interruption_ms < 500 else 'dem lai'
+        },
+        'web': {
+            'gian_doan_chap_nhan_ms': 1000,
+            'tcp_timeout_ms': 3000,
+            'tac_dong_chat_luong': 'khong' if timing.service_interruption_ms < 1000 else 'thu lai'
+        }
+    }
+    
+    return {
+        'nguon': source.value,
+        'dich': target.value,
+        'tong_thoi_gian_ho_ms': total_ho_time,
+        'gian_doan_dich_vu_ms': timing.service_interruption_ms,
+        'dich_vu': service,
+        **impacts.get(service, {})
+    }
+
+# Vi du: So sanh cac kich ban handover
+print("So sanh Thoi gian Handover")
+print("=" * 60)
+
+scenarios = [
+    (AccessType.TERRESTRIAL, AccessType.TERRESTRIAL, "thoai"),
+    (AccessType.TERRESTRIAL, AccessType.NTN_LEO, "thoai"),
+    (AccessType.NTN_LEO, AccessType.TERRESTRIAL, "thoai"),
+    (AccessType.NTN_LEO, AccessType.NTN_LEO, "thoai"),
+]
+
+for source, target, service in scenarios:
+    result = estimate_call_quality_impact(source, target, service)
+    print(f"\n{result['nguon']} → {result['dich']}:")
+    print(f"  Tong thoi gian HO: {result['tong_thoi_gian_ho_ms']} ms")
+    print(f"  Gian doan: {result['gian_doan_dich_vu_ms']} ms")
+    print(f"  Tac dong len {service}: {result['tac_dong_chat_luong']}")
+
+# So sanh do tre dien hinh
+print("\n" + "=" * 60)
+print("So sanh Do tre Dau-Cuoi:")
+print("-" * 60)
+latencies = [
+    ("5G Mat dat", "10-20 ms"),
+    ("LEO NTN (truc tiep)", "25-50 ms"),
+    ("LEO NTN (bent-pipe)", "40-80 ms"),
+    ("GEO NTN", "550-650 ms"),
+]
+for system, latency in latencies:
+    print(f"  {system:25} {latency}")
+```
+
+**Yeu cau lien tuc dich vu:**
+
+| Dich vu | Gian doan HO Toi da | Ho tro NTN |
+|---------|---------------------|------------|
+| VoNR | 200 ms | Co (voi thich ung) |
+| Video call | 500 ms | Co |
+| Streaming truc tiep | 2 s | Co |
+| Duyet web | 3 s | Co |
+| Game thoi gian thuc | 50 ms | Khong (LEO), Khong bao gio (GEO) |
+| AR/VR | 20 ms | Khong |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Khoi dong lanh GNSS.** Handover den NTN co the that bai neu UE khong duy tri dinh vi GNSS.
+
+2. **Khong khop QoS.** Mot so 5QI khong the thoa man qua NTN; dich vu co the suy giam.
+
+3. **Do phuc tap ket noi kep.** DC giua mat dat va NTN co thach thuc timing.
+
+4. **Lap lich khoang cach do.** UE can khoang cach de do NTN trong khi o mat dat.
+
+5. **Phoi hop chinh sach.** Thoa thuan roaming phai bao gom ca truy cap mat dat va NTN.
+
+6. **Kha nang UE.** Khong phai tat ca UE 5G ho tro NTN; can trao doi kha nang.
+
+7. **Dich vu khan cap.** Vi tri E911/eCall co the bi anh huong trong vung phu NTN.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 38.300 (Mo ta tong the NR)
+- 3GPP TS 23.501 (Kien truc he thong 5G)
+- 3GPP TR 38.821 (Nghien cuu NTN)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Kien truc Chom sao LEO](/vi/space/leo-constellation-architecture/coverage-geometry/) — co hoc quy dao
+- [Lien ket Giua Ve tinh](/vi/space/inter-satellite-links-laser-rf/optical-isl/) — ket noi backbone
+- [Link Budget Satcom](/vi/space/satcom-link-in-one-diagram/satcom-link-overview/) — co ban RF
+
+</section>

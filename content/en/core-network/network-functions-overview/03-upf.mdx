@@ -8,17 +8,418 @@ track: n3
 unit: network-functions-overview
 order: 3
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-network-functions-overview-02-smf"]
+spiralRevisits: ["core-network-n4-session-management-deep-dive-02-upf-deployment"]
 title: "UPF — User Plane Function"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The packet engine of 5G — forwarding, NAT, QoS enforcement, and edge placement."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 29.244"]
+tags: ["upf", "5g", "user-plane", "pfcp", "data-plane"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# UPF — User Plane Function
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Every byte of user data — your video streams, web requests, game packets — flows through **UPF**.
+
+UPF is where packets actually move. While AMF and SMF handle signaling (control plane), UPF handles the **data plane**. It's the workhorse that makes 5G performance real.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What UPF does
+
+```
+UPF in the Data Path:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│      UE ──► gNB ──────► UPF ──────► Internet            │
+│                          │                               │
+│                     User Data                            │
+│                    (GTP-U tunnel)                        │
+│                                                          │
+│                          │                               │
+│                    SMF controls                          │
+│                    (PFCP / N4)                           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key insight:** UPF is "dumb" — it follows SMF instructions. SMF says "forward packets matching X to Y with QoS Z", UPF executes.
+
+### Key responsibilities
+
+| Responsibility | What it means |
+|----------------|---------------|
+| **Packet forwarding** | Route user data between gNB and DN |
+| **GTP-U termination** | Encap/decap GTP tunnels from RAN |
+| **QoS enforcement** | Rate limiting, marking, scheduling |
+| **Policy enforcement** | Apply PCF rules (blocking, redirection) |
+| **Usage reporting** | Track data for billing |
+| **Buffering** | Store packets for idle UE (downlink) |
+| **NAT** | Address translation for IPv4 |
+| **Lawful intercept** | Copy packets for legal authorities |
+
+### From 4G to 5G user plane
+
+```
+4G User Plane:
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  eNodeB ──► SGW ──► PGW ──► Internet                    │
+│             │        │                                   │
+│          (anchor)  (anchor + policy + NAT)              │
+│                                                          │
+│  Two nodes, fixed placement                              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+5G User Plane:
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  gNB ──► UPF ──► Internet                               │
+│           │                                              │
+│    (single function, flexible placement)                │
+│                                                          │
+│  One node, can be anywhere (central, edge, etc.)        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key difference:** UPF consolidates SGW and PGW functions, can be placed anywhere.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### UPF interfaces
+
+```
+UPF Interfaces:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ┌─────────┐                          │
+│                    │   SMF   │                          │
+│                    └────┬────┘                          │
+│                         │ N4 (PFCP)                     │
+│                         │ Control                        │
+│                         │                                │
+│  ┌─────────┐      ┌─────┴─────┐      ┌─────────┐       │
+│  │   gNB   │◄────►│    UPF    │◄────►│   DN    │       │
+│  └─────────┘  N3  │           │  N6  └─────────┘       │
+│              GTP-U │           │  IP                    │
+│                    └─────┬─────┘                        │
+│                          │ N9                           │
+│                          │ GTP-U                        │
+│                    ┌─────┴─────┐                        │
+│                    │  I-UPF    │ (intermediate)         │
+│                    └───────────┘                        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+N3: gNB ↔ UPF (user data, GTP-U)
+N4: SMF ↔ UPF (control, PFCP)
+N6: UPF ↔ Data Network (IP)
+N9: UPF ↔ UPF (chaining, GTP-U)
+```
+
+### PFCP session structure
+
+SMF programs UPF via PFCP with these rules:
+
+```
+PFCP Session Rules:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  PDR (Packet Detection Rule):                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rule ID: 1                                       │    │
+│  │ Precedence: 100                                  │    │
+│  │ PDI (Packet Detection Information):              │    │
+│  │   Source Interface: Access (from gNB)            │    │
+│  │   Local F-TEID: 0x12345678                       │    │
+│  │   UE IP Address: 10.0.0.5                        │    │
+│  │ → FAR ID: 1 (what to do)                         │    │
+│  │ → QER ID: 1 (QoS to apply)                       │    │
+│  │ → URR ID: 1 (usage to report)                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  FAR (Forwarding Action Rule):                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ FAR ID: 1                                        │    │
+│  │ Apply Action: Forward                            │    │
+│  │ Forwarding Parameters:                           │    │
+│  │   Destination Interface: SGi-LAN (to DN)         │    │
+│  │   Outer Header Creation: None                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  QER (QoS Enforcement Rule):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ QER ID: 1                                        │    │
+│  │ Gate Status: Open                                │    │
+│  │ MBR Uplink: 100 Mbps                             │    │
+│  │ MBR Downlink: 500 Mbps                           │    │
+│  │ QFI: 9                                           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  URR (Usage Reporting Rule):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ URR ID: 1                                        │    │
+│  │ Measurement Method: Volume                       │    │
+│  │ Reporting Triggers: Volume threshold, time       │    │
+│  │ Volume Threshold: 100 MB                         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Packet processing pipeline
+
+```
+UPF Packet Processing:
+
+Uplink (UE → Internet):
+
+gNB                         UPF                         DN
+ │                           │                           │
+ │  GTP-U encapsulated      │                           │
+ │  (outer: IP/UDP/GTP)      │                           │
+ │  (inner: user packet)     │                           │
+ │──────────────────────────►│                           │
+ │                           │                           │
+ │                      ┌────┴────┐                      │
+ │                      │ 1. Match PDR (F-TEID, UE IP)  │
+ │                      │ 2. Apply QER (rate limit)     │
+ │                      │ 3. Execute FAR (forward)      │
+ │                      │ 4. Update URR (count bytes)   │
+ │                      │ 5. NAT if needed              │
+ │                      │ 6. Decap GTP, forward IP      │
+ │                      └────┬────┘                      │
+ │                           │                           │
+ │                           │  IP packet               │
+ │                           │──────────────────────────►│
+ │                           │                           │
+
+
+Downlink (Internet → UE):
+
+DN                          UPF                         gNB
+ │                           │                           │
+ │  IP packet               │                           │
+ │──────────────────────────►│                           │
+ │                           │                           │
+ │                      ┌────┴────┐                      │
+ │                      │ 1. Match PDR (UE IP, DN)      │
+ │                      │ 2. Apply QER (rate limit)     │
+ │                      │ 3. Execute FAR (forward)      │
+ │                      │ 4. Update URR (count bytes)   │
+ │                      │ 5. Encap in GTP-U             │
+ │                      │ 6. Forward to gNB             │
+ │                      └────┬────┘                      │
+ │                           │                           │
+ │                           │  GTP-U encapsulated      │
+ │                           │──────────────────────────►│
+ │                           │                           │
+```
+
+### UPF deployment models
+
+```
+Deployment Options:
+
+1. Central UPF:
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  gNB ──► gNB ──► gNB ──────┐                           │
+│                             │                            │
+│                        ┌────▼────┐                      │
+│                        │   UPF   │──► Internet          │
+│                        └─────────┘                      │
+│                        (regional DC)                    │
+│                                                          │
+│  Pros: Simpler, fewer UPFs                              │
+│  Cons: Higher latency                                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+2. Edge UPF (Local Breakout):
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  gNB ──► Edge UPF ──► Local App                        │
+│           │                                              │
+│           └──► Central UPF ──► Internet                 │
+│                                                          │
+│  Pros: Ultra-low latency for local services            │
+│  Cons: More UPFs to manage                              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+3. UPF Chaining (I-UPF + PSA-UPF):
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  gNB ──► I-UPF ──► PSA-UPF ──► Internet                │
+│           │                                              │
+│      (intermediate)    (PDU Session Anchor)             │
+│                                                          │
+│  Use case: Mobility without session break               │
+│  I-UPF changes with mobility, PSA-UPF stays             │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Buffering for idle UE
+
+```
+Downlink Buffering:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE in CM-IDLE (no active connection)                   │
+│                                                          │
+│  Internet ──► UPF                                       │
+│                │                                         │
+│           ┌────┴────┐                                   │
+│           │ Buffer  │  Packets stored                   │
+│           │ packets │  DDN sent to SMF                  │
+│           └────┬────┘                                   │
+│                │                                         │
+│  SMF notifies AMF → AMF pages UE                       │
+│                │                                         │
+│  UE responds, reconnects                                │
+│                │                                         │
+│           ┌────┴────┐                                   │
+│           │ Forward │  Buffered packets sent            │
+│           │ buffer  │                                   │
+│           └─────────┘                                   │
+│                                                          │
+│  DDN = Downlink Data Notification                       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Performance considerations
+
+```
+UPF Performance Factors:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Throughput:                                            │
+│  ├── Line-rate forwarding (100 Gbps+)                  │
+│  ├── DPDK / SR-IOV for kernel bypass                   │
+│  └── Hardware offload (SmartNIC)                       │
+│                                                          │
+│  Latency:                                               │
+│  ├── Sub-millisecond processing                        │
+│  ├── NUMA awareness                                     │
+│  └── Lock-free data structures                          │
+│                                                          │
+│  Scale:                                                 │
+│  ├── Millions of sessions                              │
+│  ├── Efficient rule lookup (hash tables)               │
+│  └── Session state per UE                              │
+│                                                          │
+│  Reliability:                                           │
+│  ├── N+1 redundancy                                     │
+│  ├── Stateful failover                                  │
+│  └── Health monitoring                                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**UPF configuration parameters:**
+
+| Parameter | Purpose | Example |
+|-----------|---------|---------|
+| N3 interfaces | gNB connections | IP addresses, TEID pools |
+| N6 interfaces | DN connections | IP addresses, VLAN tags |
+| N4 peer | SMF connection | SMF IP address |
+| IP pools | UE address ranges | 10.0.0.0/8 |
+| Buffer size | Idle buffering | 1000 packets/UE |
+| GTP TEID range | Tunnel IDs | 0x10000000-0x1FFFFFFF |
+
+**Capacity metrics:**
+
+| Metric | Description |
+|--------|-------------|
+| Throughput | Gbps (uplink + downlink) |
+| Sessions | Concurrent PDU sessions |
+| PPS | Packets per second |
+| Latency | Processing delay (P50, P99) |
+| Buffer utilization | Buffered packets count |
+
+**Troubleshooting:**
+
+| Issue | Check |
+|-------|-------|
+| No data flow | PDR/FAR installed, GTP tunnel up |
+| High latency | CPU utilization, queue depth |
+| Packet drops | QER rate limits, buffer overflow |
+| Wrong QoS | QER configuration, QFI marking |
+| Billing mismatch | URR thresholds, reporting |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **UPF is smart (wrong).** UPF just executes rules. If traffic isn't flowing, check SMF's PFCP programming.
+
+2. **Ignoring TEID management.** Tunnel IDs must be unique. TEID collision breaks sessions.
+
+3. **Central UPF for edge use cases.** Ultra-low latency apps need edge UPF. Central placement adds milliseconds.
+
+4. **Buffer sizing.** Too small: packet loss. Too large: memory exhaustion. Tune for traffic patterns.
+
+5. **NAT complexity.** IPv4 NAT requires careful planning. CGN (Carrier-Grade NAT) adds state overhead.
+
+6. **Overlooking PFCP heartbeat.** Lost N4 association means UPF stops getting updates. Monitor association status.
+
+7. **Performance testing late.** Data plane performance is hard to predict. Test throughput and latency early.
+
+8. **Single UPF for all traffic.** Different slices may need different UPFs. Plan for traffic separation.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System architecture for 5G System"
+- 3GPP TS 29.244, "Interface between CP and UP (PFCP)"
+- 3GPP TS 29.281, "GPRS Tunnelling Protocol User Plane (GTPv1-U)"
+- 3GPP TS 23.502, "Procedures for 5G System"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [AUSF and UDM](/en/core-network/network-functions-overview/ausf-udm/) — authentication and subscriber data
+- [UPF deployment](/en/core-network/session-management-deep-dive/upf-deployment/) — edge vs central
+- [QoS flows](/en/core-network/session-management-deep-dive/qos-flows/) — enforcement in UPF
+
+</section>

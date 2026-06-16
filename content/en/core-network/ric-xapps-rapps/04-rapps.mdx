@@ -8,17 +8,481 @@ track: n6
 unit: ric-xapps-rapps
 order: 4
 level: L5
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n6-ric-xapps-rapps-02-non-rt-ric"]
+spiralRevisits: []
 title: "rApps"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Non-RT RIC applications: architecture, A1 policy management, ML model lifecycle, and deployment patterns."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG2.Non-RT-RIC-RAPP"]
+tags: ["o-ran", "ric", "rapps", "a1", "ml-workflow"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# rApps
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+rApps are the intelligence engines of Non-RT RIC. They operate on timescales >1 second, performing analytics, training ML models, and generating policies that guide xApps.
+
+Understanding rApp development enables building the "brain" that optimizes RAN behavior at the strategic level.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### rApp architecture
+
+```
+rApp Architecture in Non-RT RIC:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SMO / Non-RT RIC Platform                              │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  ┌──────────────────────────────────────────────┐ │  │
+│  │  │               rApp Container                  │ │  │
+│  │  │                                               │ │  │
+│  │  │  ┌─────────────────────────────────────────┐ │ │  │
+│  │  │  │         Application Logic               │ │ │  │
+│  │  │  │  - Analytics engine                     │ │ │  │
+│  │  │  │  - ML training / inference              │ │ │  │
+│  │  │  │  - Policy generation                    │ │ │  │
+│  │  │  │  - Network planning                     │ │ │  │
+│  │  │  └─────────────────────────────────────────┘ │ │  │
+│  │  │                     │                        │ │  │
+│  │  │  ┌─────────────────────────────────────────┐ │ │  │
+│  │  │  │           rApp Framework                │ │ │  │
+│  │  │  │  - R1 interface client                  │ │ │  │
+│  │  │  │  - Data access APIs                     │ │ │  │
+│  │  │  │  - Config management                    │ │ │  │
+│  │  │  │  - Logging / Metrics                    │ │ │  │
+│  │  │  └─────────────────────────────────────────┘ │ │  │
+│  │  │                                               │ │  │
+│  │  └──────────────────────────────────────────────┘ │  │
+│  │                                                    │  │
+│  │  Platform Services (R1 producers):                │  │
+│  │  ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐      │  │
+│  │  │  A1    │ │  Data  │ │   ML   │ │  Enrich│      │  │
+│  │  │ Policy │ │  Mgmt  │ │ Train  │ │  ment  │      │  │
+│  │  └────────┘ └────────┘ └────────┘ └────────┘      │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### R1 interface
+
+```
+R1 Interface (rApp ↔ Non-RT RIC Services):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  R1 Service Categories:                                 │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ A1 Policy Management (R1-AP)                    │    │
+│  │ - Create / Update / Delete policies             │    │
+│  │ - Get policy status from Near-RT RIC            │    │
+│  │ - Policy type discovery                         │    │
+│  │ - Endpoint: /a1-p/policy-types, /policies       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Data Management (R1-DM)                         │    │
+│  │ - Subscribe to PM/FM/CM data                    │    │
+│  │ - Access enrichment information                 │    │
+│  │ - Query historical data                         │    │
+│  │ - Endpoint: /data-consumer, /enrichment-info    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ ML Model Management (R1-ML)                     │    │
+│  │ - Upload trained models                         │    │
+│  │ - Deploy models to Near-RT RIC                  │    │
+│  │ - Monitor model performance                     │    │
+│  │ - Endpoint: /ml-models, /deployments            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Enrichment Information (R1-EI)                  │    │
+│  │ - Provide enriched data to Near-RT RIC          │    │
+│  │ - Register as EI producer                       │    │
+│  │ - Push context data (traffic predictions)       │    │
+│  │ - Endpoint: /ei-producer, /ei-job               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Common rApp types
+
+```
+Common rApp Use Cases:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Traffic Prediction                              │    │
+│  │ - Train ML models on historical PM data         │    │
+│  │ - Predict future traffic patterns               │    │
+│  │ - Publish predictions as enrichment info        │    │
+│  │ - Enable proactive resource allocation          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Network Planning                                │    │
+│  │ - Analyze coverage and capacity                 │    │
+│  │ - Recommend cell parameter changes              │    │
+│  │ - Generate A1 policies for optimization         │    │
+│  │ - Coordinate with OSS/BSS                       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Slice SLA Assurance                             │    │
+│  │ - Monitor slice KPIs                            │    │
+│  │ - Detect SLA violations                         │    │
+│  │ - Generate corrective policies                  │    │
+│  │ - Coordinate with slice orchestrator            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Anomaly Detection                               │    │
+│  │ - Train on normal network behavior              │    │
+│  │ - Detect deviations (interference, failures)    │    │
+│  │ - Trigger alarms or remediation policies        │    │
+│  │ - Integrate with SON functions                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Energy Optimization                             │    │
+│  │ - Analyze traffic vs. energy consumption        │    │
+│  │ - Generate cell sleep/wake schedules            │    │
+│  │ - Push policies to ES xApp                      │    │
+│  │ - Balance energy savings vs. QoS                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### ML workflow
+
+```
+ML Model Lifecycle in rApp:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Data Collection                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ rApp subscribes to PM data via R1-DM            │    │
+│  │                                                  │    │
+│  │ data_subscription = {                           │    │
+│  │   "filter": {                                   │    │
+│  │     "nf_type": "o-du",                          │    │
+│  │     "counters": ["PRBUsage.*", "UECount.*"]     │    │
+│  │   },                                            │    │
+│  │   "reporting_interval": "15min",                │    │
+│  │   "retention": "30days"                         │    │
+│  │ }                                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  2. Model Training                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Feature engineering from collected data       │    │
+│  │ - Train model (LSTM, XGBoost, etc.)             │    │
+│  │ - Validate on held-out dataset                  │    │
+│  │ - Package model with metadata                   │    │
+│  │                                                  │    │
+│  │ model_package = {                               │    │
+│  │   "model_id": "traffic-pred-v2",                │    │
+│  │   "framework": "onnx",                          │    │
+│  │   "input_schema": {...},                        │    │
+│  │   "output_schema": {...},                       │    │
+│  │   "artifact_url": "s3://models/traffic-v2.onnx" │    │
+│  │ }                                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  3. Model Deployment                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Upload to Non-RT RIC ML catalog                 │    │
+│  │ Deploy to Near-RT RIC inference service         │    │
+│  │                                                  │    │
+│  │ POST /r1/ml-models                              │    │
+│  │ POST /r1/deployments                            │    │
+│  │   { "model_id": "traffic-pred-v2",              │    │
+│  │     "target": "near-rt-ric-1",                  │    │
+│  │     "xapp_consumer": "ts-xapp" }                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  4. Monitoring & Retraining                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Monitor prediction accuracy                   │    │
+│  │ - Detect model drift                            │    │
+│  │ - Trigger retraining pipeline                   │    │
+│  │ - A/B test new model versions                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Policy generation
+
+```
+A1 Policy Generation Flow:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  rApp                                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. Analyze data (PM, predictions, context)     │    │
+│  │           │                                     │    │
+│  │           ▼                                     │    │
+│  │  2. Generate policy instance                    │    │
+│  │                                                  │    │
+│  │  policy = {                                     │    │
+│  │    "policy_type_id": "ORAN_MLB_1.0",            │    │
+│  │    "policy_id": "mlb-policy-001",               │    │
+│  │    "scope": {                                   │    │
+│  │      "cell_ids": ["cell-001", "cell-002"]       │    │
+│  │    },                                           │    │
+│  │    "policy_data": {                             │    │
+│  │      "load_threshold": 75,                      │    │
+│  │      "target_load_distribution": "balanced",    │    │
+│  │      "max_handover_rate": 0.1                   │    │
+│  │    }                                            │    │
+│  │  }                                              │    │
+│  │           │                                     │    │
+│  │           ▼                                     │    │
+│  │  3. PUT /r1/a1-p/policies/{policy_id}           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                       │                                 │
+│                       ▼                                 │
+│  Non-RT RIC A1 Policy Management                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  - Validate policy against schema               │    │
+│  │  - Store in policy repository                   │    │
+│  │  - Forward to Near-RT RIC via A1                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                       │                                 │
+│                       ▼                                 │
+│  Near-RT RIC                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  - A1 Mediator receives policy                  │    │
+│  │  - Routes to subscribed xApp (MLB)              │    │
+│  │  - xApp applies policy in control loop          │    │
+│  │  - Returns status via A1                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### rApp descriptor
+
+```
+rApp Descriptor (rapp-descriptor.json):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  {                                                      │
+│    "rapp_name": "traffic-prediction-rapp",              │
+│    "version": "1.0.0",                                  │
+│    "vendor": "acme-telecom",                            │
+│                                                          │
+│    "containers": [{                                     │
+│      "name": "predictor",                               │
+│      "image": "registry.example.com/tp-rapp:1.0.0",     │
+│      "resources": {                                     │
+│        "cpu": "2",                                      │
+│        "memory": "4Gi",                                 │
+│        "gpu": "1"                                       │
+│      }                                                  │
+│    }],                                                  │
+│                                                          │
+│    "r1_services": {                                     │
+│      "consumes": [                                      │
+│        { "service": "data-management", "version": "1.0"}│
+│      ],                                                 │
+│      "produces": [                                      │
+│        { "service": "enrichment-info",                  │
+│          "info_type": "traffic-prediction",             │
+│          "schema": "traffic-pred-schema.json" }         │
+│      ]                                                  │
+│    },                                                   │
+│                                                          │
+│    "policy_types": ["ORAN_TrafficSteer_1.0"],           │
+│                                                          │
+│    "config": {                                          │
+│      "training_interval": "24h",                        │
+│      "prediction_horizon": "1h",                        │
+│      "min_data_points": 1000                            │
+│    }                                                    │
+│  }                                                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**rApp development stack:**
+
+| Component | Options |
+|-----------|---------|
+| Language | Python (ML), Go, Java |
+| ML Framework | TensorFlow, PyTorch, scikit-learn |
+| Model Format | ONNX (portable), SavedModel |
+| Container | Docker, Kubernetes |
+| Data Access | Kafka, REST APIs |
+
+**Traffic prediction rApp example (Python):**
+
+```python
+from rapp_sdk import RAppFramework, R1Client
+import pandas as pd
+from sklearn.ensemble import GradientBoostingRegressor
+import onnx
+
+class TrafficPredictionRApp:
+    def __init__(self, config):
+        self.r1 = R1Client()
+        self.model = None
+        self.config = config
+    
+    def start(self):
+        # Subscribe to PM data
+        self.r1.subscribe_data(
+            data_type="pm",
+            filter={"counters": ["PRBUsageDL", "PRBUsageUL"]},
+            callback=self.on_data
+        )
+        
+        # Register as EI producer
+        self.r1.register_ei_producer(
+            info_type="traffic-prediction",
+            schema=self.prediction_schema
+        )
+    
+    def on_data(self, data):
+        # Accumulate data for training
+        self.data_buffer.append(data)
+        
+        if len(self.data_buffer) >= self.config['min_data_points']:
+            self.train_model()
+    
+    def train_model(self):
+        df = pd.DataFrame(self.data_buffer)
+        X = self.extract_features(df)
+        y = df['target_load']
+        
+        self.model = GradientBoostingRegressor()
+        self.model.fit(X, y)
+        
+        # Export to ONNX and deploy
+        onnx_model = self.to_onnx(self.model)
+        self.r1.upload_model(
+            model_id="traffic-pred-v2",
+            artifact=onnx_model
+        )
+    
+    def generate_predictions(self):
+        predictions = self.model.predict(self.current_features)
+        
+        # Publish as enrichment info
+        self.r1.publish_ei(
+            info_type="traffic-prediction",
+            data={"predictions": predictions.tolist()}
+        )
+
+if __name__ == "__main__":
+    app = RAppFramework()
+    rapp = TrafficPredictionRApp(app.config)
+    app.run(rapp)
+```
+
+**Deployment commands:**
+
+```bash
+# Package rApp as Helm chart
+helm package ./charts/traffic-pred-rapp
+
+# Deploy to Non-RT RIC
+curl -X POST http://rappmgr:8080/r1/rapps \
+  -F "descriptor=@rapp-descriptor.json" \
+  -F "chart=@traffic-pred-rapp-1.0.0.tgz"
+
+# Check rApp status
+curl http://rappmgr:8080/r1/rapps/traffic-pred-rapp
+
+# View deployed models
+curl http://rappmgr:8080/r1/ml-models
+
+# Check EI jobs
+curl http://rappmgr:8080/r1/ei-producer/jobs
+
+# View rApp logs
+kubectl logs -n nonrtric -l app=traffic-pred-rapp -f
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Training on stale data.** PM data from weeks ago may not reflect current network. Implement data freshness checks.
+
+2. **Policy conflict.** Multiple rApps generating conflicting policies. Use policy coordination service.
+
+3. **Model drift undetected.** Predictions degrade over time. Implement monitoring and retraining triggers.
+
+4. **Overloading A1.** Too many policy updates saturate A1 interface. Batch policy changes.
+
+5. **EI latency too high.** Enrichment info arrives after xApp decision. Pre-compute and cache predictions.
+
+6. **R1 service unavailable.** Non-RT RIC services restart. Implement retry with backoff.
+
+7. **Large model deployment.** ONNX model too large for Near-RT RIC. Quantize or prune model.
+
+8. **Schema mismatch.** Policy schema changes between versions. Version policy types carefully.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- O-RAN Alliance WG2, "Non-RT RIC Architecture"
+- O-RAN Alliance WG2, "A1 Interface Specification"
+- O-RAN SC, "Non-RT RIC rApp Developer Guide"
+- O-RAN Alliance, "AI/ML Workflow Description"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [xApps](/en/core-network/ric-xapps-rapps/xapps/) — Near-RT RIC applications
+- [Non-RT RIC](/en/core-network/ric-xapps-rapps/non-rt-ric/) — platform architecture
+- [Near-RT RIC](/en/core-network/ric-xapps-rapps/near-rt-ric/) — control loop
+
+</section>

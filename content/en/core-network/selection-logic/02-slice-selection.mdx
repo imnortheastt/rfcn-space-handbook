@@ -8,17 +8,414 @@ track: n3
 unit: selection-logic
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "Network slice selection"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n3-selection-logic-01-nssf-overview"]
+spiralRevisits: []
+title: "Network Slice Selection"
+description: "The slice selection algorithm: how NSSF determines allowed NSSAI from requested, subscribed, and available slices."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 29.531"]
+tags: ["5g", "nssf", "slice-selection", "nssai"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Network slice selection
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+NSSF doesn't just pick slices randomly. There's a defined algorithm that considers what the UE wants, what subscription allows, and what's available in the current location.
+
+Understanding this algorithm is essential for debugging slice selection failures and configuring multi-slice deployments.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Slice selection inputs
+
+```
+NSSF Slice Selection Inputs:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Input 1: Requested NSSAI (from UE)               │  │
+│  │                                                   │  │
+│  │ What UE wants to use:                            │  │
+│  │ [SST=1], [SST=2, SD=0x000001], [SST=128]         │  │
+│  │                                                   │  │
+│  │ Source: Registration Request message             │  │
+│  └───────────────────────────────────────────────────┘  │
+│                     │                                   │
+│                     ▼                                   │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Input 2: Subscribed S-NSSAIs (from UDM)          │  │
+│  │                                                   │  │
+│  │ What subscription allows:                        │  │
+│  │ Default: [SST=1], [SST=2]                        │  │
+│  │ Per-TAI: {TAI-1: [SST=1, SST=3]}                 │  │
+│  │                                                   │  │
+│  │ Source: UDM subscription data                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                     │                                   │
+│                     ▼                                   │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Input 3: Configured S-NSSAIs (local policy)      │  │
+│  │                                                   │  │
+│  │ What operator supports per TAI:                  │  │
+│  │ TAI-1: [SST=1], [SST=2], [SST=3]                 │  │
+│  │ TAI-2: [SST=1] only                              │  │
+│  │                                                   │  │
+│  │ Source: NSSF configuration                       │  │
+│  └───────────────────────────────────────────────────┘  │
+│                     │                                   │
+│                     ▼                                   │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │ Output: Allowed NSSAI                            │  │
+│  │                                                   │  │
+│  │ Intersection that UE can actually use:           │  │
+│  │ [SST=1], [SST=2]                                 │  │
+│  │                                                   │  │
+│  │ Sent in: Registration Accept                     │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Selection decision tree
+
+```
+Slice Selection Decision Flow:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  For each S-NSSAI in Requested NSSAI:                   │
+│                                                          │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │                                                   │   │
+│  │  Step 1: Is S-NSSAI in Subscribed S-NSSAIs?      │   │
+│  │  ┌─────────────────────────────────────────────┐ │   │
+│  │  │ NO  → Reject this S-NSSAI                   │ │   │
+│  │  │ YES → Continue to Step 2                    │ │   │
+│  │  └─────────────────────────────────────────────┘ │   │
+│  │                   │                               │   │
+│  │                   ▼                               │   │
+│  │  Step 2: Is S-NSSAI configured for this TAI?     │   │
+│  │  ┌─────────────────────────────────────────────┐ │   │
+│  │  │ NO  → Reject (slice not in this area)       │ │   │
+│  │  │ YES → Continue to Step 3                    │ │   │
+│  │  └─────────────────────────────────────────────┘ │   │
+│  │                   │                               │   │
+│  │                   ▼                               │   │
+│  │  Step 3: Is there an AMF serving this S-NSSAI?   │   │
+│  │  ┌─────────────────────────────────────────────┐ │   │
+│  │  │ NO  → Reject (no capacity)                  │ │   │
+│  │  │ YES → Add to Allowed NSSAI                  │ │   │
+│  │  └─────────────────────────────────────────────┘ │   │
+│  │                                                   │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                          │
+│  Final check: Allowed NSSAI empty?                      │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │ YES → Apply default slice (if configured)        │   │
+│  │ NO  → Return Allowed NSSAI                       │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Selection algorithm
+
+```
+Detailed Selection Algorithm:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  function selectSlices(request):                        │
+│                                                          │
+│    requestedNssai = request.requestedNssai              │
+│    subscribedNssai = request.subscribedNssai            │
+│    tai = request.tai                                    │
+│                                                          │
+│    allowedNssai = []                                    │
+│    rejectedNssai = []                                   │
+│                                                          │
+│    for each sNssai in requestedNssai:                   │
+│                                                          │
+│      // Check subscription                              │
+│      if sNssai not in subscribedNssai:                  │
+│        rejectedNssai.add({sNssai, cause: "NOT_SUBSCR"}) │
+│        continue                                         │
+│                                                          │
+│      // Check TAI availability                          │
+│      taiConfig = getConfiguredNssai(tai)                │
+│      if sNssai not in taiConfig:                        │
+│        rejectedNssai.add({sNssai, cause: "NOT_AVAIL"})  │
+│        continue                                         │
+│                                                          │
+│      // Check AMF availability                          │
+│      amfSet = findAmfSet(sNssai, tai)                   │
+│      if amfSet is empty:                                │
+│        rejectedNssai.add({sNssai, cause: "NO_SERVING"}) │
+│        continue                                         │
+│                                                          │
+│      // Slice is allowed                                │
+│      allowedNssai.add({sNssai, amfSet: amfSet})         │
+│                                                          │
+│    // Apply default if empty                            │
+│    if allowedNssai.isEmpty() and hasDefaultSlice():     │
+│      allowedNssai.add(getDefaultSlice(tai))             │
+│                                                          │
+│    return {allowedNssai, rejectedNssai, targetAmfSet}   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### AMF rerouting logic
+
+```
+AMF Selection and Rerouting:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Scenario: UE requests [SST=1, SST=2]                   │
+│            Initial AMF serves only [SST=1]              │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Option A: Single AMF can serve both            │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ NSSF returns:                           │   │    │
+│  │  │ allowedNssai: [SST=1, SST=2]            │   │    │
+│  │  │ targetAmfSet: null (stay on current)    │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  Option B: Need different AMF for SST=2          │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ NSSF returns:                           │   │    │
+│  │  │ allowedNssai: [SST=1, SST=2]            │   │    │
+│  │  │ targetAmfSet: "amf-set-urllc"           │   │    │
+│  │  │                                          │   │    │
+│  │  │ Current AMF reroutes to target AMF      │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  │  Option C: No AMF serves both together           │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │ NSSF returns:                           │   │    │
+│  │  │ allowedNssai: [SST=1] (partial grant)   │   │    │
+│  │  │ rejectedNssai: [SST=2, cause: NO_AMF]   │   │    │
+│  │  │ targetAmfSet: null                      │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Per-TAI slice configuration
+
+```
+TAI-Based Slice Availability:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Geographic Slice Deployment:                           │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │        TAI-1 (Urban)     TAI-2 (Industrial)     │    │
+│  │       ┌─────────────┐   ┌─────────────┐         │    │
+│  │       │ SST=1 (eMBB)│   │ SST=1 (eMBB)│         │    │
+│  │       │ SST=2 (URLLC)│  │ SST=2 (URLLC)│        │    │
+│  │       │ SST=3 (mMTC)│   │             │         │    │
+│  │       │ SST=128     │   │             │         │    │
+│  │       │  (Gaming)   │   │             │         │    │
+│  │       └─────────────┘   └─────────────┘         │    │
+│  │                                                  │    │
+│  │        TAI-3 (Rural)     TAI-4 (Factory)        │    │
+│  │       ┌─────────────┐   ┌─────────────┐         │    │
+│  │       │ SST=1 (eMBB)│   │ SST=2 (URLLC)│        │    │
+│  │       │             │   │ SST=2,SD=fac│         │    │
+│  │       │             │   │  (private)  │         │    │
+│  │       └─────────────┘   └─────────────┘         │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  UE moves from TAI-1 to TAI-3:                          │
+│  - Had: [SST=1, SST=2, SST=128]                         │
+│  - Gets: [SST=1] only                                   │
+│  - SST=2, SST=128 become rejected                       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Rejection causes
+
+```
+Slice Selection Rejection Causes:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Cause Code              Meaning                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ S-NSSAI_NOT_AVAILABLE                           │    │
+│  │ - Slice not deployed in this TAI                │    │
+│  │ - May be available in other areas               │    │
+│  │                                                  │    │
+│  │ S-NSSAI_NOT_AVAILABLE_IN_PLMN                   │    │
+│  │ - Slice not deployed anywhere in PLMN           │    │
+│  │ - Subscription mismatch                         │    │
+│  │                                                  │    │
+│  │ S-NSSAI_NOT_AVAILABLE_DUE_TO_SUB                │    │
+│  │ - User not subscribed to this slice             │    │
+│  │ - Billing or policy restriction                 │    │
+│  │                                                  │    │
+│  │ DEFAULT_CONFIGURED_NSSAI_USED                   │    │
+│  │ - No requested slice available                  │    │
+│  │ - Fallback to operator default                  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Response includes:                                     │
+│  {                                                      │
+│    "rejectedNssaiInTa": [                               │
+│      {"sst": 2, "cause": "S-NSSAI_NOT_AVAILABLE"}       │
+│    ],                                                   │
+│    "rejectedNssaiInPlmn": [                             │
+│      {"sst": 128, "cause": "S-NSSAI_NOT_AVAILABLE_IN_PL"}│
+│    ]                                                    │
+│  }                                                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Selection priority rules:**
+
+| Priority | Rule |
+|----------|------|
+| 1 | UE-requested slices matching subscription |
+| 2 | UE-requested slices available in TAI |
+| 3 | Subscribed default S-NSSAI for TAI |
+| 4 | Operator default S-NSSAI |
+
+**Configuration example (NSSF):**
+
+```yaml
+# NSSF slice configuration
+nssaiConfiguration:
+  plmnId:
+    mcc: "001"
+    mnc: "01"
+  taiConfiguration:
+    - tai:
+        tac: "0001"
+      supportedSnssaiList:
+        - sst: 1
+        - sst: 2
+        - sst: 3
+      defaultSnssai:
+        sst: 1
+    - tai:
+        tac: "0002"
+      supportedSnssaiList:
+        - sst: 1
+      defaultSnssai:
+        sst: 1
+
+amfSetConfiguration:
+  - amfSetId: "amf-set-embb"
+    supportedSnssaiList:
+      - sst: 1
+  - amfSetId: "amf-set-urllc"
+    supportedSnssaiList:
+      - sst: 2
+  - amfSetId: "amf-set-all"
+    supportedSnssaiList:
+      - sst: 1
+      - sst: 2
+      - sst: 3
+```
+
+**Debugging commands:**
+
+```bash
+# Check NSSF selection decisions
+kubectl logs -l app=nssf | grep -E "(allowedNssai|rejectedNssai)"
+
+# Verify TAI configuration
+curl http://nssf:8080/internal/config/tai | jq
+
+# Test specific selection
+curl -X POST http://nssf:8080/nnssf-nsselection/v1/network-slice-info \
+  -H "Content-Type: application/json" \
+  -d '{
+    "nfType": "AMF",
+    "sliceInfoRequestForRegistration": {
+      "requestedNssai": [{"sst": 1}, {"sst": 2}],
+      "tai": {"plmnId": {"mcc": "001", "mnc": "01"}, "tac": "0001"}
+    }
+  }' | jq '.allowedNssai, .rejectedNssaiInTa'
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **TAI mismatch in request.** NSSF uses TAI to determine local availability. Wrong TAI gives wrong result.
+
+2. **Subscribed NSSAI not in request.** AMF must include subscribed NSSAI from UDM. Missing data causes rejection.
+
+3. **Default slice not configured.** If no requested slice available and no default, UE gets nothing.
+
+4. **AMF set not registered.** NSSF knows slices but not which AMFs serve them. Register AMF availability.
+
+5. **SD ignored in matching.** SST=1 and SST=1,SD=abc are different. Exact match required.
+
+6. **Roaming NSSAI mapping missing.** Visited PLMN uses different S-NSSAI values. Configure mapping tables.
+
+7. **Stale subscription data.** NSSF caches subscription. Changes in UDM not reflected. Check cache TTL.
+
+8. **Single-slice fallback unexpected.** UE requests multiple, gets only one. Check if others rejected or AMF can't serve.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System Architecture" clause 5.15
+- 3GPP TS 29.531, "NSSF Services" clause 5.2
+- 3GPP TS 24.501, "NAS Protocol" clause 9.11
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [NF selection criteria](/en/core-network/selection-logic/nf-selection-criteria/) — general NF selection
+- [NSSF overview](/en/core-network/selection-logic/nssf-overview/) — NSSF basics
+- [AMF](/en/core-network/network-functions-overview/amf/) — slice-aware registration
+
+</section>

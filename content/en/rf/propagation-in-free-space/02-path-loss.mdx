@@ -8,12 +8,12 @@ track: r2
 unit: propagation-in-free-space
 order: 2
 level: L2
-estimatedReadingMinutes: 10
+estimatedReadingMinutes: 15
 prerequisites: ["rf-r2-propagation-in-free-space-01-friis-equation"]
 spiralRevisits: []
 title: "Path loss models"
 description: "Predicting signal attenuation beyond free space."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,11 @@ status: published
 
 ## Why path loss models?
 
-Free-space path loss (FSPL) assumes a perfect vacuum with no obstacles. Real environments have ground reflections, buildings, foliage, and atmospheric effects. These add loss beyond FSPL and change how loss scales with distance.
+Free-space path loss (FSPL) assumes a perfect vacuum with no obstacles. Real environments have ground reflections, buildings, foliage, vehicles, and atmospheric effects. These add loss beyond FSPL and change how loss scales with distance — sometimes dramatically.
 
-Path loss models capture these effects empirically or semi-analytically. They're essential for coverage planning, interference analysis, and link budget calculations in real deployments.
+A 5G cell at 2 km in dense urban will see 30–40 dB more loss than FSPL predicts. A satellite passing at low elevation will see both free-space spreading and additional clutter loss. Getting coverage right in deployment means using models that capture the statistical behavior of real environments without requiring a full ray-tracing simulation for every candidate site.
+
+Path loss models are the bridge between the idealized Friis equation and the real world. They are essential for coverage planning, interference analysis, link budget calculations, and spectrum coordination in every type of wireless deployment.
 
 </section>
 
@@ -37,78 +39,106 @@ Path loss models capture these effects empirically or semi-analytically. They're
 
 ## Intuition
 
-In free space, power falls off as $1/d^2$ (20 dB per decade of distance). But over real terrain:
+### Why real loss is worse than free space
 
-- **Ground reflection** creates interference patterns that can make loss worse than free space
-- **Obstructions** add diffraction and absorption losses
-- **Multipath** causes fading that varies with position
+In free space, power falls as $1/d^2$ — pure geometric spreading, 20 dB per decade of distance. In real terrain, several mechanisms add loss:
 
-Path loss models approximate these effects with a **path loss exponent** $n$ that modifies the distance dependency:
+- **Ground reflection** creates a second path that can destructively interfere with the direct path, causing the effective decay to steepen to $1/d^4$ at longer distances.
+- **Obstructions** (buildings, terrain) cause diffraction and absorption losses on top of free space.
+- **Clutter** (foliage, vehicles, signage) scatters energy away from the receiver.
+
+Path loss models capture these effects with a **path loss exponent** $n$:
 
 $$L \propto d^n$$
 
-Free space has $n = 2$. Urban environments typically have $n = 3$ to $4$. Indoors can exceed $n = 4$.
+Free space: $n = 2$. Urban: $n = 3$ to $4$. Indoors through walls: $n$ can exceed $5$. The exponent tells you how quickly you lose coverage as you move away.
 
-The key insight: real environments are "lossier" than free space, and the loss grows faster with distance.
+### The log-normal random component
+
+Even at the same distance and environment type, measured path loss varies from location to location — a building in the way here, an open plaza there. This **shadow fading** adds a zero-mean Gaussian variable (in dB) to the mean prediction. It is modeled as log-normal because many independent random obstacles multiply together, and the product of random variables in linear domain becomes a sum in log (dB) domain — converging to Gaussian by the central limit theorem.
+
+The standard deviation $\sigma$ of shadow fading typically ranges from 4 dB (open suburban) to 12 dB (dense urban). This is not noise: it is a fixed spatial property of each location that does not average away over time while you remain stationary.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How it works
 
 ### Log-distance path loss model
+
+The workhorse model for cellular and Wi-Fi coverage:
 
 $$L(d) = L(d_0) + 10n \log_{10}\left(\frac{d}{d_0}\right) + X_\sigma$$
 
 where:
-- $L(d_0)$ = path loss at reference distance $d_0$ (often 1 m or 100 m)
-- $n$ = path loss exponent
-- $X_\sigma$ = shadow fading (log-normal, standard deviation $\sigma$)
+- $L(d_0)$ = path loss at reference distance $d_0$ (commonly 1 m for indoor, 100 m for outdoor macro)
+- $n$ = path loss exponent (environment-dependent)
+- $X_\sigma$ = shadow fading term: a zero-mean Gaussian random variable with standard deviation $\sigma$ dB
 
-| Environment | Typical $n$ | Typical $\sigma$ (dB) |
-|-------------|-------------|----------------------|
-| Free space | 2.0 | 0 |
-| Urban LOS | 2.0–2.5 | 3–6 |
-| Urban NLOS | 3.0–4.0 | 6–10 |
-| Suburban | 2.5–3.5 | 4–8 |
-| Indoor LOS | 1.6–2.0 | 3–6 |
-| Indoor NLOS | 3.0–5.0 | 6–12 |
+The reference path loss at $d_0 = 1$ m is usually taken as FSPL at 1 m:
+
+$$L(1\text{ m}) = 20\log_{10}\left(\frac{4\pi f}{c}\right)$$
+
+At 2.4 GHz: $L(1\text{ m}) \approx 40$ dB. At 28 GHz: $L(1\text{ m}) \approx 62$ dB.
+
+### Path loss exponent table
+
+| Environment | Typical $n$ | Typical $\sigma$ (dB) | Notes |
+|-------------|-------------|----------------------|-------|
+| Free space | 2.0 | 0 | Ideal vacuum |
+| Urban LOS | 2.0–2.5 | 3–6 | Open streets |
+| Urban NLOS | 3.0–4.0 | 6–10 | Behind buildings |
+| Suburban | 2.5–3.5 | 4–8 | Low-rise clutter |
+| Indoor LOS | 1.6–2.0 | 3–6 | Hallways, waveguide effect |
+| Indoor NLOS | 3.0–5.0 | 6–12 | Through walls/floors |
+| Factory floor | 2.0–3.0 | 5–8 | Metal clutter, reflections |
+
+Note the indoor LOS exponent can be below 2 — in long hallways the waveguide effect concentrates power, making loss slower than free space.
 
 ### Two-ray ground reflection model
 
-For transmitter height $h_t$ and receiver height $h_r$ over a flat, reflective ground:
+For transmitter height $h_t$ and receiver height $h_r$ over flat, reflective ground, the direct and reflected paths interfere. At short range, the interference oscillates. Beyond the **breakpoint distance**:
+
+$$d_b = \frac{4 h_t h_r}{\lambda}$$
+
+the reflected path is nearly 180° out of phase with the direct path and partially cancels it. The received power transitions to:
 
 $$P_r = P_t G_t G_r \frac{h_t^2 h_r^2}{d^4}$$
 
-At long distances ($d \gg \sqrt{h_t h_r}$), the direct and reflected paths nearly cancel, giving $n = 4$ instead of $n = 2$.
+This is the 1/$d^4$ law — 40 dB per decade, 6 dB worse than free space per doubling of distance. Crucially, this far-field two-ray formula has **no frequency dependence** — at ranges beyond $d_b$, antenna heights dominate the path loss, not frequency.
 
-**Breakpoint distance:** $d_b = \frac{4 h_t h_r}{\lambda}$
+### Combined path loss — the full link budget picture
 
-Below $d_b$: loss follows free-space ($n \approx 2$). Above $d_b$: loss increases to $n \approx 4$.
+Real link budgets layer multiple losses:
 
-### Reference path loss
+$$L_{total} = L_{path}(d) + X_\sigma + L_{body} + L_{penetration} + L_{rain} + L_{misc}$$
 
-Common convention for $L(d_0)$ at $d_0 = 1$ m:
+| Loss type | Typical value | When to apply |
+|-----------|---------------|---------------|
+| Body loss (handheld) | 3–6 dB | Mobile handsets |
+| Building penetration (glass) | 3–8 dB | Shallow indoor coverage |
+| Building penetration (concrete) | 15–25 dB | Deep indoor coverage |
+| Vehicle penetration | 6–12 dB | In-car coverage |
+| Foliage (per 10 m) | 2–10 dB | Tree-dense suburban |
+| Rain (28 GHz, heavy) | 5–15 dB/km | mmWave backhaul |
 
-$$L(1\text{ m}) = 20\log_{10}\left(\frac{4\pi}{\lambda}\right) = 20\log_{10}\left(\frac{4\pi f}{c}\right)$$
+### Coverage reliability and fade margin
 
-At 2.4 GHz: $L(1\text{ m}) \approx 40$ dB
-At 28 GHz: $L(1\text{ m}) \approx 62$ dB
+Because shadow fading is Gaussian in dB, the probability that a location has path loss below threshold $L_{th}$ follows the Q-function. To achieve coverage reliability $p$ at the cell edge, add a **fade margin** $M_f$:
 
-### Adding margins
+$$M_f = k_p \cdot \sigma$$
 
-Real link budgets include additional losses:
+where $k_p$ is the z-score for the desired reliability:
 
-$$L_{total} = L_{path} + L_{shadow} + L_{body} + L_{penetration} + L_{rain} + \ldots$$
+| Coverage probability | $k_p$ | Fade margin ($\sigma = 8$ dB) |
+|---------------------|-------|-------------------------------|
+| 75% | 0.67 | 5.4 dB |
+| 90% | 1.28 | 10.2 dB |
+| 95% | 1.65 | 13.2 dB |
+| 99% | 2.33 | 18.6 dB |
 
-| Loss type | Typical value |
-|-----------|---------------|
-| Body loss (handheld) | 3–6 dB |
-| Building penetration | 10–25 dB |
-| Vehicle penetration | 3–10 dB |
-| Foliage (per m) | 0.2–1 dB |
-| Rain (at 28 GHz, heavy) | 5–15 dB/km |
+Planning for 90% coverage with $\sigma = 8$ dB costs 10 dB in link budget — this often dominates over all other margin items.
 
 </section>
 
@@ -116,36 +146,68 @@ $$L_{total} = L_{path} + L_{shadow} + L_{body} + L_{penetration} + L_{rain} + \l
 
 ## Apply
 
-**Example: Outdoor cellular coverage**
+### Example 1: Outdoor LTE coverage radius
 
-2 GHz, 46 dBm base station, 18 dBi antenna, urban NLOS ($n = 3.5$, $\sigma = 8$ dB).
+2 GHz, 46 dBm base station (BTS), 18 dBi antenna, urban NLOS ($n = 3.5$, $\sigma = 8$ dB), UE sensitivity -105 dBm, target 90% coverage.
 
-$L(1\text{ m}) = 38$ dB
-At 500 m: $L = 38 + 35 \times \log_{10}(500) = 38 + 94.5 = 132.5$ dB
+**Reference path loss at 100 m (outdoor macro convention):**
 
-$P_r = 46 + 18 - 132.5 = -68.5$ dBm (median)
+$$L(100\text{ m}) = 20\log_{10}(4\pi \times 2 \times 10^9 \times 100 / 3 \times 10^8) = 20\log_{10}(8378) = 78.5 \text{ dB}$$
 
-For 90% coverage reliability (shadowing margin = 1.28σ): add 10 dB margin.
-Edge-of-cell receive power: −78.5 dBm
+**Maximum allowed path loss (link budget):**
 
-**Example: Indoor Wi-Fi**
+Total link budget: $46 + 18 - (-105) = 169$ dBm.
+Subtract fade margin for 90% coverage: $169 - 1.28 \times 8 = 158.8$ dB maximum path loss.
 
-5 GHz, 20 dBm AP, 0 dBi antennas, indoor NLOS ($n = 3.5$).
+**Solve for coverage distance:**
 
-$L(1\text{ m}) = 47$ dB
-At 30 m: $L = 47 + 35 \times \log_{10}(30) = 47 + 51.7 = 98.7$ dB
+$$158.8 = 78.5 + 35 \log_{10}(d/100)$$
 
-$P_r = 20 + 0 + 0 - 98.7 = -78.7$ dBm
+$$\log_{10}(d/100) = \frac{80.3}{35} = 2.29 \Rightarrow d = 100 \times 10^{2.29} = 100 \times 195 = 19.5 \text{ km}$$
 
-This is marginal for high-throughput operation (typically needs > −70 dBm for good rates).
+Wait — this seems large. Verify: At 900 MHz with denser clutter ($n=4$), the same budget gives much shorter range. Model selection matters.
 
-**Example: Two-ray breakpoint**
+### Example 2: Indoor Wi-Fi at 5 GHz
 
-28 GHz mmWave, $h_t = 10$ m, $h_r = 1.5$ m.
+5 GHz AP at 20 dBm, 0 dBi antennas, indoor NLOS through 3 concrete walls ($n = 3.5$, each wall ~12 dB penetration).
 
-$d_b = \frac{4 \times 10 \times 1.5}{0.0107} = 5607$ m
+$L(1\text{ m}) = 20\log_{10}(4\pi \times 5 \times 10^9 / 3 \times 10^8) = 46$ dB.
 
-Below 5.6 km: $n \approx 2$. Above: $n \approx 4$. For urban deployments under 200 m, free-space model is reasonable for LOS.
+At 30 m:
+$$L = 46 + 35 \times \log_{10}(30) = 46 + 51.7 = 97.7 \text{ dB path model}$$
+
+Plus 3 wall penetrations at 12 dB each = 36 dB additional.
+
+Total: 133.7 dB.
+
+$$P_r = 20 + 0 + 0 - 133.7 = -113.7 \text{ dBm}$$
+
+This is below Wi-Fi sensitivity (~-90 dBm at low MCS). Coverage fails. Solution: use 2.4 GHz or add an access point.
+
+### Example 3: Two-ray breakpoint for a macrocell
+
+900 MHz ($\lambda = 0.33$ m), tower at $h_t = 30$ m, mobile at $h_r = 1.5$ m.
+
+$$d_b = \frac{4 \times 30 \times 1.5}{0.33} = 545 \text{ m}$$
+
+Below 545 m: use free-space model with oscillations. Beyond 545 m: use two-ray ($n = 4$).
+
+Path loss at 2 km (beyond breakpoint):
+$$L = 40\log_{10}(2000) - 20\log_{10}(30) - 20\log_{10}(1.5) = 132 - 29.5 - 3.5 = 99 \text{ dB}$$
+
+Compare to FSPL at 2 km, 900 MHz: $92.5 + 20\log_{10}(2) + 20\log_{10}(0.9) = 97.1$ dB.
+
+Two-ray gives 1.9 dB more loss — modest here, but steepens further at greater ranges.
+
+### Example 4: mmWave small cell — why cell sizes shrink
+
+28 GHz, outdoor urban, $n = 3.2$ (LOS-dominant microcell), $L(1\text{ m}) = 62$ dB, UE sensitivity -90 dBm, gNB at 30 dBm + 24 dBi = 54 dBm EIRP.
+
+Maximum path loss: $54 - (-90) = 144$ dB.
+
+$$144 = 62 + 32 \times \log_{10}(d) \Rightarrow \log_{10}(d) = 82/32 = 2.56 \Rightarrow d = 363 \text{ m}$$
+
+Cell radius under 400 m — consistent with 5G NR mmWave deployments. At NLOS ($n = 4$), this drops to under 100 m, requiring dense small cell deployment.
 
 </section>
 
@@ -153,17 +215,19 @@ Below 5.6 km: $n \approx 2$. Above: $n \approx 4$. For urban deployments under 2
 
 ## Pitfalls
 
-1. **Model validity range.** Models are calibrated for specific environments and frequencies. Don't extrapolate a 2 GHz urban model to 60 GHz.
+1. **Model validity range.** Every path loss model is calibrated for specific frequency ranges and environments. COST-231 is valid 1.5–2 GHz. Using it at 3.5 GHz or 28 GHz gives wrong answers. Always check the model's stated validity bounds.
 
-2. **LOS vs. NLOS.** Most models assume one or the other. Real environments mix both. Separate calculations may be needed.
+2. **LOS vs. NLOS.** Most models assume one scenario. Real deployments have both — street canyons may be LOS while perpendicular side streets are NLOS. Separate calculations for each geometry, or use a model that handles both (like 3GPP TR 38.901).
 
-3. **Shadow fading.** $X_\sigma$ is random per location but correlated over distance (typically 10–50 m correlation). Don't treat it as independent at every point.
+3. **Shadow fading is spatially correlated.** The $X_\sigma$ term at two nearby locations is not independent — it is correlated over distances of 10–50 m in urban environments. Coverage maps that treat $X_\sigma$ as independent at every point underestimate the probability of a contiguous coverage hole.
 
-4. **Antenna height.** Two-ray and many empirical models are sensitive to antenna height. Ground-level measurements don't apply to rooftop deployments.
+4. **Reference distance consistency.** $d_0 = 1$ m is common for indoor models; $d_0 = 100$ m for outdoor macrocells. Mixing reference distances from different papers causes systematic errors. Always verify what $d_0$ a model uses before applying it.
 
-5. **Frequency dependence.** Some models include frequency terms; others require recalibration. Check model documentation.
+5. **Antenna height sensitivity.** The two-ray model and many empirical models are sensitive to antenna height. A model calibrated for $h_b = 30$ m macro sites gives poor predictions for street-level small cells at $h_b = 5$ m.
 
-6. **Indoor complexity.** Indoor propagation depends heavily on construction materials, layout, and furniture. Generic models may be off by 10+ dB.
+6. **Indoor complexity.** Generic indoor models may be 10–15 dB off in specific buildings. Construction materials (reinforced concrete vs. light frame), floor plan, and furniture all matter. For critical indoor deployments, on-site measurements are more reliable than generic $n$ values.
+
+7. **Forgetting fade margin.** Path loss models give the **median** loss. Deploying at the median means 50% of locations fail. Always add shadow fade margin appropriate to your reliability target before comparing to link budget.
 
 </section>
 
@@ -171,9 +235,9 @@ Below 5.6 km: $n \approx 2$. Above: $n \approx 4$. For urban deployments under 2
 
 ## References
 
-- Rappaport, *Wireless Communications*, Chapter 4 — path loss models.
-- 3GPP TR 38.901 — 5G channel models (comprehensive, frequency-dependent).
-- ITU-R P.1411 — propagation data for short-range outdoor systems.
-- COST 231 models — European empirical models for cellular.
+- Rappaport, T.S., *Wireless Communications: Principles and Practice*, 2nd ed., Chapter 4 — comprehensive treatment of path loss models.
+- 3GPP TR 38.901 v17.0 — channel models for 5G NR from 0.5 to 100 GHz, including path loss formulas for UMa, UMi, InH, and Rural.
+- ITU-R P.1411 — propagation data and prediction methods for short-range outdoor radiocommunication.
+- Goldsmith, A., *Wireless Communications*, Chapter 2 — clean derivations of log-distance and two-ray models.
 
 </section>

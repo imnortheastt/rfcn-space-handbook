@@ -8,17 +8,472 @@ track: s7
 unit: leo-constellation-architecture
 order: 4
 level: L4
-estimatedReadingMinutes: 5
-title: "Chuyen giao giua cac ve tinh"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["starlink-class-design", "gateway-placement"]
+spiralRevisits: []
+title: "Chuyen giao Giua cac Ve tinh LEO"
+description: "Cach thiet bi nguoi dung va gateway chuyen buc xa khi ve tinh di qua."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["chuyen-giao", "chuyen-buc-xa", "di-dong", "leo", "mang-pha"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Chuyen giao giua cac ve tinh
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Ve tinh LEO o do cao 550 km bay qua trong khoang 5-10 phut. De duy tri dich vu lien tuc, thiet bi nguoi dung va gateway phai chuyen doi muot ma tu ve tinh nay sang ve tinh khac—thuong la moi vai phut. Qua trinh chuyen giao nay khac can ban voi handoff di dong: ca hai dau cuoi deu di chuyen (ve tinh 7.5 km/s, Trai Dat quay), va thoi gian co the du doan tu co hoc quy dao. Hieu cac chien luoc chuyen giao la can thiet de thiet ke dich vu LEO do tre thap, kha dung cao.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Tai sao chuyen giao lien tuc trong LEO
+
+```
+Chuyen dong Ve tinh LEO (quy dao 550 km):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  THOI GIAN BAY QUA VE TINH:                                         │
+│                                                                      │
+│  T (phut)    0    2    4    6    8    10   12   14   16            │
+│              │    │    │    │    │    │    │    │    │             │
+│              ▼    ▼    ▼    ▼    ▼    ▼    ▼    ▼    ▼             │
+│             ↗   ↗   ↗   ↗   ↗   ↗   ↗   ↗   ↗                     │
+│           🛰️──→🛰️──→🛰️──→🛰️──→🛰️──→🛰️──→🛰️──→🛰️──→🛰️ ra         │
+│            │    │    │    │    │    │    │    │    │               │
+│            └────┴────┴────┴────┴────┴────┴────┴────┘               │
+│                         ●  Thiet bi Nguoi dung                     │
+│                                                                      │
+│  Cua so hien thi: ~8-12 phut (goc ngoc > 25°)                      │
+│  Van toc quy dao: 7.5 km/s (27,000 km/hr)                          │
+│  Toc do vet mat dat: ~6.8 km/s                                     │
+│  Thay doi khoang cach: 0 → 950 km → 0 (den chan troi)             │
+│                                                                      │
+│  TAN SUAT CHUYEN GIAO:                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Chom sao      │ Chuyen giao/gio│ Thoi gian phuc vu TB│         │
+│  │  ──────────────┼────────────────┼────────────────────│         │
+│  │  Starlink 550km│ 6-10           │ 6-10 phut           │         │
+│  │  OneWeb 1200km │ 3-5            │ 12-20 phut          │         │
+│  │  GEO 35786km   │ 0              │ ∞ (dung yen)        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Cac loai chuyen giao
+
+```
+Ba Loai Chuyen giao trong He thong LEO:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. TRONG VE TINH (Chuyen giao Buc xa):                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │         🛰️ (cung ve tinh)                             │         │
+│  │        ╱│╲                                            │         │
+│  │       ╱ │ ╲  Nhieu buc xa diem                       │         │
+│  │      ╱  │  ╲                                          │         │
+│  │     B1  B2  B3                                        │         │
+│  │      │   │   │                                        │         │
+│  │      └───●───┘  Nguoi dung di chuyen giua cac buc xa │         │
+│  │                                                        │         │
+│  │  Anh huong do tre: Toi thieu (~1-5 ms)               │         │
+│  │  Do phuc tap: Thap (cung ve tinh, chi chuyen buc xa) │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  2. LIEN VE TINH (Chuyen giao Ve tinh):                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │       🛰️A (lan) ─────────→ 🛰️B (len)                 │         │
+│  │         ╲                    ╱                        │         │
+│  │          ╲                  ╱                         │         │
+│  │           ╲                ╱                          │         │
+│  │            ╲──── ● ─────╱   Thiet bi nguoi dung      │         │
+│  │                                                        │         │
+│  │  Anh huong do tre: Co the gian doan 10-50 ms         │         │
+│  │  Do phuc tap: Cao (xac thuc lai, dinh tuyen lai)     │         │
+│  │  Kich hoat: Goc ngoc, chat luong tin hieu, tai       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  3. CHUYEN GIAO GATEWAY:                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │       🛰️ ─────────────────→ 🛰️                       │         │
+│  │         │                       │                     │         │
+│  │         ▼                       ▼                     │         │
+│  │        GW1 ──────────────────► GW2                   │         │
+│  │        (lan)                  (bat)                   │         │
+│  │                                                        │         │
+│  │  Nguoi dung khong thay truc tiep (trong suot)        │         │
+│  │  ISL co the che hoan toan (luu luong dinh tuyen lai) │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Thuat toan quyet dinh chuyen giao
+
+```
+Logic Kich hoat Chuyen giao:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CHUYEN GIAO DU DOAN (loi the LEO):                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Khac voi di dong, chuyen giao LEO CO THE DU DOAN    │         │
+│  │                                                        │         │
+│  │  Dau vao:                                             │         │
+│  │  • TLE/ephemeris cua tat ca ve tinh                  │         │
+│  │  • Vi tri GPS thiet bi nguoi dung                    │         │
+│  │  • Thoi gian hien tai (dong bo GPS)                  │         │
+│  │                                                        │         │
+│  │  Mang co the tinh:                                    │         │
+│  │  • Thoi gian chinh xac ve tinh hien tai xuong nguong │         │
+│  │  • Ve tinh nao tot nhat tai T+1 phut                 │         │
+│  │  • Lap lich chuyen giao truoc voi gian doan toi thieu│         │
+│  │                                                        │         │
+│  │          ┌──────────────────────────────────┐        │         │
+│  │          │  t = T-30s: Thong bao sat dich   │        │         │
+│  │          │  t = T-10s: Bat dau chuyen mem   │        │         │
+│  │          │  t = T:     Hoan tat chuyen      │        │         │
+│  │          │  t = T+5s:  Giai phong sat cu    │        │         │
+│  │          └──────────────────────────────────┘        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KICH HOAT CHUYEN GIAO:                                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Kich hoat        │ Nguong       │ Uu tien   │         │         │
+│  │  ─────────────────┼──────────────┼───────────│         │         │
+│  │  Goc ngoc         │ < 25°        │ Toi quan trong│     │         │
+│  │  Chat luong TH    │ SNR < 5 dB   │ Cao       │         │         │
+│  │  Tai ve tinh      │ > 90%        │ Trung binh│         │         │
+│  │  Chat luong ISL   │ > 100ms RTT  │ Trung binh│         │         │
+│  │  Su kien da lap   │ Ephemeris    │ Binh thuong│        │         │
+│  │                                                        │         │
+│  │  Uu tien: Toi quan trong > Cao > Trung binh > BT     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Mang pha cho phep chuyen giao nhanh
+
+```
+Lai Buc xa Mang Pha:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CO KHI vs MANG PHA:                                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Dia co khi:                                          │         │
+│  │  ┌───────┐                                            │         │
+│  │  │   ◡   │ ← Phai quay vat ly                        │         │
+│  │  │  / \  │   Toc do quay: ~3°/giay                   │         │
+│  │  │ Motor │   Thoi gian chuyen giao: 30-60 giay       │         │
+│  │  └───────┘   Chi theo doi DUOC MOT ve tinh           │         │
+│  │                                                        │         │
+│  │  Mang pha:                                            │         │
+│  │  ┌────────────────────────────────────────┐          │         │
+│  │  │ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ │ ← Tam    │         │
+│  │  │ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ │   phang  │         │
+│  │  │ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ ○ │          │         │
+│  │  └────────────────────────────────────────┘          │         │
+│  │  Lai dien tu: < 1 micro giay                         │         │
+│  │  Co the tao NHIEU buc xa dong thoi                   │         │
+│  │  Chuyen giao tao-truoc-ngat co the                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CHUYEN GIAO TAO-TRUOC-NGAT:                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  T gian: ─────────────────────────────────────────→  │         │
+│  │                                                        │         │
+│  │  Sat cu:  ████████████████████▓▓▓▓░░░░░░░░░░        │         │
+│  │  Sat moi: ░░░░░░░░░░░░░░▓▓▓▓████████████████        │         │
+│  │                      ↑                               │         │
+│  │                      │ Thoi gian chong lap           │         │
+│  │                      │ (ca hai lien ket hoat dong)   │         │
+│  │                                                        │         │
+│  │  Ket qua: Khong gian doan luu luong nguoi dung       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Tiep tuc phien
+
+```
+Duy tri Phien Qua Chuyen giao:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  THACH THUC: ND co ket noi TCP, cuoc goi VoIP, luong video         │
+│              Dia chi IP va dinh tuyen phai song qua chuyen giao    │
+│                                                                      │
+│  GIAI PHAP: Di dong tang mang (khong phu thuoc ung dung)           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ┌─────────────────────────────────────────────────┐  │         │
+│  │  │            MANG LOI / PGW                       │  │         │
+│  │  │  Diem neo IP (IP nguoi dung khong doi)         │  │         │
+│  │  └─────────────────────┬───────────────────────────┘  │         │
+│  │                        │                              │         │
+│  │            Duong ham GTP (hoac QUIC/Wireguard)       │         │
+│  │                        │                              │         │
+│  │         ┌──────────────┼──────────────┐              │         │
+│  │         │              │              │              │         │
+│  │         ▼              ▼              ▼              │         │
+│  │       🛰️A           🛰️B           🛰️C             │         │
+│  │                                                        │         │
+│  │  Chuyen giao: Diem cuoi duong ham chuyen tu A sang B │         │
+│  │  Nguoi dung thay: Cung IP, cung phien, jitter ngan   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  NGAN SACH DO TRE CHUYEN GIAO:                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Thanh phan          │ Thoi gian │                    │         │
+│  │  ────────────────────┼───────────│                    │         │
+│  │  QD + bao hieu       │ 10-20 ms  │                    │         │
+│  │  Bat lien ket moi    │ 5-10 ms   │ (mang pha)        │         │
+│  │  Trao doi xac thuc   │ 5-20 ms   │                    │         │
+│  │  Cap nhat dinh tuyen │ 10-30 ms  │                    │         │
+│  │  ────────────────────┼───────────│                    │         │
+│  │  Tong (CG mem)       │ 30-80 ms  │ ← Co chong lap    │         │
+│  │  Tong (CG cung)      │ 100-500 ms│ ← Ngat-roi-tao    │         │
+│  │                                                        │         │
+│  │  Cho ung dung thoi gian thuc, CG mem la can thiet    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**May tinh thoi gian chuyen giao:**
+
+```python
+import numpy as np
+from math import radians, degrees, sin, cos, asin, sqrt, atan2
+
+R_EARTH = 6371  # km
+MU = 398600.4418  # km³/s²
+
+def orbital_velocity_km_s(altitude_km):
+    """Van toc quy dao tai do cao cho truoc."""
+    r = R_EARTH + altitude_km
+    return sqrt(MU / r)
+
+def orbital_period_min(altitude_km):
+    """Chu ky quy dao tinh bang phut."""
+    r = R_EARTH + altitude_km
+    return 2 * np.pi * sqrt(r**3 / MU) / 60
+
+def visibility_duration_min(altitude_km, min_elevation_deg):
+    """Thoi gian ve tinh hien thi tren goc ngoc toi thieu."""
+    r = R_EARTH + altitude_km
+    el_rad = radians(min_elevation_deg)
+    rho = np.arcsin(R_EARTH / r * np.cos(el_rad)) - el_rad
+    arc_fraction = 2 * rho / (2 * np.pi)
+    T = orbital_period_min(altitude_km)
+    return T * arc_fraction
+
+def handovers_per_hour(altitude_km, min_elevation_deg, sats_in_view=2.5):
+    """Uoc tinh tan suat chuyen giao."""
+    visibility = visibility_duration_min(altitude_km, min_elevation_deg)
+    return 60 / visibility * sats_in_view
+
+def elevation_vs_time(altitude_km, max_elevation_deg, time_array_min):
+    """Goc ngoc trong qua trinh bay qua ve tinh (don gian)."""
+    pass_duration = visibility_duration_min(altitude_km, 5)
+    t_peak = pass_duration / 2
+    
+    elevations = []
+    for t in time_array_min:
+        el = max_elevation_deg * (1 - ((t - t_peak) / t_peak)**2)
+        elevations.append(max(0, el))
+    return elevations
+
+def handover_decision(
+    current_el_deg,
+    next_sat_el_deg,
+    current_snr_db,
+    threshold_el_deg=25,
+    threshold_snr_db=5,
+    hysteresis_db=2
+):
+    """Quyet dinh co nen chuyen giao khong."""
+    reasons = []
+    
+    if current_el_deg < threshold_el_deg:
+        reasons.append(f"goc ngoc {current_el_deg:.1f}° < {threshold_el_deg}°")
+    
+    if current_snr_db < threshold_snr_db:
+        reasons.append(f"SNR {current_snr_db:.1f} dB < {threshold_snr_db} dB")
+    
+    if next_sat_el_deg > current_el_deg + hysteresis_db:
+        reasons.append(f"sat moi ngoc {next_sat_el_deg:.1f}° > hien tai + tre")
+    
+    should_handover = len(reasons) > 0
+    return should_handover, reasons
+
+# Phan tich
+print("Phan tich Chuyen giao LEO")
+print("=" * 70)
+
+altitudes = [340, 550, 1200]
+
+print("\n1. Tam nhin va Tan suat Chuyen giao")
+print("-" * 70)
+print(f"{'Do cao':<12} {'Van toc':<12} {'Chu ky':<12} {'Tam nhin':<12} {'CG/gio':<12}")
+print(f"{'(km)':<12} {'(km/s)':<12} {'(phut)':<12} {'(phut)':<12} {'(xap xi)':<12}")
+print("-" * 70)
+
+for alt in altitudes:
+    vel = orbital_velocity_km_s(alt)
+    period = orbital_period_min(alt)
+    vis = visibility_duration_min(alt, 25)
+    ho_rate = handovers_per_hour(alt, 25)
+    print(f"{alt:<12} {vel:<12.2f} {period:<12.1f} {vis:<12.1f} {ho_rate:<12.1f}")
+
+# Vi du thoi gian chuyen giao
+print("\n2. Mo phong Bay qua Ve tinh (550 km, ngoc toi da 85°)")
+print("-" * 70)
+
+times = np.linspace(0, 10, 21)
+elevations = elevation_vs_time(550, 85, times)
+
+print(f"{'T (phut)':<12} {'Goc ngoc':<12} {'Chuyen giao?':<12}")
+print("-" * 70)
+
+for t, el in zip(times, elevations):
+    next_el = max(0, 20 + t * 8 - (t - 5)**2)
+    should_ho, reasons = handover_decision(el, next_el, snr_db=10 + el/5)
+    ho_str = "CO - " + reasons[0][:20] if should_ho and reasons else "KHONG"
+    print(f"{t:<12.1f} {el:<12.1f}° {ho_str:<30}")
+
+# Ngan sach do tre chuyen giao
+print("\n3. Ngan sach Do tre Chuyen giao")
+print("-" * 70)
+
+components = [
+    ("Bao hieu quyet dinh", 15),
+    ("Bat buc xa (mang pha)", 5),
+    ("Trao doi xac thuc", 15),
+    ("Cap nhat bang dinh tuyen", 20),
+    ("Xoa bo dem/dong bo", 10),
+]
+
+total = 0
+print(f"{'Thanh phan':<35} {'T gian (ms)':<12}")
+print("-" * 70)
+for name, ms in components:
+    print(f"{name:<35} {ms:<12}")
+    total += ms
+print("-" * 70)
+print(f"{'Tong (chuyen giao mem)':<35} {total:<12}")
+print(f"{'+ Phat ngat lien ket (CG cung)':<35} {'+100-400':<12}")
+
+# Anh huong phien
+print("\n4. Anh huong len Cac loai Luu luong Khac nhau")
+print("-" * 70)
+
+traffic_types = [
+    ("TCP truyen so luong", "OK", "Giam thong luong ngan, khong mat"),
+    ("Phat video (bo dem)", "OK", "Bo dem ~500ms hap thu jitter"),
+    ("Video TT (WebRTC)", "Nhe", "Tang dot ~100ms, decoder xu ly"),
+    ("Cuoc goi VoIP", "Nhe", "Loi am thanh ngan"),
+    ("Game (< 50ms)", "Nhan thay", "Bo frame hoac tre dau vao"),
+    ("Giao dich tai chinh", "Toi han", "Co the kich hoat failover"),
+]
+
+print(f"{'Loai luu luong':<28} {'Anh huong':<12} {'Ghi chu':<30}")
+print("-" * 70)
+for traffic, impact, notes in traffic_types:
+    print(f"{traffic:<28} {impact:<12} {notes:<30}")
+```
+
+**Tom tat chuyen giao:**
+
+| Chi so | Starlink (550 km) | OneWeb (1200 km) | GEO |
+|--------|-------------------|------------------|-----|
+| Thoi gian bay | 6-10 phut | 12-20 phut | ∞ |
+| Chuyen giao/gio | 6-10 | 3-5 | 0 |
+| Do tre chuyen giao | 30-80 ms | 30-80 ms | K/A |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Anten co khi.** Khong the tao-truoc-ngat; chuyen giao mat 30-60 giay.
+
+2. **Hieu ung ping-pong.** Tre khong dieu chinh tot gay chuyen nhanh giua hai ve tinh.
+
+3. **Tre dinh tuyen ISL.** Chuyen giao tai thiet bi khong giup neu duong ISL mat thoi gian hoi tu.
+
+4. **Chi phi xac thuc.** Xac thuc lai day du moi chuyen giao lang phi thoi gian; dung ve phien.
+
+5. **Mat can bang tai.** Tat ca nguoi dung trong o chuyen giao dong thoi → dam dong len ve tinh moi.
+
+6. **Nhay cam TCP.** Tang dot RTT lon kich hoat lui kiem soat tac nghen; dung QUIC neu co the.
+
+7. **Truong hop bien hang hai.** Tau o vi do cuc thay it ve tinh hon; co the co khoang chuyen giao.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TR 38.821: Solutions for NR to Support NTN
+- Starlink Phased Array Patent US10862198B2
+- ITU-R M.2514: Technical Characteristics for NGSO Systems
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Dong luc Dung luong](/vi/space/leo-constellation-architecture/capacity-dynamics/) — can bang tai
+- [Ngan sach Lien ket](/vi/space/link-budget-master-class/) — tinh toan chat luong tin hieu
+- [5G NTN](/vi/5g-ntn/) — mang khong mat dat 3GPP
+
+</section>

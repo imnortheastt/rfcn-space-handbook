@@ -8,12 +8,12 @@ track: r2
 unit: channel-models-cellular-satellite
 order: 3
 level: L3
-estimatedReadingMinutes: 9
+estimatedReadingMinutes: 15
 prerequisites: ["rf-r2-channel-models-cellular-satellite-02-itu-r-p-models"]
 spiralRevisits: []
 title: "Satellite channel models"
 description: "Statistical models for land-mobile satellite communications."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,13 @@ status: published
 
 ## Why satellite channel models?
 
-Satellite links differ from terrestrial. The direct path is (usually) clear, but the mobile terminal sees shadowing from buildings, trees, and terrain. Traditional Rayleigh/Rician models don't capture the slow shadowing plus fast fading combination unique to satellite mobile.
+A Rayleigh fading model predicts your link performance in an urban canyon. You apply the same model to a satellite handset in a car driving through a suburban neighborhood. The simulation looks fine — but your BER measurements are 10 dB worse than predicted. Why?
 
-Specialized satellite channel models like Loo and Lutz capture this dual-timescale behavior — essential for designing satellite handsets, maritime terminals, and IoT devices.
+Because the satellite channel is fundamentally different from the terrestrial channel, and using terrestrial fading models for satellite links produces systematically wrong predictions.
+
+In a terrestrial cellular link, you're looking horizontally through a city. There's rarely a direct line-of-sight path — multipath dominates. The signal envelope is Rayleigh-distributed. In a satellite link, you're looking upward at a steep angle. You almost always have a direct LOS path to the satellite, but that path is interrupted periodically by trees, buildings, and terrain as the terminal moves. The resulting channel has two simultaneous timescales: slow shadowing (your LOS path gets blocked for seconds) and fast fading (multipath from nearby scatterers varies over centimeters of movement).
+
+Classic terrestrial models can't represent this. Satellite-specific models — Loo, Lutz, Corazza-Vatalaro — were developed precisely to capture this dual-timescale behavior.
 
 </section>
 
@@ -37,94 +41,167 @@ Specialized satellite channel models like Loo and Lutz capture this dual-timesca
 
 ## Intuition
 
-Picture a satellite phone in a car. Sometimes you're in a clear area — strong LOS to the satellite, some weak multipath. Sometimes you're under trees or near buildings — the LOS is shadowed, multipath dominates. The channel switches between these states as you move.
+### The dual-timescale problem
 
-Satellite channel models capture this state-switching behavior. They're not just about average loss — they model the dynamics of good/bad channel conditions.
+```
+Signal received by a satellite handset in a moving car (S-band, 1.5 GHz):
+
+Power (dBm)                           Good state        Bad state
+    -80 |                        ___________
+    -90 |                   ____/           \____
+   -100 |              ____/                    \___
+   -110 |    ____/____/   ↑ fast fading             \___________
+   -120 |___/             within good/bad state
+   -130 |
+        +---|---------|---------|---------|---------|---------|---> Time (s)
+        0   2         4         6   ↑     8         10        12
+                                    shadowing transition
+                                    (building/tree blockage)
+
+Timescale separation:
+  Slow: good/bad state transitions — seconds (shadow)
+  Fast: amplitude ripple within a state — milliseconds (multipath)
+```
+
+Within the "good state" (clear LOS), the envelope follows a Rician distribution — strong LOS plus weak multipath. Within the "bad state" (shadowed LOS), the LOS component is attenuated by a random building or tree, and the envelope approaches Rayleigh. The switching between states is Markovian — state durations follow an exponential distribution.
+
+### Why terrestrial models fail
+
+A Rayleigh model says the LOS component is zero at all times — every location is NLOS. This is pessimistic for satellite links (the satellite is overhead, not blocked by buildings on the same level). A pure Rician model says the LOS amplitude is deterministically fixed — no long-duration shadowing. This is optimistic in any environment with trees or buildings. Neither is correct.
+
+The Loo model is the key insight: let the LOS amplitude itself be a random variable. Specifically, let $A(t)$ — the LOS amplitude — be drawn from a log-normal distribution (in dB, it's Gaussian). Then add Rayleigh-distributed multipath on top. This two-level hierarchy produces the satellite channel's dual-timescale behavior analytically.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How it works
 
-### Channel components
+### Channel component decomposition
 
-Satellite mobile channel has three components:
+Every satellite mobile channel has three additive components:
 
-1. **Direct (LOS):** Stable path to satellite, possibly shadowed
-2. **Diffuse multipath:** Scattering from surroundings
-3. **Specular multipath:** Strong reflections (ground, buildings)
+| Component | Nature | Timescale | Distribution |
+|-----------|--------|-----------|--------------|
+| Direct (LOS) | Stable path from satellite | Slow variation (shadowing) | Log-normal amplitude |
+| Diffuse multipath | Scattering from surroundings | Fast ($\sim\lambda$) | Rayleigh |
+| Specular multipath | Specific strong reflectors (ground, buildings) | Medium | Discrete rays |
 
-### Rician factor
-
-In clear conditions, ratio of LOS to diffuse power:
-
+The ratio of LOS to diffuse power is the K-factor:
 $$K = \frac{P_{LOS}}{P_{diffuse}}$$
 
-Typical values:
-- Clear sky: $K = 10$–$20$ dB
-- Light shadowing: $K = 0$–$5$ dB
-- Heavy shadowing: $K < 0$ dB (NLOS dominates)
+Typical values by environment and elevation:
 
-### Loo model
+| Environment | Elevation 10° | Elevation 40° | Elevation 70° |
+|-------------|--------------|--------------|--------------|
+| Open rural | 8 dB | 14 dB | 18 dB |
+| Suburban | 3 dB | 8 dB | 12 dB |
+| Urban | −2 dB | 3 dB | 7 dB |
+| Dense urban | −8 dB | −2 dB | 2 dB |
+| Indoor | −15 dB | −10 dB | −5 dB |
 
-The classic land-mobile satellite model:
+K-factor increases with elevation because higher elevation means less building blockage and a more stable LOS path.
+
+### Loo model (single-state)
+
+The canonical land-mobile satellite channel model (Loo, 1985):
 
 $$r(t) = A(t) e^{j\phi_0} + z(t)$$
 
-- $A(t)$ = lognormally shadowed LOS amplitude
-- $z(t)$ = Rayleigh-distributed multipath
+where:
+- $r(t)$ = complex received envelope
+- $A(t)$ = LOS amplitude, log-normally distributed: $20\log_{10}(A) \sim \mathcal{N}(\mu_A, \sigma_A^2)$
+- $\phi_0$ = fixed LOS phase
+- $z(t)$ = complex Gaussian multipath with power $2\sigma_z^2$ (Rayleigh envelope)
 
-LOS amplitude (dB) is Gaussian: $20\log_{10}(A) \sim \mathcal{N}(\mu, \sigma^2)$
+Three model parameters:
+- $\mu_A$ (dB): mean LOS amplitude — positive means strong LOS, negative means shadowing
+- $\sigma_A$ (dB): LOS amplitude standard deviation — spread of the shadowing
+- $M_p = 2\sigma_z^2$ (dBW or dBm): diffuse multipath power
 
-Three parameters: $\mu$ (mean LOS level), $\sigma$ (shadow spread), $M_p$ (multipath power).
+The PDF of the received signal amplitude $r$ from the Loo model is:
 
-### Lutz model
+$$p(r) = \frac{r}{\sigma_z^2} \int_0^\infty \frac{1}{\sqrt{2\pi}\sigma_A A} \exp\left(-\frac{(\ln A - \mu_A)^2}{2\sigma_A^2}\right) \exp\left(-\frac{r^2 + A^2}{2\sigma_z^2}\right) I_0\left(\frac{rA}{\sigma_z^2}\right) dA$$
 
-Two-state Markov model:
+The inner integral is over all possible LOS amplitudes, weighted by the log-normal distribution. Numerically, this is computed by Monte Carlo or closed-form approximations.
 
-- **Good state:** Rician fading (strong LOS)
-- **Bad state:** Rayleigh fading (shadowed)
+**Loo model parameter table (L-band, representative environments):**
 
-Transition probabilities define state duration:
-- $P_{gg}$ = probability of staying good
-- $P_{bb}$ = probability of staying bad
+| Environment | $\mu_A$ (dB) | $\sigma_A$ (dB) | $M_p$ (dB relative) |
+|-------------|-------------|-----------------|---------------------|
+| Open (light trees) | −0.5 | 0.9 | −15 |
+| Suburban | −2.0 | 2.5 | −12 |
+| Urban | −5.5 | 4.5 | −8 |
+| Heavy shadowing | −12 | 6.0 | −5 |
 
-State durations follow geometric distribution.
+### Lutz two-state Markov model
+
+The Lutz model (1991) divides the channel into two discrete states:
+
+- **Good state (G)**: Rician fading with K-factor $K_G$ — LOS present
+- **Bad state (B)**: Rayleigh fading — LOS blocked, multipath only
+
+State transitions follow a first-order Markov chain:
+
+$$\mathbf{P} = \begin{pmatrix} P_{GG} & 1-P_{GG} \\ 1-P_{BB} & P_{BB} \end{pmatrix}$$
+
+where $P_{GG}$ is the probability of staying in the good state and $P_{BB}$ of staying in the bad state.
+
+State duration statistics:
+- Duration in good state: mean $\bar{T}_G = 1/(1-P_{GG})$ (in symbol or time units)
+- Duration in bad state: mean $\bar{T}_B = 1/(1-P_{BB})$
+
+Fraction of time in bad state: $A = \bar{T}_B/(\bar{T}_G + \bar{T}_B)$
+
+**Lutz model parameters (S-band, vehicular, various environments):**
+
+| Environment | $A$ (bad fraction) | $K_G$ (dB) | $\bar{T}_G$ (s at 50 km/h) | $\bar{T}_B$ (s) |
+|-------------|-------------------|------------|---------------------------|-----------------|
+| Open | 0.05 | 15 | 12 | 0.6 |
+| Suburban | 0.20 | 8 | 5 | 1.2 |
+| Urban | 0.45 | 3 | 2 | 1.6 |
+| Dense urban | 0.75 | 0 | 0.5 | 1.5 |
 
 ### Corazza-Vatalaro model
 
-Combines Loo-type shadowing with state transitions:
+Unifies the Loo continuous-shadowing model with Lutz-style state switching:
 
-Received amplitude:
-$$r = S \cdot A \cdot e^{j\phi} + S \cdot z$$
+$$r(t) = S(t) \cdot [A \cdot e^{j\phi_0} + z(t)]$$
 
-- $S$ = slow shadowing (lognormal)
-- $A$ = LOS component
-- $z$ = multipath
+where $S(t)$ is a slow log-normal shadowing process that modulates both the LOS and multipath components together. This represents the case where the entire path (not just the LOS component) is modulated by a large obstacle.
 
-Unifies Loo (single state) and Lutz (state switching).
+The Corazza-Vatalaro model reduces to:
+- **Loo model** when $S(t)$ modulates only the LOS (special case)
+- **Lutz model** when $S(t)$ is binary (two-state approximation)
 
-### Doppler spectrum
+It is more general and provides better fits to measurements in environments with large building blockages that shadow the entire signal, not just the LOS component.
 
-Satellite geometry gives different Doppler than terrestrial:
+### Doppler spectrum in satellite channels
 
-$$f_d = \frac{v}{\lambda} \cos\alpha \cos\beta$$
+The Doppler spectrum for satellite links differs from the Clarke/Jakes spectrum used for terrestrial channels. The satellite geometry constrains the angular distribution of arriving waves:
 
-- $v$ = mobile velocity
-- $\alpha$ = satellite elevation
-- $\beta$ = mobile direction relative to satellite azimuth
+$$f_D = \frac{v}{\lambda}[\cos(\alpha)\cos(\beta_m - \beta_s)]$$
 
-Low elevation satellites → higher Doppler spread.
+where:
+- $v$ = terminal velocity
+- $\alpha$ = satellite elevation angle
+- $\beta_m$ = direction of mobile motion (azimuth)
+- $\beta_s$ = satellite azimuth
 
-### Environment classification
+At high elevation angles ($\alpha \to 90°$), $\cos(\alpha) \to 0$ — the LOS component from a nearly-overhead satellite has near-zero Doppler regardless of UE velocity. The multipath, arriving from scattered objects at low elevation angles, has the full $v/\lambda$ Doppler spread. This creates a composite spectrum with a strong spectral spike at near-zero Doppler (LOS) plus a broader diffuse spread (multipath).
 
-| Environment | $K$ (dB) | $\sigma$ (dB) | Good state % |
-|-------------|----------|---------------|--------------|
-| Open rural | 15–20 | 1–2 | 95% |
-| Suburban | 5–10 | 3–5 | 70% |
-| Urban | 0–5 | 5–8 | 40% |
-| Indoor | −5 to 0 | 8–12 | 10% |
+For LEO satellites, the satellite motion itself adds a dominant Doppler component that dwarfs terminal motion — this is covered in the NTN-specific models lesson.
+
+### Environment classification for model selection
+
+| Environment | Recommended model | Key parameters to calibrate |
+|-------------|------------------|---------------------------|
+| Maritime (open sea) | Rician + specular ground reflection | K-factor, reflection coefficient |
+| Open rural | Loo (light shadowing) | $\mu_A$, $\sigma_A$ from measurement |
+| Suburban vehicular | Lutz two-state or Loo | State fractions, K-factor |
+| Urban vehicular | Lutz two-state | State fractions, bad-state duration |
+| Pedestrian urban | Corazza-Vatalaro | Shadow depth, correlation distance |
+| Indoor | Penetration loss + Rician | Penetration loss statistics |
 
 </section>
 
@@ -132,45 +209,63 @@ Low elevation satellites → higher Doppler spread.
 
 ## Apply
 
-**Example: Maritime satellite**
+### Example 1: Maritime satellite — performance estimation
 
-Ship at sea, 40° elevation, L-band (1.5 GHz).
+Ship at sea, L-band (1.55 GHz), elevation 40°, ship roll ±10°.
 
-Environment: open (no shadowing), sea surface reflections.
+Environment: open, no shadowing. Sea surface specular reflection creates a two-ray geometry.
 
-Model: Rician with $K \approx 15$ dB, specular reflection causing frequency-selective fading.
+Model: Rician K-factor model.
 
-BER degradation vs. AWGN: ~0.5 dB at $10^{-3}$.
+At 40° elevation over calm sea, specular reflection coefficient for horizontal polarization ≈ −0.85. The reflected path adds destructive interference at some geometries.
 
-**Example: Vehicular Ku-band**
+For statistical performance: $K = 15$ dB. Rician BER at $E_b/N_0 = 10$ dB is approximately $10^{-6}$ for BPSK — essentially AWGN performance. The maritime satellite channel is benign in open conditions; ship antenna stabilization is sufficient.
 
-Car with roof-mounted antenna, urban environment.
+Ship pitch/roll causes elevation angle variation of ±10°, changing K from 14–16 dB. Performance impact is less than 0.5 dB — acceptable without adaptive coding.
 
-Loo parameters: $\mu = -3$ dB, $\sigma = 4$ dB, $M_p = -10$ dB.
+### Example 2: Suburban vehicular Lutz model
 
-Deep fades (>10 dB below mean): ~5% of time.
+Car at 60 km/h, S-band (2 GHz), suburban, satellite at 35° elevation.
 
-Required: 3–5 dB extra margin vs. clear-sky link budget.
+Lutz parameters (suburban): $A = 0.20$ (bad fraction), $K_G = 8$ dB, $\bar{T}_G = 4$ s, $\bar{T}_B = 1$ s.
 
-**Example: State duration calculation**
+**State durations**: At 60 km/h, 1 second = 16.7 m of travel. Bad states last ~1 s (= ~17 m, about half a building width). Good states last ~4 s (= ~67 m, about one to two building separations in suburban).
 
-Lutz model, suburban, 50 km/h.
+**System design implication**: ARQ (Automatic Repeat reQuest) retransmission timeout must exceed the bad state duration. If the timeout is 0.2 s but bad states last 1 s, retransmissions are lost in the same fade — a burst error, not an independent retry. Set ARQ timeout to 2–3× the mean bad state duration (~2–3 s).
 
-Average "bad" state duration: 2 seconds (correlates with building blockage).
+**BER in bad state**: Rayleigh at S-band, received $E_b/N_0 = 5$ dB: BER ≈ $8 \times 10^{-2}$. In good state (Rician, K = 8 dB): BER ≈ $10^{-4}$. Average BER = $0.20 \times 0.08 + 0.80 \times 10^{-4} = 0.016 + 0.0001 \approx 1.6\%$ — the bad state dominates despite being 20% of time.
 
-Average "good" state duration: 8 seconds.
+### Example 3: Loo model — fade depth estimation
 
-Time fraction in bad state: 2/(2+8) = 20%.
+LEO satellite at L-band (1.5 GHz), urban environment.
 
-For ARQ system: retransmission timeout should exceed typical bad-state duration.
+Loo parameters (urban): $\mu_A = -5.5$ dB, $\sigma_A = 4.5$ dB, $M_p = -8$ dB.
 
-**Example: LEO vs. GEO**
+Probability of received signal being below threshold $T = \mu_A - 15$ dB = −20.5 dB (relative to free-space):
 
-GEO at 35° elevation vs. LEO at 70° average elevation.
+Using Gaussian approximation for the log-normal LOS: $P(A < T_{linear}) \approx Q((20\log_{10}(T_{linear}) - \mu_A)/\sigma_A) = Q((-15)/4.5) = Q(-3.33) = 99.96\%$.
 
-Higher LEO elevation → less shadowing, shorter fade durations.
+That means only 0.04% of the time is the LOS amplitude within 15 dB of the mean — 99.96% of time the LOS is stronger than −20.5 dB. The deep fades come from moments when both the LOS is heavily shadowed AND the multipath is in a destructive phase. The joint probability is roughly 5–10% of time for >10 dB below mean in urban environments.
 
-But LEO Doppler is much higher: must track satellite motion.
+### Example 4: Elevation angle effect
+
+LEO terminal at two elevation angles during a pass: 20° (low pass) vs. 70° (high pass).
+
+From the Lutz parameter table (urban):
+- At 20° elevation: bad fraction ≈ 0.55, $\bar{T}_B = 2$ s
+- At 70° elevation: bad fraction ≈ 0.15, $\bar{T}_B = 0.8$ s
+
+The high-elevation pass has 3.7× less shadowing fraction AND shorter fade durations. This explains why:
+1. LEO constellation designs target minimum elevation angles of 30°–40° for reliable service
+2. Higher-orbit LEO (1200 km) provides longer durations at high elevation than lower-orbit LEO (550 km), even though both have high peak elevations
+
+### Example 5: Indoor penetration loss as additional state
+
+Pedestrian moving from outdoor to indoor in suburban (office building, glass facade).
+
+Outdoor Lutz model: $A = 0.20$, $K_G = 8$ dB. When indoor, add 8 dB penetration loss (glass) — effectively shifts both states 8 dB lower.
+
+New effective parameters indoors: $K_G^{indoor} = 8 - 8 = 0$ dB (Rayleigh-like), bad fraction increases to ~0.45 (many internal walls now also block the satellite path). The indoor link budget needs 15–25 dB additional margin beyond the outdoor model.
 
 </section>
 
@@ -178,17 +273,17 @@ But LEO Doppler is much higher: must track satellite motion.
 
 ## Pitfalls
 
-1. **Using terrestrial models.** Rayleigh/Rician alone don't capture shadowing dynamics. Use satellite-specific models.
+1. **Applying terrestrial Rayleigh/Rician models directly to satellite links.** Pure Rayleigh assumes no LOS — wrong for most satellite scenarios. Pure Rician assumes constant LOS amplitude — wrong when shadowing changes the LOS level over seconds. Use Loo or Lutz for land-mobile satellite.
 
-2. **Ignoring elevation.** Shadowing probability is strongly elevation-dependent. 20° elevation has 3× more blockage than 50°.
+2. **Ignoring elevation-angle dependence.** Shadowing probability decreases strongly with elevation angle. A model calibrated at 20° elevation will overestimate fading at 50° by 3–5 dB. Always use elevation-parameterized models or apply elevation correction.
 
-3. **Static vs. dynamic.** Models give instantaneous statistics. Time-series generation needs proper Doppler filtering.
+3. **Using static channel statistics for ARQ design.** The bad state in the Lutz model persists for 1–4 seconds. Retransmission protocols designed for independent symbol errors (terrestrial micro-cells) fail in satellite channels with burst-error durations of seconds. Design ARQ for the burst statistics.
 
-4. **Frequency scaling.** Models are usually L/S-band. Ka-band has different scattering behavior.
+4. **Frequency scaling without re-parameterization.** Loo and Lutz parameters are measured at L/S-band. At Ka-band, rain and atmospheric effects dominate over multipath; the statistical distribution changes completely. Do not frequency-scale these models to Ka-band without new measurement campaigns.
 
-5. **Antenna pattern.** Narrower terminal antennas reduce multipath but don't eliminate shadowing.
+5. **Assuming the antenna pattern eliminates multipath.** A narrow-beam terminal antenna (e.g., 20° beamwidth on a boat dish) does reduce multipath from ground reflections. But it does not eliminate LOS shadowing when a wave breaks over the bow or a ship structure blocks the satellite. Shadowing and multipath are independent phenomena requiring separate treatment.
 
-6. **Indoor penetration.** Most satellite models assume outdoor or vehicle. Indoor needs additional penetration loss (10–25 dB).
+6. **Generating time-series with wrong Doppler filtering.** Statistical Monte Carlo drops give correct average statistics but cannot simulate burst-error patterns. Time-series simulation requires proper Doppler filtering of the LOS and multipath components separately to reproduce the correct autocorrelation function — especially important for FEC decoder testing.
 
 </section>
 
@@ -196,8 +291,9 @@ But LEO Doppler is much higher: must track satellite motion.
 
 ## References
 
-- Loo, "A statistical model for a land mobile satellite link."
-- Lutz, Cygan, Dippold, "The land mobile satellite communication channel."
-- Corazza & Vatalaro, "A statistical model for land mobile satellite channels."
+- Loo, C., "A statistical model for a land mobile satellite link," *IEEE Trans. Vehicular Technology*, 1985.
+- Lutz, E., Cygan, D., Dippold, M. et al., "The land mobile satellite communication channel — recording, statistics, and channel model," *IEEE Trans. Vehicular Technology*, 1991.
+- Corazza, G.E. and Vatalaro, F., "A statistical model for land mobile satellite channels and its application to nongeostationary orbit systems," *IEEE Trans. Vehicular Technology*, 1994.
+- ESA COST 255 Final Report — land mobile satellite channel models and measurements.
 
 </section>

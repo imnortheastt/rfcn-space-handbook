@@ -8,17 +8,420 @@ track: s7
 unit: practical-link-budget-walkthroughs
 order: 3
 level: L4
-estimatedReadingMinutes: 5
-title: "X-band TT&C to a deep-space probe"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 8
+prerequisites: ["satcom-link-overview", "uplink-downlink-concepts"]
+spiralRevisits: []
+title: "X-band TT&C to a Deep-Space Probe"
+description: "Link budget for communicating with a spacecraft at Mars distance using DSN-class ground stations."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["link-budget", "x-band", "deep-space", "dsn", "mars"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# X-band TT&C to a deep-space probe
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Deep space communication pushes RF engineering to its limits. At Mars distance (225 million km), a 20W transmitter on the spacecraft produces a signal that arrives at Earth weaker than the thermal noise floor—yet we still decode it. This walkthrough shows how 70-meter dishes, cryogenic amplifiers, and extreme coding make it possible.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The challenge
+
+```
+Deep Space Communication Scale:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DISTANCE COMPARISON:                                               │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  LEO satellite:        600 km                               │   │
+│  │  GEO satellite:        36,000 km        (60× LEO)          │   │
+│  │  Moon:                 384,000 km       (640× LEO)         │   │
+│  │  Mars (closest):       55,000,000 km    (90,000× LEO)      │   │
+│  │  Mars (average):       225,000,000 km   (375,000× LEO)     │   │
+│  │  Mars (farthest):      400,000,000 km   (667,000× LEO)     │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  PATH LOSS CONSEQUENCE:                                             │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Path loss ∝ distance²                                      │   │
+│  │                                                              │   │
+│  │  LEO (600 km):        170 dB at X-band                     │   │
+│  │  GEO (36,000 km):     200 dB at X-band                     │   │
+│  │  Mars (225M km):      280 dB at X-band                     │   │
+│  │                                                              │   │
+│  │  Mars is 80 dB (100 million times) harder than GEO!        │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### System architecture
+
+```
+Deep Space Network (DSN) Link Architecture:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SPACECRAFT AT MARS:                                                │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  High-Gain Antenna: 2.5m dish, ~40 dBi at X-band           │   │
+│  │  Transmitter: 20-100W TWTA                                  │   │
+│  │  EIRP: 53-60 dBW                                           │   │
+│  │                                                              │   │
+│  │  Also carries:                                              │   │
+│  │  • Low-gain antenna (omni) for emergency/tumble recovery   │   │
+│  │  • Medium-gain antenna for cruise phase                    │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│                     🛸 Spacecraft                                    │
+│                      │                                              │
+│                      │  225 million km (1.5 AU)                    │
+│                      │  Light time: 12.5 minutes one-way           │
+│                      │                                              │
+│                      ▼                                              │
+│                                                                      │
+│  DSN 70-METER STATION (Goldstone, Canberra, Madrid):               │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  Antenna: 70m diameter (!)                                  │   │
+│  │  Receive gain: ~74 dBi at X-band                           │   │
+│  │  System temp: 20-35 K (cryogenic maser LNA)                │   │
+│  │  G/T: ~60 dB/K                                             │   │
+│  │                                                              │   │
+│  │  Transmit: 400 kW klystron for uplink                      │   │
+│  │  EIRP: 130+ dBW                                            │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Downlink budget (Spacecraft → Earth)
+
+```
+Mars-Earth Downlink Budget:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Parameter                           Value      Unit    Notes       │
+│  ═══════════════════════════════════════════════════════════════   │
+│                                                                      │
+│  TRANSMIT SIDE (Spacecraft):                                        │
+│  ────────────────────────────────────────────────────────────────  │
+│  Tx power (35W TWTA)                 +15.4      dBW                │
+│  Circuit/waveguide loss              -0.5       dB                 │
+│  High-gain antenna (2.5m)            +40.0      dBi                │
+│  Pointing loss                       -0.5       dB                 │
+│  ────────────────────────────────────────────────────────────────  │
+│  EIRP                                +54.4      dBW                │
+│                                                                      │
+│  PATH:                                                              │
+│  ────────────────────────────────────────────────────────────────  │
+│  Frequency                           8.4        GHz    X-band DL   │
+│  Distance                            225M       km     1.5 AU      │
+│  Free space loss                    -279.5      dB     Enormous!   │
+│  Atmospheric loss                    -0.1       dB     Minimal     │
+│  ────────────────────────────────────────────────────────────────  │
+│  Total path loss                    -279.6      dB                 │
+│                                                                      │
+│  RECEIVE SIDE (DSN 70m):                                            │
+│  ────────────────────────────────────────────────────────────────  │
+│  Rx antenna gain                     +74.0      dBi                │
+│  Antenna efficiency loss             -0.5       dB                 │
+│  Pointing loss                       -0.1       dB                 │
+│  System noise temp                   25         K      Cryogenic   │
+│  10×log₁₀(T_sys)                     14.0       dB                 │
+│  G/T                                 +59.4      dB/K   World-class │
+│  ────────────────────────────────────────────────────────────────  │
+│                                                                      │
+│  LINK CALCULATION:                                                  │
+│  ────────────────────────────────────────────────────────────────  │
+│  Boltzmann constant                 +228.6      dBW/K/Hz          │
+│  C/N₀ = EIRP - L + G/T - k                                        │
+│       = 54.4 - 279.6 + 59.4 + 228.6                              │
+│       = 62.8 dBHz                                                  │
+│                                                                      │
+│  DATA RATE at 62.8 dBHz:                                           │
+│  ────────────────────────────────────────────────────────────────  │
+│  With turbo coding (Eb/N₀ = 1 dB):                                │
+│  Max rate = 10^((62.8 - 1)/10) ≈ 41,000 bps ≈ 40 kbps            │
+│                                                                      │
+│  Real missions: 8-40 kbps typical at Mars opposition              │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Uplink budget (Earth → Spacecraft)
+
+```
+Earth-Mars Uplink Budget:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TRANSMIT SIDE (DSN):                                               │
+│  ────────────────────────────────────────────────────────────────  │
+│  Tx power (400 kW klystron)          +56.0      dBW                │
+│  Antenna gain (70m at 7.2 GHz)       +72.0      dBi                │
+│  Losses                              -1.0       dB                 │
+│  ────────────────────────────────────────────────────────────────  │
+│  EIRP                               +127.0      dBW    Massive!    │
+│                                                                      │
+│  PATH:                                                              │
+│  ────────────────────────────────────────────────────────────────  │
+│  Frequency                           7.2        GHz    X-band UL   │
+│  Distance                            225M       km                 │
+│  Free space loss                    -278.2      dB                 │
+│  ────────────────────────────────────────────────────────────────  │
+│                                                                      │
+│  RECEIVE SIDE (Spacecraft):                                         │
+│  ────────────────────────────────────────────────────────────────  │
+│  Rx antenna gain (2.5m at 7.2 GHz)   +38.0      dBi                │
+│  System noise temp                   200        K      Not cryo    │
+│  G/T                                 +15.0      dB/K               │
+│  ────────────────────────────────────────────────────────────────  │
+│                                                                      │
+│  C/N₀ = 127 - 278.2 + 15 + 228.6 = 92.4 dBHz                      │
+│                                                                      │
+│  Much better than downlink because:                                 │
+│  • DSN can transmit 400 kW vs spacecraft 35W (10,000× more)       │
+│  • Uplink used for commands (low rate OK)                          │
+│  • Critical commands use even lower rate for margin               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Why 70 meters matters
+
+```
+Antenna Size Impact:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ANTENNA GAIN SCALING:                                              │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  G = η × (πD/λ)²                                            │   │
+│  │                                                              │   │
+│  │  At 8.4 GHz (λ = 3.57 cm):                                  │   │
+│  │                                                              │   │
+│  │  Antenna   │ Diameter │ Gain   │ Collecting Area           │   │
+│  │  ──────────┼──────────┼────────┼─────────────────────────  │   │
+│  │  DSN-70    │   70 m   │ 74 dBi │ 3,848 m² (football field)│   │
+│  │  DSN-34    │   34 m   │ 68 dBi │   908 m²                 │   │
+│  │  Typical   │   10 m   │ 57 dBi │    79 m²                 │   │
+│  │  VSAT      │  1.2 m   │ 39 dBi │   1.1 m²                 │   │
+│  │                                                              │   │
+│  │  70m vs 34m: 6 dB difference = 4× data rate                │   │
+│  │  70m vs 10m: 17 dB difference = 50× data rate              │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ONLY 3 DSN-70 STATIONS EXIST:                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  • Goldstone, California (DSS-14)                          │   │
+│  │  • Madrid, Spain (DSS-63)                                  │   │
+│  │  • Canberra, Australia (DSS-43)                            │   │
+│  │                                                              │   │
+│  │  120° apart → continuous coverage for any spacecraft       │   │
+│  │  Heavily scheduled—weeks of planning for allocations       │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Complete deep space link budget:**
+
+```python
+import numpy as np
+
+def deep_space_link_budget():
+    """
+    X-band deep space link budget (Mars distance).
+    """
+    # Distance
+    distance_au = 1.5  # Average Earth-Mars
+    distance_km = distance_au * 149597870.7  # km per AU
+    light_time_s = distance_km / 299792.458
+    light_time_min = light_time_s / 60
+    
+    # Downlink frequency
+    freq_ghz_dl = 8.4  # X-band downlink
+    
+    # Free space path loss
+    fspl_dl = 92.45 + 20 * np.log10(freq_ghz_dl * distance_km)
+    
+    # Spacecraft (transmit)
+    p_tx_w = 35
+    p_tx_dbw = 10 * np.log10(p_tx_w)
+    g_tx_dbi = 40.0  # 2.5m HGA
+    circuit_loss = 0.5
+    pointing_loss_sc = 0.5
+    eirp_dbw = p_tx_dbw + g_tx_dbi - circuit_loss - pointing_loss_sc
+    
+    # Path losses
+    atm_loss = 0.1
+    total_loss = fspl_dl + atm_loss
+    
+    # DSN 70m (receive)
+    g_rx_dbi = 74.0
+    efficiency_loss = 0.5
+    pointing_loss_dsn = 0.1
+    t_sys_k = 25.0  # Cryogenic maser
+    g_t_dbk = g_rx_dbi - efficiency_loss - pointing_loss_dsn - 10 * np.log10(t_sys_k)
+    
+    # Link budget
+    k_dbw = -228.6
+    c_n0_dbhz = eirp_dbw - total_loss + g_t_dbk - k_dbw
+    
+    print("Deep Space X-band Downlink Budget")
+    print("=" * 65)
+    print(f"\n--- GEOMETRY ---")
+    print(f"Distance:        {distance_au} AU = {distance_km/1e6:.1f} million km")
+    print(f"Light time:      {light_time_min:.1f} minutes one-way")
+    
+    print(f"\n--- TRANSMIT (Spacecraft) ---")
+    print(f"Tx power:        {p_tx_w} W = {p_tx_dbw:.1f} dBW")
+    print(f"Antenna gain:    {g_tx_dbi:.1f} dBi (2.5m HGA)")
+    print(f"Losses:          {circuit_loss + pointing_loss_sc:.1f} dB")
+    print(f"EIRP:            {eirp_dbw:.1f} dBW")
+    
+    print(f"\n--- PATH ---")
+    print(f"Frequency:       {freq_ghz_dl} GHz")
+    print(f"Free space loss: {fspl_dl:.1f} dB")
+    print(f"Atmospheric:     {atm_loss} dB")
+    print(f"Total loss:      {total_loss:.1f} dB")
+    
+    print(f"\n--- RECEIVE (DSN 70m) ---")
+    print(f"Antenna gain:    {g_rx_dbi:.1f} dBi")
+    print(f"System temp:     {t_sys_k:.0f} K (cryogenic)")
+    print(f"G/T:             {g_t_dbk:.1f} dB/K")
+    
+    print(f"\n--- RESULT ---")
+    print(f"C/N₀:            {c_n0_dbhz:.1f} dBHz")
+    
+    # Data rate calculation
+    print(f"\n--- DATA RATE ANALYSIS ---")
+    eb_n0_required = {
+        'Uncoded BPSK': 10.5,
+        'Convolutional (r=1/2)': 5.0,
+        'Turbo code (r=1/3)': 1.0,
+        'LDPC (r=1/2)': 1.5
+    }
+    
+    for coding, eb_n0 in eb_n0_required.items():
+        max_rate = 10 ** ((c_n0_dbhz - eb_n0) / 10)
+        print(f"  {coding:25} Eb/N₀={eb_n0} dB → {max_rate/1000:.1f} kbps")
+    
+    # Distance sensitivity
+    print(f"\n--- DISTANCE SENSITIVITY ---")
+    distances_au = [0.5, 1.0, 1.5, 2.0, 2.5]
+    for d_au in distances_au:
+        d_km = d_au * 149597870.7
+        fspl = 92.45 + 20 * np.log10(freq_ghz_dl * d_km)
+        c_n0 = eirp_dbw - fspl - atm_loss + g_t_dbk - k_dbw
+        rate = 10 ** ((c_n0 - 1.0) / 10)  # Turbo coded
+        print(f"  {d_au:.1f} AU: Path loss = {fspl:.1f} dB, "
+              f"C/N₀ = {c_n0:.1f} dBHz, Rate = {rate/1000:.1f} kbps")
+    
+    return c_n0_dbhz
+
+c_n0 = deep_space_link_budget()
+
+# Antenna comparison
+print("\n" + "=" * 65)
+print("DSN ANTENNA COMPARISON")
+print("-" * 65)
+antennas = [
+    ('DSN-70', 70, 74),
+    ('DSN-34', 34, 68),
+    ('DSN-26', 26, 65),
+    ('ESA 35m', 35, 68.5),
+]
+base_cn0 = 62.8  # With 70m
+for name, diam, gain in antennas:
+    delta = gain - 74  # vs 70m
+    cn0 = base_cn0 + delta
+    rate = 10 ** ((cn0 - 1.0) / 10)
+    print(f"  {name:12} ({diam}m): G={gain} dBi, "
+          f"C/N₀={cn0:.1f} dBHz, Rate={rate/1000:.1f} kbps")
+```
+
+**Mission data rate comparison:**
+
+| Mission | Distance | Antenna | Rate |
+|---------|----------|---------|------|
+| MRO (Mars) | 1.5 AU | 3m HGA | 0.5-6 Mbps |
+| Voyager 1 | 160 AU | 3.7m | 160 bps |
+| New Horizons (Pluto) | 50 AU | 2.1m | 1-4 kbps |
+| Juno (Jupiter) | 5 AU | 2.5m | 40 kbps |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Distance variation.** Mars ranges 0.4-2.7 AU; budget for worst case (conjunction).
+
+2. **Solar conjunction.** When Mars is behind Sun, link is blocked for ~2 weeks.
+
+3. **Doppler is significant.** ±30 km/s relative velocity = large frequency shift.
+
+4. **Pointing is critical.** 0.01° error on HGA = significant loss; use star trackers.
+
+5. **One-way light time.** 4-24 minutes; no interactive commanding.
+
+6. **DSN scheduling.** 70m dishes are oversubscribed; plan months ahead.
+
+7. **Emergency modes.** Must work with low-gain omni; design for safe mode comms.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- NASA Deep Space Network documentation
+- CCSDS (Consultative Committee for Space Data Systems) standards
+- JPL Descanso series technical reports
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Ka-band LEO Downlink](/en/space/practical-link-budget-walkthroughs/ka-band-leo-downlink/) — compare to near-Earth
+- [Interplanetary Trajectories](/en/space/interplanetary-trajectories/patched-conics/) — how we get there
+- [Gravity Assists](/en/space/interplanetary-trajectories/gravity-assists/) — outer planet missions
+
+</section>

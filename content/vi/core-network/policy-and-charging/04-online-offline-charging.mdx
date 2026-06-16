@@ -8,17 +8,413 @@ track: n3
 unit: policy-and-charging
 order: 4
 level: L4
-estimatedReadingMinutes: 5
-title: "Tinh cuoc truc tuyen va ngoai tuyen"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-policy-and-charging-02-chf-overview"]
+spiralRevisits: []
+title: "Tinh Cuoc Online va Offline"
+description: "Co che tra truoc vs tra sau — kiem soat credit thoi gian thuc, tao CDR, va cac tinh huong ket hop."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 32.240", "3GPP TS 32.255"]
+tags: ["charging", "5g", "prepaid", "postpaid", "ocs"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tinh cuoc truc tuyen va ngoai tuyen
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Khach hang tra truoc tra tien truoc khi dung dich vu — het credit, dich vu dung. Khach hang tra sau dung truoc, tra sau — dich vu tiep tuc, hoa don den hang thang.
+
+Mang xu ly hai loai nay hoan toan khac nhau. Hieu tinh cuoc online vs offline giai thich tai sao nguoi dung tra truoc bi throttle ngay lap tuc trong khi nguoi dung tra sau thi khong.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### So sanh online vs offline
+
+```
+Cac Che do Tinh cuoc Song song:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Tinh cuoc Online (Tra truoc):                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  So du: $10.00                                  │    │
+│  │           ↓                                     │    │
+│  │  [Yeu cau quota] → CHF kiem tra so du          │    │
+│  │           ↓                                     │    │
+│  │  [Cap 100 MB] ← quota duoc cap                 │    │
+│  │           ↓                                     │    │
+│  │  [Dung 80 MB] → dat nguong                     │    │
+│  │           ↓                                     │    │
+│  │  [Yeu cau them] → tru $0.80, cap them          │    │
+│  │           ↓                                     │    │
+│  │  [So du: $0] → session bi chan/throttle        │    │
+│  │                                                  │    │
+│  │  Thoi gian thuc • Dua tren quota • Tru so du   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Tinh cuoc Offline (Tra sau):                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Han muc Credit: $500                           │    │
+│  │           ↓                                     │    │
+│  │  [Thong bao bat dau session] → CHF ghi nhan    │    │
+│  │           ↓                                     │    │
+│  │  [Dung 500 MB] → khong kiem tra thoi gian thuc │    │
+│  │           ↓                                     │    │
+│  │  [Bao cao dinh ky] → CHF tich luy              │    │
+│  │           ↓                                     │    │
+│  │  [Session ket thuc] → CHF tao CDR              │    │
+│  │           ↓                                     │    │
+│  │  [CDR → Billing] → Tao hoa don                 │    │
+│  │                                                  │    │
+│  │  Tre • Dua tren CDR • Tinh sau                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Khi nao dung moi loai
+
+```
+Lua chon Che do Tinh cuoc:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dung Online Khi:                                       │
+│  ├── Thue bao tra truoc                                │
+│  ├── Can kiem soat credit thoi gian thuc              │
+│  ├── Du lieu duoc tai tro (ben thu ba tra)            │
+│  ├── Dich vu cao cap dua tren su dung                 │
+│  └── Roaming voi gioi han credit                       │
+│                                                          │
+│  Dung Offline Khi:                                      │
+│  ├── Thue bao tra sau                                  │
+│  ├── Goi khong gioi han                               │
+│  ├── Tai khoan doanh nghiep (billing gop)             │
+│  ├── Dich vu gia co dinh                              │
+│  └── Khong can kiem tra so du                         │
+│                                                          │
+│  Dung Ca hai (Ket hop):                                 │
+│  ├── Tra sau voi gioi han chi tieu                    │
+│  ├── Tra truoc voi CDR cho billing chi tiet           │
+│  └── Dich vu hon hop tren cung thue bao               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Luong tinh cuoc online
+
+```
+Luong Tinh cuoc Online Chi tiet:
+
+SMF                    CHF                   Tai khoan
+│                       │                      │
+│ ChargingDataCreate   │                      │
+│ (Online, SUPI, DNN)  │                      │
+│──────────────────────►│                      │
+│                       │                      │
+│                       │ Dat truoc tien      │
+│                       │────────────────────►│
+│                       │                      │
+│                       │ So du: $10          │
+│                       │◄────────────────────│
+│                       │                      │
+│ Cap: 100 MB          │                      │
+│◄──────────────────────│                      │
+│                       │                      │
+│ [Nguoi dung tieu 80MB]                      │
+│                       │                      │
+│ ChargingDataUpdate   │                      │
+│ (Da dung: 80 MB,     │                      │
+│  Yeu cau: 100 MB)    │                      │
+│──────────────────────►│                      │
+│                       │                      │
+│                       │ Tru $0.80           │
+│                       │ Dat truoc $1.00 them│
+│                       │────────────────────►│
+│                       │                      │
+│                       │ So du: $9.20        │
+│                       │◄────────────────────│
+│                       │                      │
+│ Cap: 100 MB them     │                      │
+│◄──────────────────────│                      │
+│                       │                      │
+│ [Tiep tuc cho den...]│                      │
+│                       │                      │
+│ ChargingDataUpdate   │                      │
+│ (Yeu cau: 100 MB)    │                      │
+│──────────────────────►│                      │
+│                       │                      │
+│                       │ So du: $0           │
+│                       │◄────────────────────│
+│                       │                      │
+│ Hanh dong Don vi Cuoi│                      │
+│ Cham dut / Redirect  │                      │
+│◄──────────────────────│                      │
+│                       │                      │
+│ [Ap dung throttling  │                      │
+│  hoac giai phong]    │                      │
+│                       │                      │
+```
+
+### Luong tinh cuoc offline
+
+```
+Luong Tinh cuoc Offline Chi tiet:
+
+SMF                    CHF                   Billing
+│                       │                      │
+│ ChargingDataCreate   │                      │
+│ (Offline, SUPI, DNN) │                      │
+│──────────────────────►│                      │
+│                       │                      │
+│                       │ Bat dau ghi su dung │
+│                       │                      │
+│ Xac nhan (khong quota)                      │
+│◄──────────────────────│                      │
+│                       │                      │
+│ [Nguoi dung tieu 500 │                      │
+│  MB trong vai gio]   │                      │
+│                       │                      │
+│ ChargingDataUpdate   │                      │
+│ (Su dung: 200 MB)    │                      │
+│──────────────────────►│                      │
+│                       │                      │
+│                       │ Tich luy ban ghi    │
+│                       │                      │
+│ Xac nhan             │                      │
+│◄──────────────────────│                      │
+│                       │                      │
+│ [Nguoi dung tiep tuc]│                      │
+│                       │                      │
+│ ChargingDataUpdate   │                      │
+│ (Su dung: 300 MB them)                      │
+│──────────────────────►│                      │
+│                       │                      │
+│ Xac nhan             │                      │
+│◄──────────────────────│                      │
+│                       │                      │
+│ ChargingDataRelease  │                      │
+│ (Cuoi: tong 500 MB)  │                      │
+│──────────────────────►│                      │
+│                       │                      │
+│                       │ Tao CDR             │
+│                       │ ──────────────────►│
+│                       │                      │
+│                       │                      │ CDR xu ly
+│                       │                      │ Hoa don: $5.00
+│                       │                      │
+```
+
+### Chi tiet quan ly quota
+
+```
+Cac Loai Quota va Xu ly:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Tong Volume:                                           │
+│  ├── Ket hop byte UL + DL                              │
+│  └── Vi du: Cap tong 100 MB                            │
+│                                                          │
+│  Volume theo Huong:                                     │
+│  ├── Quota rieng UL va DL                              │
+│  └── Vi du: 20 MB UL + 80 MB DL                        │
+│                                                          │
+│  Theo Thoi gian:                                        │
+│  ├── Thoi luong tinh bang giay                         │
+│  └── Vi du: Cap 3600 giay                              │
+│                                                          │
+│  Theo Su kien:                                          │
+│  ├── Dem so su kien (SMS, MMS)                         │
+│  └── Vi du: Cap 10 SMS                                 │
+│                                                          │
+│  Nguong Quota:                                          │
+│  ├── Khi nao yeu cau them (vd 80% da dung)            │
+│  └── Tranh het giua session                            │
+│                                                          │
+│  Thoi gian Hieu luc:                                    │
+│  ├── Quota co hieu luc bao lau                         │
+│  └── Vi du: Quota het han trong 1 gio                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Hanh dong don vi cuoi
+
+```
+Khi Het Quota:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Cham dut:                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Giai phong session ngay lap tuc              │    │
+│  │ - Nguoi dung mat ket noi                       │    │
+│  │ - Khat khe nhung ro rang                       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Redirect:                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Giu session, redirect HTTP den trang nap tien│    │
+│  │ - Nguoi dung co the them credit               │    │
+│  │ - UPF ap dung quy tac redirect                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Han che Truy cap:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Giu session voi AMBR gioi han (vd 1 Mbps)   │    │
+│  │ - Nguoi dung van duyet duoc cham              │    │
+│  │ - It gay gian doan                            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Chi Thong bao:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Tiep tuc dich vu, thong bao nguoi dung      │    │
+│  │ - Dung voi gioi han chi tieu                  │    │
+│  │ - PCF duoc thong bao, co the kich hoat thay   │    │
+│  │   doi policy                                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Tinh cuoc ket hop
+
+```
+Ket hop Online + Offline:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Tinh huong: Tra sau voi gioi han chi tieu              │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Gioi han hang thang: $100                      │    │
+│  │                                                  │    │
+│  │  Thanh phan online:                             │    │
+│  │  - Theo doi chi tieu so voi gioi han           │    │
+│  │  - Chan neu vuot gioi han                       │    │
+│  │                                                  │    │
+│  │  Thanh phan offline:                            │    │
+│  │  - Tao CDR cho billing chi tiet                │    │
+│  │  - Hoa don hien thi su dung chi tiet           │    │
+│  │                                                  │    │
+│  │  Luong ket hop:                                 │    │
+│  │  1. CHF cap quota (kiem tra gioi han)          │    │
+│  │  2. SMF bao cao su dung (theo doi chi tieu)    │    │
+│  │  3. CHF tao CDR (cho billing)                  │    │
+│  │  4. Neu dat gioi han, han che dich vu          │    │
+│  │  5. Cuoi thang: hoa don tu CDR                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Che do tinh cuoc theo tinh huong:**
+
+| Tinh huong | Che do | Tai sao |
+|------------|--------|---------|
+| SIM tra truoc | Online | Kiem soat credit thoi gian thuc |
+| Tra sau khong gioi han | Offline | Khong can kiem tra so du |
+| Tra sau co gioi han | Ket hop | Gioi han + billing chi tiet |
+| Du lieu duoc tai tro | Online | Ben thu ba tra theo byte |
+| Thiet bi IoT | Offline | Billing gop, it overhead |
+| Roaming | Online | Kiem soat credit o nuoc ngoai |
+
+**Debug van de tinh cuoc:**
+
+```bash
+# Wireshark: online vs offline
+http2.header.path contains "chargingData" && json.value.string contains "ONLINE"
+http2.header.path contains "chargingData" && json.value.string contains "OFFLINE"
+
+# Kiem tra quota duoc cap
+grep "grantedUnit" /var/log/smf/*.log
+
+# Hanh dong don vi cuoi
+grep "finalUnitAction" /var/log/chf/*.log
+
+# Dau ra CDR
+tail -f /var/spool/chf/cdr/*.cdr
+```
+
+**Cac tham so pho bien:**
+
+| Tham so | Online | Offline |
+|---------|--------|---------|
+| Quota | Cap theo yeu cau | Khong ap dung |
+| Bao cao | Tai nguong/thoi gian | Dinh ky/cuoi |
+| CDR | Tuy chon | Luon tao |
+| Anh huong do tre | Cao hon | Thap hon |
+| Xu ly loi | Dich vu bi chan | Dich vu tiep tuc |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Do tre CHF.** Tinh cuoc online them do tre vao moi yeu cau quota. Toi uu thoi gian phan hoi CHF.
+
+2. **Vuot muc giua cap nhat.** Nguoi dung co the vuot quota giua cac cap nhat SMF. Cho phep sai so dung sai.
+
+3. **Het quota giua cuoc goi.** Cat cuoc goi giua cau noi la UX te. Cap quota them cho cuoc goi dang hoat dong.
+
+4. **Mat CDR.** CDR offline phai duoc luu tru dang tin cay. Mat CDR = mat doanh thu. Dung luu tru ben vung.
+
+5. **Sai che do tinh cuoc.** Ap dung online cho tra sau (khong can thiet) hoac offline cho tra truoc (khong kiem soat) gay van de.
+
+6. **Vong lap redirect.** Neu trang redirect tinh vao quota, nguoi dung khong the nap tien. Whitelist URL nap tien.
+
+7. **Phuc tap roaming.** V-CHF vs H-CHF phu thuoc thoa thuan roaming. Dam bao dinh tuyen dung.
+
+8. **Cap session vs cap flow.** Cung session co the co flow voi che do tinh cuoc khac nhau. Theo doi rieng.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 32.240, "Charging Architecture and Principles"
+- 3GPP TS 32.255, "5G Data Connectivity Charging"
+- 3GPP TS 29.594, "Nchf Services"
+- 3GPP TS 32.299, "Diameter Charging Applications" (tham khao cu)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Tong quan CHF](/vi/core-network/policy-and-charging/chf-overview/) — kien truc CHF
+- [Quy tac PCC](/vi/core-network/policy-and-charging/policy-and-charging-rules/) — tinh cuoc theo flow
+- [Tong quan PCF](/vi/core-network/policy-and-charging/pcf-overview/) — trigger policy
+
+</section>

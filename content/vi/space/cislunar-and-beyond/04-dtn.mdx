@@ -8,17 +8,504 @@ track: s11
 unit: cislunar-and-beyond
 order: 4
 level: L5
-estimatedReadingMinutes: 5
-title: "Mang chiu tre (DTN)"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Mang Chiu tre (DTN)"
+description: "Bundle Protocol, luu va chuyen tiep, va mang lien hanh tinh."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["dtn", "bundle-protocol", "ltp", "lien-hanh-tinh"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Mang chiu tre (DTN)
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+TCP gia dinh goi tin den dich trong vai mili giay voi cac lien ket on dinh, luon ket noi. Khong gian pha vo moi gia dinh do: do tre tu phut den gio, lien ket bien mat khi hanh tinh xoay, va cac buoc nhay qua ve tinh chuyen tiep co the giu du lieu hang gio. Mang Chiu tre (DTN) duoc xay dung dac biet cho moi truong nay—day la kien truc mang lam cho truyen du lieu lien hanh tinh thuc su hoat dong. Hieu DTN la thiet yeu cho bat ky ai xay dung he thong thong tin cislunar hoac khong gian sau.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### TCP vs DTN: mo hinh khac biet co ban
+
+```
+Tai sao TCP That bai va DTN Thanh cong trong Khong gian:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MO HINH TCP (Huong ket noi):                                       │
+│                                                                      │
+│  Nguon ←─────── KET NOI TRUC TIEP ──────→ Dich                     │
+│    │                                           │                     │
+│    │ Ca hai dau phai LEN cung luc            │                     │
+│    │ Trang thai ket noi duy tri tu dau-den-dau │                   │
+│    │ ACK duoc mong doi trong timeout (~giay)  │                     │
+│    │ Mat goi = gui lai ngay lap tuc          │                     │
+│                                                                      │
+│  VAN DE TRONG KHONG GIAN:                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Xe tu hanh Sao Hoa khong the duy tri "ket noi"      │         │
+│  │  den Trai dat khi Sao Hoa quay di 12 gio!            │         │
+│  │                                                        │         │
+│  │  Ve tinh chuyen tiep di qua rover trong 8 phut,      │         │
+│  │  roi bay quanh quy dao va mat tam nhin 2 gio.        │         │
+│  │                                                        │         │
+│  │  Dia DSN duoc lap lich—khong co san 24/7 cho         │         │
+│  │  bat ky nhiem vu don le nao.                         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  MO HINH DTN (Luu va Chuyen tiep):                                 │
+│                                                                      │
+│  Nguon ═══► Nut A ═══► Nut B ═══► Dich                             │
+│    │          ▲           ▲           │                              │
+│    │          │           │           │                              │
+│    │    (luu du lieu) (luu du lieu)   │                              │
+│    │    (doi lien    (doi lien        │                              │
+│    │     ket tiep)    ket tiep)       │                              │
+│                                                                      │
+│  HIEU BIET CHINH: Khong can ket noi tu dau den dau!               │
+│  Moi nut GIAM HO du lieu cho den khi chuyen tiep thanh cong.       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Khai niem Bundle Protocol
+
+```
+Kien truc Bundle Protocol:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  BUNDLE LA GI?                                                      │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │  BUNDLE                                                      │   │
+│  │  ┌──────────────┬──────────────┬───────────────────────┐   │   │
+│  │  │ Khoi        │ Khoi Mo rong │ Khoi Tai trong        │   │   │
+│  │  │ Chinh       │ (tuy chon)   │                       │   │   │
+│  │  │              │              │                       │   │   │
+│  │  │ - Nguon     │ - Nut        │ - Du lieu             │   │   │
+│  │  │ - Dich      │   Truoc      │   Ung dung            │   │   │
+│  │  │ - Timestamp │ - So Hop     │ - Do do khoa hoc      │   │   │
+│  │  │ - Thoi gian │ - Tuoi Bundle│ - Lenh                │   │   │
+│  │  │   song      │ - Bao mat    │ - Hinh anh            │   │   │
+│  │  │ - Uu tien   │              │                       │   │   │
+│  │  └──────────────┴──────────────┴───────────────────────┘   │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  TINH NANG CHINH:                                                   │
+│                                                                      │
+│  1. TU MO TA: Bundle mang moi thu can de dinh tuyen               │
+│     chinh no, ngay ca khi duong di thay doi giua chung            │
+│                                                                      │
+│  2. THOI GIAN SONG: "Giao trong 7 ngay hoac bo"                   │
+│     (Khong co bundle zombie lam tac mang)                          │
+│                                                                      │
+│  3. CHUYEN GIAO GIAM HO: Nut chap nhan trach nhiem giao           │
+│     Nguon co the xoa ban sao sau khi chuyen giao giam ho          │
+│                                                                      │
+│  4. UU TIEN: Khoa hoc so luong lon vs lenh khan cap              │
+│     Mang co the uu tien thoi gian lien ket han che                │
+│                                                                      │
+│  5. PHAN MANH: Chia bundle lon qua cac lien lac                   │
+│     Lap ghep lai tai dich                                          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Dinh tuyen do thi lien lac
+
+```
+DTN Biet Khi nao Chuyen tiep Nhu the nao:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LIEN KET KHONG GIAN CO THE DU DOAN (khac voi Internet T.Dat)     │
+│                                                                      │
+│  Chung ta biet CHINH XAC khi nao:                                  │
+│  • Ve tinh Sao Hoa se o tren rover (co hoc quy dao)               │
+│  • Duong T.Dat-Sao Hoa mo (vi tri hanh tinh)                      │
+│  • Dia DSN duoc lap lich cho nhiem vu nay (lich mat dat)          │
+│                                                                      │
+│  DO THI LIEN LAC: Lich cac co hoi lien ket tuong lai              │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Thoi gian   │ Lien lac         │ Toc do   │ Dung luong│        │
+│  │  ────────────┼──────────────────┼──────────┼──────────│         │
+│  │  14:00-14:08 │ Rover→MRO        │ 2 Mbps   │ 120 MB   │         │
+│  │  15:30-16:45 │ MRO→DSN-Goldstone│ 6 Mbps   │ 337 MB   │         │
+│  │  17:00-17:15 │ Rover→MAVEN      │ 1 Mbps   │ 112 MB   │         │
+│  │  18:20-20:00 │ MAVEN→DSN-Madrid │ 4 Mbps   │ 480 MB   │         │
+│  │  ...                                                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DINH TUYEN DO THI LIEN LAC (CGR):                                 │
+│                                                                      │
+│  Bundle den voi: dich=T.Dat, uu tien=so luong, kich thuoc=50MB    │
+│                                                                      │
+│  CGR tinh toan: "Duong tot nhat la Rover→MRO luc 14:00, roi       │
+│                 MRO→DSN luc 15:30. Den T.Dat: 15:43"               │
+│                                                                      │
+│  Neu lien lac MRO day, CGR tinh lai: "Dung duong MAVEN thay the"  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Ngan xep giao thuc DTN
+
+```
+Cac Lop Giao thuc DTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LOP UNG DUNG                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Du lieu khoa hoc, lenh, do do, truyen file          │         │
+│  │  (Su dung dich vu Bundle Protocol)                    │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  LOP BUNDLE (BP - RFC 9171)                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  • Tao bundle, phan manh, lap ghep                   │         │
+│  │  • Chuyen giao giam ho                               │         │
+│  │  • Dinh tuyen Do thi Lien lac (CGR)                  │         │
+│  │  • Xep hang uu tien                                   │         │
+│  │  • Quan ly thoi gian song                            │         │
+│  │  • Bao mat Bundle Protocol (BPSec - RFC 9172)        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  LOP HOI TU (CLA)                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Thich ung BP voi truyen tai ben duoi:               │         │
+│  │  • LTP-CLA: Cho lien ket khong gian do tre dai      │         │
+│  │  • TCP-CLA: Cho mang mat dat                        │         │
+│  │  • UDP-CLA: Cho thu nghiem cuc bo                   │         │
+│  │  • STCP-CLA: Cho lien ket mat dat dang tin cay     │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  LOP LIEN KET                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  • LTP (Licklider Transmission Protocol) cho KG     │         │
+│  │  • TCP/UDP cho phan mat dat                         │         │
+│  │  • AOS/CCSDS cho dong khung lien ket RF            │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### LTP: truyen tai dang tin cay cho khong gian
+
+```
+LTP (Licklider Transmission Protocol):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  VAN DE: Gui lai TCP khong hoat dong voi 20 phut RTT              │
+│                                                                      │
+│  GIAI PHAP LTP: Xac nhan dua tren diem kiem tra                   │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  BEN GUI                          BEN NHAN            │         │
+│  │                                                        │         │
+│  │  Khoi Du lieu 1 ───────────────────►                  │         │
+│  │  Khoi Du lieu 2 ───────────────────►                  │         │
+│  │  Khoi Du lieu 3 ───────────────────►                  │         │
+│  │  ...                                                  │         │
+│  │  Khoi Du lieu N ───────────────────►                  │         │
+│  │  DIEM KIEM TRA ════════════════════►                  │         │
+│  │                                                        │         │
+│  │     (20 phut troi qua...)                             │         │
+│  │                                                        │         │
+│  │  ◄════════════════════════════════ BAO CAO            │         │
+│  │                                     "Nhan 1,2,4-N     │         │
+│  │                                      Thieu: 3"        │         │
+│  │                                                        │         │
+│  │  Khoi Du lieu 3 (gui lai) ─────────►                  │         │
+│  │  DIEM KIEM TRA ════════════════════►                  │         │
+│  │                                                        │         │
+│  │     (20 phut troi qua...)                             │         │
+│  │                                                        │         │
+│  │  ◄════════════════════════════════ BAO CAO            │         │
+│  │                                     "Hoan thanh"      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KHAC BIET CHINH VOI TCP:                                          │
+│                                                                      │
+│  1. KHONG TRANG THAI KET NOI: Hoat dong khong can bat tay         │
+│  2. KHOI LON: Gui nhieu doan truoc diem kiem tra                  │
+│  3. ACK CHON LOC: Bao cao chinh xac gi thieu                      │
+│  4. BAT DONG BO: Khong doi ACK sau moi doan                       │
+│  5. THIET KE CHO DO TRE: Timeout dua tren RTT da biet            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Trien khai thuc te: mang chuyen tiep Sao Hoa
+
+```
+DTN Hoat dong: Tra du lieu Sao Hoa:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KICH BAN: Xe Perseverance co 2 GB du lieu khoa hoc               │
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │                          ┌──────────┐                       │   │
+│  │                          │   MRO    │                       │   │
+│  │                          │ (relay)  │                       │   │
+│  │                          └────┬─────┘                       │   │
+│  │                               │                              │   │
+│  │        ┌──────────┐          │          ┌──────────┐        │   │
+│  │        │ MAVEN    │──────────┼──────────│  DSN     │        │   │
+│  │        │ (relay)  │          │          │ (T.Dat)  │        │   │
+│  │        └────┬─────┘          │          └──────────┘        │   │
+│  │             │                │                               │   │
+│  │        ┌────┴────────────────┴─────┐                        │   │
+│  │        │        SAO HOA            │                        │   │
+│  │        │  ┌──────────────────┐     │                        │   │
+│  │        │  │   Perseverance   │     │                        │   │
+│  │        │  │      (rover)     │     │                        │   │
+│  │        │  └──────────────────┘     │                        │   │
+│  │        └───────────────────────────┘                        │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  LUONG DU LIEU (su dung DTN):                                      │
+│                                                                      │
+│  1. Rover tao bundle (uu tien: khoa hoc so luong)                 │
+│  2. Lien lac: Rover→MRO (cua so 8 phut, 2 Mbps = ~120 MB)         │
+│     - Rover truyen 120 MB, chuyen giao giam ho cho MRO            │
+│     - Rover xoa cac bundle do khoi bo nho han che                 │
+│  3. MRO luu bundle, doi lien lac T.Dat                            │
+│  4. Lien lac: MRO→DSN (cua so 75 phut, 6 Mbps)                    │
+│     - MRO truyen tat ca bundle da luu                             │
+│     - DSN xac nhan nhan                                           │
+│  5. Lap lai qua nhieu sol cho den khi 2 GB duoc truyen           │
+│                                                                      │
+│  KHONG CO DTN: Rover se phai duy tri "ket noi" voi T.Dat—        │
+│  bat kha thi khi Sao Hoa quay hoac khong co dia DSN.             │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Phan tich thong luong va luu tru DTN:**
+
+```python
+import numpy as np
+
+def dung_luong_lien_lac_mb(thoi_gian_phut, toc_do_mbps, hieu_suat=0.85):
+    """Tinh dung luong du lieu co the truyen trong cua so lien lac."""
+    return thoi_gian_phut * 60 * toc_do_mbps * hieu_suat / 8
+
+def ngay_de_truyen(tong_mb, lien_lac_moi_ngay):
+    """Tinh so ngay can de truyen du lieu voi danh sach lien lac."""
+    dung_luong_hang_ngay = sum(c['dung_luong_mb'] for c in lien_lac_moi_ngay)
+    return tong_mb / dung_luong_hang_ngay if dung_luong_hang_ngay > 0 else float('inf')
+
+# Vi du: lien lac mang chuyen tiep Sao Hoa
+print("Phan tich Tra Du lieu DTN")
+print("=" * 60)
+
+# Dinh nghia lien lac hang ngay dien hinh cho rover Sao Hoa
+lien_lac_rover = [
+    {"ten": "Rover→MRO (lan 1)", "thoi_gian_phut": 8, "toc_do_mbps": 2},
+    {"ten": "Rover→MRO (lan 2)", "thoi_gian_phut": 6, "toc_do_mbps": 2},
+    {"ten": "Rover→MAVEN", "thoi_gian_phut": 10, "toc_do_mbps": 1},
+]
+
+lien_lac_chuyen_tiep = [
+    {"ten": "MRO→DSN", "thoi_gian_phut": 75, "toc_do_mbps": 6},
+    {"ten": "MAVEN→DSN", "thoi_gian_phut": 45, "toc_do_mbps": 4},
+]
+
+print("\n1. Cua so Lien lac Hang ngay")
+print("-" * 60)
+
+rover_hang_ngay = 0
+chuyen_tiep_hang_ngay = 0
+
+print("Be mat-den-Chuyen tiep:")
+for c in lien_lac_rover:
+    dl = dung_luong_lien_lac_mb(c["thoi_gian_phut"], c["toc_do_mbps"])
+    c["dung_luong_mb"] = dl
+    rover_hang_ngay += dl
+    print(f"  {c['ten']:<25} {c['thoi_gian_phut']:>3} phut x {c['toc_do_mbps']} Mbps = {dl:.0f} MB")
+
+print(f"\n  Tong tai len be mat: {rover_hang_ngay:.0f} MB/sol")
+
+print("\nChuyen tiep-den-T.Dat:")
+for c in lien_lac_chuyen_tiep:
+    dl = dung_luong_lien_lac_mb(c["thoi_gian_phut"], c["toc_do_mbps"])
+    c["dung_luong_mb"] = dl
+    chuyen_tiep_hang_ngay += dl
+    print(f"  {c['ten']:<25} {c['thoi_gian_phut']:>3} phut x {c['toc_do_mbps']} Mbps = {dl:.0f} MB")
+
+print(f"\n  Tong tai xuong T.Dat: {chuyen_tiep_hang_ngay:.0f} MB/sol")
+
+# Phan tich nut co chai
+print("\n2. Phan tich Nut Co chai")
+print("-" * 60)
+
+nut_co_chai = min(rover_hang_ngay, chuyen_tiep_hang_ngay)
+print(f"  Dung luong be mat-chuyen tiep: {rover_hang_ngay:.0f} MB/sol")
+print(f"  Dung luong chuyen tiep-T.Dat:  {chuyen_tiep_hang_ngay:.0f} MB/sol")
+print(f"  Nut co chai he thong:          {nut_co_chai:.0f} MB/sol")
+
+if rover_hang_ngay < chuyen_tiep_hang_ngay:
+    print("  → Nut co chai la be mat-chuyen tiep (dien hinh)")
+else:
+    print("  → Nut co chai la chuyen tiep-T.Dat")
+
+# Tra du lieu nhiem vu
+print("\n3. Uoc tinh Tra Du lieu Nhiem vu")
+print("-" * 60)
+
+muc_tieu_khoa_hoc = [
+    ("Hinh anh sol (dien hinh)", 500),
+    ("Bo nho phat hien lon", 2000),
+    ("Video truc thang (10 phut)", 800),
+    ("Tai lieu bo nho mau", 5000),
+]
+
+for ten, kich_thuoc_mb in muc_tieu_khoa_hoc:
+    sol = kich_thuoc_mb / nut_co_chai
+    print(f"  {ten:<30} {kich_thuoc_mb:>5} MB → {sol:.1f} sol")
+
+# Yeu cau luu tru
+print("\n4. Yeu cau Luu tru Nut")
+print("-" * 60)
+
+khoang_cach_xau_nhat_gio = 12  # Neu MRO di qua rover, roi doi DSN
+luu_tru_toi_da = rover_hang_ngay  # Luong mot sol
+
+print(f"  Khoang cach T.Dat xau nhat: {khoang_cach_xau_nhat_gio} gio")
+print(f"  Tich luy du lieu toi da: {luu_tru_toi_da:.0f} MB")
+print(f"  Luu tru chuyen tiep khuyen nghi: {luu_tru_toi_da * 1.5:.0f} MB (du 50%)")
+
+# Hieu suat LTP
+print("\n5. Hieu suat LTP vs TCP")
+print("-" * 60)
+
+thoi_gian_as_mot_chieu_giay = 12.5 * 60  # Khoang cach Sao Hoa trung binh
+rtt_giay = 2 * thoi_gian_as_mot_chieu_giay
+toc_do_lien_ket_mbps = 2
+kich_thuoc_khoi_mb = 10
+
+# TCP: doi ACK sau moi doan (don gian hoa)
+tcp_doan = kich_thuoc_khoi_mb * 8 / 0.001472  # doan ~1500 byte
+tcp_thoi_gian = tcp_doan * rtt_giay / 60  # phut
+
+# LTP: gui tat ca, roi diem kiem tra
+ltp_thoi_gian_truyen = kich_thuoc_khoi_mb * 8 / toc_do_lien_ket_mbps  # giay
+ltp_thoi_gian = (ltp_thoi_gian_truyen + rtt_giay) / 60  # phut (mot RTT cho bao cao)
+
+print(f"  Thoi gian anh sang mot chieu: {thoi_gian_as_mot_chieu_giay/60:.1f} phut")
+print(f"  Thoi gian khu hoi: {rtt_giay/60:.1f} phut")
+print(f"  Kich thuoc khoi: {kich_thuoc_khoi_mb} MB")
+print()
+print(f"  Cach TCP (ACK tung doan): Se mat ~mai mai")
+print(f"  Cach LTP (dua tren diem kiem tra): {ltp_thoi_gian:.1f} phut")
+print()
+print("  LTP la thiet yeu cho lien ket khong gian!")
+
+# Tinh toan thoi gian song bundle
+print("\n6. Cac Xem xet Thoi gian song Bundle")
+print("-" * 60)
+
+kich_ban = [
+    ("Chuyen tiep Mat Trang", 3, 1),      # 3 ngay, 1 ngay dien hinh
+    ("Sao Hoa (doi dien)", 22, 7),  # 22 phut OWLT, 7 ngay dien hinh
+    ("Sao Hoa (giao hoi)", 22, 30),  # Giao hoi mat troi = khong TT
+    ("Hanh tinh ngoai", 60*4, 90),  # 4 gio OWLT, 90 ngay
+]
+
+print(f"  {'Kich ban':<25} {'TG song Dien hinh':>18}")
+print("-" * 60)
+
+for ten, owlt_phut, thoi_gian_song_ngay in kich_ban:
+    print(f"  {ten:<25} {thoi_gian_song_ngay:>15} ngay")
+
+print("\n  Quy tac: TG song > do tre toi da du kien den dich")
+print("  Qua ngan = du lieu bi bo; qua dai = luu tru day")
+```
+
+**Chi so chinh:**
+
+| Tham so | LEO | Mat Trang | Sao Hoa | Ngoai |
+|---------|-----|-----------|---------|-------|
+| OWLT | 1 ms | 1.3 s | 3-22 phut | 35+ phut |
+| TG song bundle | phut | gio | ngay | tuan |
+| Luu tru giam ho | nho | vua | lon | rat lon |
+| Do phuc tap CGR | don gian | vua | phuc tap | tinh |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Dung DTN khi TCP hoat dong.** DTN co overhead. Cho LEO voi lien ket on dinh, giao thuc tieu chuan co the don gian hon.
+
+2. **Danh gia thap nhu cau luu tru.** Chuyen giao giam ho nghia la cac nut phai luu du lieu—doi khi hang ngay. Dinh kich thuoc luu tru cho khoang cach lien lac xau nhat.
+
+3. **Bo qua cap nhat do thi lien lac.** Co hoc quy dao co the du doan, nhung bat thuong tau vu tru va thay doi lich DSN yeu cau cap nhat CGR.
+
+4. **Thoi gian song bundle sai.** Qua ngan: du lieu chet truoc khi giao. Qua dai: luu tru day bundle cu.
+
+5. **Quen BPSec.** Bao mat Bundle Protocol la thiet yeu—bundle co the di qua cac nut khong tin cay qua nhieu tuan.
+
+6. **Gia dinh giam ho ngay lap tuc.** Chuyen giao giam ho yeu cau chap nhan ro rang. Khong xoa du lieu nguon cho den khi xac nhan.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- RFC 9171 (Bundle Protocol Phien ban 7)
+- RFC 9172 (Bao mat Bundle Protocol)
+- RFC 5326 (Licklider Transmission Protocol)
+- CCSDS 734.2 (Dac ta CCSDS Bundle Protocol)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Thong tin Co do tre](/vi/space/cislunar-and-beyond/time-delayed-comms/) — van de DTN giai quyet
+- [Kien truc Thong tin Mat Trang](/vi/space/cislunar-and-beyond/lunar-comms-architectures/) — mang chuyen tiep
+- [Lunar Gateway](/vi/space/cislunar-and-beyond/lunar-gateway/) — nut DTN trong khong gian cislunar
+
+</section>

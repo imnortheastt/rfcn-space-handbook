@@ -8,17 +8,386 @@ track: n0
 unit: mpls-vlan-vrf
 order: 1
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 13
+prerequisites: ["core-network-n0-routing-and-switching-01-switching-fundamentals"]
+spiralRevisits: ["core-network-n1-mpls-vlan-vrf-02-mpls-label-switching"]
 title: "VLAN basics"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Virtual LANs — segmenting broadcast domains, 802.1Q tagging, QinQ for fronthaul transport, and VLAN design in 5G N2/N3/N4/N6 interfaces."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["IEEE 802.1Q", "IEEE 802.1ad", "O-RAN.WG4.CUS"]
+tags: ["vlan", "layer-2", "networking", "segmentation", "802.1q", "qinq", "fronthaul", "5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# VLAN basics
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Without VLANs, every device on a switch shares the same broadcast domain. Broadcast storms, security leaks, and management nightmares follow.
+
+VLANs let you create separate logical networks on the same physical infrastructure. They are foundational to every modern network — enterprise, data center, and telecom. In 5G transport networks, VLANs carry fronthaul eCPRI traffic, separate N2/N3/N4/N6 interfaces, and isolate management traffic from user-plane traffic. Understanding 802.1Q is the prerequisite for understanding how a packet physically moves through a 5G site.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What is a VLAN?
+
+A **VLAN (Virtual LAN)** is a logical broadcast domain created on a switch. Devices in the same VLAN can communicate at Layer 2. Devices in different VLANs cannot — they need a router.
+
+```
+Physical view:                  Logical view:
+
+┌────────────────────┐          ┌─────────┐  ┌─────────┐
+│      Switch        │          │ VLAN 10 │  │ VLAN 20 │
+│                    │          │         │  │         │
+│ P1  P2  P3  P4  P5 │    →     │ P1  P2  │  │ P3  P4  │
+└─┬───┬───┬───┬───┬──┘          │         │  │         │
+  │   │   │   │   │             └─────────┘  └─────────┘
+  A   B   C   D   E                A   B        C   D
+```
+
+Ports 1–2 are in VLAN 10. Ports 3–4 are in VLAN 20. Device A can talk to B directly. A cannot talk to C without going through a router.
+
+### Why VLANs?
+
+| Problem | VLAN solution |
+|---------|---------------|
+| Broadcast storms | Limit broadcast domain to one VLAN |
+| Security | Isolate sensitive traffic |
+| Performance | Reduce unnecessary broadcast traffic |
+| Flexibility | Group devices by function, not physical location |
+| Multitenancy | Share physical infrastructure, isolate tenants |
+| Interface separation | Carry N2, N3, N4, N6 on separate logical channels |
+
+### VLAN ID
+
+Each VLAN has a numeric ID (1–4094).
+
+- **VLAN 1:** Default VLAN on most switches. Avoid using it for user traffic — it is the default attack target.
+- **VLANs 2–1001:** Normal range, usable everywhere.
+- **VLANs 1002–1005:** Reserved for legacy Token Ring/FDDI.
+- **VLANs 1006–4094:** Extended range. Requires VTP transparent mode on some Cisco platforms.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Access ports vs trunk ports
+
+**Access port:** Belongs to a single VLAN. Connected to end devices (servers, UEs, NF appliances).
+- Frames arrive untagged, leave untagged
+- Switch adds and strips the VLAN tag internally
+- The connected device has no awareness of VLANs
+
+**Trunk port:** Carries multiple VLANs. Connected to other switches, routers, or NF hosts.
+- Frames carry the 802.1Q VLAN tag
+- Allows inter-switch VLAN traffic and NF multi-interface configurations
+
+```
+┌─────────────────┐                    ┌─────────────────┐
+│    Switch A     │                    │    Switch B     │
+│                 │     Trunk link     │                 │
+│ VLAN 10  VLAN 20│◄──────────────────►│ VLAN 10  VLAN 20│
+│  │    │         │  (tagged frames)   │  │    │         │
+│  P1   P2        │                    │  P3   P4        │
+└──┼────┼─────────┘                    └──┼────┼─────────┘
+   │    │                                 │    │
+  PC-A PC-B                             PC-C PC-D
+(VLAN10)(VLAN20)                      (VLAN10)(VLAN20)
+```
+
+PC-A can reach PC-C (both VLAN 10 across the trunk). PC-A cannot reach PC-D (different VLAN — needs routing).
+
+### 802.1Q tagging
+
+IEEE 802.1Q inserts a 4-byte tag into the Ethernet frame between the source MAC address and the EtherType field.
+
+```
+Standard Ethernet frame:
+┌─────────┬─────────┬──────┬─────────┬─────┐
+│ Dst MAC │ Src MAC │ Type │ Payload │ FCS │
+└─────────┴─────────┴──────┴─────────┴─────┘
+
+802.1Q tagged frame:
+┌─────────┬─────────┬──────────────────┬──────┬─────────┬─────┐
+│ Dst MAC │ Src MAC │   802.1Q Tag     │ Type │ Payload │ FCS │
+└─────────┴─────────┴──────────────────┴──────┴─────────┴─────┘
+                    │                  │
+                    ▼                  │
+              ┌────────────────────┐  │
+              │ TPID  │ PCP │ DEI │ VID (12 bits) │
+              │ 0x8100│ 3b  │ 1b  │ 0-4095        │
+              └────────────────────┘
+```
+
+**Tag fields:**
+- **TPID (0x8100):** Tag Protocol Identifier — marks this as an 802.1Q frame
+- **PCP (3 bits):** Priority Code Point (802.1p) — QoS priority 0–7
+- **DEI (1 bit):** Drop Eligible Indicator — this frame can be dropped during congestion
+- **VID (12 bits):** VLAN Identifier — which VLAN (0–4095; 0 and 4095 reserved)
+
+The tag adds 4 bytes. Maximum Ethernet frame size increases from 1518 to 1522 bytes with a single tag.
+
+### Native VLAN
+
+On a trunk port, one VLAN is the **native VLAN**. Frames in the native VLAN are sent untagged.
+
+**Why native VLAN exists:**
+- Backward compatibility with non-VLAN-aware devices
+- STP, CDP, LLDP, VTP control traffic typically uses native VLAN
+
+**Security warning:** Native VLAN mismatch between connected switches creates a VLAN hopping path — traffic jumps VLANs without routing. Always match native VLANs on both ends of a trunk, or configure all ports to tag everything.
+
+### Inter-VLAN routing
+
+Devices in different VLANs need Layer 3 routing to communicate.
+
+**Option 1: Router-on-a-stick**
+
+```
+          ┌─────────┐
+          │ Router  │
+          │         │
+          │  eth0   │  (trunk: VLANs 10, 20)
+          └────┬────┘
+       eth0.10 │ eth0.20   (subinterfaces)
+          ┌────┴────┐
+          │ Switch  │
+          │         │
+          │ P1   P2 │
+          └─┬─────┬─┘
+            │     │
+          PC-A   PC-B
+        (VLAN 10)(VLAN 20)
+```
+
+Router has subinterfaces: eth0.10 for VLAN 10, eth0.20 for VLAN 20. Traffic between VLANs traverses the router. Scales poorly under high traffic.
+
+**Option 2: Layer 3 switch (standard in telecom)**
+
+Switch has routing capability built in. Inter-VLAN routing happens in ASIC hardware — line-rate.
+
+```
+┌─────────────────────┐
+│   L3 Switch         │
+│                     │
+│  SVI VLAN 10: 10.0.10.1 │
+│  SVI VLAN 20: 10.0.20.1 │
+│                     │
+│    P1         P2    │
+└────┬──────────┬─────┘
+     │          │
+   PC-A       PC-B
+ (VLAN 10)  (VLAN 20)
+```
+
+Switch Virtual Interface (SVI) provides the Layer 3 gateway for each VLAN. This is standard in enterprise and telecom access/aggregation layers.
+
+### QinQ (double tagging) — 802.1ad
+
+**QinQ** (IEEE 802.1ad) stacks two VLAN tags on the same frame. It is widely used in telecom transport networks.
+
+```
+QinQ frame (double-tagged):
+┌─────────┬─────────┬────────────┬────────────┬──────┬─────────┬─────┐
+│ Dst MAC │ Src MAC │ S-Tag      │ C-Tag      │ Type │ Payload │ FCS │
+└─────────┴─────────┴────────────┴────────────┴──────┴─────────┴─────┘
+                    │            │
+                    │            └── C-Tag (0x8100): Customer VLAN
+                    └──────────────── S-Tag (0x88A8): Service/Provider VLAN
+```
+
+- **S-VLAN (Service VLAN, TPID 0x88A8):** Provider's outer tag — identifies the service or tunnel
+- **C-VLAN (Customer VLAN, TPID 0x8100):** Customer's inner tag — preserved end-to-end
+
+**Telecom use case — eCPRI fronthaul:**
+
+In O-RAN fronthaul (between DU and RRU), the transport network uses QinQ to carry eCPRI traffic:
+
+```
+DU                   Fronthaul Switch          RRU
+ │                          │                   │
+ │  eCPRI frame             │                   │
+ │  + C-VLAN (RRU ID)       │                   │
+ │─────────────────────────►│                   │
+ │                          │ Add S-VLAN         │
+ │                          │ (fronthaul domain) │
+ │                          │───────────────────►│
+ │                          │                   │ Strip both tags
+```
+
+The C-VLAN identifies which RRU the eCPRI flow belongs to (one VLAN per RRU is common). The S-VLAN identifies the fronthaul transport service across the provider network.
+
+### VLAN in 5G interface design
+
+5G sites use VLANs to separate each logical interface over shared physical links:
+
+```
+gNB (DU/CU) with multiple 5G interfaces:
+
+Physical interface: bond0 (25GbE trunk)
+  │
+  ├── VLAN 100: N2 (gNB-AMF, SCTP, control plane)
+  ├── VLAN 200: N3 (gNB-UPF, GTP-U, user plane)
+  ├── VLAN 300: N8 Midhaul (F1-U, CU-DU split)
+  ├── VLAN 400: O1 (management, NETCONF/YANG)
+  └── VLAN 500: S-Plane (PTP/IEEE 1588 timing sync)
+```
+
+Each VLAN maps to a different IP subnet and routes to a different NF. Traffic stays separated at Layer 2 before being routed at Layer 3. This design means a single fiber failure takes all interfaces simultaneously — which is why active-active bonding or separate physical paths are used for N2 and N3.
+
+**QoS via PCP bits:**
+
+The 802.1Q PCP field (3 bits, values 0–7) maps to forwarding priority in the transport network:
+
+| PCP value | Traffic class | 5G use |
+|-----------|-------------|--------|
+| 7 | Network control | LLDP, STP |
+| 6 | Voice | URLLC user plane |
+| 5 | Video | eMBB user plane |
+| 4 | Controlled load | N2 signaling |
+| 3 | Excellent effort | N4 PFCP |
+| 0 | Best effort | Management |
+
+The DU sets PCP bits on eCPRI frames based on the 5QI of the QoS flow. Fronthaul switches honor these bits for traffic shaping.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+### VLAN design principles
+
+| Guideline | Reason |
+|-----------|--------|
+| Never use VLAN 1 for production | Security default attack target |
+| Keep broadcast domains small | Performance, blast radius containment |
+| One VLAN per 5G logical interface | Clean separation, easier troubleshooting |
+| Use consistent VLAN IDs site-wide | Operational consistency |
+| Prune VLANs on trunks | Prevent flooding to switches that don't need them |
+| Match native VLAN on both trunk ends | Prevent VLAN hopping |
+| Tag PCP bits for 5G QoS | Enables transport QoS enforcement |
+
+### Common VLAN assignments in a 5G site
+
+| VLAN | Purpose | Interface |
+|------|---------|-----------|
+| 100 | N2 (control) | gNB to AMF |
+| 200 | N3 (user plane) | gNB to UPF |
+| 300 | F1-U / midhaul | CU to DU |
+| 400 | Fronthaul eCPRI | DU to RRU |
+| 500 | S-Plane (timing) | PTP grandmaster sync |
+| 600 | OAM / O1 | Management |
+| 999 | Native (unused) | Trunk default |
+
+### Troubleshooting VLANs
+
+1. **Device cannot reach others in same VLAN:**
+   - Verify port VLAN assignment: `show vlan brief`
+   - Check port status: `show interface status`
+   - Verify VLAN exists on the switch
+
+2. **Trunk not working:**
+   - Check encapsulation matches (802.1Q on both sides)
+   - Verify allowed VLANs: `show interface trunk`
+   - Check native VLAN matches on both ends
+
+3. **Inter-VLAN routing fails:**
+   - Verify SVI or subinterface exists for the VLAN
+   - Check IP routing is enabled on the L3 switch
+   - Verify default gateway on clients points to SVI IP
+
+4. **eCPRI flows not reaching RRU:**
+   - Check C-VLAN and S-VLAN assignment at DU port
+   - Verify fronthaul switch trunk allows both inner and outer VLANs
+   - Check PCP bits are set correctly for timing traffic (PTP usually PCP 7)
+
+### Useful commands
+
+```bash
+# Show VLAN configuration
+show vlan brief
+
+# Show trunk status and allowed VLANs
+show interface trunk
+
+# Show per-port VLAN assignment
+show interface GigabitEthernet0/1 switchport
+
+# Create VLAN and name it
+vlan 200
+  name N3-USER-PLANE
+
+# Assign port to VLAN (access mode)
+interface GigabitEthernet0/2
+  switchport mode access
+  switchport access vlan 200
+
+# Configure trunk with specific VLANs
+interface GigabitEthernet0/24
+  switchport mode trunk
+  switchport trunk native vlan 999
+  switchport trunk allowed vlan 100,200,300,400,500,600,999
+
+# Configure QinQ on provider port (Cisco IOS)
+interface GigabitEthernet0/10
+  switchport mode dot1q-tunnel
+  switchport access vlan 1000
+  l2protocol-tunnel cdp lldp stp
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using VLAN 1 for production traffic.** VLAN 1 carries all untagged traffic by default and is the target of many VLAN hopping attacks. Create explicit VLANs and treat VLAN 1 as a discard VLAN.
+
+2. **Native VLAN mismatch on trunks.** If Switch A's native VLAN is 1 and Switch B's is 10, a double-tagged frame can transit from VLAN 1 into VLAN 10 without being routed. Always match native VLANs or configure `vlan dot1q tag native` to tag everything.
+
+3. **Forgetting to create VLAN on all switches in the path.** A VLAN must exist on every switch it traverses. On Cisco, a frame in a VLAN that does not exist on a switch is silently dropped at that switch. This is a common silent failure in multi-switch deployments.
+
+4. **Not pruning trunks.** By default, trunks carry all VLANs. Unnecessary VLANs waste bandwidth and extend the broadcast domain across links that have no devices in that VLAN.
+
+5. **VTP revision number disaster.** Cisco's VTP (VLAN Trunking Protocol) synchronizes VLANs across switches. A switch introduced to the network with a higher VTP revision number will overwrite all VLAN configurations on every switch that accepts VTP updates. Use VTP transparent mode or disable VTP entirely.
+
+6. **MTU mismatch with 802.1Q.** The 4-byte 802.1Q tag increases the frame size. If the upstream interface MTU is not set to 1522 (or 1526 for QinQ), tagged frames are dropped or fragmented. This is a silent failure — check `show interface` for input errors and giants.
+
+7. **QinQ TPID mismatch.** Some older equipment uses TPID 0x9100 or 0x9200 for the outer S-VLAN tag instead of the standard 0x88A8. If the far end expects 0x88A8 and you send 0x9100, the outer tag is not recognized and the frame is treated as a single-tagged VLAN 0x9100 frame — a confusing failure mode.
+
+8. **eCPRI PCP bits ignored.** If fronthaul switches are configured with default QoS (all traffic best-effort), URLLC eCPRI flows compete with management traffic. The 1ms latency budget is blown before the packet leaves the DU. Always configure DSCP and PCP marking policies on DU egress ports.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- IEEE 802.1Q, "Bridges and Bridged Networks" (VLAN tagging)
+- IEEE 802.1ad, "Provider Bridges" (QinQ / double tagging)
+- IEEE 802.1p, "Traffic Class Expediting" (PCP QoS)
+- O-RAN.WG4.CUS.0-v09.00, "Control, User and Synchronization Plane Specification" (eCPRI VLAN requirements)
+- 3GPP TS 38.401, "NG-RAN Architecture" (F1 interface)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [MPLS label switching](/en/core-network/mpls-vlan-vrf/mpls-label-switching/) — beyond VLAN segmentation to label-switched paths
+- [VRF concepts](/en/core-network/mpls-vlan-vrf/vrf-concepts/) — virtual routing tables for multi-tenant isolation
+- [Fronthaul interface](/en/core-network/fronthaul-interface/ecpri-overview/) — eCPRI over the transport VLAN
+
+</section>

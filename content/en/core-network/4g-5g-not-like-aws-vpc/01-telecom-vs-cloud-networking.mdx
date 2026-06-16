@@ -1,24 +1,302 @@
 ---
-id: core-network-n0-4g-5g-not-like-aws-vpc-01-telecom-vs-cloud-networking-en
+id: core-network-n1-4g-5g-not-like-aws-vpc-01-telecom-vs-cloud-networking-en
 slug: telecom-vs-cloud-networking
 lang: en
-parityId: core-network-n0-4g-5g-not-like-aws-vpc-01-telecom-vs-cloud-networking
+parityId: core-network-n1-4g-5g-not-like-aws-vpc-01-telecom-vs-cloud-networking
 domain: core-network
-track: n0
+track: n1
 unit: 4g-5g-not-like-aws-vpc
 order: 1
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-osi-tcpip-backend-perspective-02-tcp-ip-stack"]
+spiralRevisits: ["core-network-n2-5g-core-sba-01-service-based-architecture"]
 title: "Telecom vs cloud networking"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Why mobile networks work fundamentally differently than your AWS VPC — and why that matters."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 23.501"]
+tags: ["telecom", "cloud", "networking", "5g", "comparison"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Telecom vs cloud networking
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+You know TCP/IP. You've deployed apps on AWS. You understand VPCs, load balancers, and microservices.
+
+Now someone asks you to work on a 5G core network. You look at the architecture diagrams and think: "Why is this so complicated? Why not just use a load balancer?"
+
+This lesson bridges that gap. Mobile networks solve problems that cloud networks don't have — and understanding those problems explains the complexity.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The fundamental difference
+
+**Cloud networking:** Devices have stable IP addresses. They don't move. Connections are initiated by clients.
+
+**Telecom networking:** Devices move constantly. IP addresses change. The network must track location. The network must reach devices that didn't initiate contact.
+
+| Aspect | AWS VPC | Mobile Network |
+|--------|---------|----------------|
+| Device location | Fixed (data center) | Moving (anywhere) |
+| IP assignment | Static or DHCP (minutes+) | Dynamic (seconds) |
+| Network reaches device | No (NAT, firewalls) | Yes (paging, push) |
+| Session continuity | Connection dies if IP changes | Session survives handover |
+| Identity | IP address, DNS | IMSI/SUPI (SIM-based) |
+| Trust model | Network trusts devices | Network authenticates devices |
+
+### The problems telecom solves
+
+**1. Mobility**
+
+Your phone moves from one cell tower to another. The network must:
+- Track which tower you're connected to
+- Hand over your session without dropping the call
+- Update routing so packets find you
+
+In AWS, if your EC2 instance moves, you get a new IP. Connections break. In mobile, your session continues seamlessly.
+
+**2. Reachability**
+
+Someone calls you. The network must:
+- Find out which cell tower you're near
+- Wake up your phone (paging)
+- Establish a path for the call
+
+In AWS, you can't reach a device behind NAT without it connecting first. In mobile, the network can always find and wake your device.
+
+**3. Identity and Authentication**
+
+The SIM card proves who you are. The network authenticates you before granting access. Billing is tied to your identity.
+
+In AWS, authentication happens at the application layer. The network doesn't know or care who you are.
+
+**4. Quality of Service**
+
+Voice calls need &lt;150ms latency. Video needs stable bandwidth. Emergency calls need priority over everything.
+
+In AWS, best-effort delivery is the default. QoS is an afterthought, implemented with complex traffic shaping.
+
+In mobile, QoS is fundamental. The radio scheduler, the core network, and the transport all enforce it.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Comparing architectures
+
+**AWS VPC (simplified):**
+
+```
+┌─────────────────────────────────────────┐
+│                Internet                  │
+└───────────────────┬─────────────────────┘
+                    │
+            ┌───────┴───────┐
+            │  Load Balancer │
+            └───────┬───────┘
+                    │
+    ┌───────────────┼───────────────┐
+    │               │               │
+┌───┴───┐       ┌───┴───┐       ┌───┴───┐
+│ App A │       │ App B │       │ App C │
+└───┬───┘       └───┬───┘       └───┬───┘
+    │               │               │
+    └───────────────┴───────────────┘
+                    │
+            ┌───────┴───────┐
+            │   Database    │
+            └───────────────┘
+```
+
+Traffic flows in. Apps process. Database stores. Simple.
+
+**5G Core (simplified):**
+
+```
+┌─────────────────────────────────────────┐
+│                Internet/DN               │
+└───────────────────┬─────────────────────┘
+                    │
+            ┌───────┴───────┐
+            │      UPF      │  (User Plane)
+            └───────┬───────┘
+                    │
+    ┌───────────────┴───────────────┐
+    │                               │
+┌───┴───┐                       ┌───┴───┐
+│ gNB 1 │                       │ gNB 2 │
+└───┬───┘                       └───┬───┘
+    │                               │
+    │◄──────── Handover ───────────►│
+    │                               │
+┌───┴───────────────────────────────┴───┐
+│                  UE                    │
+│            (moving phone)              │
+└───────────────────────────────────────┘
+
+Control Plane (separate):
+┌───────┐  ┌───────┐  ┌───────┐  ┌───────┐
+│  AMF  │──│  SMF  │──│  UDM  │──│  PCF  │
+└───────┘  └───────┘  └───────┘  └───────┘
+```
+
+The UE (phone) moves. The network tracks it. Sessions survive.
+
+### Key architectural differences
+
+**1. Control plane / User plane separation**
+
+In AWS, the load balancer makes routing decisions inline with data flow.
+
+In 5G, the **control plane** (AMF, SMF) makes decisions. The **user plane** (UPF) forwards packets. They're separate.
+
+Why? Because:
+- Control decisions are infrequent (session setup, handover)
+- Data forwarding is high-volume, low-latency
+- Separating them allows independent scaling
+
+**2. Mobility anchoring**
+
+When your phone moves from gNB 1 to gNB 2, the session must survive.
+
+The **UPF (User Plane Function)** acts as an anchor. Regardless of which gNB you're connected to, your packets route through the UPF. Your IP address stays the same.
+
+```
+Before handover:          After handover:
+Internet → UPF → gNB 1    Internet → UPF → gNB 2
+               ↓                         ↓
+              UE                        UE
+```
+
+This is fundamentally different from AWS, where changing subnets means changing IPs.
+
+**3. Subscriber identity**
+
+In AWS, identity is an application concern. The network routes packets based on IP.
+
+In mobile, identity is built into the network:
+- **SUPI (Subscription Permanent Identifier):** Your permanent identity (in the SIM)
+- **5G-GUTI:** Temporary identifier (protects privacy)
+- **UDM (Unified Data Management):** Stores your subscription data
+
+The network authenticates you at connection time. Every packet is tied to an authenticated identity.
+
+**4. Radio resource management**
+
+In AWS, bandwidth is (mostly) unlimited. You don't think about it.
+
+In mobile, **spectrum is scarce**. The radio scheduler must:
+- Allocate time/frequency slots to each user
+- Handle interference between users
+- Adapt to changing channel conditions
+- Prioritize based on QoS
+
+This is a fundamentally different problem than wired networking.
+
+### The GTP tunnel
+
+Mobile networks use **GTP (GPRS Tunneling Protocol)** to carry user data.
+
+```
+┌──────────────────────────────────────────┐
+│ Outer IP │ UDP │ GTP │ Inner IP │ Payload │
+└──────────────────────────────────────────┘
+```
+
+Why tunneling?
+- The inner IP is your device's IP (stable)
+- The outer IP routes through the mobile network
+- When you move, only the outer routing changes
+
+This is like a VPN, but managed by the network, not by you.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Mapping concepts:**
+
+| Cloud concept | Telecom equivalent | Key difference |
+|---------------|-------------------|----------------|
+| VPC | APN/DNN | Network name, not IP range |
+| Subnet | Tracking Area | Geographic, not logical |
+| NAT Gateway | UPF | Also handles mobility |
+| IAM | UDM + AUSF | Crypto authentication |
+| Security Group | 5QI + Packet Filters | QoS-aware |
+| Route Table | AMF + SMF decisions | Dynamic per-session |
+| Load Balancer | NRF + SCP | Service discovery |
+
+**When to apply which model:**
+
+Use **cloud patterns** when:
+- Devices are stationary
+- You control both ends
+- Best-effort is acceptable
+- Identity is application-layer
+
+Use **telecom patterns** when:
+- Devices move
+- Network must reach devices
+- Guaranteed QoS required
+- Identity must be network-layer
+
+**Example: IoT fleet**
+
+If your IoT devices are in fixed locations (factory sensors), cloud patterns work.
+
+If they move (logistics tracking), telecom patterns apply — you need mobility, reachability, and session continuity.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming "just add a load balancer" works.** Load balancers assume stable backends. Mobile networks have moving endpoints.
+
+2. **Ignoring the radio.** In cloud, the network is reliable. In mobile, the radio channel is unreliable, variable, and shared. This fundamentally changes protocol design.
+
+3. **Treating identity as optional.** In mobile, unauthenticated devices get no service. Every packet has an identity.
+
+4. **Assuming IP addresses are stable.** Phones get new IP addresses frequently. Sessions must survive this.
+
+5. **Forgetting control plane overhead.** Setting up a mobile session involves dozens of messages. This is "expensive" compared to TCP SYN-ACK.
+
+6. **Applying microservices blindly.** 5G uses microservices (SBA), but with specific constraints: service mesh, HTTP/2, strict APIs. It's not "just Kubernetes."
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System architecture for the 5G System"
+- 3GPP TS 23.502, "Procedures for the 5G System"
+- Sauter, *From GSM to LTE-Advanced Pro and 5G*, Wiley, 2021
+- Amazon AWS Documentation, "VPC Concepts"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [User plane / control plane separation](/en/core-network/4g-5g-not-like-aws-vpc/user-plane-control-plane-separation/) — why they're split
+- [Mobility management concept](/en/core-network/4g-5g-not-like-aws-vpc/mobility-management-concept/) — how handover works
+- [Service-based architecture](/en/core-network/why-sba-architectural-shift/sba-design-principles/) — 5G's cloud-native approach
+
+</section>

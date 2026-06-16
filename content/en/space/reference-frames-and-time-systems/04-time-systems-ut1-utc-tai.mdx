@@ -9,16 +9,522 @@ unit: reference-frames-and-time-systems
 order: 4
 level: L2
 estimatedReadingMinutes: 5
-title: "UT1, UTC, TAI, GPS time"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "Time Systems — UT1, UTC, TAI, GPS Time"
+description: "Understanding the time scales that drive space operations and why they differ."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["utc", "tai", "ut1", "gps-time", "leap-seconds"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# UT1, UTC, TAI, GPS time
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Space operations require sub-millisecond timing accuracy. But which clock do you use? Your computer says 12:00:00 UTC, your GPS receiver says 12:00:18 GPS time, and Earth's rotation says it's 12:00:00.3 UT1. These aren't errors — they're different time systems optimized for different purposes. UTC keeps civil time aligned with the Sun. TAI ticks uniformly for physics. GPS time never has leap seconds for continuous navigation. UT1 tracks actual Earth rotation for pointing antennas. Confusing them causes satellite passes to be missed, collision predictions to be wrong, and ground track plots to drift.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The fundamental problem
+
+```
+Why Multiple Time Systems Exist:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TWO CLOCKS THAT DON'T AGREE:                                       │
+│                                                                      │
+│  ATOMIC CLOCK                      EARTH'S ROTATION                 │
+│  ┌─────────────────────┐          ┌─────────────────────┐          │
+│  │                     │          │                     │          │
+│  │  Ticks at exactly   │          │  Slowing down       │          │
+│  │  9,192,631,770      │          │  ~2 ms/day on       │          │
+│  │  cycles per second  │          │  average            │          │
+│  │                     │          │                     │          │
+│  │  PERFECTLY UNIFORM  │          │  IRREGULAR          │          │
+│  │                     │          │  (earthquakes,      │          │
+│  │                     │          │   tides, core-      │          │
+│  │                     │          │   mantle coupling)  │          │
+│  │                     │          │                     │          │
+│  └─────────────────────┘          └─────────────────────┘          │
+│                                                                      │
+│  PROBLEM:                                                           │
+│  If we use atomic time, noon eventually happens at midnight.       │
+│  If we use Earth rotation, clocks become unpredictable.            │
+│                                                                      │
+│  SOLUTION: Multiple time systems for different purposes            │
+│                                                                      │
+│  • TAI: Pure atomic time (physics, precise intervals)              │
+│  • UT1: Earth rotation time (where you point your antenna)         │
+│  • UTC: Hybrid (atomic seconds + leap seconds → tracks Sun)        │
+│  • GPS: Atomic-based, no leap seconds (continuous navigation)      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### The time scale family tree
+
+```
+Relationships Between Time Systems:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                         EARTH ROTATION                              │
+│                              │                                       │
+│                              ▼                                       │
+│                         ┌────────┐                                  │
+│                         │  UT1   │  (actual Earth orientation)     │
+│                         └────┬───┘                                  │
+│                              │                                       │
+│                    ΔUT1 = UT1 - UTC                                 │
+│                    (±0.9 sec max, by definition)                    │
+│                              │                                       │
+│                              ▼                                       │
+│  ATOMIC CLOCKS ────────→ ┌────────┐                                │
+│        │                 │  UTC   │  (civil time worldwide)        │
+│        │                 └────┬───┘                                  │
+│        │                      │                                      │
+│        │         UTC = TAI - (leap seconds)                         │
+│        │         Currently: UTC = TAI - 37s (as of 2017)           │
+│        │                      │                                      │
+│        ▼                      ▼                                      │
+│  ┌────────┐             ┌─────────┐                                 │
+│  │  TAI   │◄────────────│GPS Time │                                 │
+│  │        │             │         │                                 │
+│  │(atomic)│  GPS = TAI - 19s (frozen at 1980)                      │
+│  └────────┘             └─────────┘                                 │
+│                                                                      │
+│  TT (Terrestrial Time) = TAI + 32.184s                             │
+│  (used for ephemerides, dynamical calculations)                     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Current offsets (2026)
+
+```
+Time Scale Offsets (as of 2026):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  REFERENCE: When UTC shows 12:00:00.000                            │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Time Scale │ Value           │ Offset from UTC       │         │
+│  │  ───────────┼─────────────────┼────────────────────── │         │
+│  │  UTC        │ 12:00:00.000    │ 0 (reference)        │         │
+│  │  TAI        │ 12:00:37.000    │ +37 seconds          │         │
+│  │  GPS        │ 12:00:18.000    │ +18 seconds          │         │
+│  │  TT         │ 12:01:09.184    │ +69.184 seconds      │         │
+│  │  UT1        │ ~12:00:00.xxx   │ ±&lt;0.9 sec (variable) │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WHY THESE NUMBERS?                                                 │
+│                                                                      │
+│  TAI - UTC = 37s → 37 leap seconds added since 1972                │
+│  GPS - UTC = 18s → 18 leap seconds added since 1980                │
+│  TT - TAI = 32.184s → Historical offset (fixed forever)            │
+│                                                                      │
+│  CHECK CURRENT VALUE: https://hpiers.obspm.fr/iers/bul/bulc/       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### TAI (International Atomic Time)
+
+```
+TAI: The Foundation of Precise Timekeeping
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DEFINITION:                                                        │
+│  The SI second is exactly 9,192,631,770 periods of radiation       │
+│  from cesium-133 atom's ground state hyperfine transition.         │
+│                                                                      │
+│  TAI = weighted average of ~450 atomic clocks worldwide            │
+│                                                                      │
+│  PROPERTIES:                                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Uniform: Every second is exactly the same length   │         │
+│  │  • Continuous: No jumps, no gaps, no leap seconds     │         │
+│  │  • Stable: Drift < 1 second in 100 million years     │         │
+│  │  • Origin: 1958-01-01 00:00:00 (aligned with UT2)    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  USE CASES:                                                         │
+│  • Fundamental physics experiments                                 │
+│  • Time interval measurements                                      │
+│  • Foundation for other time scales                                │
+│                                                                      │
+│  LIMITATION:                                                        │
+│  TAI drifts from solar time. In 1000 years, TAI noon would be     │
+│  ~15 minutes away from actual solar noon.                          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### UTC (Coordinated Universal Time)
+
+```
+UTC: The Compromise Time Scale
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DESIGN GOAL: Keep atomic precision while staying near solar time  │
+│                                                                      │
+│  MECHANISM:                                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Seconds tick at exactly TAI rate (atomic)        │         │
+│  │                                                        │         │
+│  │  2. When |UTC - UT1| approaches 0.9 seconds:         │         │
+│  │     → Insert or remove a "leap second"               │         │
+│  │                                                        │         │
+│  │  3. Leap seconds occur at end of June 30 or Dec 31   │         │
+│  │     → 23:59:59 → 23:59:60 → 00:00:00 (positive)     │         │
+│  │     → 23:59:58 → 00:00:00 (negative, never used)    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LEAP SECOND HISTORY:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Year │ Cumulative leap seconds (TAI - UTC)          │         │
+│  │  ─────┼─────────────────────────────────────────      │         │
+│  │  1972 │ 10 (initial offset when UTC started)         │         │
+│  │  1980 │ 19 (GPS epoch locked here)                   │         │
+│  │  2000 │ 32                                           │         │
+│  │  2017 │ 37 (last leap second: 2016-12-31)           │         │
+│  │  2026 │ 37 (no leap seconds since 2017)             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  FUTURE: ITU may abolish leap seconds by 2035. Stay tuned.        │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### GPS Time
+
+```
+GPS Time: Continuous Navigation Time
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ORIGIN: 1980-01-06 00:00:00 UTC                                   │
+│          (GPS system epoch, aligned with UTC at that moment)       │
+│                                                                      │
+│  KEY PROPERTY: NO LEAP SECONDS EVER                                │
+│                                                                      │
+│  WHY?                                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  GPS navigation requires continuous time.            │         │
+│  │                                                        │         │
+│  │  Position = (speed of light) × (time difference)    │         │
+│  │                                                        │         │
+│  │  A 1-second jump in time = 300,000 km position error │         │
+│  │                                                        │         │
+│  │  Leap seconds would cause aircraft to "jump" 300 km  │         │
+│  │  → Catastrophic for navigation                       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  RELATIONSHIP TO UTC:                                               │
+│                                                                      │
+│  GPS Time = UTC + (leap seconds since 1980)                        │
+│           = UTC + 18 seconds (as of 2026)                          │
+│                                                                      │
+│  GPS receivers transmit the current leap second offset so         │
+│  devices can display UTC to users.                                 │
+│                                                                      │
+│  RELATIONSHIP TO TAI:                                               │
+│                                                                      │
+│  GPS Time = TAI - 19 seconds (fixed forever)                       │
+│  (19 = leap seconds that had occurred by 1980)                     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### UT1 (Earth Rotation Time)
+
+```
+UT1: Where Earth Actually Points
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DEFINITION: Time defined by actual Earth rotation angle           │
+│                                                                      │
+│  UT1 tells you the orientation of Earth in space right now.       │
+│                                                                      │
+│  WHY IT MATTERS:                                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  To convert ECI ↔ ECEF, you need Earth's rotation    │         │
+│  │  angle: Greenwich Sidereal Time (GST)                │         │
+│  │                                                        │         │
+│  │  GST is calculated from UT1, NOT from UTC            │         │
+│  │                                                        │         │
+│  │  Using UTC instead of UT1:                           │         │
+│  │  → Position error up to ~400m (at equator)           │         │
+│  │  → Antenna pointing error up to ~0.5 arcsec          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ΔUT1 = UT1 - UTC                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Published daily by IERS (International Earth      │         │
+│  │    Rotation and Reference Systems Service)           │         │
+│  │  • Kept within ±0.9 seconds (by leap second rule)   │         │
+│  │  • Varies irregularly (earthquakes shift it!)       │         │
+│  │  • Current value: ~+0.02 seconds (check IERS)        │         │
+│  │                                                        │         │
+│  │  Source: https://www.iers.org/IERS/EN/DataProducts/  │         │
+│  │          EarthOrientationData/eop.html               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Time system conversions:**
+
+```python
+from datetime import datetime, timedelta
+import numpy as np
+
+# Current leap seconds (TAI - UTC)
+LEAP_SECONDS = 37  # As of 2017, check IERS for updates
+
+# Fixed offsets
+TAI_MINUS_GPS = 19      # seconds (fixed since GPS epoch 1980)
+TT_MINUS_TAI = 32.184   # seconds (fixed by definition)
+GPS_EPOCH = datetime(1980, 1, 6, 0, 0, 0)
+
+def utc_to_tai(utc_datetime):
+    """Convert UTC to TAI."""
+    return utc_datetime + timedelta(seconds=LEAP_SECONDS)
+
+def tai_to_utc(tai_datetime):
+    """Convert TAI to UTC."""
+    return tai_datetime - timedelta(seconds=LEAP_SECONDS)
+
+def utc_to_gps(utc_datetime):
+    """Convert UTC to GPS time."""
+    gps_minus_utc = LEAP_SECONDS - TAI_MINUS_GPS  # Currently 18
+    return utc_datetime + timedelta(seconds=gps_minus_utc)
+
+def gps_to_utc(gps_datetime):
+    """Convert GPS time to UTC."""
+    gps_minus_utc = LEAP_SECONDS - TAI_MINUS_GPS
+    return gps_datetime - timedelta(seconds=gps_minus_utc)
+
+def utc_to_tt(utc_datetime):
+    """Convert UTC to Terrestrial Time (TT)."""
+    return utc_datetime + timedelta(seconds=LEAP_SECONDS + TT_MINUS_TAI)
+
+def gps_week_seconds(utc_datetime):
+    """Convert UTC to GPS week number and seconds of week."""
+    gps_time = utc_to_gps(utc_datetime)
+    delta = gps_time - GPS_EPOCH
+    total_seconds = delta.total_seconds()
+    week = int(total_seconds // (7 * 86400))
+    seconds_of_week = total_seconds % (7 * 86400)
+    return week, seconds_of_week
+
+def julian_date(utc_datetime):
+    """Calculate Julian Date from UTC datetime."""
+    year = utc_datetime.year
+    month = utc_datetime.month
+    day = utc_datetime.day
+    hour = utc_datetime.hour + utc_datetime.minute/60 + utc_datetime.second/3600
+    
+    if month <= 2:
+        year -= 1
+        month += 12
+    
+    A = int(year / 100)
+    B = 2 - A + int(A / 4)
+    
+    jd = int(365.25 * (year + 4716)) + int(30.6001 * (month + 1)) + day + hour/24 + B - 1524.5
+    return jd
+
+def gmst_deg(jd_ut1):
+    """Calculate Greenwich Mean Sidereal Time in degrees from JD(UT1)."""
+    T = (jd_ut1 - 2451545.0) / 36525
+    gmst = 280.46061837 + 360.98564736629 * (jd_ut1 - 2451545.0) + \
+           0.000387933 * T**2 - T**3 / 38710000
+    return gmst % 360
+
+print("Time Systems Reference")
+print("=" * 70)
+
+# Example time
+utc_now = datetime(2026, 6, 3, 12, 0, 0)
+
+print(f"\n1. Time Scale Conversions (reference: {utc_now} UTC)")
+print("-" * 70)
+
+tai_now = utc_to_tai(utc_now)
+gps_now = utc_to_gps(utc_now)
+tt_now = utc_to_tt(utc_now)
+
+print(f"  UTC: {utc_now}")
+print(f"  TAI: {tai_now} (UTC + {LEAP_SECONDS}s)")
+print(f"  GPS: {gps_now} (UTC + {LEAP_SECONDS - TAI_MINUS_GPS}s)")
+print(f"  TT:  {tt_now} (UTC + {LEAP_SECONDS + TT_MINUS_TAI:.3f}s)")
+
+# GPS week and seconds
+print(f"\n2. GPS Week Format")
+print("-" * 70)
+
+week, sow = gps_week_seconds(utc_now)
+print(f"  GPS Week: {week}")
+print(f"  Seconds of Week: {sow:.0f}")
+print(f"  Day of Week: {int(sow // 86400)} ({['Sun','Mon','Tue','Wed','Thu','Fri','Sat'][int(sow // 86400)]})")
+
+# Julian Date
+print(f"\n3. Julian Date")
+print("-" * 70)
+
+jd = julian_date(utc_now)
+print(f"  Julian Date (UTC): {jd:.6f}")
+print(f"  Modified Julian Date: {jd - 2400000.5:.6f}")
+
+# GMST calculation
+print(f"\n4. Greenwich Mean Sidereal Time")
+print("-" * 70)
+
+# Note: For precise GMST, use UT1, not UTC
+# Here we use UTC as approximation (error up to ~0.9s or ~0.004°)
+gmst = gmst_deg(jd)
+print(f"  GMST: {gmst:.4f}° (from UTC, approximate)")
+print(f"  Note: For precision, use UT1 (get ΔUT1 from IERS)")
+
+# Offset summary
+print(f"\n5. Current Time Scale Offsets")
+print("-" * 70)
+
+print("""
+  ┌─────────────────────────────────────────────────────────────────┐
+  │                                                                  │
+  │  Relationship            │ Value         │ Status              │
+  │  ────────────────────────┼───────────────┼──────────────────── │
+  │  TAI - UTC               │ +37 seconds   │ Check IERS bulletin │
+  │  GPS - UTC               │ +18 seconds   │ = (TAI-UTC) - 19    │
+  │  TT - TAI                │ +32.184 s     │ Fixed forever       │
+  │  TT - UTC                │ +69.184 s     │ = (TAI-UTC) + 32.184│
+  │  UT1 - UTC (ΔUT1)        │ ~+0.0x sec    │ Daily IERS update   │
+  │                                                                  │
+  └─────────────────────────────────────────────────────────────────┘
+""")
+
+# Practical implications
+print("6. Practical Implications")
+print("-" * 70)
+
+ut1_error_m = 0.9 * 7.292115e-5 * 6378137  # max ΔUT1 × ω × R_earth
+print(f"  Maximum UT1/UTC difference: 0.9 seconds")
+print(f"  → Position error at equator: up to {ut1_error_m:.0f} m")
+print(f"  → This is why precision orbit determination uses UT1")
+
+leap_second_error = 1.0 * 299792.458  # 1 second × speed of light (km)
+print(f"\n  One leap second timing error:")
+print(f"  → Range error: {leap_second_error:.0f} km")
+print(f"  → This is why GPS doesn't use leap seconds")
+
+# Conversion formulas
+print(f"\n7. Quick Conversion Formulas")
+print("-" * 70)
+
+print("""
+  TAI = UTC + 37s              (as of 2026)
+  GPS = UTC + 18s              (as of 2026)  
+  GPS = TAI - 19s              (fixed forever)
+  TT  = TAI + 32.184s          (fixed forever)
+  TT  = UTC + 69.184s          (as of 2026)
+  UT1 = UTC + ΔUT1             (get from IERS daily)
+  
+  For ECI↔ECEF: Use UT1 (not UTC) to compute sidereal time
+  For navigation: Use GPS time (continuous)
+  For civil time: Use UTC (with leap seconds)
+  For physics/ephemeris: Use TT or TAI
+""")
+```
+
+**Key formulas:**
+
+| Conversion | Formula (as of 2026) |
+|------------|---------------------|
+| TAI from UTC | TAI = UTC + 37s |
+| GPS from UTC | GPS = UTC + 18s |
+| GPS from TAI | GPS = TAI - 19s |
+| TT from TAI | TT = TAI + 32.184s |
+| UT1 from UTC | UT1 = UTC + ΔUT1 (check IERS) |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using UTC for sidereal time.** GST must be computed from UT1. UTC introduces up to 400m position error.
+
+2. **Assuming leap seconds are predictable.** They're announced ~6 months ahead. Don't hardcode future values.
+
+3. **Mixing GPS and UTC timestamps.** An 18-second error causes 5.4 million meter range errors at light speed.
+
+4. **Ignoring leap second announcements.** Software crashes on leap second day (2012 Linux bug, 2015 airline outages).
+
+5. **Using TT for civil time.** TT is for ephemerides. It's 69+ seconds ahead of UTC.
+
+6. **Forgetting GPS week rollover.** GPS week is 10 bits (0-1023). Rolled over in 1999 and 2019. Next: 2038.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- IERS Bulletins (https://www.iers.org) — ΔUT1 and leap second announcements
+- ITU-R TF.460 — UTC definition
+- GPS Interface Specification (IS-GPS-200) — GPS time definition
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [ECI Frame](/en/space/reference-frames-and-time-systems/eci-frame/) — uses TT/TAI for dynamical calculations
+- [ECEF Frame](/en/space/reference-frames-and-time-systems/ecef-frame/) — requires UT1 for ECI↔ECEF conversion
+- [Frame Transformations](/en/space/reference-frames-and-time-systems/frame-transformations/) — putting time systems to use
+
+</section>

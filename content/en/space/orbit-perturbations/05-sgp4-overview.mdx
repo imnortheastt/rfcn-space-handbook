@@ -8,17 +8,401 @@ track: s1
 unit: orbit-perturbations
 order: 5
 level: L3
-estimatedReadingMinutes: 5
-title: "Simplified General Perturbations (SGP4)"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: ["space-s1-orbit-perturbations-01-j2-effect", "space-s1-orbit-perturbations-02-atmospheric-drag"]
+spiralRevisits: []
+title: "SGP4 — Simplified General Perturbations"
+description: "The standard algorithm for propagating Two-Line Element sets, used worldwide for satellite tracking."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["sgp4", "tle", "norad", "propagation", "space-track", "satellite-tracking"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Simplified General Perturbations (SGP4)
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Every satellite you track online uses SGP4. It's the algorithm that turns Two-Line Element (TLE) sets into position predictions. Space-Track.org, Celestrak, and every amateur satellite tracker rely on this 50-year-old algorithm—understanding its strengths and limitations is essential for anyone working with orbital data.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What is SGP4?
+
+```
+SGP4 in Context:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TLE (Two-Line Element Set)                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1 25544U 98067A   24001.50000000  .00001234    │    │
+│  │    00000-0  12345-4 0  9999                     │    │
+│  │  2 25544  51.6400 123.4567 0006789  12.3456     │    │
+│  │    123.4567 15.50000000123456                   │    │
+│  │                                                  │    │
+│  │  Contains: epoch, mean motion, drag term,       │    │
+│  │  inclination, RAAN, eccentricity, arg perigee,  │    │
+│  │  mean anomaly                                   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│              │                                           │
+│              ▼                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │              SGP4 ALGORITHM                     │    │
+│  │                                                  │    │
+│  │  • Secular effects (J2, J3, J4)                 │    │
+│  │  • Short-period effects                         │    │
+│  │  • Atmospheric drag (LEO)                       │    │
+│  │  • Deep-space resonances (SDP4)                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│              │                                           │
+│              ▼                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  OUTPUT: Position & Velocity in TEME frame      │    │
+│  │  r = [x, y, z] km                               │    │
+│  │  v = [vx, vy, vz] km/s                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### TLE format anatomy
+
+```
+Two-Line Element Set Structure:
+
+Line 0 (optional):
+ISS (ZARYA)                    ← Satellite name
+
+Line 1:
+1 25544U 98067A   24001.50000000  .00001234 00000-0  12345-4 0  9999
+│ │    │ │     │   │              │         │        │       │  │
+│ │    │ │     │   │              │         │        │       │  └─ Element set number
+│ │    │ │     │   │              │         │        │       └─ Classification
+│ │    │ │     │   │              │         │        └─ B* drag term
+│ │    │ │     │   │              │         └─ 2nd deriv (usually 0)
+│ │    │ │     │   │              └─ 1st deriv mean motion (revs/day²)
+│ │    │ │     │   └─ Epoch (YYDDD.fraction)
+│ │    │ │     └─ International designator (launch piece)
+│ │    │ └─ Classification (U=unclassified)
+│ │    └─ NORAD catalog number
+│ └─ Line number
+└─ Card number
+
+Line 2:
+2 25544  51.6400 123.4567 0006789  12.3456 123.4567 15.50000000123456
+│ │      │       │        │        │       │        │
+│ │      │       │        │        │       │        └─ Mean motion (revs/day) + rev number
+│ │      │       │        │        │       └─ Mean anomaly (°)
+│ │      │       │        │        └─ Argument of perigee (°)
+│ │      │       │        └─ Eccentricity (decimal point assumed)
+│ │      │       └─ RAAN (°)
+│ │      └─ Inclination (°)
+│ └─ NORAD catalog number
+└─ Line number
+```
+
+### SGP4 vs other propagators
+
+```
+Propagator Comparison:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Propagator    Use Case         Accuracy      Speed     │
+│  ─────────────────────────────────────────────────────  │
+│  Two-body      Quick estimates  ~1 km/orbit   ████████  │
+│  SGP4          TLE tracking     ~1 km (LEO)   ███████   │
+│  HPOP          Precision ops    ~10 m         ███       │
+│  Numerical     Research         ~1 m          █         │
+│                                                          │
+│  ─────────────────────────────────────────────────────  │
+│                                                          │
+│  SGP4 ACCURACY LIMITATIONS:                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  LEO (400 km):  ~1 km after 1 day               │    │
+│  │  MEO:           ~1-5 km after 1 day             │    │
+│  │  GEO:           ~5-10 km after 1 day            │    │
+│  │  HEO:           Highly variable                 │    │
+│  │                                                  │    │
+│  │  Error grows with:                              │    │
+│  │  • Time since TLE epoch                         │    │
+│  │  • Solar activity uncertainty (drag)            │    │
+│  │  • Maneuvers (TLE invalid after!)               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### SGP4 algorithm overview
+
+```
+SGP4 Processing Steps:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  STEP 1: INITIALIZE FROM TLE                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Convert TLE elements to internal units:        │    │
+│  │  • Mean motion: revs/day → rad/min              │    │
+│  │  • Mean elements → Brouwer mean elements        │    │
+│  │  • Compute derived quantities (a, p, etc.)      │    │
+│  │                                                  │    │
+│  │  Choose propagator:                             │    │
+│  │  • Period < 225 min → SGP4 (near-Earth)         │    │
+│  │  • Period ≥ 225 min → SDP4 (deep-space)         │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  STEP 2: SECULAR UPDATES                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Update mean elements for time Δt:              │    │
+│  │  • M = M₀ + n×Δt + (J2, J3, J4 secular terms)   │    │
+│  │  • Ω = Ω₀ + Ω̇×Δt (nodal regression from J2)    │    │
+│  │  • ω = ω₀ + ω̇×Δt (apsidal advance from J2)     │    │
+│  │  • Drag decay (B* term for LEO)                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  STEP 3: PERIODIC CORRECTIONS                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Add short-period oscillations:                 │    │
+│  │  • J2/J3 short-period terms                     │    │
+│  │  • Convert mean → osculating elements           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  STEP 4: CONVERT TO POSITION/VELOCITY                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Kepler's equation: M → E → ν                   │    │
+│  │  Orbital plane position and velocity            │    │
+│  │  Rotate to TEME (True Equator Mean Equinox)     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### B* drag term
+
+```
+Understanding B* (BSTAR):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  B* is NOT ballistic coefficient!                       │
+│                                                          │
+│  DEFINITION:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │       ρ₀ × C_D × A                              │    │
+│  │  B* = ──────────── × (1 Earth radius)           │    │
+│  │         2 × m                                    │    │
+│  │                                                  │    │
+│  │  ρ₀ = reference density at perigee height       │    │
+│  │  Units: Earth radii⁻¹                           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  TLE ENCODING:                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Example: 12345-4 means 0.12345 × 10⁻⁴          │    │
+│  │           = 1.2345 × 10⁻⁵ Earth radii⁻¹         │    │
+│  │                                                  │    │
+│  │  Typical values:                                │    │
+│  │  • ISS: ~10⁻⁴ (high drag)                       │    │
+│  │  • GPS: ~10⁻⁷ (minimal drag)                    │    │
+│  │  • GEO: ~10⁻⁸ (essentially zero)                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  CAUTION: B* absorbs ALL unmodeled forces!              │
+│  • SRP effects folded into B*                           │
+│  • Solar activity → B* changes between TLEs             │
+│  • Not physically meaningful—fitting parameter          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### TEME coordinate frame
+
+```
+True Equator Mean Equinox (TEME):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SGP4 OUTPUT FRAME:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  • X: Mean vernal equinox direction             │    │
+│  │  • Z: True celestial pole (with nutation)       │    │
+│  │  • Y: Completes right-handed system             │    │
+│  │                                                  │    │
+│  │  NOT the same as:                               │    │
+│  │  • J2000 ECI (precession/nutation different)    │    │
+│  │  • GCRF (IERS standard frame)                   │    │
+│  │  • ECEF (Earth-fixed, rotating)                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  CONVERTING TO OTHER FRAMES:                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  TEME → ITRF (ECEF):                            │    │
+│  │  1. Apply polar motion (x_p, y_p)               │    │
+│  │  2. Apply Earth rotation (GAST or GMST)         │    │
+│  │                                                  │    │
+│  │  TEME → J2000/GCRF:                             │    │
+│  │  1. Apply equation of equinoxes                 │    │
+│  │  2. Apply nutation                              │    │
+│  │  3. Apply precession                            │    │
+│  │                                                  │    │
+│  │  For ~1 km accuracy: GMST rotation suffices     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Using SGP4 in Python:**
+
+```python
+from sgp4.api import Satrec, jday
+from sgp4 import exporter
+import numpy as np
+
+# Example TLE (ISS)
+line1 = "1 25544U 98067A   24001.50000000  .00001234  00000-0  12345-4 0  9999"
+line2 = "2 25544  51.6400 123.4567 0006789  12.3456 123.4567 15.50000000123456"
+
+# Create satellite object
+satellite = Satrec.twoline2rv(line1, line2)
+
+# Propagate to a specific time
+# jday(year, month, day, hour, minute, second)
+jd, fr = jday(2024, 1, 1, 12, 0, 0)
+
+# Get position and velocity in TEME
+error, r, v = satellite.sgp4(jd, fr)
+
+if error == 0:
+    print(f"Position (TEME): {r} km")
+    print(f"Velocity (TEME): {v} km/s")
+else:
+    print(f"SGP4 error code: {error}")
+
+# Propagate over time range
+def propagate_tle(sat, start_jd, duration_hours, step_min=1):
+    """Propagate TLE and return positions"""
+    positions = []
+    t = 0
+    while t < duration_hours * 60:
+        jd = start_jd + t / 1440  # Convert minutes to days
+        e, r, v = sat.sgp4(jd, 0.0)
+        if e == 0:
+            positions.append(r)
+        t += step_min
+    return np.array(positions)
+
+# TEME to ECEF conversion (simplified)
+def teme_to_ecef(r_teme, gmst_rad):
+    """Rotate TEME to ECEF using GMST"""
+    c, s = np.cos(gmst_rad), np.sin(gmst_rad)
+    R = np.array([[c, s, 0], [-s, c, 0], [0, 0, 1]])
+    return R @ r_teme
+
+# Calculate GMST (simplified)
+def gmst(jd):
+    """Greenwich Mean Sidereal Time (radians)"""
+    T = (jd - 2451545.0) / 36525.0
+    gmst_sec = 67310.54841 + (876600*3600 + 8640184.812866)*T + 0.093104*T**2
+    return np.radians((gmst_sec % 86400) / 240)  # Convert to radians
+
+print("\nPropagation example:")
+jd_start, _ = jday(2024, 1, 1, 0, 0, 0)
+positions = propagate_tle(satellite, jd_start, 2)  # 2 hours
+print(f"Generated {len(positions)} position points")
+```
+
+**TLE sources:**
+
+| Source | URL | Access |
+|--------|-----|--------|
+| Space-Track | space-track.org | Account required |
+| Celestrak | celestrak.org | Free, GP data |
+| AMSAT | amsat.org | Amateur satellites |
+| Planet Labs | planet.com | Commercial |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **TLE epoch matters.** Accuracy degrades rapidly; use fresh TLEs.
+
+2. **Post-maneuver invalidity.** TLE is invalid after any maneuver; wait for update.
+
+3. **TEME frame.** Output is TEME, not J2000 or ECEF; convert as needed.
+
+4. **B* misinterpretation.** B* is not ballistic coefficient; don't use it for physics.
+
+5. **Deep-space cutoff.** Period > 225 min triggers SDP4; different algorithm.
+
+6. **Checksum errors.** Validate TLE checksums before use.
+
+7. **Mean vs osculating.** TLE elements are mean elements, not osculating.
+
+8. **Solar activity.** Drag uncertainty from solar activity dominates LEO errors.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Vallado, D., "Revisiting Spacetrack Report #3"
+- Hoots, F.R., Roehrich, R.L., "Spacetrack Report #3"
+- Celestrak, "TLE Tutorial" (celestrak.org)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Orbit Determination](/en/space/orbit-determination/basics/) — how TLEs are generated
+- [Conjunction Assessment](/en/space/space-situational-awareness/conjunction-assessment/) — using SGP4 for collision prediction
+- [Numerical Propagation](/en/space/orbit-propagation/numerical-methods/) — higher fidelity alternatives
+
+</section>

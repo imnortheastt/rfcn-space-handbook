@@ -8,17 +8,421 @@ track: n3
 unit: session-management-deep-dive
 order: 5
 level: L4
-estimatedReadingMinutes: 5
-title: "QoS flows"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 14
+prerequisites: ["core-network-n3-session-management-deep-dive-01-pdu-session-establishment"]
+spiralRevisits: ["core-network-n4-qos-01-5qi"]
+title: "QoS Flows"
+description: "Traffic differentiation within a PDU session — 5QI, QFI, packet filters, and flow management."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 23.503", "3GPP TS 24.501"]
+tags: ["qos", "5g", "5qi", "qfi", "gbr", "smf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# QoS flows
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+A single PDU session can carry multiple applications — browsing, video call, gaming, file download. Each has different latency and bandwidth requirements.
+
+**QoS flows** let the network treat these differently within the same session. Without them, everything gets best-effort treatment.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What is a QoS flow
+
+```
+QoS Flow Concept:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  PDU Session (IP address: 10.0.0.5)                     │
+│  │                                                       │
+│  ├── QoS Flow 1 (QFI=1)                                 │
+│  │   └── Default flow, best effort                      │
+│  │   └── Web browsing, email, background                │
+│  │                                                       │
+│  ├── QoS Flow 2 (QFI=2)                                 │
+│  │   └── Video call, GBR                                │
+│  │   └── 5 Mbps guaranteed                              │
+│  │                                                       │
+│  └── QoS Flow 3 (QFI=3)                                 │
+│      └── Gaming, low latency                            │
+│      └── 20ms target delay                              │
+│                                                          │
+│  Same IP, different treatment per flow                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### QFI vs 5QI
+
+```
+QFI and 5QI Relationship:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  QFI (QoS Flow Identifier):                             │
+│  - Local identifier within PDU session                  │
+│  - Range: 1-63                                          │
+│  - Assigned by SMF                                      │
+│  - Used in GTP-U header to mark packets                 │
+│                                                          │
+│  5QI (5G QoS Identifier):                               │
+│  - Defines QoS characteristics                          │
+│  - Standardized values (1-255)                          │
+│  - Maps to priority, latency, error rate               │
+│  - Can be standardized or operator-defined              │
+│                                                          │
+│  Relationship:                                          │
+│  QFI → points to → 5QI + additional parameters          │
+│                                                          │
+│  Example:                                               │
+│  QFI=2 → 5QI=2 (voice) + GBR=64kbps + MBR=128kbps     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### GBR vs Non-GBR
+
+```
+QoS Flow Types:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  GBR (Guaranteed Bit Rate):                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  - Network reserves bandwidth                   │    │
+│  │  - Parameters: GBR, MBR, packet delay budget    │    │
+│  │  - Admission control: may reject if no capacity │    │
+│  │  - Use: voice, video conferencing, real-time    │    │
+│  │                                                  │    │
+│  │  5QI examples: 1 (voice), 2 (video), 65 (MCPTT) │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Non-GBR (Best Effort):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  - No bandwidth reservation                     │    │
+│  │  - Parameters: priority, packet delay budget    │    │
+│  │  - Always admitted (no resources guaranteed)    │    │
+│  │  - Use: web, email, streaming, downloads        │    │
+│  │                                                  │    │
+│  │  5QI examples: 5 (IMS signaling), 8, 9 (web)   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Delay-Critical GBR:                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  - GBR + strict latency                         │    │
+│  │  - Parameters: GBR + packet delay budget (hard) │    │
+│  │  - Use: V2X, AR/VR, remote surgery              │    │
+│  │                                                  │    │
+│  │  5QI examples: 82 (V2X), 83 (electricity)       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Common 5QI values
+
+```
+Standardized 5QI Table (subset):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  │ 5QI │ Type    │ Priority │ Delay  │ Error │ Example │
+│  │─────│─────────│──────────│────────│───────│─────────│
+│  │  1  │ GBR     │    20    │ 100ms  │ 10⁻²  │ Voice   │
+│  │  2  │ GBR     │    40    │ 150ms  │ 10⁻³  │ Video   │
+│  │  3  │ GBR     │    30    │  50ms  │ 10⁻³  │ Gaming  │
+│  │  4  │ GBR     │    50    │ 300ms  │ 10⁻⁶  │ Buffered│
+│  │  5  │ Non-GBR │    10    │ 100ms  │ 10⁻⁶  │ IMS sig │
+│  │  6  │ Non-GBR │    60    │ 300ms  │ 10⁻⁶  │ Video   │
+│  │  7  │ Non-GBR │    70    │ 100ms  │ 10⁻³  │ Voice   │
+│  │  8  │ Non-GBR │    80    │ 300ms  │ 10⁻⁶  │ Web     │
+│  │  9  │ Non-GBR │    90    │ 300ms  │ 10⁻⁶  │ Default │
+│  │ 65  │ GBR     │     7    │  75ms  │ 10⁻²  │ MCPTT   │
+│  │ 82  │ DC-GBR  │    19    │  10ms  │ 10⁻⁴  │ V2X     │
+│  │                                                      │
+│  Lower priority number = higher priority                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### QoS flow establishment
+
+```
+Creating a QoS Flow:
+
+SMF          UPF          gNB          UE
+│             │            │            │
+│ N4 Session  │            │            │
+│ Modification│            │            │
+│ (add QER,   │            │            │
+│  QFI=2)     │            │            │
+│────────────►│            │            │
+│             │            │            │
+│ N4 Response │            │            │
+│◄────────────│            │            │
+│             │            │            │
+│ N2 PDU Sess │            │            │
+│ Res Modify  │            │            │
+│ (QFI=2,     │            │            │
+│  5QI=2)     │            │            │
+│─────────────────────────►│            │
+│             │            │            │
+│             │            │ RRC Reconfig│
+│             │            │ (new DRB    │
+│             │            │  for QFI=2) │
+│             │            │───────────►│
+│             │            │            │
+│             │            │ RRC Complete│
+│             │            │◄───────────│
+│             │            │            │
+│ NAS: PDU    │            │            │
+│ Session     │            │            │
+│ Modification│            │            │
+│ Command     │            │            │
+│ (QoS rules) │            │            │
+│─────────────────────────────────────►│
+│             │            │            │
+```
+
+### Packet filters and QoS rules
+
+```
+QoS Rules in UE:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  QoS Rule 1:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rule ID: 1                                       │    │
+│  │ QFI: 1 (default)                                │    │
+│  │ Packet Filter: match-all                        │    │
+│  │ Precedence: 255 (lowest)                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  QoS Rule 2:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rule ID: 2                                       │    │
+│  │ QFI: 2 (video call)                             │    │
+│  │ Packet Filter:                                  │    │
+│  │   - Protocol: UDP                               │    │
+│  │   - Remote IP: 203.0.113.0/24                   │    │
+│  │   - Remote Port: 5060-5061, 16384-32767 (RTP)  │    │
+│  │ Precedence: 100 (higher)                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  QoS Rule 3:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rule ID: 3                                       │    │
+│  │ QFI: 3 (gaming)                                 │    │
+│  │ Packet Filter:                                  │    │
+│  │   - Protocol: UDP                               │    │
+│  │   - Remote IP: 198.51.100.10                    │    │
+│  │   - Remote Port: 3478-3479                      │    │
+│  │ Precedence: 50 (highest)                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Packet arrives → match against rules by precedence     │
+│  First match → use that QFI → mark in GTP-U header      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### UPF QoS enforcement
+
+```
+QoS Enforcement at UPF (via PFCP):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  PDR (Packet Detection Rule):                           │
+│  - Match incoming packets                               │
+│  - Classify to QFI based on SDF filter                 │
+│                                                          │
+│  QER (QoS Enforcement Rule):                            │
+│  - Apply rate limiting                                  │
+│  - Parameters:                                          │
+│    - Gate status (open/close)                          │
+│    - MBR (Maximum Bit Rate)                            │
+│    - GBR (Guaranteed Bit Rate)                         │
+│    - QFI to apply                                      │
+│                                                          │
+│  Example QER:                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ QER ID: 1                                        │    │
+│  │ Gate: OPEN                                       │    │
+│  │ UL MBR: 10 Mbps                                 │    │
+│  │ DL MBR: 50 Mbps                                 │    │
+│  │ UL GBR: 5 Mbps                                  │    │
+│  │ DL GBR: 25 Mbps                                 │    │
+│  │ QFI: 2                                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### RAN QoS handling
+
+```
+DRB and QoS Flow Mapping at gNB:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  QoS Flow → DRB Mapping:                                │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  QFI=1 (best effort)  ───┐                      │    │
+│  │  QFI=9 (default)      ───┼──► DRB 1 (default)  │    │
+│  │                           │                      │    │
+│  │  QFI=2 (video, GBR)   ───────► DRB 2 (GBR)     │    │
+│  │                                                  │    │
+│  │  QFI=3 (gaming)       ───────► DRB 3 (low lat) │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  gNB decides mapping based on:                          │
+│  - 5QI characteristics                                  │
+│  - Available resources                                  │
+│  - Operator policy                                      │
+│                                                          │
+│  Multiple QoS flows can map to same DRB if similar     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Reflective QoS
+
+```
+Reflective QoS (RQoS):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Problem: UE needs QoS rules for uplink                 │
+│  Solution: Derive from downlink traffic                 │
+│                                                          │
+│  1. Network sends DL packet with QFI=2                  │
+│  2. UE sees: src=server:port, dst=ue:port, QFI=2        │
+│  3. UE creates reflective rule:                         │
+│     src=ue:port, dst=server:port → use QFI=2           │
+│  4. UL packets to same server get QFI=2                │
+│                                                          │
+│  Enabled via:                                           │
+│  - RQI (Reflective QoS Indication) bit in GTP-U        │
+│  - RQ timer (how long rule persists)                   │
+│                                                          │
+│  Use case:                                              │
+│  - Network-initiated services                          │
+│  - When UE doesn't know server addresses in advance    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**QoS flow by application:**
+
+| Application | 5QI | Type | Typical Setup |
+|-------------|-----|------|---------------|
+| Web browsing | 9 | Non-GBR | Default flow |
+| VoLTE | 1 | GBR | Dedicated bearer, 64kbps |
+| Video call | 2 | GBR | 2-10 Mbps |
+| Gaming | 3 | GBR | Low latency, 10-50ms |
+| Live streaming | 6 | Non-GBR | Priority over web |
+| V2X | 82 | DC-GBR | 10ms budget |
+
+**Debugging QoS:**
+
+```bash
+# Wireshark: filter by QFI in GTP-U
+gtp.ext.qos_flow_id == 2
+
+# Check QoS rules sent to UE
+nas-5gs.sm.qos_rule
+
+# PFCP QER in session establishment
+pfcp.qer_id
+
+# gNB DRB configuration
+grep "drb-ToAddMod" /var/log/gnb/*.log
+```
+
+**Troubleshooting:**
+
+| Issue | Check |
+|-------|-------|
+| Video stutters | GBR flow established? Enough bandwidth? |
+| Gaming lag | Low-latency 5QI used? DRB scheduling? |
+| Voice choppy | QFI=1 flow active? Packet loss? |
+| All traffic slow | Default AMBR too low? UPF overloaded? |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **No packet filter match.** If UE sends packet that doesn't match any QoS rule, it uses default flow. Missing filter = wrong QoS.
+
+2. **Precedence collision.** Two rules with same precedence — undefined behavior. Always assign unique precedence.
+
+3. **GBR admission failure.** Network can reject GBR flow if insufficient resources. App must handle graceful degradation.
+
+4. **QFI exhaustion.** Only 63 QFI values per session. Unlikely but possible for complex apps.
+
+5. **DRB mapping mismatch.** gNB maps QoS flows to DRBs. Poor mapping = flows with different requirements share DRB.
+
+6. **Reflective QoS timeout.** RQ timer expires → UE deletes rule → UL packets go to default flow. Server must keep sending.
+
+7. **AMBR vs flow rate.** Session AMBR caps all flows combined. Individual flow MBR can exceed session AMBR but total won't.
+
+8. **Policy misalignment.** PCF policy says one thing, SMF configures another. Check SM policy decisions.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System Architecture for 5GS"
+- 3GPP TS 23.503, "Policy and Charging Control Framework"
+- 3GPP TS 24.501, "NAS protocol for 5GS"
+- 3GPP TS 38.300, "NR and NG-RAN Overall Description"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [5QI deep dive](/en/core-network/qos/5qi-parameters/) — full 5QI table and characteristics
+- [Policy control](/en/core-network/policy-and-charging/pcf-overview/) — who decides QoS
+- [Session modification](/en/core-network/session-management-deep-dive/pdu-session-modification/) — adding/removing flows
+
+</section>

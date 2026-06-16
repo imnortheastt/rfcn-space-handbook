@@ -8,17 +8,473 @@ track: s1
 unit: common-orbits-and-why
 order: 2
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: ["leo"]
+spiralRevisits: []
 title: "MEO — Medium Earth Orbit"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Understanding MEO characteristics, GPS and O3b constellations, and the latency-coverage tradeoff."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["meo", "orbit", "gps", "o3b", "gnss"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# MEO — Medium Earth Orbit
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Medium Earth Orbit (MEO) is the "Goldilocks zone" for navigation and some telecom: higher than LEO for better coverage, lower than GEO for acceptable latency. GPS, Galileo, GLONASS, and O3b mPOWER all operate in MEO. Understanding MEO physics explains why navigation constellations need only ~30 satellites while LEO broadband needs thousands.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### MEO defined
+
+```
+MEO Position in Orbital Regimes:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Distance from Earth surface:                                       │
+│                                                                      │
+│  0 ────────────────────────────────────────────────────── 42,164 km │
+│  │                                                              │   │
+│  │◀─ LEO ─▶│◀────────── MEO ──────────▶│◀────── GEO ─────────▶│   │
+│  │160-2000 │      2,000 - 35,786 km    │     35,786 km         │   │
+│  │   km    │                           │                       │   │
+│                                                                      │
+│  NOTABLE MEO ALTITUDES:                                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Altitude    │ System          │ Purpose              │         │
+│  │  ────────────┼─────────────────┼──────────────────────│         │
+│  │  8,062 km    │ O3b mPOWER      │ Broadband telecom    │         │
+│  │  19,130 km   │ GLONASS         │ Navigation (Russia)  │         │
+│  │  20,180 km   │ GPS             │ Navigation (USA)     │         │
+│  │  23,222 km   │ Galileo         │ Navigation (EU)      │         │
+│  │  21,528 km   │ BeiDou MEO      │ Navigation (China)   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  MEO CHARACTERISTICS:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Altitude:     2,000 - 35,786 km                      │         │
+│  │  Period:       2 - 24 hours                           │         │
+│  │  Latency:      40-150 ms RTT (depending on altitude)  │         │
+│  │  Coverage:     Each satellite sees ~25% of Earth      │         │
+│  │  Constellation: 24-36 satellites for global coverage  │         │
+│  │  Radiation:    Van Allen belt exposure (shielding!)   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### MEO vs LEO vs GEO tradeoffs
+
+```
+Orbit Regime Comparison:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Parameter        │ LEO           │ MEO           │ GEO            │
+│  ─────────────────┼───────────────┼───────────────┼────────────────│
+│  Altitude         │ 500-2000 km   │ 8000-20000 km │ 35,786 km      │
+│  RTT latency      │ 4-25 ms       │ 60-150 ms     │ 550-650 ms     │
+│  Coverage/sat     │ ~3 M km²      │ ~100 M km²    │ ~150 M km²     │
+│  Global coverage  │ 500-2000 sats │ 24-36 sats    │ 3 sats         │
+│  Orbital period   │ 90-130 min    │ 6-14 hours    │ 24 hours       │
+│  Path loss        │ Lowest        │ Medium        │ Highest        │
+│  Handover rate    │ 1-2 min       │ 5-60 min      │ Never          │
+│  Debris risk      │ High          │ Low           │ Very low       │
+│  Radiation        │ Minimal       │ Van Allen!    │ Moderate       │
+│                                                                      │
+│  ═══════════════════════════════════════════════════════════════    │
+│                                                                      │
+│  WHY MEO FOR NAVIGATION:                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ✓ 4-8 satellites visible from any point (geometry)   │         │
+│  │  ✓ Slow satellite motion → stable measurements        │         │
+│  │  ✓ Large coverage → fewer satellites needed           │         │
+│  │  ✓ 12-hour period → repeating ground track daily      │         │
+│  │                                                        │         │
+│  │  ✗ Van Allen radiation → hardened electronics         │         │
+│  │  ✗ Higher latency than LEO                            │         │
+│  │  ✗ Larger path loss than LEO                          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WHY MEO FOR O3b TELECOM:                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ✓ Lower latency than GEO (75 ms vs 600 ms)           │         │
+│  │  ✓ Fewer satellites than LEO (dozens vs thousands)    │         │
+│  │  ✓ Larger beams → fewer handovers                     │         │
+│  │  ✓ Good for maritime, oil platforms, cellular backhaul│         │
+│  │                                                        │         │
+│  │  ✗ Still needs tracking antennas (not geostationary)  │         │
+│  │  ✗ Coverage gaps near poles (inclined orbits)         │         │
+│  │  ✗ Worse than LEO for ultra-low-latency apps          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### GPS constellation geometry
+
+```
+GPS MEO Constellation:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  GPS ORBITAL PARAMETERS:                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Altitude:        20,180 km                           │         │
+│  │  Semi-major axis: 26,560 km                           │         │
+│  │  Orbital period:  11 hours 58 minutes (≈ 1/2 sidereal)│         │
+│  │  Inclination:     55°                                 │         │
+│  │  Orbital planes:  6                                   │         │
+│  │  Satellites/plane: 4 (minimum), up to 6               │         │
+│  │  Total:           24 (minimum), 31+ operational       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TOP VIEW (Earth's pole):                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │              Plane A (0°)                             │         │
+│  │                  🛰                                   │         │
+│  │                 ╱   ╲                                 │         │
+│  │      Plane F  ╱     ╲  Plane B                       │         │
+│  │         🛰   ╱       ╲   🛰                          │         │
+│  │            ╱ ●Earth  ╲                               │         │
+│  │           ╱           ╲                              │         │
+│  │      🛰  ╱             ╲  🛰                         │         │
+│  │    Plane E             Plane C                       │         │
+│  │              ╲       ╱                               │         │
+│  │               ╲     ╱                                │         │
+│  │                ╲   ╱                                 │         │
+│  │                  🛰                                   │         │
+│  │              Plane D (180°)                          │         │
+│  │                                                        │         │
+│  │  6 planes × 60° separation = full 360° coverage       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WHY 12-HOUR PERIOD MATTERS:                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Satellite ground track repeats every 24 hours      │         │
+│  │  • Same geometry overhead at same time each day       │         │
+│  │  • Predictable for mission planning                   │         │
+│  │  • 2 orbits per day, offset by Earth's rotation       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### O3b MEO telecom
+
+```
+O3b mPOWER Constellation:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  O3b SYSTEM PARAMETERS:                                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Altitude:        8,062 km                            │         │
+│  │  Orbital period:  ~288 minutes (4.8 hours)            │         │
+│  │  Inclination:     0° (equatorial)                     │         │
+│  │  Satellites:      11 (mPOWER), originally 20 (legacy) │         │
+│  │  Coverage:        ±45° latitude band                  │         │
+│  │                                                        │         │
+│  │  RTT latency:     ~150 ms (vs 600 ms GEO)             │         │
+│  │  Capacity/sat:    Multiple Gbps                       │         │
+│  │  Beam type:       Steerable spot beams                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  EQUATORIAL RING:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Side view:                                           │         │
+│  │                                                        │         │
+│  │       🛰        🛰        🛰        🛰       🛰       │         │
+│  │        ╲        │        │        │        ╱          │         │
+│  │         ╲       │        │        │       ╱           │         │
+│  │  ────────╲──────┼────────┼────────┼──────╱──────────  │         │
+│  │           ╲     │   ●    │        │     ╱    Equator  │         │
+│  │            ╲    │ Earth  │        │    ╱              │         │
+│  │             ╲   │        │        │   ╱               │         │
+│  │                                                        │         │
+│  │  Coverage band: 45°N to 45°S                          │         │
+│  │  No polar coverage (equatorial orbit)                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  USE CASES:                                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Cellular backhaul (islands, remote areas)          │         │
+│  │  • Maritime connectivity (cruise ships, cargo)        │         │
+│  │  • Oil & gas platforms                                │         │
+│  │  • Government/military in equatorial regions          │         │
+│  │  • Enterprise WAN (lower latency than GEO)            │         │
+│  │                                                        │         │
+│  │  "O3b" = "Other 3 Billion" (serving unconnected)      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Van Allen radiation belts
+
+```
+MEO Radiation Environment:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  VAN ALLEN BELTS CROSS-SECTION:                                     │
+│                                                                      │
+│      Altitude                                                        │
+│         │                                                            │
+│  40,000 km ├──────────────── GEO (35,786 km) ───────────────────    │
+│         │                                                            │
+│         │  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                        │
+│  20,000 km ├──░ OUTER BELT (electrons) ░──────  ← GPS altitude      │
+│         │  ░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                        │
+│         │                                                            │
+│         │      ████████████████████████████                         │
+│   8,000 km ├────█ SLOT REGION (low flux) █───── ← O3b altitude      │
+│         │      ████████████████████████████                         │
+│         │                                                            │
+│         │  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                         │
+│   3,000 km ├──▓ INNER BELT (protons) ▓────────                      │
+│         │  ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                         │
+│         │                                                            │
+│   1,000 km ├──────────────── LEO ────────────────────────────────   │
+│         │                                                            │
+│       0 km ├──── Earth Surface ──────────────────────────────────   │
+│                                                                      │
+│  IMPLICATIONS:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Inner belt (1,000-6,000 km): Protons, very harsh     │         │
+│  │  • No long-duration missions here                     │         │
+│  │  • GPS transits quickly during orbit raising          │         │
+│  │                                                        │         │
+│  │  Slot region (6,000-13,000 km): Lower radiation       │         │
+│  │  • O3b chose 8,062 km for this reason                │         │
+│  │  • Still need radiation hardening, but manageable     │         │
+│  │                                                        │         │
+│  │  Outer belt (13,000-40,000 km): Electrons             │         │
+│  │  • GPS operates here (radiation-hardened)             │         │
+│  │  • Affects satellite lifetime and reliability         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**MEO orbital calculations:**
+
+```python
+import numpy as np
+
+# Constants
+MU_EARTH = 398600.4418  # km³/s²
+R_EARTH = 6371  # km
+C = 299792.458  # km/s
+
+def meo_parameters(altitude_km):
+    """Calculate MEO orbital parameters."""
+    a = R_EARTH + altitude_km
+    
+    # Orbital period
+    period_s = 2 * np.pi * np.sqrt(a**3 / MU_EARTH)
+    period_hr = period_s / 3600
+    
+    # Velocity
+    velocity = np.sqrt(MU_EARTH / a)
+    
+    # Coverage (nadir angle for 5° min elevation)
+    min_elev = 5
+    rho = np.arcsin(R_EARTH * np.cos(np.radians(min_elev)) / a)
+    nadir_angle = 90 - min_elev - np.degrees(rho)
+    coverage_diameter = 2 * R_EARTH * np.radians(nadir_angle)
+    
+    return {
+        'altitude_km': altitude_km,
+        'period_hours': period_hr,
+        'velocity_km_s': velocity,
+        'coverage_diameter_km': coverage_diameter
+    }
+
+def gnss_visibility(altitude_km, min_elevation_deg=5):
+    """
+    Calculate number of GNSS satellites visible from a point.
+    Simplified geometric model.
+    """
+    a = R_EARTH + altitude_km
+    
+    # Earth central angle visible from satellite
+    rho = np.arcsin(R_EARTH * np.cos(np.radians(min_elevation_deg)) / a)
+    earth_angle = np.pi/2 - np.radians(min_elevation_deg) - rho
+    
+    # Fraction of Earth surface visible
+    coverage_fraction = (1 - np.cos(earth_angle)) / 2
+    
+    # For 24-satellite constellation evenly distributed
+    # Expected visible satellites ≈ 24 × coverage_fraction × geometry_factor
+    # Geometry factor accounts for non-uniform distribution
+    geometry_factor = 1.5  # empirical
+    expected_visible = 24 * coverage_fraction * geometry_factor
+    
+    return {
+        'coverage_fraction': coverage_fraction,
+        'earth_angle_deg': np.degrees(earth_angle),
+        'expected_visible_sats': expected_visible
+    }
+
+def meo_latency(altitude_km, elevation_deg=30):
+    """Calculate MEO link latency."""
+    h = altitude_km
+    eps = np.radians(elevation_deg)
+    
+    # Slant range
+    rho = np.arcsin(R_EARTH * np.cos(eps) / (R_EARTH + h))
+    slant_range = (R_EARTH + h) * np.sin(np.pi/2 - eps - rho) / np.cos(eps)
+    
+    # Latency
+    one_way_ms = slant_range / C * 1000
+    
+    return {
+        'slant_range_km': slant_range,
+        'one_way_ms': one_way_ms,
+        'round_trip_ms': 2 * one_way_ms
+    }
+
+# Compare MEO systems
+print("MEO System Comparison")
+print("=" * 65)
+
+systems = [
+    ("O3b mPOWER", 8062),
+    ("GLONASS", 19130),
+    ("GPS", 20180),
+    ("Galileo", 23222),
+]
+
+for name, alt in systems:
+    params = meo_parameters(alt)
+    latency = meo_latency(alt, 30)
+    
+    print(f"\n{name} ({alt} km):")
+    print(f"  Period: {params['period_hours']:.2f} hours")
+    print(f"  Velocity: {params['velocity_km_s']:.2f} km/s")
+    print(f"  Coverage diameter: {params['coverage_diameter_km']:.0f} km")
+    print(f"  RTT (30° elev): {latency['round_trip_ms']:.1f} ms")
+
+# GPS visibility analysis
+print("\n" + "=" * 65)
+print("GPS Visibility Analysis:")
+print("-" * 65)
+
+vis = gnss_visibility(20180, 5)
+print(f"  Coverage fraction per satellite: {vis['coverage_fraction']*100:.1f}%")
+print(f"  Earth angle visible: {vis['earth_angle_deg']:.1f}°")
+print(f"  Expected visible satellites: {vis['expected_visible_sats']:.1f}")
+print(f"  (Need 4 for position fix, typically see 6-12)")
+
+# Constellation sizing comparison
+print("\n" + "=" * 65)
+print("Constellation Size Comparison:")
+print("-" * 65)
+print(f"  {'System':<20} {'Altitude':<12} {'Satellites':<12} {'Use Case'}")
+print(f"  {'-'*20} {'-'*12} {'-'*12} {'-'*20}")
+data = [
+    ("GPS", "20,180 km", "31", "Navigation"),
+    ("Galileo", "23,222 km", "30", "Navigation"),
+    ("O3b mPOWER", "8,062 km", "11", "Telecom"),
+    ("Starlink", "550 km", "4,000+", "Broadband"),
+]
+for row in data:
+    print(f"  {row[0]:<20} {row[1]:<12} {row[2]:<12} {row[3]}")
+```
+
+**MEO constellation comparison:**
+
+| System | Altitude | Period | RTT | Satellites | Coverage |
+|--------|----------|--------|-----|------------|----------|
+| O3b | 8,062 km | 4.8 hr | 150 ms | 11-20 | ±45° lat |
+| GPS | 20,180 km | 12 hr | 133 ms | 31 | Global |
+| Galileo | 23,222 km | 14 hr | 153 ms | 30 | Global |
+| GLONASS | 19,130 km | 11.25 hr | 126 ms | 24 | Global |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Van Allen exposure.** MEO satellites need radiation hardening; adds mass and cost.
+
+2. **Slot region myth.** O3b's 8,000 km is lower radiation but still requires protection.
+
+3. **Equatorial limitation.** O3b can't serve polar regions; not true global coverage.
+
+4. **12-hour resonance.** GPS's 11:58 period chosen specifically for repeating ground track.
+
+5. **Tracking complexity.** Unlike GEO, MEO needs tracking antennas; steerable or phased array.
+
+6. **Debris persistence.** MEO debris doesn't naturally decay; stays for millennia.
+
+7. **Launch cost.** Higher altitude = more delta-v = more expensive to reach than LEO.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- GPS Interface Control Document (ICD-GPS-200)
+- O3b mPOWER technical specifications
+- ESA Galileo system documentation
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [GEO Orbits](/en/space/common-orbits-and-why/geo-gso/) — geostationary characteristics
+- [Molniya and SSO](/en/space/common-orbits-and-why/molniya-sso/) — specialized orbits
+- [GNSS Fundamentals](/en/rf/gnss-fundamentals/) — navigation signal processing
+
+</section>

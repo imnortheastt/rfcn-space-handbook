@@ -9,16 +9,464 @@ unit: cislunar-and-beyond
 order: 3
 level: L4
 estimatedReadingMinutes: 5
-title: "Time-delayed communications"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "Time-Delayed Communications"
+description: "Light-time delay, operational autonomy, and protocol adaptations."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["light-time", "latency", "autonomy", "deep-space"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Time-delayed communications
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+At the Moon, a radio signal takes 1.3 seconds to reach Earth. Ask a question, wait 2.6 seconds for the answer. At Mars, that becomes 3-22 minutes one-way. Traditional real-time mission control doesn't work—you can't joystick a rover through an obstacle when feedback arrives minutes later. Time-delayed communications fundamentally change how missions operate, how protocols are designed, and how much autonomy spacecraft must have. Understanding these constraints is essential for anyone building cislunar or deep space systems.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Light-time delay by destination
+
+```
+One-Way Light Time Across the Solar System:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Destination         │ Distance        │ One-Way Light Time        │
+│  ────────────────────┼─────────────────┼────────────────────        │
+│  ISS (LEO)           │ 400 km          │ 0.001 sec (1 ms)          │
+│  GEO satellite       │ 36,000 km       │ 0.12 sec (120 ms)         │
+│  Moon                │ 384,000 km      │ 1.3 sec                    │
+│  Mars (closest)      │ 56 million km   │ 3.1 min                    │
+│  Mars (average)      │ 225 million km  │ 12.5 min                   │
+│  Mars (farthest)     │ 400 million km  │ 22.2 min                   │
+│  Jupiter             │ 630 million km  │ 35 min                     │
+│  Saturn              │ 1.3 billion km  │ 72 min                     │
+│  Voyager 1 (2024)    │ 24 billion km   │ 22 hours                   │
+│                                                                      │
+│  Round-trip time (command → acknowledgment) is 2× these values.   │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  HUMAN PERCEPTION:                                    │         │
+│  │                                                        │         │
+│  │  < 100 ms: Feels instant (GEO phone call acceptable) │         │
+│  │  100-500 ms: Noticeable delay (annoying)             │         │
+│  │  > 1 sec: Conversation rhythm breaks                 │         │
+│  │  > 3 sec: No longer conversational                   │         │
+│  │                                                        │         │
+│  │  Moon (2.6 sec RTT): Awkward but manageable         │         │
+│  │  Mars (6-44 min RTT): No real-time interaction      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Why TCP fails in space
+
+```
+TCP Assumes Low Latency and Reliable Links:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  EARTH INTERNET (TCP designed for this):                           │
+│                                                                      │
+│  Client ──► Router ──► Router ──► Server                           │
+│    │                                  │                              │
+│    │←──────── 50-200 ms RTT ────────►│                              │
+│    │                                  │                              │
+│    │ ACK received quickly            │                              │
+│    │ Retransmit if ACK missing       │                              │
+│    │ Congestion → slow down          │                              │
+│                                                                      │
+│  SPACE LINK (TCP struggles here):                                   │
+│                                                                      │
+│  Earth ════════════════════════════════════ Mars                    │
+│    │                                           │                     │
+│    │←────── 6-44 MINUTE RTT (one-way!) ─────►│                     │
+│    │                                           │                     │
+│    │ TCP timeout: ~1-2 minutes (default)      │                     │
+│    │ ACK arrives AFTER retransmit timeout!   │                     │
+│    │ Connection "dies" before first ACK      │                     │
+│    │                                           │                     │
+│    │ Even if tuned, congestion window growth │                     │
+│    │ takes HOURS to reach useful throughput  │                     │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  TCP PROBLEMS IN SPACE:                               │         │
+│  │                                                        │         │
+│  │  1. Timeouts: Default RTOs assume ~seconds, not mins │         │
+│  │  2. Slow start: Takes too long to ramp up            │         │
+│  │  3. Connection state: Both ends must be up together  │         │
+│  │  4. Error recovery: Retransmit wastes precious link  │         │
+│  │  5. No store-forward: Can't handle link outages     │         │
+│  │                                                        │         │
+│  │  SOLUTION: DTN (Delay/Disruption Tolerant Networking) │         │
+│  │  See next lesson!                                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Operational modes by delay
+
+```
+How Delay Changes Operations:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LEO/GEO (< 1 sec RTT): REAL-TIME CONTROL                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Ground operator has continuous control             │         │
+│  │  • Telemetry updates in real-time                    │         │
+│  │  • Interactive commanding possible                    │         │
+│  │  • Video conferencing works                          │         │
+│  │  • Traditional TCP/IP mostly works                   │         │
+│  │                                                        │         │
+│  │  Example: ISS operations, GEO satellite control      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LUNAR (2.6 sec RTT): SUPERVISED AUTONOMY                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Ground can still supervise in near-real-time      │         │
+│  │  • Short sequences executed autonomously              │         │
+│  │  • Human-in-the-loop for critical decisions          │         │
+│  │  • Voice communication awkward but possible          │         │
+│  │  • Protocols need some adaptation                    │         │
+│  │                                                        │         │
+│  │  Example: Artemis EVAs, Gateway operations           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  MARS (6-44 min RTT): FULL AUTONOMY                                │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • No real-time control possible                     │         │
+│  │  • Commands uploaded in advance                       │         │
+│  │  • Spacecraft executes sequences independently       │         │
+│  │  • Ground reviews results hours later                │         │
+│  │  • Fault protection must be autonomous               │         │
+│  │  • DTN required for reliable data transfer           │         │
+│  │                                                        │         │
+│  │  Example: Mars rovers, Mars orbiters                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  OUTER SOLAR SYSTEM (hours RTT): DEEP AUTONOMY                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Spacecraft must handle ALL contingencies          │         │
+│  │  • Command sequences planned weeks in advance        │         │
+│  │  • Science data returned over days/weeks             │         │
+│  │  • No possibility of interactive correction          │         │
+│  │                                                        │         │
+│  │  Example: Voyager, New Horizons, Cassini            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Lunar communication timing
+
+```
+Artemis EVA Communication Reality:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SCENARIO: Astronaut encounters unexpected obstacle                │
+│                                                                      │
+│  Timeline (assuming direct Earth visibility):                       │
+│                                                                      │
+│  T+0.0 sec: Astronaut: "Houston, I've got a problem here."        │
+│             │                                                       │
+│             │ 1.3 sec (signal travels to Earth)                   │
+│             ▼                                                       │
+│  T+1.3 sec: Houston receives message                               │
+│             │                                                       │
+│             │ 2-5 sec (human reaction + response)                 │
+│             ▼                                                       │
+│  T+4.0 sec: Houston: "Copy, describe what you're seeing."         │
+│             │                                                       │
+│             │ 1.3 sec (signal travels to Moon)                    │
+│             ▼                                                       │
+│  T+5.3 sec: Astronaut hears response                               │
+│                                                                      │
+│  TOTAL LOOP: ~5-6 seconds for single exchange                     │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  IMPLICATIONS FOR OPERATIONS:                         │         │
+│  │                                                        │         │
+│  │  1. Voice protocol uses "go ahead" turn-taking       │         │
+│  │     (not normal conversation)                         │         │
+│  │                                                        │         │
+│  │  2. Critical procedures pre-briefed                   │         │
+│  │     (astronaut doesn't wait for step-by-step)        │         │
+│  │                                                        │         │
+│  │  3. Autonomy for immediate hazards                   │         │
+│  │     (don't wait 5 sec if rock is falling!)           │         │
+│  │                                                        │         │
+│  │  4. Situational awareness tools on-site              │         │
+│  │     (suit displays, local computing)                  │         │
+│  │                                                        │         │
+│  │  5. Video latency is fine (1.3 sec)                  │         │
+│  │     Interactive video games? Not fine.               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### CCSDS protocols for delay
+
+```
+Space Protocol Stack vs Internet Stack:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  INTERNET (TCP/IP)              SPACE (CCSDS)                       │
+│  ┌───────────────┐              ┌───────────────┐                   │
+│  │ Application   │              │ Application   │                   │
+│  ├───────────────┤              ├───────────────┤                   │
+│  │ TCP/UDP       │              │ BP (Bundle)   │ ← Store-forward  │
+│  ├───────────────┤              ├───────────────┤                   │
+│  │ IP            │              │ LTP           │ ← Retransmit     │
+│  ├───────────────┤              ├───────────────┤                   │
+│  │ Link Layer    │              │ AOS/TM/TC     │ ← Space links    │
+│  ├───────────────┤              ├───────────────┤                   │
+│  │ Physical      │              │ RF/Optical    │                   │
+│  └───────────────┘              └───────────────┘                   │
+│                                                                      │
+│  KEY CCSDS PROTOCOLS:                                               │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  AOS (Advanced Orbiting Systems)                      │         │
+│  │  • Packet telemetry multiplexing                     │         │
+│  │  • Virtual channels for different data types         │         │
+│  │                                                        │         │
+│  │  TC (Telecommand)                                     │         │
+│  │  • Reliable commanding with sequence counters        │         │
+│  │  • COP-1 protocol for retransmission                │         │
+│  │                                                        │         │
+│  │  LTP (Licklider Transmission Protocol)               │         │
+│  │  • Reliable transfer over long delays               │         │
+│  │  • Checkpoint/retransmit without connection state   │         │
+│  │                                                        │         │
+│  │  BP (Bundle Protocol) — see DTN lesson               │         │
+│  │  • Store-and-forward networking                      │         │
+│  │  • Works across link outages                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Light-time calculations:**
+
+```python
+import numpy as np
+
+# Speed of light
+C_KM_S = 299792.458  # km/s
+
+def light_time_seconds(distance_km):
+    """Calculate one-way light time in seconds."""
+    return distance_km / C_KM_S
+
+def format_time(seconds):
+    """Format time for human readability."""
+    if seconds < 1:
+        return f"{seconds * 1000:.1f} ms"
+    elif seconds < 60:
+        return f"{seconds:.2f} sec"
+    elif seconds < 3600:
+        return f"{seconds / 60:.1f} min"
+    else:
+        return f"{seconds / 3600:.1f} hr"
+
+# Define destinations
+destinations = {
+    "ISS (LEO)": 400,
+    "GEO satellite": 36000,
+    "Moon (average)": 384400,
+    "Moon (perigee)": 356500,
+    "Moon (apogee)": 406700,
+    "Mars (closest)": 56e6,
+    "Mars (average)": 225e6,
+    "Mars (farthest)": 400e6,
+    "Jupiter (average)": 630e6,
+    "Saturn (average)": 1.3e9,
+    "Neptune (average)": 4.4e9,
+    "Voyager 1 (2024)": 24e9,
+}
+
+print("Light-Time Delay Analysis")
+print("=" * 60)
+
+print("\n1. One-Way and Round-Trip Light Times")
+print("-" * 60)
+
+print(f"  {'Destination':<22} {'Distance':<14} {'One-way':<12} {'RTT':<12}")
+print("-" * 60)
+
+for name, dist_km in destinations.items():
+    owlt = light_time_seconds(dist_km)
+    rtt = 2 * owlt
+    dist_str = f"{dist_km:,.0f} km" if dist_km < 1e6 else f"{dist_km/1e6:.0f}M km"
+    print(f"  {name:<22} {dist_str:<14} {format_time(owlt):<12} {format_time(rtt):<12}")
+
+# Operational implications
+print("\n2. Operational Mode by Delay")
+print("-" * 60)
+
+modes = [
+    (0.5, "Real-time control", "ISS, GEO"),
+    (3, "Supervised autonomy", "Moon"),
+    (30*60, "Full autonomy", "Mars"),
+    (3600, "Deep autonomy", "Outer planets"),
+]
+
+print(f"  {'RTT Threshold':<16} {'Mode':<22} {'Examples':<20}")
+print("-" * 60)
+
+for threshold, mode, examples in modes:
+    print(f"  < {format_time(threshold):<13} {mode:<22} {examples:<20}")
+
+# TCP viability analysis
+print("\n3. TCP Viability by Link")
+print("-" * 60)
+
+tcp_rto_default = 3  # seconds (typical default)
+tcp_rto_max = 120    # seconds (max tunable)
+
+print(f"  Default TCP RTO: {tcp_rto_default} seconds")
+print(f"  Maximum tunable RTO: {tcp_rto_max} seconds")
+print()
+
+for name, dist_km in [("Moon", 384400), ("Mars closest", 56e6), ("Mars farthest", 400e6)]:
+    rtt = 2 * light_time_seconds(dist_km)
+    works_default = "Yes" if rtt < tcp_rto_default else "No"
+    works_tuned = "Yes" if rtt < tcp_rto_max else "No"
+    print(f"  {name:<15} RTT={format_time(rtt):<10} Default:{works_default:<4} Tuned:{works_tuned}")
+
+# Command-response timeline
+print("\n4. Lunar EVA Command Loop Timeline")
+print("-" * 60)
+
+events = [
+    (0.0, "Astronaut transmits message"),
+    (1.3, "Houston receives message"),
+    (1.3, "Houston processes (human reaction ~2-5 sec)"),
+    (4.0, "Houston transmits response"),
+    (5.3, "Astronaut receives response"),
+]
+
+print("  Timeline for single voice exchange:")
+print()
+for t, event in events:
+    print(f"  T+{t:.1f}s: {event}")
+
+print(f"\n  Total loop time: ~5-6 seconds")
+print(f"  Compare to: phone call latency ~0.1-0.3 seconds")
+
+# Data transfer implications
+print("\n5. File Transfer Reality at Distance")
+print("-" * 60)
+
+file_size_mb = 100  # 100 MB file
+link_rate_mbps = 10  # 10 Mbps link
+
+transfer_time = file_size_mb * 8 / link_rate_mbps  # seconds
+
+for name, dist_km in [("Moon", 384400), ("Mars avg", 225e6)]:
+    owlt = light_time_seconds(dist_km)
+    total_time = transfer_time + owlt
+    efficiency = transfer_time / total_time * 100
+    
+    print(f"  {name}:")
+    print(f"    Light time: {format_time(owlt)}")
+    print(f"    Transfer time (100 MB @ 10 Mbps): {transfer_time:.0f} sec")
+    print(f"    First byte arrives after: {format_time(owlt)}")
+    print(f"    Last byte arrives after: {format_time(total_time)}")
+    print()
+```
+
+**Key thresholds:**
+
+| RTT | Operational Impact |
+|-----|-------------------|
+| < 500 ms | Real-time voice OK |
+| < 3 sec | Supervised autonomy possible |
+| > 6 sec | No interactive control |
+| > 5 min | Full pre-planned sequences |
+| > 1 hour | Deep autonomy required |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using TCP without tuning.** Default timeouts cause spurious retransmits. Use DTN or heavily tuned TCP.
+
+2. **Designing for real-time control at Moon.** 2.6 sec RTT means astronauts need autonomous abort authority.
+
+3. **Ignoring variable Mars distance.** Mars delay ranges 3-22 min one-way. Design for worst case.
+
+4. **Forgetting propagation through relay.** Each hop adds delay. Gateway → relay → Earth adds 1+ sec.
+
+5. **Conversational voice protocols.** "Roger" back-and-forth wastes time. Use structured turn-taking.
+
+6. **Interactive debugging.** Can't step through code at Mars. Extensive logging + autonomous fault handling required.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- CCSDS 130.0 (Space Link Protocols)
+- NASA-HDBK-4006 (Low-Latency Comm for Human Spaceflight)
+- "Delay-Tolerant Networking Architecture" (RFC 4838)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [DTN](/en/space/cislunar-and-beyond/dtn/) — protocols designed for delay
+- [Lunar Comms Architectures](/en/space/cislunar-and-beyond/lunar-comms-architectures/) — relay infrastructure
+- [Lunar Gateway](/en/space/cislunar-and-beyond/lunar-gateway/) — cislunar operations
+
+</section>

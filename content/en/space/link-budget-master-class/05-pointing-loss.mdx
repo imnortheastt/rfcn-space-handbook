@@ -9,16 +9,426 @@ unit: link-budget-master-class
 order: 5
 level: L3
 estimatedReadingMinutes: 5
-title: "Pointing loss"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "Pointing Loss"
+description: "Antenna misalignment and its impact on link budget."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["pointing-loss", "antenna", "beamwidth", "tracking"]
+widgets: ["LinkBudget"]
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Pointing loss
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+High-gain antennas have narrow beams. A 1-meter Ka-band dish has a beamwidth under 1 degree—mispoint by half that and you lose 3 dB. Pointing loss is the silent budget killer: mechanical tolerances, wind loading, thermal expansion, tracking errors, and attitude control all contribute. Understanding pointing loss helps you spec antennas, design tracking systems, and allocate realistic margins.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Antenna beam pattern
+
+```
+How Antennas Respond to Off-Axis Signals:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                        Main Lobe (Boresight)                        │
+│                              ▲                                       │
+│                             /│\                                      │
+│                            / │ \                                     │
+│                           /  │  \  ← 3 dB beamwidth (θ_3dB)        │
+│                          /   │   \                                   │
+│                         /    │    \                                  │
+│  ─────────────────────/─────●─────\─────────────────────           │
+│                      /             \                                 │
+│                     /               \                                │
+│                    /                 \                               │
+│               Sidelobe            Sidelobe                          │
+│                                                                      │
+│  Gain (dB)                                                          │
+│    │                                                                │
+│  G ┤         ╱╲                                                     │
+│    │        ╱  ╲                                                    │
+│ G-3┤───────╱────╲─────── ← -3 dB point                             │
+│    │      ╱      ╲                                                  │
+│ G-6┤─────╱────────╲───── ← -6 dB point (edge of coverage)          │
+│    │    ╱          ╲                                                │
+│    ┼───┬───┬───┬───┬───┬──► Off-axis angle (θ)                     │
+│       -2θ -θ  0  +θ +2θ                                            │
+│           θ_3dB                                                     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### The pointing loss equation
+
+```
+Pointing Loss Formula (Gaussian Approximation):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  For small pointing errors relative to beamwidth:                  │
+│                                                                      │
+│  L_point = 12 × (θ_error / θ_3dB)²   [dB]                          │
+│                                                                      │
+│  Where:                                                             │
+│  θ_error = pointing error (degrees)                                │
+│  θ_3dB = half-power beamwidth (degrees)                            │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  θ_error/θ_3dB │ Loss                                 │         │
+│  │  ──────────────┼──────                                │         │
+│  │  0.0           │ 0.0 dB                               │         │
+│  │  0.25          │ 0.75 dB                              │         │
+│  │  0.5           │ 3.0 dB (half-power point)           │         │
+│  │  0.75          │ 6.75 dB                              │         │
+│  │  1.0           │ 12.0 dB                              │         │
+│  │                                                        │         │
+│  │  Error = 50% of beamwidth → 3 dB loss                │         │
+│  │  Error = 100% of beamwidth → 12 dB loss (unusable)   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  Note: Formula is symmetric—azimuth and elevation errors combine   │
+│  as RSS: θ_total = √(θ_az² + θ_el²)                               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Beamwidth vs frequency and aperture
+
+```
+What Determines Beamwidth:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  θ_3dB ≈ 70 × λ / D   [degrees]                                    │
+│                                                                      │
+│  Where:                                                             │
+│  λ = wavelength (m) = 0.3 / f_GHz                                  │
+│  D = aperture diameter (m)                                         │
+│                                                                      │
+│  BEAMWIDTH REFERENCE TABLE:                                         │
+│  ┌────────────────────────────────────────────────────────┐        │
+│  │                                                         │        │
+│  │  Dish Size │ 4 GHz    │ 12 GHz   │ 30 GHz  │ 60 GHz  │        │
+│  │  ──────────┼──────────┼──────────┼─────────┼─────────│        │
+│  │  0.6 m     │ 8.8°     │ 2.9°     │ 1.2°    │ 0.6°    │        │
+│  │  1.2 m     │ 4.4°     │ 1.5°     │ 0.6°    │ 0.3°    │        │
+│  │  2.4 m     │ 2.2°     │ 0.7°     │ 0.3°    │ 0.15°   │        │
+│  │  4.5 m     │ 1.2°     │ 0.4°     │ 0.16°   │ 0.08°   │        │
+│  │                                                         │        │
+│  │  Higher frequency = narrower beam = tighter pointing   │        │
+│  │                                                         │        │
+│  └────────────────────────────────────────────────────────┘        │
+│                                                                      │
+│  A 2.4m Ka-band dish at 30 GHz has θ_3dB ≈ 0.3°                   │
+│  Pointing error of 0.15° (half beamwidth) → 3 dB loss             │
+│  This requires tracking accuracy of ~0.05° for &lt;0.5 dB margin     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Sources of pointing error
+
+```
+Error Budget Components:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  GROUND STATION ERRORS:                                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Source           │ Typical Error │ Notes             │         │
+│  │  ─────────────────┼───────────────┼───────────────────│         │
+│  │  Encoder accuracy │ 0.01-0.05°    │ Mechanical limit  │         │
+│  │  Servo jitter     │ 0.01-0.03°    │ Control loop      │         │
+│  │  Wind loading     │ 0.02-0.2°     │ Scales with size  │         │
+│  │  Thermal warp     │ 0.01-0.1°     │ Day/night cycles  │         │
+│  │  Foundation shift │ 0.01-0.02°    │ Seasonal          │         │
+│  │  Ephemeris error  │ 0.01-0.05°    │ Orbit uncertainty │         │
+│  │                                                        │         │
+│  │  RSS total: typically 0.05-0.2° for large dishes     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SPACECRAFT ERRORS:                                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Source           │ Typical Error │ Notes             │         │
+│  │  ─────────────────┼───────────────┼───────────────────│         │
+│  │  Attitude control │ 0.01-0.1°     │ GEO: 0.05° typ   │         │
+│  │  Thermal distort. │ 0.01-0.05°    │ Eclipse transits  │         │
+│  │  Antenna alignment│ 0.02-0.1°     │ Deploy error      │         │
+│  │  Orbit keeping    │ 0.05-0.1°     │ Station keeping   │         │
+│  │                                                        │         │
+│  │  GEO satellites: typically 0.05-0.1° total          │         │
+│  │  LEO satellites: can be worse due to dynamics        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TOTAL SYSTEM POINTING ERROR:                                       │
+│  θ_total = √(θ_ground² + θ_spacecraft²)                            │
+│                                                                      │
+│  Typical values: 0.1-0.3° for well-designed systems               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Tracking strategies
+
+```
+Tracking Methods for Pointing Accuracy:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. PROGRAM TRACK (Open Loop)                                       │
+│     • Follow ephemeris/TLE predictions                             │
+│     • No feedback from received signal                             │
+│     • Accuracy: 0.1-0.5° (orbit errors dominate)                   │
+│     • Use: GEO fixed pointing, low-precision LEO                   │
+│                                                                      │
+│  2. STEP TRACK                                                      │
+│     • Periodically offset antenna, measure signal                  │
+│     • Move toward direction of higher signal                       │
+│     • Accuracy: 0.05-0.1° (slow convergence)                       │
+│     • Use: GEO with fixed satellite                                │
+│                                                                      │
+│  3. CONICAL SCAN (CONSCAN)                                         │
+│     • Nutate beam around boresight                                 │
+│     • AM envelope indicates error direction                        │
+│     • Accuracy: 0.02-0.05°                                         │
+│     • Use: Tracking stations, mobile terminals                     │
+│                                                                      │
+│  4. MONOPULSE                                                       │
+│     • Multiple feed horns, simultaneous comparison                 │
+│     • Instant error signal (no scan delay)                         │
+│     • Accuracy: 0.005-0.02°                                        │
+│     • Use: Deep space, precision tracking                          │
+│                                                                      │
+│  5. AUTOTRACK (beacon or pilot)                                    │
+│     • Closed-loop tracking on dedicated signal                     │
+│     • Accuracy: depends on tracking receiver SNR                   │
+│     • Use: Most commercial systems                                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Pointing loss calculations:**
+
+```python
+import numpy as np
+
+def beamwidth_deg(diameter_m, frequency_ghz, k=70):
+    """
+    Calculate half-power beamwidth in degrees.
+    
+    k ≈ 70 for parabolic dish (varies 65-75 depending on illumination)
+    """
+    wavelength_m = 0.3 / frequency_ghz
+    theta_3db = k * wavelength_m / diameter_m
+    return theta_3db
+
+def pointing_loss_db(pointing_error_deg, beamwidth_deg):
+    """
+    Calculate pointing loss using Gaussian beam approximation.
+    
+    L = 12 × (θ_error / θ_3dB)²
+    
+    Valid for errors up to ~1.5 × beamwidth.
+    """
+    ratio = pointing_error_deg / beamwidth_deg
+    loss_db = 12 * ratio ** 2
+    return loss_db
+
+def combined_pointing_error(*errors_deg):
+    """
+    Combine independent pointing errors (RSS).
+    """
+    return np.sqrt(sum(e**2 for e in errors_deg))
+
+def required_accuracy_for_loss(beamwidth_deg, max_loss_db):
+    """
+    Calculate maximum pointing error for given loss budget.
+    """
+    # From L = 12 × (θ/θ_3dB)² → θ = θ_3dB × √(L/12)
+    ratio = np.sqrt(max_loss_db / 12)
+    return beamwidth_deg * ratio
+
+# Example calculations
+print("Pointing Loss Analysis")
+print("=" * 60)
+
+# Beamwidth comparison
+print("\n1. Beamwidth vs Frequency and Dish Size")
+print("-" * 60)
+
+sizes = [0.6, 1.2, 2.4, 4.5]
+freqs = [4, 12, 30, 60]
+
+print(f"  {'Dish (m)':<10}", end="")
+for f in freqs:
+    print(f"{f} GHz".center(10), end="")
+print()
+print("-" * 60)
+
+for d in sizes:
+    print(f"  {d:<10}", end="")
+    for f in freqs:
+        bw = beamwidth_deg(d, f)
+        print(f"{bw:.2f}°".center(10), end="")
+    print()
+
+# Pointing loss sensitivity
+print("\n2. Pointing Loss vs Error (2.4m dish at 30 GHz)")
+print("-" * 60)
+
+dish = 2.4  # m
+freq = 30   # GHz
+bw = beamwidth_deg(dish, freq)
+
+print(f"  Beamwidth: {bw:.3f}°")
+print()
+print(f"  {'Error (°)':<12} {'Error/BW':<12} {'Loss (dB)':<12}")
+print("-" * 60)
+
+for error_ratio in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.75, 1.0]:
+    error = error_ratio * bw
+    loss = pointing_loss_db(error, bw)
+    print(f"  {error:.3f}{' ':8} {error_ratio:.2f}{' ':8} {loss:.2f}")
+
+# Error budget example
+print("\n3. Ground Station Pointing Error Budget")
+print("-" * 60)
+
+errors = {
+    "Encoder accuracy": 0.02,
+    "Servo jitter": 0.02,
+    "Wind loading": 0.05,
+    "Thermal warp": 0.03,
+    "Foundation": 0.01,
+    "Ephemeris": 0.02,
+}
+
+print(f"  {'Source':<20} {'Error (°)':<12}")
+print("-" * 60)
+
+for source, err in errors.items():
+    print(f"  {source:<20} {err:.3f}")
+
+total_error = combined_pointing_error(*errors.values())
+print("-" * 60)
+print(f"  {'RSS Total':<20} {total_error:.3f}")
+
+# Calculate loss for this error
+loss = pointing_loss_db(total_error, bw)
+print(f"\n  For {dish}m dish at {freq} GHz (θ_3dB = {bw:.3f}°):")
+print(f"  Pointing loss: {loss:.2f} dB")
+
+# Required accuracy for loss budget
+print("\n4. Required Accuracy for Loss Budget")
+print("-" * 60)
+
+loss_budgets = [0.1, 0.3, 0.5, 1.0, 2.0, 3.0]
+
+print(f"  2.4m dish, beamwidth {bw:.3f}°")
+print()
+print(f"  {'Loss Budget':<14} {'Max Error (°)':<14} {'Error/BW':<12}")
+print("-" * 60)
+
+for budget in loss_budgets:
+    max_err = required_accuracy_for_loss(bw, budget)
+    ratio = max_err / bw
+    print(f"  {budget:.1f} dB{' ':8} {max_err:.4f}{' ':8} {ratio:.2f}")
+
+# System comparison
+print("\n5. Pointing Loss by System Type")
+print("-" * 60)
+
+systems = [
+    ("VSAT (0.6m, Ku)", 0.6, 12, 0.15),
+    ("Earth Station (2.4m, Ka)", 2.4, 30, 0.05),
+    ("Gateway (4.5m, Ka)", 4.5, 30, 0.03),
+    ("Deep Space (34m, X)", 34, 8, 0.005),
+]
+
+print(f"  {'System':<25} {'θ_3dB':<10} {'Error':<10} {'Loss':<10}")
+print("-" * 60)
+
+for name, d, f, err in systems:
+    bw = beamwidth_deg(d, f)
+    loss = pointing_loss_db(err, bw)
+    print(f"  {name:<25} {bw:.3f}°{' ':4} {err:.3f}°{' ':4} {loss:.2f} dB")
+```
+
+**Rule of thumb: allocate 10% of beamwidth for pointing error to keep loss under 0.12 dB.**
+
+| System Type | Typical θ_3dB | Typical Error | Pointing Loss |
+|-------------|---------------|---------------|---------------|
+| Consumer VSAT | 2-4° | 0.2-0.5° | 0.2-0.5 dB |
+| Commercial ES | 0.3-1° | 0.05-0.1° | 0.3-1 dB |
+| Gateway | 0.15-0.3° | 0.02-0.05° | 0.2-0.5 dB |
+| Deep Space | 0.01-0.05° | 0.005-0.01° | 0.1-0.5 dB |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using static pointing for LEO.** LEO moves fast—program track from TLE accumulates degrees of error in minutes without correction.
+
+2. **Ignoring thermal effects.** Large dishes can warp 0.1° from night to day. Worst case is often eclipse exit.
+
+3. **Forgetting spacecraft pointing.** Both ends matter. GEO satellites typically spec 0.05° 3σ, but verify.
+
+4. **Underestimating wind.** A 2.4m dish in 50 km/h wind can see 0.1°+ deflection without proper stiffness.
+
+5. **Assuming symmetric errors.** Azimuth and elevation errors combine as RSS—track both axes.
+
+6. **Budget padding confusion.** Pointing loss is typically specified at edge-of-coverage (EOC), not worst case.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- IEEE Std 145 (Antenna terminology)
+- CCSDS 401.0 (Space link protocols)
+- Silver, "Microwave Antenna Theory and Design"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Polarization Loss](/en/space/link-budget-master-class/polarization-loss-link/) — another mismatch loss
+- [EIRP](/en/space/link-budget-master-class/eirp/) — transmit power and gain
+- [G/T](/en/space/link-budget-master-class/g-over-t/) — receive system figure of merit
+
+</section>

@@ -8,17 +8,469 @@ track: s11
 unit: satellite-5g-integration
 order: 2
 level: L4
-estimatedReadingMinutes: 5
-title: "NTN mobility management"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["ue-registration-on-5g-leo"]
+spiralRevisits: []
+title: "NTN Mobility Management"
+description: "Handover in LEO constellations: conditional handover, satellite-fixed vs earth-fixed cells, and predictive mobility."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 38.300", "3GPP TS 38.331"]
+tags: ["5g-ntn", "handover", "mobility", "leo", "conditional-handover"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# NTN mobility management
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+In LEO NTN, the satellite moves at 7 km/s—a cell that covers you now will be gone in 60-90 seconds. Traditional handover, designed for walking users and static cells, fails under these dynamics. 3GPP introduced conditional handover (CHO) and predictive cell-change mechanisms specifically for NTN. Understanding these is essential for designing reliable satellite connectivity.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The mobility challenge
+
+```
+LEO NTN Mobility Problem:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TERRESTRIAL 5G:                                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    📱 ─────moves────▶    📱                           │         │
+│  │     │                      │                          │         │
+│  │     │                      │                          │         │
+│  │    📡                     📡                          │         │
+│  │  Cell A (static)       Cell B (static)                │         │
+│  │                                                        │         │
+│  │  User moves between fixed cells                       │         │
+│  │  Handover: measurement-triggered                      │         │
+│  │  Time scale: minutes to hours                         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  LEO NTN:                                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    🛰 ─────7 km/s────▶    🛰                          │         │
+│  │     │                      │                          │         │
+│  │     │                      │                          │         │
+│  │    📱 (stationary user)   📱                          │         │
+│  │                                                        │         │
+│  │  Cell moves OVER stationary user                      │         │
+│  │  Handover: time-triggered (predictable)               │         │
+│  │  Time scale: 60-90 seconds per satellite              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  KEY INSIGHT:                                                       │
+│  In terrestrial: unpredictable user movement                        │
+│  In NTN: predictable satellite movement (orbital mechanics)         │
+│  → Handover can be SCHEDULED, not just triggered                    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Cell types and their impact
+
+```
+Earth-Fixed vs Satellite-Fixed Cells:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SATELLITE-FIXED CELLS (simpler satellite):                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │     🛰 ───────────────────▶                           │         │
+│  │    ╱   ╲                                              │         │
+│  │   ╱ Cell ╲   Cell moves with satellite                │         │
+│  │  ╱───────╲                                            │         │
+│  │ ╱         ╲                                           │         │
+│  │                                                        │         │
+│  │  📱 ... 📱 ... 📱    UEs experience cell sweep        │         │
+│  │                                                        │         │
+│  │  • Cell ID changes as beam passes overhead            │         │
+│  │  • Frequent handovers (every 60-90s)                 │         │
+│  │  • Simple satellite (no beam steering)               │         │
+│  │  • Network knows cell geometry from ephemeris        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  EARTH-FIXED CELLS (complex satellite):                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │     🛰 ───────────────────▶                           │         │
+│  │    ╱   ╲    Beam steers to maintain coverage         │         │
+│  │   ╱     ╲◀──────────────────────────────────┐        │         │
+│  │  ╱       ╲                                   │        │         │
+│  │           ▼                                  │        │         │
+│  │  ┌─────────────┐                            │        │         │
+│  │  │  Cell A     │ ←── Fixed geographic area  │        │         │
+│  │  │   📱 📱 📱  │                            │        │         │
+│  │  └─────────────┘                            │        │         │
+│  │                                              │        │         │
+│  │  • Cell ID stable while in coverage         │        │         │
+│  │  • Handover only at cell boundary           │        │         │
+│  │  • Complex satellite (phased array steering)│        │         │
+│  │  • Handover between satellites, not cells   │        │         │
+│  │                                              │        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Conditional handover (CHO)
+
+```
+NTN Conditional Handover Flow:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PROBLEM WITH TRADITIONAL HANDOVER:                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. UE measures: "signal from Sat B is better"        │         │
+│  │  2. UE sends measurement report (8-20 ms RTT)         │         │
+│  │  3. Network decides: "handover to Sat B"              │         │
+│  │  4. Network sends HO command (8-20 ms RTT)            │         │
+│  │  5. UE executes handover                              │         │
+│  │                                                        │         │
+│  │  Total: 16-40 ms just for signaling                   │         │
+│  │  During this time, satellite has moved 100+ km!       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SOLUTION: CONDITIONAL HANDOVER (CHO)                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Network pre-configures UE with multiple targets:  │         │
+│  │     "If condition A: handover to Cell X"              │         │
+│  │     "If condition B: handover to Cell Y"              │         │
+│  │     "If condition C: handover to Cell Z"              │         │
+│  │                                                        │         │
+│  │  2. UE monitors conditions locally                    │         │
+│  │                                                        │         │
+│  │  3. When condition met: UE executes immediately       │         │
+│  │     No round-trip to network needed!                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CHO CONDITION TYPES FOR NTN:                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Time-based: "At SFN=X, execute handover"           │         │
+│  │  • Position-based: "When at lat/lon, switch"          │         │
+│  │  • Signal-based: "When RSRP from B > A + offset"     │         │
+│  │  • Combined: time + signal threshold                  │         │
+│  │                                                        │         │
+│  │  NTN prefers TIME-BASED: satellite position is        │         │
+│  │  predictable from ephemeris, so handover time         │         │
+│  │  can be pre-computed                                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Inter-satellite handover
+
+```
+Satellite-to-Satellite Handover:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TIME = T0:                                                         │
+│                                                                      │
+│      🛰 Sat A (serving)        🛰 Sat B (target)                    │
+│         ╲                         ╱                                 │
+│          ╲  ← 45° elevation      ╱  ← 15° elevation                 │
+│           ╲                     ╱                                   │
+│            📱 UE                                                     │
+│                                                                      │
+│  TIME = T0 + 60s:                                                   │
+│                                                                      │
+│  🛰 Sat A (setting)           🛰 Sat B (rising)                     │
+│     ╲                              ╱                                │
+│      ╲  ← 15° elevation           ╱  ← 45° elevation                │
+│       ╲                          ╱                                  │
+│        📱 UE ─────────CHO──────▶                                    │
+│                                                                      │
+│  HANDOVER DECISION FACTORS:                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Elevation angle: higher = shorter path loss       │         │
+│  │  2. Doppler rate: approaching vs departing            │         │
+│  │  3. Cell load: balance traffic across satellites     │         │
+│  │  4. Visibility window: time remaining in coverage    │         │
+│  │                                                        │         │
+│  │  Network computes optimal handover time from          │         │
+│  │  ephemeris and sends CHO config to UE in advance     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WITH ISL (Inter-Satellite Link):                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │      🛰 ════════ ISL ════════ 🛰                      │         │
+│  │         ╲                    ╱                        │         │
+│  │          ╲                  ╱                         │         │
+│  │           📱                                          │         │
+│  │                                                        │         │
+│  │  Context transfer via ISL:                            │         │
+│  │  • UE context forwarded satellite-to-satellite       │         │
+│  │  • No ground segment round-trip needed               │         │
+│  │  • Enables seamless handover                         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Predictive mobility
+
+```
+Ephemeris-Based Predictive Mobility:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KNOWN INPUTS:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Satellite ephemeris: position/velocity for all    │         │
+│  │    satellites in constellation                        │         │
+│  │  • UE position: from GNSS                            │         │
+│  │  • Cell beam patterns: fixed geometry                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  COMPUTABLE PREDICTIONS:                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Time    Serving    Elevation   Next HO    Target     │         │
+│  │  ────    ───────    ─────────   ───────    ──────     │         │
+│  │  T+0s    Sat 47     72°         T+45s      Sat 48     │         │
+│  │  T+45s   Sat 48     68°         T+92s      Sat 49     │         │
+│  │  T+92s   Sat 49     71°         T+138s     Sat 50     │         │
+│  │  ...                                                   │         │
+│  │                                                        │         │
+│  │  Network pre-computes entire handover sequence!       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CHO CONFIGURATION MESSAGE:                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  RRCReconfiguration {                                 │         │
+│  │    conditionalReconfiguration {                       │         │
+│  │      condReconfigToAddModList [                       │         │
+│  │        {                                              │         │
+│  │          condReconfigId: 1,                          │         │
+│  │          condExecutionCond: {                        │         │
+│  │            condEventId: t1,     // time-based        │         │
+│  │            executionTime: SFN_X  // pre-computed    │         │
+│  │          },                                           │         │
+│  │          condRRCReconfig: <target cell config>       │         │
+│  │        },                                             │         │
+│  │        { condReconfigId: 2, ... },  // backup       │         │
+│  │        { condReconfigId: 3, ... }   // backup       │         │
+│  │      ]                                                │         │
+│  │    }                                                  │         │
+│  │  }                                                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Handover timing prediction:**
+
+```python
+import numpy as np
+from dataclasses import dataclass
+
+@dataclass
+class Satellite:
+    id: int
+    lat: float  # sub-satellite point latitude
+    lon: float  # sub-satellite point longitude
+    altitude_km: float
+    velocity_km_s: float
+    heading_deg: float  # direction of travel
+
+def elevation_angle(ue_lat, ue_lon, sat_lat, sat_lon, sat_alt_km):
+    """Calculate elevation angle from UE to satellite."""
+    earth_radius_km = 6371
+    
+    # Angular separation (simplified spherical)
+    lat1, lat2 = np.radians(ue_lat), np.radians(sat_lat)
+    dlon = np.radians(sat_lon - ue_lon)
+    
+    central_angle = np.arccos(
+        np.sin(lat1) * np.sin(lat2) + 
+        np.cos(lat1) * np.cos(lat2) * np.cos(dlon)
+    )
+    
+    # Elevation angle
+    slant_range = np.sqrt(
+        earth_radius_km**2 + (earth_radius_km + sat_alt_km)**2 - 
+        2 * earth_radius_km * (earth_radius_km + sat_alt_km) * np.cos(central_angle)
+    )
+    
+    elevation = np.arcsin(
+        ((earth_radius_km + sat_alt_km) * np.cos(central_angle) - earth_radius_km) / 
+        slant_range
+    )
+    
+    return np.degrees(elevation)
+
+def predict_handover_times(ue_lat, ue_lon, satellites, min_elevation_deg=10):
+    """
+    Predict handover sequence for a UE given satellite constellation.
+    
+    Returns list of (time_s, serving_sat_id, target_sat_id, trigger_elevation)
+    """
+    handovers = []
+    current_serving = None
+    
+    # Simulate for 10 minutes
+    for t in range(0, 600, 1):  # 1-second steps
+        elevations = {}
+        
+        for sat in satellites:
+            # Simple linear propagation of sub-satellite point
+            new_lat = sat.lat + (sat.velocity_km_s * t / 111) * np.cos(np.radians(sat.heading_deg))
+            new_lon = sat.lon + (sat.velocity_km_s * t / 111) * np.sin(np.radians(sat.heading_deg)) / np.cos(np.radians(sat.lat))
+            
+            elev = elevation_angle(ue_lat, ue_lon, new_lat, new_lon, sat.altitude_km)
+            if elev > min_elevation_deg:
+                elevations[sat.id] = elev
+        
+        if not elevations:
+            continue
+            
+        # Find best satellite (highest elevation)
+        best_sat = max(elevations.keys(), key=lambda x: elevations[x])
+        
+        if current_serving is None:
+            current_serving = best_sat
+        elif best_sat != current_serving:
+            # Handover condition: target elevation exceeds serving by margin
+            if elevations.get(best_sat, 0) > elevations.get(current_serving, 0) + 5:
+                handovers.append({
+                    'time_s': t,
+                    'from_sat': current_serving,
+                    'to_sat': best_sat,
+                    'from_elev': elevations.get(current_serving, 0),
+                    'to_elev': elevations.get(best_sat, 0)
+                })
+                current_serving = best_sat
+    
+    return handovers
+
+# Example: Walker constellation simulation
+print("NTN Handover Prediction Example")
+print("=" * 55)
+
+# Create simplified satellite constellation (3 satellites in same plane)
+satellites = [
+    Satellite(id=47, lat=30, lon=-10, altitude_km=550, velocity_km_s=7.5, heading_deg=80),
+    Satellite(id=48, lat=25, lon=5, altitude_km=550, velocity_km_s=7.5, heading_deg=80),
+    Satellite(id=49, lat=20, lon=20, altitude_km=550, velocity_km_s=7.5, heading_deg=80),
+]
+
+# UE at fixed location
+ue_lat, ue_lon = 35, 0
+
+handovers = predict_handover_times(ue_lat, ue_lon, satellites)
+
+print(f"\nUE location: ({ue_lat}°N, {ue_lon}°E)")
+print(f"Constellation: 3 LEO satellites at 550 km")
+print(f"\nPredicted handover sequence:")
+print("-" * 55)
+
+for ho in handovers[:5]:  # Show first 5
+    print(f"  T+{ho['time_s']:3d}s: Sat {ho['from_sat']} → Sat {ho['to_sat']}")
+    print(f"         Elevation: {ho['from_elev']:.1f}° → {ho['to_elev']:.1f}°")
+
+# Calculate CHO configuration timing
+print("\n" + "=" * 55)
+print("CHO Configuration (pre-computed):")
+print("-" * 55)
+
+for i, ho in enumerate(handovers[:3]):
+    # Send CHO config 30 seconds before handover
+    config_time = max(0, ho['time_s'] - 30)
+    print(f"  Config {i+1}: Send at T+{config_time}s, execute at T+{ho['time_s']}s")
+    print(f"            Target: Sat {ho['to_sat']}, condition: time-based")
+```
+
+**Handover interval estimation:**
+
+| Constellation | Altitude | Orbital Period | Typical HO Interval |
+|---------------|----------|----------------|---------------------|
+| Starlink Gen1 | 550 km | 95 min | 60-90 s |
+| OneWeb | 1200 km | 109 min | 90-150 s |
+| Kuiper | 630 km | 97 min | 70-100 s |
+| O3b mPower (MEO) | 8000 km | 288 min | 5-8 min |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **CHO config expiration.** Pre-configured handovers become stale; need refresh mechanism.
+
+2. **Multi-beam complexity.** Earth-fixed cells with beam steering add timing complexity.
+
+3. **ISL availability.** Not all constellations have ISL; context transfer may go through ground.
+
+4. **GNSS outage impact.** No GNSS = no position = degraded handover prediction.
+
+5. **Doppler discontinuity.** Handover changes Doppler sign; UE must re-acquire quickly.
+
+6. **Cell ID exhaustion.** Satellite-fixed cells cycle through many cell IDs per orbit.
+
+7. **Timer mismatch.** CHO execution timers must account for NTN propagation delays.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 38.300 (NR overall description)
+- 3GPP TS 38.331 (RRC protocol)
+- 3GPP TR 38.821 (NTN study)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [NTN vs Terrestrial Handover](/en/space/satellite-5g-integration/ntn-vs-terrestrial-handover/) — multi-connectivity scenarios
+- [LEO Constellation Architecture](/en/space/leo-constellation-architecture/walker-constellations/) — orbital mechanics
+- [Inter-Satellite Links](/en/space/inter-satellite-links-laser-rf/isl-architectures/) — context transfer paths
+
+</section>

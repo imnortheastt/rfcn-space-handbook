@@ -9,16 +9,520 @@ unit: reading-tles-and-sgp4
 order: 1
 level: L2
 estimatedReadingMinutes: 5
-title: "TLE format and fields"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "TLE Format and Fields"
+description: "The 69-character two-line element set: how to read satellite orbital data published by Space-Track and CelesTrak."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["tle", "two-line-element", "orbital-elements", "space-track", "celestrak"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# TLE format and fields
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Every tracked object in orbit — from the ISS to a discarded bolt — has a Two-Line Element set (TLE) published by Space-Track or CelesTrak. TLEs are the lingua franca of satellite tracking: ground station software, collision avoidance systems, and amateur trackers all ingest this format. If you want to predict where a satellite will be, you start with a TLE.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What a TLE looks like
+
+```
+TLE Structure — ISS Example
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Line 0 (optional name):                                            │
+│  ISS (ZARYA)                                                        │
+│                                                                      │
+│  Line 1:                                                            │
+│  1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9993
+│                                                                      │
+│  Line 2:                                                            │
+│  2 25544  51.6400 247.4627 0006703 130.5360 325.0288 15.72125391563537
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### The fixed-column format
+
+```
+TLEs use FIXED COLUMN positions — character position matters!
+
+Line 1 Breakdown:
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Col 1     : Line number (always "1")                               │
+│  Col 3-7   : Satellite catalog number (NORAD ID)                    │
+│  Col 8     : Classification (U=unclassified, C=classified, S=secret)│
+│  Col 10-17 : International designator (launch year + piece)         │
+│  Col 19-32 : Epoch (year + day of year with fraction)               │
+│  Col 34-43 : First derivative of mean motion (n-dot/2)              │
+│  Col 45-52 : Second derivative of mean motion (n-ddot/6)            │
+│  Col 54-61 : BSTAR drag term                                        │
+│  Col 63    : Ephemeris type (always 0 for SGP4)                     │
+│  Col 65-68 : Element set number                                     │
+│  Col 69    : Checksum (modulo 10)                                   │
+│                                                                      │
+│  Example: 1 25544U 98067A   24001.50000000  .00016717  00000-0...   │
+│             └─┬─┘└┬┘└──┬──┘ └─────┬──────┘  └───┬───┘               │
+│           NORAD|  └Intl. Des.   Epoch     n-dot/2                  │
+│           25544   98067A        Jan 1,                              │
+│                                 2024 noon                           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+
+Line 2 Breakdown:
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Col 1     : Line number (always "2")                               │
+│  Col 3-7   : Satellite catalog number (must match Line 1)           │
+│  Col 9-16  : Inclination (degrees)                                  │
+│  Col 18-25 : Right ascension of ascending node (degrees)            │
+│  Col 27-33 : Eccentricity (decimal point assumed)                   │
+│  Col 35-42 : Argument of perigee (degrees)                          │
+│  Col 44-51 : Mean anomaly (degrees)                                 │
+│  Col 53-63 : Mean motion (revolutions per day)                      │
+│  Col 64-68 : Revolution number at epoch                             │
+│  Col 69    : Checksum (modulo 10)                                   │
+│                                                                      │
+│  Example: 2 25544  51.6400 247.4627 0006703 130.5360 325.0288 15.72..│
+│                    └──┬──┘ └──┬───┘ └──┬──┘ └──┬──┘  └──┬──┘  └─┬─┘ │
+│                   Inc.   RAAN   Ecc.  Arg.P  Mean.A  Mean.Mo.       │
+│                  51.64°  247.46° .0006703 130.54° 325.03° 15.72    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### The six Keplerian elements
+
+```
+What the TLE Encodes — Classical Orbital Elements:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                     ▲ North Pole                                    │
+│                     │                                                │
+│                     │    ╭─────────────╮                            │
+│                     │   ╱   Satellite   ╲                           │
+│                     │  ╱     Orbit       ╲                          │
+│                    ╱│ ╱                   ╲                         │
+│         ╭────────╱──│╱─────────────────────╲─────────╮              │
+│        ╱    ←Ω→ ╱   │                        ╲        ╲             │
+│       ╱        ╱    │                         ╲        ╲            │
+│      ╱     ───╱─────│─────────────────────────╲───      ╲           │
+│     ╱   Equator     │←──────── a ────────────→╲         ╲          │
+│     ╲        ╲      │                         ╱         ╱           │
+│      ╲        ╲  ←i→│                        ╱         ╱            │
+│       ╲        ╲    │                       ╱         ╱             │
+│        ╲        ╲   │                      ╱         ╱              │
+│         ╰────────╲──│╲────────────────────╱─────────╯               │
+│                   ╲ │ ╲                  ╱                          │
+│                    ╲│  ╲                ╱                           │
+│                     │   ╲──────────────╱                            │
+│                     │    Ascending Node                             │
+│                     │                                                │
+│                                                                      │
+│  SIX ELEMENTS:                                                      │
+│                                                                      │
+│  1. Inclination (i)     : Tilt of orbit vs equator (0-180°)        │
+│  2. RAAN (Ω)            : Where orbit crosses equator going north  │
+│  3. Eccentricity (e)    : How elliptical (0=circle, 1=parabola)    │
+│  4. Argument of Perigee (ω): Where perigee is in the orbit         │
+│  5. Mean Anomaly (M)    : Where satellite is along the orbit       │
+│  6. Mean Motion (n)     : How fast it orbits (revs/day)            │
+│                                                                      │
+│  Together with epoch time, these define position at any moment.    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Epoch decoding
+
+```
+TLE Epoch Format:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Epoch field: 24001.50000000                                        │
+│               └┬┘└────┬─────┘                                       │
+│                │      └─ Day of year + fractional day               │
+│                └──────── 2-digit year (00-56 → 2000s, 57-99 → 1900s)│
+│                                                                      │
+│  Decoding:                                                          │
+│    Year: 24 → 2024                                                  │
+│    Day:  001.50000000                                               │
+│          = January 1st + 0.5 days                                   │
+│          = January 1st, 12:00:00 UTC                                │
+│                                                                      │
+│  Another example: 23365.75000000                                    │
+│    Year: 23 → 2023                                                  │
+│    Day:  365.75 = December 31st, 18:00:00 UTC                       │
+│                                                                      │
+│  CRITICAL: TLEs are only accurate near their epoch!                 │
+│  Accuracy degrades ~1 km/day for LEO satellites.                   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Implied decimal points
+
+```
+TLE Fields with Implied Decimals:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ECCENTRICITY (Line 2, cols 27-33):                                │
+│                                                                      │
+│    TLE value:  0006703                                              │
+│    Actual:     0.0006703                                            │
+│    Rule:       Prepend "0." to the 7 digits                        │
+│                                                                      │
+│    Range: 0.0000000 (perfect circle) to 0.9999999 (highly elliptic)│
+│                                                                      │
+│  BSTAR (Line 1, cols 54-61):                                        │
+│                                                                      │
+│    TLE value:  10270-3                                              │
+│    Actual:     0.10270 × 10⁻³ = 0.00010270                         │
+│    Rule:       Implied decimal before first digit, then exponent   │
+│                                                                      │
+│    TLE value:  -12345-4                                             │
+│    Actual:     -0.12345 × 10⁻⁴ = -0.000012345                      │
+│                                                                      │
+│  N-DDOT/6 (Line 1, cols 45-52):                                     │
+│                                                                      │
+│    TLE value:  00000-0                                              │
+│    Actual:     0.00000 × 10⁰ = 0.0                                 │
+│    (Usually zero for most satellites)                               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Checksum validation
+
+```
+TLE Checksum Algorithm:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Rule: Sum all digits, treat '-' as 1, ignore letters/spaces/'+'.  │
+│        Take result modulo 10.                                       │
+│                                                                      │
+│  Example Line 1:                                                    │
+│  1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  999
+│                                                                      │
+│  Step 1: Extract digits and '-' signs:                              │
+│    1, 2, 5, 5, 4, 4, 9, 8, 0, 6, 7, 2, 4, 0, 0, 1, 5, 0, 0, 0,     │
+│    0, 0, 0, 0, 0, 0, 0, 1, 6, 7, 1, 7, 0, 0, 0, 0, 0, '-', 0,      │
+│    1, 0, 2, 7, 0, '-', 3, 0, 9, 9, 9                                │
+│                                                                      │
+│  Step 2: Sum (treating '-' as 1):                                   │
+│    1+2+5+5+4+4+9+8+0+6+7+2+4+0+0+1+5+0+0+0+0+0+0+0+0+0+0+          │
+│    1+6+7+1+7+0+0+0+0+0+1+0+1+0+2+7+0+1+3+0+9+9+9 = 123              │
+│                                                                      │
+│  Step 3: Checksum = 123 mod 10 = 3                                  │
+│                                                                      │
+│  Line ends with "9993" → checksum digit is 3 ✓                      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**TLE parser and validator:**
+
+```python
+import re
+from datetime import datetime, timedelta
+
+def parse_tle(line1, line2, name=None):
+    """
+    Parse TLE into structured data.
+    """
+    if len(line1) != 69 or len(line2) != 69:
+        raise ValueError(f"TLE lines must be 69 characters. Got {len(line1)}, {len(line2)}")
+    
+    if line1[0] != '1' or line2[0] != '2':
+        raise ValueError("Line 1 must start with '1', Line 2 with '2'")
+    
+    norad_id_1 = int(line1[2:7])
+    norad_id_2 = int(line2[2:7])
+    if norad_id_1 != norad_id_2:
+        raise ValueError(f"NORAD IDs don't match: {norad_id_1} vs {norad_id_2}")
+    
+    classification = line1[7]
+    intl_designator = line1[9:17].strip()
+    
+    epoch_year = int(line1[18:20])
+    epoch_day = float(line1[20:32])
+    
+    if epoch_year < 57:
+        epoch_year += 2000
+    else:
+        epoch_year += 1900
+    
+    epoch = datetime(epoch_year, 1, 1) + timedelta(days=epoch_day - 1)
+    
+    ndot = float(line1[33:43])
+    
+    nddot_str = line1[44:52].strip()
+    if nddot_str:
+        mantissa = float("0." + nddot_str[:-2].replace(" ", "0").replace("-", ""))
+        exponent = int(nddot_str[-2:])
+        if nddot_str[0] == '-':
+            mantissa = -mantissa
+        nddot = mantissa * (10 ** exponent)
+    else:
+        nddot = 0.0
+    
+    bstar_str = line1[53:61].strip()
+    if bstar_str:
+        sign = -1 if bstar_str[0] == '-' else 1
+        bstar_str = bstar_str.lstrip('-').lstrip('+').lstrip()
+        mantissa = float("0." + bstar_str[:-2].replace(" ", "0"))
+        exponent = int(bstar_str[-2:])
+        bstar = sign * mantissa * (10 ** exponent)
+    else:
+        bstar = 0.0
+    
+    ephemeris_type = int(line1[62])
+    element_set = int(line1[64:68])
+    
+    inclination = float(line2[8:16])
+    raan = float(line2[17:25])
+    eccentricity = float("0." + line2[26:33])
+    arg_perigee = float(line2[34:42])
+    mean_anomaly = float(line2[43:51])
+    mean_motion = float(line2[52:63])
+    rev_number = int(line2[63:68])
+    
+    return {
+        "name": name,
+        "norad_id": norad_id_1,
+        "classification": classification,
+        "intl_designator": intl_designator,
+        "epoch": epoch,
+        "epoch_year": epoch_year,
+        "epoch_day": epoch_day,
+        "ndot": ndot,
+        "nddot": nddot,
+        "bstar": bstar,
+        "ephemeris_type": ephemeris_type,
+        "element_set": element_set,
+        "inclination_deg": inclination,
+        "raan_deg": raan,
+        "eccentricity": eccentricity,
+        "arg_perigee_deg": arg_perigee,
+        "mean_anomaly_deg": mean_anomaly,
+        "mean_motion_revs_per_day": mean_motion,
+        "rev_number": rev_number
+    }
+
+def compute_checksum(line):
+    """Compute TLE checksum for a line."""
+    total = 0
+    for c in line[:-1]:
+        if c.isdigit():
+            total += int(c)
+        elif c == '-':
+            total += 1
+    return total % 10
+
+def validate_checksum(line1, line2):
+    """Validate TLE checksums."""
+    check1 = compute_checksum(line1)
+    check2 = compute_checksum(line2)
+    
+    expected1 = int(line1[-1])
+    expected2 = int(line2[-1])
+    
+    return {
+        "line1_valid": check1 == expected1,
+        "line2_valid": check2 == expected2,
+        "line1_computed": check1,
+        "line1_expected": expected1,
+        "line2_computed": check2,
+        "line2_expected": expected2
+    }
+
+def derive_orbital_params(tle):
+    """Derive additional orbital parameters from TLE."""
+    import math
+    
+    mu = 398600.4418
+    
+    n_rad_per_sec = tle["mean_motion_revs_per_day"] * 2 * math.pi / 86400
+    
+    a = (mu / (n_rad_per_sec ** 2)) ** (1/3)
+    
+    e = tle["eccentricity"]
+    perigee_alt = a * (1 - e) - 6378.137
+    apogee_alt = a * (1 + e) - 6378.137
+    
+    period_min = 1440 / tle["mean_motion_revs_per_day"]
+    
+    return {
+        "semi_major_axis_km": a,
+        "perigee_altitude_km": perigee_alt,
+        "apogee_altitude_km": apogee_alt,
+        "orbital_period_min": period_min
+    }
+
+print("TLE Parser Demo")
+print("=" * 70)
+
+iss_tle = """ISS (ZARYA)
+1 25544U 98067A   24001.50000000  .00016717  00000-0  10270-3 0  9993
+2 25544  51.6400 247.4627 0006703 130.5360 325.0288 15.72125391463537"""
+
+lines = iss_tle.strip().split('\n')
+name = lines[0] if len(lines) == 3 else None
+line1 = lines[1] if len(lines) == 3 else lines[0]
+line2 = lines[2] if len(lines) == 3 else lines[1]
+
+print("\n1. Raw TLE")
+print("-" * 70)
+if name:
+    print(f"  {name}")
+print(f"  {line1}")
+print(f"  {line2}")
+
+print("\n2. Checksum Validation")
+print("-" * 70)
+checksums = validate_checksum(line1, line2)
+print(f"  Line 1: computed={checksums['line1_computed']}, expected={checksums['line1_expected']} → {'✓' if checksums['line1_valid'] else '✗'}")
+print(f"  Line 2: computed={checksums['line2_computed']}, expected={checksums['line2_expected']} → {'✓' if checksums['line2_valid'] else '✗'}")
+
+print("\n3. Parsed Fields")
+print("-" * 70)
+tle = parse_tle(line1, line2, name)
+
+print(f"""
+  Satellite:        {tle['name']} (NORAD {tle['norad_id']})
+  Intl Designator:  {tle['intl_designator']}
+  Classification:   {tle['classification']}
+  
+  Epoch:            {tle['epoch'].strftime('%Y-%m-%d %H:%M:%S')} UTC
+  
+  Orbital Elements:
+    Inclination:      {tle['inclination_deg']:.4f}°
+    RAAN:             {tle['raan_deg']:.4f}°
+    Eccentricity:     {tle['eccentricity']:.7f}
+    Arg of Perigee:   {tle['arg_perigee_deg']:.4f}°
+    Mean Anomaly:     {tle['mean_anomaly_deg']:.4f}°
+    Mean Motion:      {tle['mean_motion_revs_per_day']:.8f} rev/day
+  
+  Drag:
+    B* (BSTAR):       {tle['bstar']:.5e}
+    n-dot/2:          {tle['ndot']:.8f}
+""")
+
+print("4. Derived Orbital Parameters")
+print("-" * 70)
+derived = derive_orbital_params(tle)
+print(f"""
+  Semi-major axis:  {derived['semi_major_axis_km']:.2f} km
+  Perigee altitude: {derived['perigee_altitude_km']:.2f} km
+  Apogee altitude:  {derived['apogee_altitude_km']:.2f} km
+  Orbital period:   {derived['orbital_period_min']:.2f} minutes
+""")
+
+print("5. Field Position Reference")
+print("-" * 70)
+print("""
+  LINE 1:
+  ┌─Col─┬─Field────────────────────┬─Example──────┐
+  │ 1   │ Line number              │ 1            │
+  │ 3-7 │ NORAD catalog number     │ 25544        │
+  │ 8   │ Classification           │ U            │
+  │10-17│ International designator │ 98067A       │
+  │19-32│ Epoch (YYDDD.DDDDDDDD)   │ 24001.500... │
+  │34-43│ n-dot/2                  │ .00016717    │
+  │45-52│ n-ddot/6                 │ 00000-0      │
+  │54-61│ BSTAR drag               │ 10270-3      │
+  │ 63  │ Ephemeris type           │ 0            │
+  │65-68│ Element set number       │ 999          │
+  │ 69  │ Checksum                 │ 3            │
+  └─────┴──────────────────────────┴──────────────┘
+
+  LINE 2:
+  ┌─Col─┬─Field────────────────────┬─Example──────┐
+  │ 1   │ Line number              │ 2            │
+  │ 3-7 │ NORAD catalog number     │ 25544        │
+  │ 9-16│ Inclination (deg)        │ 51.6400      │
+  │18-25│ RAAN (deg)               │ 247.4627     │
+  │27-33│ Eccentricity             │ 0006703      │
+  │35-42│ Argument of perigee (deg)│ 130.5360     │
+  │44-51│ Mean anomaly (deg)       │ 325.0288     │
+  │53-63│ Mean motion (rev/day)    │ 15.72125391  │
+  │64-68│ Revolution number        │ 46353        │
+  │ 69  │ Checksum                 │ 7            │
+  └─────┴──────────────────────────┴──────────────┘
+""")
+```
+
+**Key formulas:**
+
+| Parameter | Formula |
+|-----------|---------|
+| Semi-major axis | a = (μ / n²)^(1/3) where n in rad/s |
+| Perigee altitude | a × (1 - e) - R_earth |
+| Apogee altitude | a × (1 + e) - R_earth |
+| Orbital period | 2π / n |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Using stale TLEs.** TLEs degrade ~1 km/day for LEO. Always use the freshest TLE from Space-Track or CelesTrak.
+
+2. **Wrong year interpretation.** 00-56 → 2000-2056; 57-99 → 1957-1999. Getting this wrong shifts epochs by 100 years.
+
+3. **Forgetting implied decimals.** Eccentricity "0006703" is 0.0006703, not 6703. BSTAR "10270-3" is 0.00010270.
+
+4. **Mixing up RAAN and argument of perigee.** RAAN is measured from the vernal equinox to the ascending node. Argument of perigee is measured from the ascending node to perigee.
+
+5. **Ignoring checksum.** Corrupt TLEs produce wildly wrong predictions. Always validate checksums before using.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Space-Track.org — Official USSPACECOM TLE source
+- CelesTrak.org — Dr. T.S. Kelso's TLE archive with documentation
+- Vallado, "Fundamentals of Astrodynamics and Applications" — TLE specification
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [SGP4 Propagation](/en/space/reading-tles-and-sgp4/sgp4-propagation-parser/) — use TLEs to predict satellite positions
+- [Orbit Determination](/en/space/orbit-determination/) — how TLEs are generated from observations
+
+</section>

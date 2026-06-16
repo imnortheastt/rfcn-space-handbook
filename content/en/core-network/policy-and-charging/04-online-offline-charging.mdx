@@ -8,17 +8,412 @@ track: n3
 unit: policy-and-charging
 order: 4
 level: L4
-estimatedReadingMinutes: 5
-title: "Online and offline charging"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-policy-and-charging-02-chf-overview"]
+spiralRevisits: []
+title: "Online and Offline Charging"
+description: "Prepaid vs postpaid mechanics — real-time credit control, CDR generation, and hybrid scenarios."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 32.240", "3GPP TS 32.255"]
+tags: ["charging", "5g", "prepaid", "postpaid", "ocs"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Online and offline charging
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Prepaid customers pay before service — run out of credit, service stops. Postpaid customers use first, pay later — service continues, bill arrives monthly.
+
+The network handles these completely differently. Understanding online vs offline charging explains why prepaid users get throttled instantly while postpaid users don't.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Online vs offline comparison
+
+```
+Charging Modes Side-by-Side:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Online Charging (Prepaid):                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Balance: $10.00                                │    │
+│  │           ↓                                     │    │
+│  │  [Request quota] → CHF checks balance          │    │
+│  │           ↓                                     │    │
+│  │  [Grant 100 MB] ← quota issued                 │    │
+│  │           ↓                                     │    │
+│  │  [Use 80 MB] → threshold reached               │    │
+│  │           ↓                                     │    │
+│  │  [Request more] → deduct $0.80, grant more     │    │
+│  │           ↓                                     │    │
+│  │  [Balance: $0] → session blocked/throttled     │    │
+│  │                                                  │    │
+│  │  Real-time • Quota-based • Balance deduction   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Offline Charging (Postpaid):                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Credit Limit: $500                             │    │
+│  │           ↓                                     │    │
+│  │  [Notify session start] → CHF records          │    │
+│  │           ↓                                     │    │
+│  │  [Use 500 MB] → no real-time check             │    │
+│  │           ↓                                     │    │
+│  │  [Report periodically] → CHF accumulates       │    │
+│  │           ↓                                     │    │
+│  │  [Session ends] → CHF creates CDR              │    │
+│  │           ↓                                     │    │
+│  │  [CDR → Billing] → Invoice generated           │    │
+│  │                                                  │    │
+│  │  Delayed • CDR-based • Billed later            │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### When to use each
+
+```
+Charging Mode Selection:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Use Online When:                                       │
+│  ├── Prepaid subscription                              │
+│  ├── Real-time credit control needed                   │
+│  ├── Sponsored data (third-party pays)                 │
+│  ├── Usage-based premium services                      │
+│  └── Roaming with credit limit                         │
+│                                                          │
+│  Use Offline When:                                      │
+│  ├── Postpaid subscription                             │
+│  ├── Unlimited plans                                   │
+│  ├── Enterprise accounts (bulk billing)               │
+│  ├── Flat-rate services                                │
+│  └── No balance check needed                           │
+│                                                          │
+│  Use Both (Hybrid):                                     │
+│  ├── Postpaid with spending limit                     │
+│  ├── Prepaid with CDR for detailed billing            │
+│  └── Mixed services on same subscription              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Online charging flow
+
+```
+Online Charging Detailed Flow:
+
+SMF                    CHF                   Account
+│                       │                      │
+│ ChargingDataCreate   │                      │
+│ (Online, SUPI, DNN)  │                      │
+│──────────────────────►│                      │
+│                       │                      │
+│                       │ Reserve funds       │
+│                       │────────────────────►│
+│                       │                      │
+│                       │ Balance: $10        │
+│                       │◄────────────────────│
+│                       │                      │
+│ Grant: 100 MB        │                      │
+│◄──────────────────────│                      │
+│                       │                      │
+│ [User consumes 80 MB]│                      │
+│                       │                      │
+│ ChargingDataUpdate   │                      │
+│ (Used: 80 MB,        │                      │
+│  Request: 100 MB)    │                      │
+│──────────────────────►│                      │
+│                       │                      │
+│                       │ Deduct $0.80        │
+│                       │ Reserve $1.00 more  │
+│                       │────────────────────►│
+│                       │                      │
+│                       │ Balance: $9.20      │
+│                       │◄────────────────────│
+│                       │                      │
+│ Grant: 100 MB more   │                      │
+│◄──────────────────────│                      │
+│                       │                      │
+│ [Continue until...]  │                      │
+│                       │                      │
+│ ChargingDataUpdate   │                      │
+│ (Request: 100 MB)    │                      │
+│──────────────────────►│                      │
+│                       │                      │
+│                       │ Balance: $0         │
+│                       │◄────────────────────│
+│                       │                      │
+│ Final Unit Action:   │                      │
+│ Terminate / Redirect │                      │
+│◄──────────────────────│                      │
+│                       │                      │
+│ [Apply throttling or │                      │
+│  release session]    │                      │
+│                       │                      │
+```
+
+### Offline charging flow
+
+```
+Offline Charging Detailed Flow:
+
+SMF                    CHF                   Billing
+│                       │                      │
+│ ChargingDataCreate   │                      │
+│ (Offline, SUPI, DNN) │                      │
+│──────────────────────►│                      │
+│                       │                      │
+│                       │ Start usage record  │
+│                       │                      │
+│ Ack (no quota)       │                      │
+│◄──────────────────────│                      │
+│                       │                      │
+│ [User consumes 500 MB│                      │
+│  over several hours] │                      │
+│                       │                      │
+│ ChargingDataUpdate   │                      │
+│ (Usage: 200 MB)      │                      │
+│──────────────────────►│                      │
+│                       │                      │
+│                       │ Accumulate record   │
+│                       │                      │
+│ Ack                  │                      │
+│◄──────────────────────│                      │
+│                       │                      │
+│ [User continues...]  │                      │
+│                       │                      │
+│ ChargingDataUpdate   │                      │
+│ (Usage: 300 MB more) │                      │
+│──────────────────────►│                      │
+│                       │                      │
+│ Ack                  │                      │
+│◄──────────────────────│                      │
+│                       │                      │
+│ ChargingDataRelease  │                      │
+│ (Final: 500 MB total)│                      │
+│──────────────────────►│                      │
+│                       │                      │
+│                       │ Create CDR          │
+│                       │ ──────────────────►│
+│                       │                      │
+│                       │                      │ CDR processed
+│                       │                      │ Invoice: $5.00
+│                       │                      │
+```
+
+### Quota management details
+
+```
+Quota Types and Handling:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Total Volume:                                          │
+│  ├── Combined UL + DL bytes                            │
+│  └── Example: Grant 100 MB total                       │
+│                                                          │
+│  Volume per Direction:                                  │
+│  ├── Separate UL and DL quotas                        │
+│  └── Example: 20 MB UL + 80 MB DL                     │
+│                                                          │
+│  Time-based:                                            │
+│  ├── Duration in seconds                               │
+│  └── Example: Grant 3600 seconds                       │
+│                                                          │
+│  Event-based:                                           │
+│  ├── Count of events (SMS, MMS)                        │
+│  └── Example: Grant 10 SMS                             │
+│                                                          │
+│  Quota Threshold:                                       │
+│  ├── When to request more (e.g., 80% used)            │
+│  └── Avoids running out mid-session                   │
+│                                                          │
+│  Validity Time:                                         │
+│  ├── How long quota is valid                          │
+│  └── Example: Quota expires in 1 hour                 │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Final unit actions
+
+```
+When Quota Runs Out:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Terminate:                                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Immediately release session                   │    │
+│  │ - User loses connectivity                       │    │
+│  │ - Harsh but clear                               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Redirect:                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Keep session, redirect HTTP to top-up page   │    │
+│  │ - User can add credit                          │    │
+│  │ - UPF applies redirect rules                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Restrict Access:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Keep session with limited AMBR (e.g., 1 Mbps)│    │
+│  │ - User can still browse slowly                 │    │
+│  │ - Less disruptive                              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Notification Only:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Continue service, notify user                │    │
+│  │ - Used with spending limits                    │    │
+│  │ - PCF notified, may trigger policy change      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Hybrid charging
+
+```
+Combined Online + Offline:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Scenario: Postpaid with spending limit                 │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Monthly limit: $100                            │    │
+│  │                                                  │    │
+│  │  Online component:                              │    │
+│  │  - Track spending against limit                │    │
+│  │  - Block if limit exceeded                     │    │
+│  │                                                  │    │
+│  │  Offline component:                             │    │
+│  │  - Generate CDR for detailed billing           │    │
+│  │  - Invoice shows itemized usage                │    │
+│  │                                                  │    │
+│  │  Combined flow:                                 │    │
+│  │  1. CHF grants quota (checks limit)            │    │
+│  │  2. SMF reports usage (tracks spending)        │    │
+│  │  3. CHF creates CDR (for billing)              │    │
+│  │  4. If limit reached, restrict service         │    │
+│  │  5. Month end: invoice from CDRs               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Charging mode by scenario:**
+
+| Scenario | Mode | Why |
+|----------|------|-----|
+| Prepaid SIM | Online | Real-time credit control |
+| Unlimited postpaid | Offline | No balance check needed |
+| Postpaid with cap | Hybrid | Limit + detailed billing |
+| Sponsored data | Online | Third-party pays per byte |
+| IoT device | Offline | Bulk billing, low overhead |
+| Roaming | Online | Credit control abroad |
+
+**Debugging charging issues:**
+
+```bash
+# Wireshark: online vs offline
+http2.header.path contains "chargingData" && json.value.string contains "ONLINE"
+http2.header.path contains "chargingData" && json.value.string contains "OFFLINE"
+
+# Check quota grants
+grep "grantedUnit" /var/log/smf/*.log
+
+# Final unit action
+grep "finalUnitAction" /var/log/chf/*.log
+
+# CDR output
+tail -f /var/spool/chf/cdr/*.cdr
+```
+
+**Common parameters:**
+
+| Parameter | Online | Offline |
+|-----------|--------|---------|
+| Quota | Granted per request | Not applicable |
+| Reporting | On threshold/time | Periodic/final |
+| CDR | Optional | Always generated |
+| Latency impact | Higher | Lower |
+| Failure handling | Service blocked | Service continues |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **CHF latency.** Online charging adds latency to every quota request. Optimize CHF response time.
+
+2. **Over-usage between updates.** User may exceed quota between SMF updates. Allow tolerance margin.
+
+3. **Quota exhaustion during call.** Voice call cut mid-sentence is poor UX. Grant extra quota for active calls.
+
+4. **CDR loss.** Offline CDRs must be reliably stored. Lost CDR = lost revenue. Use persistent storage.
+
+5. **Wrong charging mode.** Applying online to postpaid (unnecessary) or offline to prepaid (no control) causes issues.
+
+6. **Redirect loop.** If redirect page itself counts against quota, user can't top up. Whitelist top-up URLs.
+
+7. **Roaming complexity.** V-CHF vs H-CHF depends on roaming agreement. Ensure correct routing.
+
+8. **Session-level vs flow-level.** Same session may have flows with different charging modes. Track separately.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 32.240, "Charging Architecture and Principles"
+- 3GPP TS 32.255, "5G Data Connectivity Charging"
+- 3GPP TS 29.594, "Nchf Services"
+- 3GPP TS 32.299, "Diameter Charging Applications" (legacy reference)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [CHF overview](/en/core-network/policy-and-charging/chf-overview/) — CHF architecture
+- [PCC rules](/en/core-network/policy-and-charging/policy-and-charging-rules/) — per-flow charging
+- [PCF overview](/en/core-network/policy-and-charging/pcf-overview/) — policy triggers
+
+</section>

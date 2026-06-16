@@ -8,17 +8,459 @@ track: s11
 unit: satellite-5g-integration
 order: 1
 level: L4
-estimatedReadingMinutes: 5
-title: "UE dang ky tren ve tinh LEO 5G nhu the nao"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: []
+spiralRevisits: []
+title: "UE Dang ky tren Ve tinh LEO 5G nhu the nao"
+description: "Hieu quy trinh dang ky NTN 3GPP voi timing advance, ephemeris, va cac van de feeder link."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 38.300", "3GPP TS 38.821"]
+tags: ["5g-ntn", "dang-ky-ue", "leo", "timing-advance", "ephemeris"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# UE dang ky tren ve tinh LEO 5G nhu the nao
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Mang Khong Mat dat 5G (NTN) cho phep dien thoai thong minh tieu chuan ket noi truc tiep den ve tinh LEO. Nhung vat ly la khac: do cao 600 km co nghia la do tre 4-8 ms va chuyen dong ve tinh nhanh. Hieu cach 3GPP dieu chinh quy trinh dang ky—voi phat song ephemeris, timing advance, va cell di dong—tiet lo ky thuat lam cho "dien thoai den ve tinh" hoat dong.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Kien truc NTN
+
+```
+Kien truc He thong 5G NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                     🛰 Ve tinh LEO (600 km)                          │
+│                    ┌──────────────────────┐                         │
+│                    │   Payload            │                         │
+│                    │   Trong suot hoac    │                         │
+│                    │   Tai tao            │                         │
+│                    └──────────────────────┘                         │
+│                         ╱        ╲                                  │
+│                        ╱          ╲                                 │
+│            Lien ket   ╱            ╲   Lien ket                     │
+│            Dich vu   ╱              ╲  Feeder                       │
+│            (NR)     ╱                ╲ (dung luong cao)             │
+│                    ╱                  ╲                             │
+│                   ╱                    ╲                            │
+│                  📱                     📡                           │
+│                  UE                   Gateway                       │
+│                                         │                           │
+│                                         │                           │
+│                                    ┌────┴────┐                      │
+│                                    │  5G CN  │                      │
+│                                    │  (AMF,  │                      │
+│                                    │   SMF)  │                      │
+│                                    └─────────┘                      │
+│                                                                      │
+│  HAI LOAI PAYLOAD:                                                  │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  TRONG SUOT (bent-pipe):                                    │   │
+│  │  • Ve tinh chi khuech dai va dich tan so                   │   │
+│  │  • gNB o tren mat dat (tai gateway)                        │   │
+│  │  • Do tre cao hon (do tre lien ket dich vu + feeder)       │   │
+│  │                                                              │   │
+│  │  TAI TAO (gNB tren ve tinh):                                │   │
+│  │  • gNB-DU hoac gNB day du chay tren ve tinh               │   │
+│  │  • Do tre thap hon cho giao dien vo tuyen                 │   │
+│  │  • Ve tinh phuc tap hon                                    │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Khac biet chinh voi mat dat
+
+```
+Thach thuc NTN vs 5G Mat dat:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Thach thuc        │ Mat dat           │ LEO NTN                    │
+│  ──────────────────┼───────────────────┼──────────────────────────  │
+│  Do tre khu hoi    │ &lt;1 ms             │ 8-50 ms                    │
+│  Dich Doppler      │ ~Hz               │ ~50 kHz @ 2 GHz           │
+│  Chuyen dong cell  │ Tinh              │ Cell di chuyen 7 km/s     │
+│  Kich thuoc cell   │ &lt;10 km            │ 100-1000 km duong kinh    │
+│  Timing advance    │ 0-667 μs          │ Len den 45 ms can thiet   │
+│  Toc do handover   │ Phut/gio          │ Moi 1-2 phut              │
+│                                                                      │
+│  ═══════════════════════════════════════════════════════════════    │
+│                                                                      │
+│  GIAI PHAP 3GPP:                                                    │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  1. Phat song ephemeris: UE biet vi tri ve tinh            │   │
+│  │  2. Timing advance chung: Bu truoc cho khoang cach         │   │
+│  │  3. Bu truoc Doppler: UE dieu chinh tan so                 │   │
+│  │  4. Cell co dinh Trai dat vs co dinh ve tinh              │   │
+│  │  5. Mo rong timer cho cac thu tuc                          │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Luong dang ky
+
+```
+Dang ky UE tren 5G NTN (Don gian hoa):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  UE                  Ve tinh              gNB/GW              AMF   │
+│  │                      │                      │                  │ │
+│  │ 1. Nhan SIB19        │                      │                  │ │
+│  │◄─────────────────────│                      │                  │ │
+│  │   (ephemeris,        │                      │                  │ │
+│  │    TA chung,         │                      │                  │ │
+│  │    loai cell)        │                      │                  │ │
+│  │                      │                      │                  │ │
+│  │ 2. Tinh TA va Doppler                                          │ │
+│  │    tu ephemeris + vi tri GNSS                                  │ │
+│  │                      │                      │                  │ │
+│  │ 3. RACH Preamble     │                      │                  │ │
+│  │    (da bu truoc)     │                      │                  │ │
+│  │─────────────────────▶│─────────────────────▶│                  │ │
+│  │                      │                      │                  │ │
+│  │ 4. RAR (dieu chinh TA)                      │                  │ │
+│  │◄─────────────────────│◄─────────────────────│                  │ │
+│  │                      │                      │                  │ │
+│  │ 5. Msg3: Yeu cau RRC Setup                  │                  │ │
+│  │─────────────────────▶│─────────────────────▶│                  │ │
+│  │                      │                      │                  │ │
+│  │ 6. Msg4: Giai quyet tranh chap              │                  │ │
+│  │◄─────────────────────│◄─────────────────────│                  │ │
+│  │                      │                      │                  │ │
+│  │ 7. RRC Setup Complete + NAS Registration    │                  │ │
+│  │─────────────────────▶│─────────────────────▶│─────────────────▶│ │
+│  │                      │                      │                  │ │
+│  │ 8. Xac thuc, Security Mode                  │                  │ │
+│  │◄────────────────────────────────────────────────────────────── │ │
+│  │                      │                      │                  │ │
+│  │ 9. Chap nhan Dang ky                        │                  │ │
+│  │◄────────────────────────────────────────────────────────────── │ │
+│  │                      │                      │                  │ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### SIB19: Thong tin NTN
+
+```
+System Information Block 19 (dac thu NTN):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  NOI DUNG SIB19:                                                    │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  DU LIEU EPHEMERIS:                                         │   │
+│  │  • Vi tri ve tinh (yeu to quy dao hoac vector trang thai)  │   │
+│  │  • Vector van toc                                           │   │
+│  │  • Thoi gian tham chieu (SFN + subframe)                   │   │
+│  │  • Thoi gian hieu luc                                       │   │
+│  │                                                              │   │
+│  │  UE dung cai nay + GNSS de tinh:                           │   │
+│  │  • Khoang cach den ve tinh → do tre lan truyen            │   │
+│  │  • Van toc tuong doi → dich Doppler                        │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  TIMING ADVANCE:                                            │   │
+│  │  • Offset TA chung (diem tham chieu, VD tam cell)          │   │
+│  │  • UE tinh TA chenh lech tu vi tri cua no                  │   │
+│  │                                                              │   │
+│  │  TA tong = TA chung + TA rieng UE                          │   │
+│  │                                                              │   │
+│  │  Voi LEO tai 600 km:                                       │   │
+│  │  • Do tre min (ngay tren dau): 4 ms khu hoi                │   │
+│  │  • Do tre max (goc nang thap): ~16 ms khu hoi              │   │
+│  │  • TA chung bao phu phan lon cua no                        │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  LOAI CELL:                                                 │   │
+│  │  • Co dinh Trai dat: Cell o mot vung dia ly               │   │
+│  │    (bup song ve tinh lai de bu chuyen dong)               │   │
+│  │  • Co dinh ve tinh: Cell di chuyen theo ve tinh           │   │
+│  │    (UE trai nghiem thay doi cell thuong xuyen)            │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Tinh toan timing advance
+
+```
+Tinh toan Timing Advance UE:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  BUOC 1: UE lay vi tri tu GNSS                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Vi tri UE: (lat, lon, alt) → (x_ue, y_ue, z_ue) ECEF      │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  BUOC 2: UE tinh vi tri ve tinh tu ephemeris                        │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Tu SIB19: yeu to quy dao hoac vi tri/van toc              │   │
+│  │  Lan truyen den thoi gian hien tai → (x_sat, y_sat, z_sat) │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  BUOC 3: Tinh khoang cach                                           │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  d = √[(x_sat - x_ue)² + (y_sat - y_ue)² + (z_sat - z_ue)²]│   │
+│  │                                                              │   │
+│  │  Vi du: Ve tinh tai 600 km, UE tai goc nang 45°            │   │
+│  │  d ≈ 800 km                                                 │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  BUOC 4: Chuyen doi sang timing advance                             │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Do tre lan truyen = d / c = 800 km / 3×10⁵ km/s = 2.67 ms │   │
+│  │  Khu hoi = 2 × 2.67 ms = 5.33 ms                           │   │
+│  │                                                              │   │
+│  │  TA theo don vi NR: TA = (5.33 ms × 2) / T_c               │   │
+│  │  trong do T_c = 1/(480000 × 4096) ≈ 0.509 ns               │   │
+│  │                                                              │   │
+│  │  Voi ve tinh trong suot: cong them do tre feeder link      │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  BUOC 5: Bu truoc Doppler                                           │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Van toc tuong doi tu ephemeris va vi tri UE               │   │
+│  │  v_rel ≈ 0 den 7 km/s (phu thuoc hinh hoc)                 │   │
+│  │                                                              │   │
+│  │  Doppler = f × v_rel / c                                   │   │
+│  │  Tai 2 GHz, 7 km/s → dich 47 kHz                          │   │
+│  │                                                              │   │
+│  │  UE dieu chinh tan so phat de bu truoc                     │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tinh toan timing advance:**
+
+```python
+import numpy as np
+
+def calculate_ntn_timing_advance(
+    ue_lat_deg, ue_lon_deg, ue_alt_m,
+    sat_x_km, sat_y_km, sat_z_km,
+    feeder_delay_ms=0
+):
+    """
+    Tinh timing advance cho 5G NTN.
+    
+    Tra ve: TA theo mili giay
+    """
+    # Chuyen vi tri UE sang ECEF
+    earth_radius_km = 6371
+    lat_rad = np.radians(ue_lat_deg)
+    lon_rad = np.radians(ue_lon_deg)
+    r_ue = earth_radius_km + ue_alt_m / 1000
+    
+    ue_x = r_ue * np.cos(lat_rad) * np.cos(lon_rad)
+    ue_y = r_ue * np.cos(lat_rad) * np.sin(lon_rad)
+    ue_z = r_ue * np.sin(lat_rad)
+    
+    # Khoang cach den ve tinh
+    d_km = np.sqrt(
+        (sat_x_km - ue_x)**2 + 
+        (sat_y_km - ue_y)**2 + 
+        (sat_z_km - ue_z)**2
+    )
+    
+    # Do tre lan truyen
+    c_km_s = 299792.458
+    prop_delay_ms = d_km / c_km_s * 1000
+    
+    # Thoi gian khu hoi (lien ket dich vu)
+    rtt_service_ms = 2 * prop_delay_ms
+    
+    # Tong RTT bao gom feeder link (cho trong suot)
+    rtt_total_ms = rtt_service_ms + 2 * feeder_delay_ms
+    
+    return {
+        'distance_km': d_km,
+        'one_way_delay_ms': prop_delay_ms,
+        'rtt_service_ms': rtt_service_ms,
+        'rtt_total_ms': rtt_total_ms,
+        'ta_ms': rtt_total_ms
+    }
+
+def calculate_doppler(
+    freq_ghz, ue_lat_deg, ue_lon_deg,
+    sat_vx_km_s, sat_vy_km_s, sat_vz_km_s,
+    sat_x_km, sat_y_km, sat_z_km
+):
+    """
+    Tinh dich Doppler cho lien ket NTN.
+    """
+    # Vi tri UE (don gian hoa, gia dinh tren be mat)
+    earth_radius_km = 6371
+    lat_rad = np.radians(ue_lat_deg)
+    lon_rad = np.radians(ue_lon_deg)
+    
+    ue_x = earth_radius_km * np.cos(lat_rad) * np.cos(lon_rad)
+    ue_y = earth_radius_km * np.cos(lat_rad) * np.sin(lon_rad)
+    ue_z = earth_radius_km * np.sin(lat_rad)
+    
+    # Vector don vi tu UE den ve tinh
+    dx = sat_x_km - ue_x
+    dy = sat_y_km - ue_y
+    dz = sat_z_km - ue_z
+    d = np.sqrt(dx**2 + dy**2 + dz**2)
+    ux, uy, uz = dx/d, dy/d, dz/d
+    
+    # Van toc huong tam (tich vo huong cua van toc va vector don vi)
+    v_radial = sat_vx_km_s * ux + sat_vy_km_s * uy + sat_vz_km_s * uz
+    
+    # Dich Doppler
+    c_km_s = 299792.458
+    doppler_hz = freq_ghz * 1e9 * v_radial / c_km_s
+    
+    return {
+        'radial_velocity_km_s': v_radial,
+        'doppler_hz': doppler_hz,
+        'doppler_khz': doppler_hz / 1000
+    }
+
+# Vi du: Ve tinh LEO tai do cao 600 km
+print("Vi du Timing Advance 5G NTN")
+print("=" * 55)
+
+# Vi tri ve tinh (don gian hoa: truc tiep nam cua xich dao)
+sat_altitude_km = 600
+sat_x = 0
+sat_y = 6371 + sat_altitude_km  # Tren xich dao, kinh do 0°
+sat_z = 0
+
+# UE tai cac vi do khac nhau
+ue_positions = [
+    (0, 0, 0, "Ngay ben duoi"),
+    (10, 0, 0, "Cach 10°"),
+    (30, 0, 0, "Cach 30°"),
+    (50, 0, 0, "Cach 50° (goc nang thap)"),
+]
+
+for lat, lon, alt, desc in ue_positions:
+    result = calculate_ntn_timing_advance(lat, lon, alt, sat_x, sat_y, sat_z)
+    print(f"\n{desc}:")
+    print(f"  Khoang cach: {result['distance_km']:.1f} km")
+    print(f"  Do tre mot chieu: {result['one_way_delay_ms']:.2f} ms")
+    print(f"  RTT (dich vu): {result['rtt_service_ms']:.2f} ms")
+
+# Voi payload trong suot (cong them feeder link)
+print("\n" + "=" * 55)
+print("Voi Payload Trong suot (do tre feeder link = 10 ms):")
+result = calculate_ntn_timing_advance(30, 0, 0, sat_x, sat_y, sat_z, feeder_delay_ms=10)
+print(f"  Tong RTT: {result['rtt_total_ms']:.2f} ms")
+print(f"  TA can thiet: {result['ta_ms']:.2f} ms")
+
+# Vi du Doppler
+print("\n" + "=" * 55)
+print("Vi du Dich Doppler (2 GHz, ve tinh di chuyen)")
+# Ve tinh di chuyen ve phia dong voi van toc quy dao
+v_orbital = 7.5  # km/s cho do cao 600 km
+doppler_result = calculate_doppler(
+    2.0,  # 2 GHz (S-band)
+    30, 0,  # Vi tri UE
+    v_orbital, 0, 0,  # Van toc ve tinh (huong dong)
+    sat_x, sat_y, sat_z
+)
+print(f"  Van toc huong tam: {doppler_result['radial_velocity_km_s']:.2f} km/s")
+print(f"  Dich Doppler: {doppler_result['doppler_khz']:.1f} kHz")
+```
+
+**Tham so timing NTN:**
+
+| Tham so | LEO (600 km) | MEO (8000 km) | GEO (36000 km) |
+|---------|--------------|---------------|----------------|
+| RTT min | 4 ms | 54 ms | 240 ms |
+| RTT max | 25 ms | 80 ms | 280 ms |
+| Doppler max (2 GHz) | ±48 kHz | ±10 kHz | ±1 kHz |
+| Toc do doi cell | 1-2 phut | 5-10 phut | N/A |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Yeu cau GNSS.** UE phai co dinh vi GNSS de tinh TA; khong GNSS = khong NTN.
+
+2. **Hieu luc ephemeris.** Ephemeris cu di; UE phai theo doi thoi gian va yeu cau cap nhat.
+
+3. **Trong suot vs tai tao.** Tong do tre rat khac; kien truc quan trong.
+
+4. **Du Doppler.** Bu truoc khong hoan hao; gNB xu ly phan du.
+
+5. **Do phuc tap cell co dinh Trai dat.** Yeu cau lai bup song; tang chi phi ve tinh.
+
+6. **Mo rong timer.** Tat ca timer NR (T300, T310, v.v.) phai mo rong cho NTN.
+
+7. **Tieu thu dien.** GNSS va theo doi Doppler lien tuc lam can pin UE.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 38.300 (Mo ta tong the NR)
+- 3GPP TS 38.821 (Nghien cuu NTN)
+- 3GPP TR 38.863 (Cai tien NTN)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Quan ly Di dong NTN](/vi/space/satellite-5g-integration/ntn-mobility-management/) — handover trong NTN
+- [Handover NTN vs Mat dat](/vi/space/satellite-5g-integration/ntn-vs-terrestrial-handover/) — da ket noi
+- [Kien truc Chom sao LEO](/vi/space/leo-constellation-architecture/starlink-class-design/) — goc nhin he thong
+
+</section>

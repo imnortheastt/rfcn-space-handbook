@@ -8,17 +8,387 @@ track: n3
 unit: why-sba-architectural-shift
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "Microservices in telecom context"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-why-sba-architectural-shift-02-sba-design-principles"]
+spiralRevisits: ["core-network-n4-5g-core-functions-01-nrf"]
+title: "Microservices in Telecom"
+description: "Cloud-native deployment patterns for 5G core network functions."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "CNCF Cloud Native Definition"]
+tags: ["microservices", "kubernetes", "cnf", "cloud-native", "5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Microservices in telecom context
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+SBA defines how 5G network functions communicate. But how do you actually **deploy** them?
+
+The answer: **cloud-native microservices**. Containers, Kubernetes, and the patterns that web companies use at scale — now applied to telecom. This is the operational revolution behind 5G.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### From VNF to CNF
+
+```
+Evolution of Network Functions:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Physical NF (PNF):                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Dedicated telecom hardware                      │    │
+│  │  Vendor-specific, long lead times                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                         │                                │
+│                         ▼ NFV (~2014)                    │
+│  Virtual NF (VNF):                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  VM on COTS hardware                             │    │
+│  │  Still monolithic, hypervisor overhead           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                         │                                │
+│                         ▼ Cloud-native (~2020)          │
+│  Cloud-native NF (CNF):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Container on Kubernetes                         │    │
+│  │  Microservices, auto-scaling, self-healing       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key shift:** From "VM that runs like a hardware box" to "distributed system designed for the cloud."
+
+### Cloud-native principles for telecom
+
+| Principle | Meaning for 5G |
+|-----------|----------------|
+| **Containers** | NF packaged with dependencies, portable |
+| **Microservices** | Each service scales independently |
+| **Dynamic orchestration** | Kubernetes manages lifecycle |
+| **Declarative configuration** | Desired state, not manual steps |
+| **Immutable infrastructure** | Replace, don't patch |
+
+### The Kubernetes layer
+
+```
+5G CNF Deployment Stack:
+
+┌─────────────────────────────────────────────────────────┐
+│                    5G NFs (CNFs)                         │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐          │
+│  │ AMF │  │ SMF │  │ UPF │  │ NRF │  │ UDM │   ...    │
+│  └──┬──┘  └──┬──┘  └──┬──┘  └──┬──┘  └──┬──┘          │
+├─────┴────────┴───────┴───────┴───────┴───────────────────┤
+│                                                          │
+│                     Kubernetes                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Pods  │  Services  │  ConfigMaps  │  Secrets   │    │
+│  │  Deployments  │  StatefulSets  │  Operators     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│                 Container Runtime (containerd)           │
+│                                                          │
+├──────────────────────────────────────────────────────────┤
+│                                                          │
+│              COTS Hardware / Cloud Infrastructure        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### NF decomposition into microservices
+
+A 5G NF isn't one container — it's multiple cooperating services:
+
+```
+AMF Microservice Decomposition:
+
+┌─────────────────────────────────────────────────────────┐
+│                         AMF                              │
+│                                                          │
+│  ┌───────────┐  ┌───────────┐  ┌───────────┐           │
+│  │   N1/N2   │  │  Mobility │  │  Context  │           │
+│  │  Handler  │  │  Manager  │  │  Store    │           │
+│  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘           │
+│        │              │              │                   │
+│  ┌─────┴──────────────┴──────────────┴─────┐           │
+│  │            Message Bus (internal)        │           │
+│  └─────────────────────┬───────────────────┘           │
+│                        │                                 │
+│  ┌─────────────────────┴───────────────────┐           │
+│  │         SBI Interface (HTTP/2)           │           │
+│  └──────────────────────────────────────────┘           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+Each box: independently scalable container
+```
+
+**Benefits:**
+- Scale N1/N2 handler for heavy signaling
+- Scale context store for large subscriber base
+- Scale mobility manager for high handover rate
+
+### Kubernetes patterns for 5G
+
+**StatefulSet for stateful NFs:**
+
+```yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: amf
+spec:
+  serviceName: "amf"
+  replicas: 3
+  selector:
+    matchLabels:
+      app: amf
+  template:
+    metadata:
+      labels:
+        app: amf
+    spec:
+      containers:
+      - name: amf
+        image: vendor/amf:v1.2.3
+        ports:
+        - containerPort: 80
+          name: sbi
+        - containerPort: 38412
+          name: ngap
+```
+
+**Horizontal Pod Autoscaler:**
+
+```yaml
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: amf-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: StatefulSet
+    name: amf
+  minReplicas: 3
+  maxReplicas: 20
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+```
+
+### Service mesh for observability
+
+```
+Service Mesh in 5G:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────┐        ┌─────────┐        ┌─────────┐     │
+│  │   AMF   │        │   SMF   │        │   UDM   │     │
+│  │         │        │         │        │         │     │
+│  │ ┌─────┐ │        │ ┌─────┐ │        │ ┌─────┐ │     │
+│  │ │Sidecar│ │◄──────►│ │Sidecar│ │◄──────►│ │Sidecar│ │     │
+│  │ └─────┘ │        │ └─────┘ │        │ └─────┘ │     │
+│  └─────────┘        └─────────┘        └─────────┘     │
+│       │                  │                  │           │
+│       └──────────────────┼──────────────────┘           │
+│                          │                              │
+│                    ┌─────┴─────┐                       │
+│                    │  Control   │                       │
+│                    │   Plane    │                       │
+│                    │ (Istio/...) │                      │
+│                    └───────────┘                        │
+│                                                          │
+│  Sidecar provides: mTLS, tracing, metrics, load balance │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Service mesh benefits:**
+- Automatic mTLS between NFs
+- Distributed tracing across NF calls
+- Traffic management and canary releases
+- Observability without code changes
+
+### Operator pattern for lifecycle
+
+**5G NF Operators** automate complex operations:
+
+```
+Operator-managed NF Lifecycle:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Operator watches:           Operator acts:             │
+│                                                          │
+│  - Custom Resource (CR)      - Deploy NF pods           │
+│  - NF health                 - Configure NRF registration│
+│  - K8s events               - Handle scaling            │
+│                             - Manage certificates       │
+│                             - Execute upgrades          │
+│                                                          │
+│  ┌─────────────┐           ┌─────────────────┐         │
+│  │   AMF CR    │──watch──► │  AMF Operator   │         │
+│  │             │           │                 │          │
+│  │ replicas: 5 │           │ reconcile()     │          │
+│  │ version: 2.1│           │ scale()         │          │
+│  └─────────────┘           │ upgrade()       │          │
+│                            └────────┬────────┘          │
+│                                     │                    │
+│                                     ▼                    │
+│                            ┌─────────────────┐          │
+│                            │  AMF Pods (5)   │          │
+│                            └─────────────────┘          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Data plane acceleration
+
+UPF requires high-throughput packet processing — special consideration:
+
+```
+UPF Deployment Options:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Option 1: DPDK (Data Plane Development Kit)            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  User space networking, bypasses kernel          │    │
+│  │  10-100x faster than kernel stack                │    │
+│  │  Requires dedicated CPU cores (CPU pinning)      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Option 2: SR-IOV (Single Root I/O Virtualization)      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Virtual NIC directly to container               │    │
+│  │  Near-native performance                         │    │
+│  │  Hardware-dependent                              │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Option 3: eBPF/XDP                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Programmable kernel networking                  │    │
+│  │  Lower overhead than DPDK                        │    │
+│  │  Growing adoption                                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**CNF deployment checklist:**
+
+| Component | Consideration |
+|-----------|---------------|
+| Container image | Minimal base, no secrets, signed |
+| Resource limits | CPU/memory requests and limits set |
+| Health checks | Liveness and readiness probes |
+| Configuration | ConfigMaps/Secrets, not baked in |
+| Networking | CNI choice affects performance |
+| Storage | PersistentVolumes for state |
+| Security | Pod security policies, RBAC |
+
+**Typical 5G CNF resource requirements:**
+
+| NF | CPU (request) | Memory (request) | Notes |
+|----|---------------|------------------|-------|
+| AMF | 2-4 cores | 4-8 GB | Signaling heavy |
+| SMF | 2-4 cores | 4-8 GB | Session state |
+| UPF | 4-16 cores | 8-32 GB | Data plane, DPDK |
+| NRF | 1-2 cores | 2-4 GB | Lightweight |
+| UDM | 2-4 cores | 4-8 GB | Database access |
+
+**Monitoring stack:**
+
+```
+Observability for 5G CNF:
+
+Metrics:    Prometheus + Grafana
+Logs:       Fluentd/Loki + Grafana
+Traces:     Jaeger/Tempo
+Alerts:     AlertManager
+Dashboards: Pre-built 5G dashboards
+
+Key metrics to watch:
+- NF registration status (NRF)
+- SBI request latency (P50, P95, P99)
+- Session establishment success rate
+- Authentication success/failure
+- Resource utilization per NF
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **"Just containerize the VNF."** Wrapping a monolith in a container isn't cloud-native. You get container overhead without microservice benefits.
+
+2. **Ignoring telecom requirements.** Carrier-grade needs (five nines, real-time) require careful Kubernetes configuration. Default settings are not enough.
+
+3. **Underestimating networking complexity.** Multus, SR-IOV, DPDK configuration is complex. Test data plane performance early.
+
+4. **State management afterthought.** 5G has significant state (UE contexts, sessions). Plan for StatefulSets, external stores, or UDSF from the start.
+
+5. **Security as afterthought.** Container images, network policies, RBAC, secrets management — address early, not during production issues.
+
+6. **Ignoring operator learning curve.** Kubernetes operators simplify operations but require expertise to develop and maintain.
+
+7. **Over-engineering initially.** Start with simple deployments, add service mesh and operators as needed. Don't build for hyperscale on day one.
+
+8. **Skipping chaos engineering.** 5G must survive failures. Test pod failures, network partitions, node outages before production.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System architecture for 5G System"
+- CNCF, "Cloud Native Definition"
+- ETSI GS NFV-SOL 001, "NFV Descriptors Based on TOSCA"
+- Kubernetes Documentation, "Production Best Practices"
+- O-RAN Alliance, "Cloud Platform Reference Design"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [NRF deep dive](/en/core-network/5g-core-functions/nrf/) — service registry in cloud-native context
+- [5G core functions overview](/en/core-network/5g-core-functions/overview/) — each NF in detail
+- [Network slicing](/en/core-network/network-slicing/overview/) — cloud-native enables this
+
+</section>

@@ -8,17 +8,453 @@ track: s1
 unit: coordinate-transformations-ground-track
 order: 3
 level: L2
-estimatedReadingMinutes: 5
-title: "Ground track visualization (Three.js widget)"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Ground Track Visualization"
+description: "Map projections, plotting techniques, and interactive displays."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["visualization", "map-projection", "mercator", "plotting"]
+widgets: ["OrbitVisualizer"]
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Ground track visualization (Three.js widget)
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+A ground track plot transforms abstract orbital mechanics into an immediate picture: where the satellite is, where it's going, and which ground stations can see it. The choice of map projection affects how tracks appear—a sinusoidal track on a Mercator map looks very different on a polar projection. Understanding these visualizations helps you interpret coverage maps, plan passes, and communicate mission geometry to stakeholders.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Map projections for ground tracks
+
+```
+Common Projections for Satellite Ground Tracks:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. EQUIRECTANGULAR (Plate Carrée)                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Simple: x = λ, y = φ                               │         │
+│  │  • Preserves lat/lon grid as rectangles              │         │
+│  │  • Good for: quick visualization, data exchange      │         │
+│  │  • Distorts: shape and area near poles              │         │
+│  │                                                        │         │
+│  │  +90° ┬─────────────────────────────────────┬        │         │
+│  │       │    ∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿         │        │         │
+│  │   0°  │─∿─────────∿─────────∿─────────∿────│        │         │
+│  │       │    ∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿         │        │         │
+│  │  -90° ┴─────────────────────────────────────┴        │         │
+│  │       -180°              0°             +180°        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  2. MERCATOR                                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Conformal: preserves angles locally               │         │
+│  │  • x = λ, y = ln(tan(45° + φ/2))                    │         │
+│  │  • Good for: navigation, web maps                   │         │
+│  │  • Distorts: area dramatically near poles           │         │
+│  │  • Note: ground tracks appear "stretched" at high lat│         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  3. POLAR STEREOGRAPHIC                                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • View from pole looking down                       │         │
+│  │  • Good for: polar orbits, polar coverage analysis  │         │
+│  │  • Circular orbits appear as... circles!            │         │
+│  │                                                        │         │
+│  │           ___________                                 │         │
+│  │         /     ●     \    ← pole at center           │         │
+│  │        /   ╭─────╮   \                               │         │
+│  │       │   ╱       ╲   │   ← orbit track             │         │
+│  │       │  │         │  │                              │         │
+│  │        \  ╲       ╱  /                               │         │
+│  │         \  ╰─────╯  /                                │         │
+│  │          \_________/                                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  4. 3D GLOBE (WebGL/Three.js)                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • No projection distortion                          │         │
+│  │  • Interactive rotation and zoom                     │         │
+│  │  • Shows satellite position in 3D space             │         │
+│  │  • Best for: understanding geometry                 │         │
+│  │  • Challenge: showing full track on one view        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Handling discontinuities
+
+```
+Longitude Wrap-Around Problem:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  WRONG: Drawing a line from +179° to -179°                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ←───────────────────────────────────────────────────→│         │
+│  │  (line goes across entire map — visually wrong!)     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CORRECT: Break line at ±180° boundary                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ──→│                                             │←──│         │
+│  │     │                                             │   │         │
+│  │  (two separate line segments)                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ALGORITHM:                                                         │
+│  ┌────────────────────────────────────────────────────┐            │
+│  │                                                     │            │
+│  │  for i in range(1, len(track)):                    │            │
+│  │      lon_prev, lon_curr = track[i-1][0], track[i][0]│            │
+│  │                                                     │            │
+│  │      if abs(lon_curr - lon_prev) > 180:            │            │
+│  │          # Wrap-around detected!                   │            │
+│  │          # End current segment, start new one      │            │
+│  │          break_line_here()                         │            │
+│  │                                                     │            │
+│  └────────────────────────────────────────────────────┘            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Visualization elements
+
+```
+Complete Ground Track Display:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                               │   │
+│  │  +90° ┬───────────────────────────────────────────────────┐  │   │
+│  │       │    ○ = ground station        ★ = current position │  │   │
+│  │       │         ○ Moscow                                   │  │   │
+│  │       │              ↗∿∿∿∿∿★                              │  │   │
+│  │   0°  │─∿∿∿∿∿∿∿∿∿↗─────────────↘∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿∿───────│  │   │
+│  │       │       ○ Singapore                                 │  │   │
+│  │       │                    ↘∿∿∿∿∿∿∿∿∿∿∿∿∿∿↗               │  │   │
+│  │  -90° └───────────────────────────────────────────────────┘  │   │
+│  │       -180°              0°             +180°                │   │
+│  │                                                               │   │
+│  │  ───── past track    ═════ future track    ⋯⋯⋯ visibility  │   │
+│  │                                                               │   │
+│  │  Legend:                                                      │   │
+│  │  • Ascending node: ↗ (northbound)                            │   │
+│  │  • Descending node: ↘ (southbound)                           │   │
+│  │  • Footprint: dashed circle showing coverage area            │   │
+│  │                                                               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ANNOTATIONS TO INCLUDE:                                            │
+│  ┌────────────────────────────────────────────────────┐            │
+│  │                                                     │            │
+│  │  • Satellite current position (★)                  │            │
+│  │  • Ground stations (○) with visibility cones       │            │
+│  │  • Ascending/descending direction indicators       │            │
+│  │  • Time labels along track (UTC or mission time)  │            │
+│  │  • Day/night terminator (optional)                │            │
+│  │  • Swath width (for imaging satellites)           │            │
+│  │                                                     │            │
+│  └────────────────────────────────────────────────────┘            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Coverage visualization
+
+```
+Satellite Footprint and Visibility:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  FOOTPRINT (area satellite can "see"):                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │            ★ Satellite at altitude h                  │         │
+│  │           /│\                                         │         │
+│  │          / │ \                                        │         │
+│  │         /  │  \   ← half-angle ρ                     │         │
+│  │        /   │   \                                      │         │
+│  │       /    │    \                                     │         │
+│  │  ────●─────┼─────●──── Earth surface                 │         │
+│  │      ↑     ↑     ↑                                    │         │
+│  │    edge  nadir  edge                                  │         │
+│  │                                                        │         │
+│  │  Earth angular radius: ρ = arcsin(R_E / (R_E + h))   │         │
+│  │  For h = 400 km: ρ ≈ 70°                             │         │
+│  │  For h = 35786 km (GEO): ρ ≈ 8.7°                    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  VISIBILITY CIRCLE:                                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Minimum elevation angle ε_min = 5° to 10° typically │         │
+│  │                                                        │         │
+│  │  Visibility radius:                                   │         │
+│  │  θ = 90° - ε_min - arcsin((R_E/(R_E+h)) cos(ε_min)) │         │
+│  │                                                        │         │
+│  │  For LEO (400 km), ε_min=10°: visibility ≈ 2400 km   │         │
+│  │  For GEO, ε_min=5°: visibility ≈ 17000 km           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Ground track plotting with matplotlib:**
+
+```python
+import numpy as np
+import matplotlib.pyplot as plt
+from datetime import datetime, timedelta
+
+# Reuse propagation functions from previous lesson
+WGS84_A = 6378137.0
+WGS84_E2 = 0.00669437999014
+MU = 3.986004418e14
+R_EARTH = 6371e3  # mean radius (m)
+
+def gmst_rad(dt):
+    jd = (dt - datetime(2000, 1, 1, 12, 0, 0)).total_seconds() / 86400.0 + 2451545.0
+    T = (jd - 2451545.0) / 36525.0
+    gmst_deg = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + 0.000387933 * T**2
+    return np.radians(gmst_deg % 360.0)
+
+def propagate_circular(a, inc, raan, epoch, t_since):
+    """Simplified circular orbit propagation."""
+    n = np.sqrt(MU / a**3)
+    nu = n * t_since
+    
+    # Position in orbital plane
+    r = a
+    x_orb = r * np.cos(nu)
+    y_orb = r * np.sin(nu)
+    
+    # Rotation to ECI
+    cos_raan, sin_raan = np.cos(raan), np.sin(raan)
+    cos_i, sin_i = np.cos(inc), np.sin(inc)
+    
+    x = cos_raan * x_orb - sin_raan * cos_i * y_orb
+    y = sin_raan * x_orb + cos_raan * cos_i * y_orb
+    z = sin_i * y_orb
+    
+    return np.array([x, y, z])
+
+def eci_to_latlon(r_eci, dt):
+    """Convert ECI to lat/lon."""
+    theta = gmst_rad(dt)
+    c, s = np.cos(theta), np.sin(theta)
+    x = c * r_eci[0] + s * r_eci[1]
+    y = -s * r_eci[0] + c * r_eci[1]
+    z = r_eci[2]
+    
+    lon = np.degrees(np.arctan2(y, x))
+    lat = np.degrees(np.arctan2(z, np.sqrt(x**2 + y**2)))
+    
+    return lon, lat
+
+def compute_ground_track(a, inc, raan, epoch, hours, dt_min=1):
+    """Compute ground track returning separate segments."""
+    segments = []
+    current_segment = []
+    
+    n_points = int(hours * 60 / dt_min)
+    prev_lon = None
+    
+    for k in range(n_points + 1):
+        t_sec = k * dt_min * 60
+        current_time = epoch + timedelta(seconds=t_sec)
+        
+        r_eci = propagate_circular(a, inc, raan, epoch, t_sec)
+        lon, lat = eci_to_latlon(r_eci, current_time)
+        
+        # Detect wrap-around
+        if prev_lon is not None and abs(lon - prev_lon) > 180:
+            if current_segment:
+                segments.append(current_segment)
+            current_segment = []
+        
+        current_segment.append((lon, lat))
+        prev_lon = lon
+    
+    if current_segment:
+        segments.append(current_segment)
+    
+    return segments
+
+def footprint_radius_deg(altitude_m, min_elevation_deg=5):
+    """Calculate visibility circle radius in degrees."""
+    h = altitude_m
+    eps = np.radians(min_elevation_deg)
+    rho = np.arcsin(R_EARTH / (R_EARTH + h))
+    
+    # Earth central angle to horizon at min elevation
+    theta = np.pi/2 - eps - np.arcsin((R_EARTH / (R_EARTH + h)) * np.cos(eps))
+    
+    return np.degrees(theta)
+
+def plot_ground_track(segments, altitude, title="Ground Track"):
+    """Plot ground track with proper handling."""
+    fig, ax = plt.subplots(1, 1, figsize=(14, 7))
+    
+    # World outline (simplified)
+    ax.set_xlim(-180, 180)
+    ax.set_ylim(-90, 90)
+    ax.set_xlabel('Longitude (°)')
+    ax.set_ylabel('Latitude (°)')
+    ax.set_title(title)
+    ax.grid(True, alpha=0.3)
+    ax.set_aspect('equal')
+    
+    # Plot each segment
+    for i, segment in enumerate(segments):
+        lons = [p[0] for p in segment]
+        lats = [p[1] for p in segment]
+        ax.plot(lons, lats, 'b-', linewidth=1.5, label='Track' if i == 0 else '')
+    
+    # Mark start and current position
+    if segments:
+        start = segments[0][0]
+        ax.plot(start[0], start[1], 'go', markersize=10, label='Start')
+        
+        end = segments[-1][-1]
+        ax.plot(end[0], end[1], 'r*', markersize=15, label='Current')
+        
+        # Draw footprint at current position
+        radius = footprint_radius_deg(altitude)
+        circle = plt.Circle((end[0], end[1]), radius, fill=False, 
+                            color='red', linestyle='--', alpha=0.5)
+        ax.add_patch(circle)
+    
+    ax.legend(loc='upper right')
+    
+    return fig
+
+# Example visualization
+print("Ground Track Visualization")
+print("=" * 60)
+
+# ISS-like parameters
+altitude = 400e3
+a = R_EARTH + altitude
+inc = np.radians(51.6)
+raan = np.radians(0)
+epoch = datetime(2026, 6, 3, 0, 0, 0)
+
+# Compute 3-hour track (about 2 orbits)
+segments = compute_ground_track(a, inc, raan, epoch, hours=3, dt_min=1)
+
+print(f"Orbit: {altitude/1e3:.0f} km altitude, {np.degrees(inc):.1f}° inclination")
+print(f"Track duration: 3 hours")
+print(f"Number of segments: {len(segments)} (breaks at ±180°)")
+
+# Footprint info
+fp_radius = footprint_radius_deg(altitude)
+print(f"\nFootprint radius: {fp_radius:.1f}°")
+print(f"Footprint diameter: {2 * fp_radius * 111:.0f} km (at equator)")
+
+# Summary statistics
+all_lats = [p[1] for seg in segments for p in seg]
+print(f"\nLatitude range: {min(all_lats):.1f}° to {max(all_lats):.1f}°")
+print(f"(matches inclination of {np.degrees(inc):.1f}°)")
+
+# Would normally call: fig = plot_ground_track(segments, altitude)
+# plt.show()
+
+# GEO comparison
+print(f"\n{'='*60}")
+print("GEO Satellite (stationary)")
+segments_geo = compute_ground_track(42164e3, np.radians(0), 0, epoch, hours=24, dt_min=60)
+print(f"GEO track segments: {len(segments_geo)}")
+all_lons_geo = [p[0] for seg in segments_geo for p in seg]
+print(f"GEO longitude range: {min(all_lons_geo):.2f}° to {max(all_lons_geo):.2f}°")
+print("(essentially fixed position)")
+```
+
+**Visualization checklist:**
+
+| Element | Purpose | Implementation |
+|---------|---------|----------------|
+| Track line | Show path | Split at ±180° |
+| Current position | Live status | Marker + footprint |
+| Time labels | Pass planning | Every N minutes |
+| Ground stations | Contact windows | Circles + visibility |
+| Day/night | Lighting conditions | Terminator line |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Wrong projection for task.** Use polar projection for polar orbits, Mercator for navigation.
+
+2. **Ignoring wrap-around.** Always check for ±180° crossing; otherwise lines cross entire map.
+
+3. **Fixed footprint size.** Footprint depends on altitude; GEO footprint is huge, LEO is small.
+
+4. **Confusing swath and footprint.** Swath is sensor-specific; footprint is geometric visibility.
+
+5. **Static time display.** Ground tracks move; show animation or time labels for planning.
+
+6. **No elevation mask.** Real visibility requires minimum elevation (5-10°), not horizon.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Snyder, J.P. "Map Projections: A Working Manual" (USGS)
+- CelesTrak visualization tools
+- Three.js documentation for WebGL globes
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Coordinate Transformations](/en/space/coordinate-transformations-ground-track/coordinate-transformation-math/) — math foundations
+- [Ground Track Computation](/en/space/coordinate-transformations-ground-track/ground-track-computation/) — algorithms
+- [Link Budget](/en/space/link-budget-master-class/eirp/) — coverage analysis
+
+</section>

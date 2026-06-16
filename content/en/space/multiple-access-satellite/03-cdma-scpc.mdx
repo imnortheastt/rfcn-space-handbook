@@ -9,16 +9,511 @@ unit: multiple-access-satellite
 order: 3
 level: L3
 estimatedReadingMinutes: 5
-title: "CDMA and SCPC"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "CDMA & SCPC — Code Division and Single Channel Per Carrier"
+description: "How spread spectrum enables interference tolerance and why dedicated carriers still dominate for high-throughput satellite links."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["cdma", "scpc", "spread-spectrum", "satellite", "dedicated-carrier"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# CDMA and SCPC
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+CDMA lets everyone transmit simultaneously on the same frequency, separated by unique codes — like multiple conversations at a party, each in a different language. SCPC is the opposite: one dedicated carrier per link, no sharing. Both have their place. GPS uses CDMA (weak signals, graceful degradation). International TV uplinks use SCPC (maximum throughput, guaranteed bandwidth). Knowing when to use each separates competent satellite engineers from excellent ones.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### CDMA: The cocktail party
+
+```
+CDMA: Everyone talks at once, separated by "language" (code)
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Traditional analogy:                                               │
+│  At a cocktail party, multiple conversations happen simultaneously.│
+│  You can follow your conversation because you know the "language"  │
+│  (actually: you're tuned to your speaker's voice pattern).         │
+│                                                                      │
+│  In CDMA:                                                           │
+│  • All users transmit on the SAME frequency at the SAME time       │
+│  • Each user has a unique spreading code (their "language")        │
+│  • Receiver correlates with the correct code to extract signal     │
+│  • Other users appear as background noise                          │
+│                                                                      │
+│                                                                      │
+│  Frequency                                                          │
+│      ▲                                                              │
+│      │                                                              │
+│      │  ┌─────────────────────────────────────────────────────┐    │
+│      │  │░░░▓▓▓░░░▒▒▒░░░███░░░▓▓▓░░░▒▒▒░░░███░░░▓▓▓░░░░░░░░│    │
+│      │  │ A   B   C   D   A   B   C   D   A   B   C   D     │    │
+│      │  │    All users overlap in frequency AND time!        │    │
+│      │  └─────────────────────────────────────────────────────┘    │
+│      │                                                              │
+│      └──────────────────────────────────────────────────────→ Time │
+│                                                                      │
+│  KEY: Users are separated by CODES, not frequency or time          │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### SCPC: The dedicated phone line
+
+```
+SCPC: One carrier, one link — simple and robust
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Traditional analogy:                                               │
+│  Like having a dedicated phone line between two locations.         │
+│  No sharing, no contention, guaranteed bandwidth.                  │
+│                                                                      │
+│  In SCPC:                                                           │
+│  • Each link gets a dedicated carrier frequency                    │
+│  • No sharing = no coordination overhead                           │
+│  • Simple modems, simple protocols                                 │
+│  • Wastes bandwidth if traffic is bursty                          │
+│                                                                      │
+│                                                                      │
+│  Frequency                                                          │
+│      ▲                                                              │
+│      │                                                              │
+│  f4 ─┼───────────────────────────────────────────  Link D          │
+│      │▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓                   │
+│  f3 ─┼───────────────────────────────────────────  Link C          │
+│      │░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░                   │
+│  f2 ─┼───────────────────────────────────────────  Link B          │
+│      │▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒                   │
+│  f1 ─┼───────────────────────────────────────────  Link A          │
+│      │████████████████████████████████████████████                  │
+│      └──────────────────────────────────────────────────────→ Time │
+│                                                                      │
+│  KEY: Users separated by FREQUENCY, each gets continuous access    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### CDMA spreading and despreading
+
+```
+CDMA Signal Processing:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SPREADING (Transmitter):                                           │
+│                                                                      │
+│  Data bit:    ┌───────────────────────────┐  (1 bit period)        │
+│               │            1              │                         │
+│               └───────────────────────────┘                         │
+│                            ×                                        │
+│  Spreading    ┌─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┐  (chip sequence)       │
+│  code:        │+│-│+│+│-│+│-│-│+│-│+│+│-│+│  (PN sequence)         │
+│               └─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┘                         │
+│                            =                                        │
+│  Spread       ┌─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┬─┐                         │
+│  signal:      │+│-│+│+│-│+│-│-│+│-│+│+│-│+│                         │
+│               └─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┴─┘                         │
+│                                                                      │
+│  Bandwidth expansion: If 14 chips per bit, BW expands 14×          │
+│  This is the "spread" in spread spectrum.                          │
+│                                                                      │
+│  ─────────────────────────────────────────────────────────────────  │
+│                                                                      │
+│  DESPREADING (Receiver):                                            │
+│                                                                      │
+│  Received = User_A (wanted) + User_B (interference) + noise        │
+│                                                                      │
+│  Correlate with User_A's code:                                     │
+│                                                                      │
+│  User_A contribution:  code × code = +1 (correlates perfectly)    │
+│  User_B contribution:  code × other_code ≈ 0 (orthogonal)          │
+│  Noise contribution:   code × noise ≈ 0 (random, averages out)    │
+│                                                                      │
+│  Result: User_A's signal emerges cleanly!                          │
+│                                                                      │
+│  This is "processing gain": SNR improves by ~10×log10(chips/bit)  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### CDMA capacity limit
+
+```
+CDMA Self-Interference:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CDMA has a "soft" capacity limit:                                 │
+│                                                                      │
+│  As more users transmit, interference increases:                   │
+│                                                                      │
+│  Total interference = (N-1) users × average power per user        │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                │ │
+│  │  Users │ Interference │ Eb/N0  │ BER     │ Quality           │ │
+│  │  ──────┼──────────────┼────────┼─────────┼────────────────── │ │
+│  │    1   │     Low      │ 15 dB  │ 10^-9   │ Excellent         │ │
+│  │   10   │    Medium    │ 10 dB  │ 10^-6   │ Good              │ │
+│  │   20   │    High      │  6 dB  │ 10^-4   │ Acceptable        │ │
+│  │   30   │   Very High  │  3 dB  │ 10^-2   │ Degraded          │ │
+│  │   40+  │   Overload   │ &lt;0 dB  │ Fails   │ System collapse   │ │
+│  │                                                                │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  KEY INSIGHT: CDMA "gracefully degrades" as load increases.        │
+│  TDMA/FDMA: works or doesn't. CDMA: works progressively worse.    │
+│                                                                      │
+│  This is why GPS works with weak signals:                          │
+│  • Few simultaneous satellites (4-12)                              │
+│  • Long spreading codes (1023 chips)                               │
+│  • Plenty of processing gain margin                                │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### SCPC link budget
+
+```
+SCPC: Dedicated Carrier Advantages
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SCPC Architecture:                                                 │
+│                                                                      │
+│    Site A                                    Site B                 │
+│  ┌────────┐     ┌──────────────┐        ┌────────┐                 │
+│  │ Modem  │────>│  Transponder │───────>│ Modem  │                 │
+│  │ f1, 2M │     │              │        │ f1, 2M │                 │
+│  └────────┘     │   36 MHz     │        └────────┘                 │
+│                 │              │                                    │
+│  ┌────────┐     │              │        ┌────────┐                 │
+│  │ Modem  │────>│              │───────>│ Modem  │                 │
+│  │ f2, 5M │     │              │        │ f2, 5M │                 │
+│  └────────┘     └──────────────┘        └────────┘                 │
+│                                                                      │
+│  Each link sized independently:                                    │
+│  • Link 1: 2 Mbps, low-power remote                               │
+│  • Link 2: 5 Mbps, high-power hub                                 │
+│                                                                      │
+│  ─────────────────────────────────────────────────────────────────  │
+│                                                                      │
+│  SCPC Advantages over shared access:                               │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                │ │
+│  │  Factor              │ SCPC    │ TDMA/MF-TDMA │ CDMA          │ │
+│  │  ────────────────────┼─────────┼──────────────┼────────────── │ │
+│  │  Latency             │ &lt;1 ms   │ Frame delay  │ &lt;1 ms         │ │
+│  │  Jitter              │ None    │ Variable     │ Low           │ │
+│  │  Guaranteed BW       │ 100%    │ CIR only     │ Soft          │ │
+│  │  Protocol overhead   │ Zero    │ 5-15%        │ 5-10%         │ │
+│  │  Modem complexity    │ Simple  │ Complex      │ Complex       │ │
+│  │  Efficiency (bursty) │ Poor    │ Excellent    │ Good          │ │
+│  │  Efficiency (const.) │ Perfect │ Good         │ Good          │ │
+│  │                                                                │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  SCPC wins for:                                                     │
+│  • Voice trunks (low latency critical)                             │
+│  • Video contribution (constant high bitrate)                      │
+│  • Point-to-point data (dedicated bandwidth)                       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**CDMA and SCPC analysis tools:**
+
+```python
+import numpy as np
+
+def cdma_processing_gain(chip_rate_mcps, data_rate_kbps):
+    """
+    Calculate CDMA processing gain.
+    
+    Args:
+        chip_rate_mcps: Chip rate in Mcps (megachips per second)
+        data_rate_kbps: Data rate in kbps
+    
+    Returns:
+        Processing gain in dB
+    """
+    chips_per_bit = (chip_rate_mcps * 1e6) / (data_rate_kbps * 1e3)
+    processing_gain_db = 10 * np.log10(chips_per_bit)
+    
+    return {
+        "chips_per_bit": chips_per_bit,
+        "processing_gain_db": processing_gain_db
+    }
+
+def cdma_capacity(bandwidth_mhz, data_rate_kbps, required_eb_n0_db,
+                  voice_activity_factor=1.0, sectorization_gain=1.0):
+    """
+    Estimate CDMA system capacity (simplified model).
+    
+    Args:
+        bandwidth_mhz: System bandwidth
+        data_rate_kbps: Per-user data rate
+        required_eb_n0_db: Required Eb/N0 for desired BER
+        voice_activity_factor: Fraction of time users transmit (1.0 for data)
+        sectorization_gain: Gain from antenna sectorization
+    
+    Returns:
+        Estimated number of simultaneous users
+    """
+    chip_rate_mcps = bandwidth_mhz * 0.8  # Approximate
+    pg = cdma_processing_gain(chip_rate_mcps, data_rate_kbps)
+    
+    processing_gain_linear = 10**(pg["processing_gain_db"]/10)
+    required_eb_n0_linear = 10**(required_eb_n0_db/10)
+    
+    num_users = (processing_gain_linear / required_eb_n0_linear) * \
+                voice_activity_factor * sectorization_gain
+    
+    return {
+        "processing_gain_db": pg["processing_gain_db"],
+        "estimated_users": int(num_users),
+        "chips_per_bit": pg["chips_per_bit"]
+    }
+
+def scpc_link_efficiency(carrier_bw_mhz, symbol_rate_msps, 
+                         bits_per_symbol, code_rate):
+    """
+    Calculate SCPC link spectral efficiency.
+    """
+    gross_rate_mbps = symbol_rate_msps * bits_per_symbol
+    net_rate_mbps = gross_rate_mbps * code_rate
+    spectral_efficiency = net_rate_mbps / carrier_bw_mhz
+    
+    return {
+        "gross_rate_mbps": gross_rate_mbps,
+        "net_rate_mbps": net_rate_mbps,
+        "spectral_efficiency_bps_hz": spectral_efficiency
+    }
+
+def scpc_transponder_fill(transponder_bw_mhz, carriers):
+    """
+    Calculate transponder utilization with multiple SCPC carriers.
+    
+    Args:
+        transponder_bw_mhz: Total transponder bandwidth
+        carriers: List of (carrier_bw_mhz, guard_mhz) tuples
+    
+    Returns:
+        Utilization metrics
+    """
+    total_used = sum(bw + guard for bw, guard in carriers)
+    utilization = total_used / transponder_bw_mhz
+    num_carriers = len(carriers)
+    
+    return {
+        "num_carriers": num_carriers,
+        "total_used_mhz": total_used,
+        "remaining_mhz": transponder_bw_mhz - total_used,
+        "utilization": utilization
+    }
+
+def compare_cdma_scpc_tdma(num_users, data_rate_kbps, activity_factor,
+                           transponder_bw_mhz):
+    """
+    Compare access methods for a given scenario.
+    """
+    per_user_bw_scpc = data_rate_kbps / 1000 * 1.5  # Assume 1.5× overhead
+    scpc_total = num_users * per_user_bw_scpc
+    scpc_efficiency = (num_users * data_rate_kbps / 1000) / transponder_bw_mhz
+    
+    tdma_overhead = 0.05
+    tdma_efficiency = activity_factor * (1 - tdma_overhead)
+    
+    cdma_cap = cdma_capacity(transponder_bw_mhz, data_rate_kbps, 6,
+                             activity_factor, 1.0)
+    cdma_efficiency = min(1.0, num_users / cdma_cap["estimated_users"])
+    
+    return {
+        "scpc": {"total_bw_needed": scpc_total, "efficiency": scpc_efficiency},
+        "tdma": {"efficiency": tdma_efficiency},
+        "cdma": {"max_users": cdma_cap["estimated_users"], 
+                 "load_factor": cdma_efficiency}
+    }
+
+print("CDMA & SCPC Analysis Tools")
+print("=" * 70)
+
+# CDMA Processing Gain
+print("\n1. CDMA Processing Gain Examples")
+print("-" * 70)
+
+examples = [
+    ("GPS C/A code", 1.023, 50),       # GPS civilian
+    ("IS-95 voice", 1.2288, 9.6),      # 2G CDMA
+    ("WCDMA voice", 3.84, 12.2),       # 3G
+    ("Satellite IoT", 0.5, 1.0),       # Low-rate IoT
+]
+
+print(f"\n  {'System':<20} {'Chip Rate':<12} {'Data Rate':<12} {'Chips/bit':<12} {'PG (dB)':<10}")
+print(f"  {'-'*66}")
+
+for name, chip_rate, data_rate in examples:
+    result = cdma_processing_gain(chip_rate, data_rate)
+    print(f"  {name:<20} {chip_rate:<12.3f}Mcps {data_rate:<12.1f}kbps {result['chips_per_bit']:<12.0f} {result['processing_gain_db']:<10.1f}")
+
+# CDMA Capacity
+print("\n2. CDMA Capacity Estimation")
+print("-" * 70)
+
+print(f"\n  Scenario: 5 MHz bandwidth, 64 kbps per user, Eb/N0 = 6 dB required")
+
+for activity in [1.0, 0.5, 0.4]:
+    cap = cdma_capacity(5, 64, 6, activity, 1.0)
+    print(f"\n  Activity factor = {activity:.0%}:")
+    print(f"    Processing gain: {cap['processing_gain_db']:.1f} dB")
+    print(f"    Estimated capacity: {cap['estimated_users']} simultaneous users")
+
+# SCPC Efficiency
+print("\n3. SCPC Link Spectral Efficiency")
+print("-" * 70)
+
+scpc_configs = [
+    ("Low-rate data (QPSK 1/2)", 2, 1.5, 2, 0.5),
+    ("Medium data (8PSK 3/4)", 5, 3.5, 3, 0.75),
+    ("High-rate video (16APSK 5/6)", 36, 27.5, 4, 0.833),
+    ("DVB-S2X high (32APSK 9/10)", 36, 34.0, 5, 0.9),
+]
+
+print(f"\n  {'Configuration':<30} {'Net Rate':<12} {'Efficiency':<15}")
+print(f"  {'-'*57}")
+
+for name, bw, sym, bits, code in scpc_configs:
+    result = scpc_link_efficiency(bw, sym, bits, code)
+    print(f"  {name:<30} {result['net_rate_mbps']:<12.1f}Mbps {result['spectral_efficiency_bps_hz']:<15.2f}bps/Hz")
+
+# Transponder fill
+print("\n4. SCPC Transponder Utilization")
+print("-" * 70)
+
+carriers = [
+    (2, 0.5),   # 2 MHz carrier + 0.5 MHz guard
+    (2, 0.5),
+    (5, 0.5),
+    (5, 0.5),
+    (9, 0.75),
+    (9, 0.75),
+]
+
+fill = scpc_transponder_fill(36, carriers)
+print(f"\n  36 MHz transponder with {fill['num_carriers']} SCPC carriers:")
+print(f"    Total used: {fill['total_used_mhz']:.1f} MHz")
+print(f"    Remaining: {fill['remaining_mhz']:.1f} MHz")
+print(f"    Utilization: {fill['utilization']:.1%}")
+
+# Comparison
+print("\n5. When to Use Each Method")
+print("-" * 70)
+
+print("""
+  ┌────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  Use Case                    │ Best Method │ Why               │
+  │  ────────────────────────────┼─────────────┼─────────────────  │
+  │  TV uplink (constant 20 Mbps)│ SCPC        │ No sharing needed │
+  │  Voice trunks (low latency)  │ SCPC        │ Zero jitter       │
+  │  Enterprise data (bursty)    │ MF-TDMA     │ Statistical mux   │
+  │  Consumer broadband          │ MF-TDMA     │ Cost per user     │
+  │  GPS/GNSS navigation         │ CDMA        │ Weak signal, many │
+  │  Military anti-jam           │ CDMA        │ Processing gain   │
+  │  IoT sensors (sporadic)      │ CDMA/Aloha  │ No coordination   │
+  │  Satellite phone             │ MF-TDMA     │ Voice + mobility  │
+  │                                                                 │
+  └────────────────────────────────────────────────────────────────┘
+""")
+
+# GPS example
+print("6. GPS as CDMA Case Study")
+print("-" * 70)
+
+gps = cdma_processing_gain(1.023, 0.05)  # 50 bps nav message
+print(f"""
+  GPS L1 C/A Signal:
+  • Chip rate: 1.023 Mcps
+  • Data rate: 50 bps (navigation message)
+  • Chips per bit: {gps['chips_per_bit']:.0f}
+  • Processing gain: {gps['processing_gain_db']:.1f} dB
+  
+  This 43 dB of processing gain is why GPS works with:
+  • Signal arriving at -130 dBm (below thermal noise floor!)
+  • Multiple satellites transmitting on same frequency
+  • Indoor/urban environments with heavy attenuation
+""")
+```
+
+**Key formulas:**
+
+| Metric | Formula |
+|--------|---------|
+| Processing gain | 10 × log10(Chip_rate / Data_rate) |
+| CDMA capacity | PG / (Eb/N0_required) × Activity |
+| SCPC efficiency | Net_rate / Carrier_bandwidth |
+| Transponder fill | Σ(Carrier_BW + Guard) / Total_BW |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Near-far problem in CDMA.** A strong nearby transmitter can drown out weak distant ones. Power control is essential — without it, CDMA fails.
+
+2. **Assuming CDMA always saves bandwidth.** CDMA's processing gain comes at cost of bandwidth expansion. It wins when interference tolerance matters more than raw throughput.
+
+3. **Ignoring SCPC's simplicity.** SCPC modems are cheaper, more reliable, and need no network timing. For dedicated point-to-point links, they often beat shared access.
+
+4. **Forgetting guard bands for SCPC.** Real filters have roll-off. Budget 5-10% between carriers or you'll get adjacent channel interference.
+
+5. **CDMA capacity overestimation.** Theoretical capacity assumes perfect power control and orthogonal codes. Real systems achieve 60-70% of theoretical max.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- GPS ICD-200 — GPS signal specification
+- ETSI EN 302 307 — DVB-S2 (SCPC applications)
+- Proakis, "Digital Communications" — Ch 13 (Spread Spectrum)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [FDMA](/en/space/multiple-access-satellite/fdma/) — frequency division comparison
+- [TDMA](/en/space/multiple-access-satellite/tdma/) — time division comparison
+- [MF-TDMA](/en/space/multiple-access-satellite/mf-tdma/) — the modern hybrid approach
+
+</section>

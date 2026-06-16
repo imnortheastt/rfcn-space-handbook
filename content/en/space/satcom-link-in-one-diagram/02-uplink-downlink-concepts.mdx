@@ -8,17 +8,383 @@ track: s7
 unit: satcom-link-in-one-diagram
 order: 2
 level: L2
-estimatedReadingMinutes: 5
-title: "Uplink and downlink concepts"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["satcom-link-overview"]
+spiralRevisits: []
+title: "Uplink and Downlink Concepts"
+description: "Understanding the asymmetry between Earth-to-satellite and satellite-to-Earth paths."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["uplink", "downlink", "frequency-bands", "link-asymmetry", "satcom"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Uplink and downlink concepts
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Uplink and downlink are not symmetric—they use different frequencies, face different power constraints, and have different noise environments. Understanding this asymmetry is essential for link budgeting, terminal design, and troubleshooting why one direction works while the other fails.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Two separate links
+
+```
+Uplink vs Downlink — Not Symmetric:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                        🛰 SATELLITE                                  │
+│                        ┌──────────┐                                  │
+│         UPLINK         │          │        DOWNLINK                  │
+│     (Earth → Sat)      │  Trans-  │     (Sat → Earth)               │
+│                        │  ponder  │                                  │
+│    ╱                   │          │                   ╲              │
+│   ╱  14 GHz            └──────────┘         12 GHz    ╲             │
+│  ╱   (higher f)                             (lower f)   ╲            │
+│ ╱                                                        ╲           │
+│╱                                                          ╲          │
+│                                                                      │
+│  ┌─────────────┐                              ┌─────────────┐       │
+│  │ GATEWAY     │                              │ USER        │       │
+│  │ (big dish)  │                              │ TERMINAL    │       │
+│  │ high EIRP   │                              │ (small dish)│       │
+│  │ 70-80 dBW   │                              │ G/T: 10-20  │       │
+│  └─────────────┘                              └─────────────┘       │
+│                                                                      │
+│  Ground can afford                  Satellite power limited         │
+│  big power, big dish                by solar panels, thermals       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Why different frequencies
+
+```
+Frequency Band Allocation:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Band    │ Uplink (GHz) │ Downlink (GHz) │ Why Different?          │
+│  ────────┼──────────────┼────────────────┼─────────────────────────│
+│  C-band  │   5.925-6.425│   3.7-4.2      │ Rain: uplink > downlink │
+│  Ku-band │   14.0-14.5  │   11.7-12.2    │ Isolation: avoid self-  │
+│  Ka-band │   27.5-30.0  │   17.7-21.2    │ interference between    │
+│  V-band  │   47.2-50.2  │   37.5-42.5    │ TX and RX               │
+│                                                                      │
+│  ═══════════════════════════════════════════════════════════════    │
+│                                                                      │
+│  UPLINK FREQUENCY > DOWNLINK FREQUENCY (always)                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  1. Higher f = more rain attenuation                        │   │
+│  │     Ground can compensate with more power                   │   │
+│  │     Satellite cannot—limited by DC power                    │   │
+│  │                                                              │   │
+│  │  2. Higher f on uplink → ground bears rain fade burden     │   │
+│  │                                                              │   │
+│  │  3. Also: antenna gain ∝ f² at same dish size              │   │
+│  │     Ground can afford big dish → high gain at high f        │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Power asymmetry
+
+```
+Power Constraints:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  UPLINK (Ground → Satellite):                                       │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Ground Station Advantages:                                 │   │
+│  │  • Unlimited power (grid-connected)                        │   │
+│  │  • Large dish feasible (3-13m gateway)                     │   │
+│  │  • Active cooling available                                │   │
+│  │  • Can implement rain fade mitigation                      │   │
+│  │                                                              │   │
+│  │  EIRP: 60-85 dBW achievable                                │   │
+│  │                                                              │   │
+│  │  Challenge: Rain attenuation at higher frequencies         │   │
+│  │  Solution: Uplink Power Control (UPC)                      │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  DOWNLINK (Satellite → Ground):                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Satellite Constraints:                                     │   │
+│  │  • Solar panel limited (5-25 kW total)                     │   │
+│  │  • HPA efficiency ~30-40%                                   │   │
+│  │  • Thermal dissipation in vacuum                           │   │
+│  │  • Must serve many users simultaneously                    │   │
+│  │                                                              │   │
+│  │  Per-transponder EIRP: 40-55 dBW typical                   │   │
+│  │                                                              │   │
+│  │  Challenge: Limited power shared among users               │   │
+│  │  Solution: HTS spot beams concentrate power                │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Noise environment
+
+```
+Noise Temperature Differences:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  UPLINK (Satellite Receiver):                                       │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  🛰 Satellite looks DOWN at Earth                           │   │
+│  │      │                                                      │   │
+│  │      ▼  Earth = warm blackbody (~290K)                     │   │
+│  │     🌍                                                       │   │
+│  │                                                              │   │
+│  │  Antenna noise temperature: ~150-290K (high)               │   │
+│  │  LNA temperature: ~100-200K                                │   │
+│  │  System temperature: ~300-500K                             │   │
+│  │                                                              │   │
+│  │  Satellite G/T: -5 to +10 dB/K (limited)                   │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  DOWNLINK (Ground Receiver):                                        │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │     🛰 Ground antenna looks UP at cold sky                  │   │
+│  │      ▲                                                      │   │
+│  │      │  Cold sky = ~20-50K (at Ku/Ka-band)                 │   │
+│  │     📡                                                       │   │
+│  │                                                              │   │
+│  │  Antenna noise temperature: ~20-80K (low)                  │   │
+│  │  LNA temperature: ~35-100K (cryogenic possible)            │   │
+│  │  System temperature: ~80-200K                              │   │
+│  │                                                              │   │
+│  │  Ground G/T: 15-40 dB/K (excellent possible)               │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  NET EFFECT: Downlink can achieve better C/N₀ per watt            │
+│              transmitted than uplink                                │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Overall link (bent-pipe)
+
+```
+End-to-End Link (Both Directions):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  FORWARD LINK (Gateway → User):                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Gateway ──(Uplink)──▶ 🛰 ──(Downlink)──▶ User Terminal    │   │
+│  │                                                              │   │
+│  │  Uplink:  Gateway EIRP = 75 dBW, high                       │   │
+│  │           Sat G/T = 5 dB/K                                  │   │
+│  │           C/N₀_up ≈ 90 dBHz                                 │   │
+│  │                                                              │   │
+│  │  Downlink: Sat EIRP = 52 dBW, limited                       │   │
+│  │            User G/T = 15 dB/K                               │   │
+│  │            C/N₀_down ≈ 85 dBHz                              │   │
+│  │                                                              │   │
+│  │  Overall C/N₀ ≈ 84 dBHz (limited by weaker downlink)        │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  RETURN LINK (User → Gateway):                                      │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  User Terminal ──(Uplink)──▶ 🛰 ──(Downlink)──▶ Gateway    │   │
+│  │                                                              │   │
+│  │  Uplink:  User EIRP = 45 dBW, limited                       │   │
+│  │           Sat G/T = 5 dB/K                                  │   │
+│  │           C/N₀_up ≈ 70 dBHz (weak link!)                    │   │
+│  │                                                              │   │
+│  │  Downlink: Sat EIRP = 52 dBW                                │   │
+│  │            Gateway G/T = 35 dB/K                            │   │
+│  │            C/N₀_down ≈ 100 dBHz                             │   │
+│  │                                                              │   │
+│  │  Overall C/N₀ ≈ 70 dBHz (limited by user uplink)           │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  ASYMMETRY: Forward link capacity >> Return link capacity          │
+│             (typical ratio: 3:1 to 10:1 in consumer systems)       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Compare uplink and downlink budgets:**
+
+```python
+import numpy as np
+
+def link_budget(eirp_dbw, distance_km, freq_ghz, g_t_dbk, 
+                atm_loss_db=0.5, rain_db=0):
+    """Calculate C/N0 for a single link direction."""
+    c = 299792.458
+    wavelength_km = c / (freq_ghz * 1e9) / 1000
+    fspl = 10 * np.log10((4 * np.pi * distance_km / wavelength_km) ** 2)
+    
+    total_loss = fspl + atm_loss_db + rain_db
+    k = -228.6
+    c_n0 = eirp_dbw - total_loss + g_t_dbk - k
+    return c_n0, fspl
+
+def combined_cn0(cn0_up, cn0_down):
+    """Combine uplink and downlink C/N0 for bent-pipe."""
+    linear_up = 10 ** (cn0_up / 10)
+    linear_down = 10 ** (cn0_down / 10)
+    linear_total = 1 / (1/linear_up + 1/linear_down)
+    return 10 * np.log10(linear_total)
+
+# System parameters
+distance = 36000  # km (GEO)
+
+# Forward link: Gateway → Satellite → User
+print("FORWARD LINK (Gateway → User)")
+print("=" * 55)
+
+# Uplink: Gateway to Satellite
+gw_eirp = 75  # dBW (big dish, high power)
+uplink_freq = 14  # GHz
+sat_gt = 5  # dB/K (satellite looking at warm Earth)
+
+cn0_up_fwd, fspl_up = link_budget(gw_eirp, distance, uplink_freq, sat_gt)
+print(f"Uplink ({uplink_freq} GHz):")
+print(f"  Gateway EIRP: {gw_eirp} dBW")
+print(f"  Satellite G/T: {sat_gt} dB/K")
+print(f"  Path loss: {fspl_up:.1f} dB")
+print(f"  C/N₀: {cn0_up_fwd:.1f} dBHz")
+
+# Downlink: Satellite to User
+sat_eirp = 52  # dBW (transponder)
+downlink_freq = 12  # GHz
+user_gt = 15  # dB/K (small VSAT)
+
+cn0_down_fwd, fspl_down = link_budget(sat_eirp, distance, downlink_freq, user_gt)
+print(f"\nDownlink ({downlink_freq} GHz):")
+print(f"  Satellite EIRP: {sat_eirp} dBW")
+print(f"  User G/T: {user_gt} dB/K")
+print(f"  Path loss: {fspl_down:.1f} dB")
+print(f"  C/N₀: {cn0_down_fwd:.1f} dBHz")
+
+cn0_fwd = combined_cn0(cn0_up_fwd, cn0_down_fwd)
+print(f"\nOverall Forward C/N₀: {cn0_fwd:.1f} dBHz")
+print(f"Limited by: {'Downlink' if cn0_down_fwd < cn0_up_fwd else 'Uplink'}")
+
+# Return link: User → Satellite → Gateway
+print("\n" + "=" * 55)
+print("RETURN LINK (User → Gateway)")
+print("=" * 55)
+
+# Uplink: User to Satellite
+user_eirp = 45  # dBW (small terminal)
+cn0_up_ret, _ = link_budget(user_eirp, distance, uplink_freq, sat_gt)
+print(f"Uplink ({uplink_freq} GHz):")
+print(f"  User EIRP: {user_eirp} dBW")
+print(f"  Satellite G/T: {sat_gt} dB/K")
+print(f"  C/N₀: {cn0_up_ret:.1f} dBHz")
+
+# Downlink: Satellite to Gateway
+gw_gt = 35  # dB/K (large gateway dish)
+cn0_down_ret, _ = link_budget(sat_eirp, distance, downlink_freq, gw_gt)
+print(f"\nDownlink ({downlink_freq} GHz):")
+print(f"  Satellite EIRP: {sat_eirp} dBW")
+print(f"  Gateway G/T: {gw_gt} dB/K")
+print(f"  C/N₀: {cn0_down_ret:.1f} dBHz")
+
+cn0_ret = combined_cn0(cn0_up_ret, cn0_down_ret)
+print(f"\nOverall Return C/N₀: {cn0_ret:.1f} dBHz")
+print(f"Limited by: {'Downlink' if cn0_down_ret < cn0_up_ret else 'Uplink'}")
+
+# Capacity comparison
+print("\n" + "=" * 55)
+print("CAPACITY ASYMMETRY")
+print("=" * 55)
+# Shannon capacity ratio (simplified)
+capacity_ratio = 10 ** ((cn0_fwd - cn0_ret) / 10)
+print(f"Forward/Return C/N₀ difference: {cn0_fwd - cn0_ret:.1f} dB")
+print(f"Approximate capacity ratio: {capacity_ratio:.1f}:1")
+```
+
+**Band comparison:**
+
+| Band | Uplink | Downlink | Rain Impact | Typical Use |
+|------|--------|----------|-------------|-------------|
+| C (4/6 GHz) | 6 GHz | 4 GHz | Low | Backbone, broadcast |
+| Ku (12/14 GHz) | 14 GHz | 12 GHz | Moderate | DTH, VSAT |
+| Ka (20/30 GHz) | 30 GHz | 20 GHz | High | HTS, broadband |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming symmetry.** Forward and return links have very different budgets.
+
+2. **Ignoring rain asymmetry.** Higher uplink frequency means more rain fade; ground must compensate.
+
+3. **Forgetting bent-pipe combination.** Overall C/N₀ ≈ weaker of the two links.
+
+4. **Satellite G/T confusion.** Satellite looks at warm Earth; ground looks at cold sky.
+
+5. **User terminal limits.** Return link often bottlenecked by small user terminal EIRP.
+
+6. **Frequency plan overlap.** Must keep TX/RX separate to avoid self-interference.
+
+7. **Power control neglect.** Uplink power control is essential for rain fade compensation.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Maral, G., "Satellite Communications Systems"
+- ITU Radio Regulations (frequency allocations)
+- ETSI EN 302 307 (DVB-S2)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Satcom Link Overview](/en/space/satcom-link-in-one-diagram/satcom-link-overview/) — full link equation
+- [Link Budget Walkthrough](/en/space/practical-link-budget-walkthroughs/ku-band-geo-broadcast/) — detailed calculation
+- [Rain Attenuation](/en/rf/propagation-effects/rain-attenuation/) — frequency dependence
+
+</section>

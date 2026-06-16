@@ -8,17 +8,358 @@ track: n6
 unit: o-ran-architecture
 order: 2
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n6-o-ran-architecture-01-o-cu"]
+spiralRevisits: []
 title: "O-DU — Distributed Unit"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The O-RAN Distributed Unit — RLC, MAC, scheduler, high-PHY, and the real-time processing that makes 5G work."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG4.CUS", "3GPP TS 38.321", "3GPP TS 38.322"]
+tags: ["o-ran", "5g", "du", "mac", "rlc", "scheduler"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# O-DU — Distributed Unit
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+The O-DU is where millisecond decisions happen. Every 0.5ms, it decides which UE gets which resource block. Every 1ms, it handles HARQ retransmissions.
+
+Understanding O-DU is essential because this is where 5G performance is made or broken — latency, throughput, and spectral efficiency all depend on what happens here.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### O-DU position in stack
+
+```
+O-DU in the Protocol Stack:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  From CU (F1 interface):                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PDCP PDUs (from CU-UP)                          │    │
+│  │ RRC messages (via CU-CP)                        │    │
+│  └────────────────────┬────────────────────────────┘    │
+│                       │                                  │
+│                       ▼                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                    O-DU                          │    │
+│  │                                                  │    │
+│  │  ┌───────────────────────────────────────────┐  │    │
+│  │  │ RLC (Radio Link Control)                  │  │    │
+│  │  │ - Segmentation / Reassembly               │  │    │
+│  │  │ - ARQ retransmission                      │  │    │
+│  │  │ - In-sequence delivery                    │  │    │
+│  │  └───────────────────────────────────────────┘  │    │
+│  │                       │                          │    │
+│  │  ┌───────────────────────────────────────────┐  │    │
+│  │  │ MAC (Medium Access Control)               │  │    │
+│  │  │ - Scheduling (every TTI)                  │  │    │
+│  │  │ - HARQ management                         │  │    │
+│  │  │ - Multiplexing                            │  │    │
+│  │  │ - Random access handling                  │  │    │
+│  │  └───────────────────────────────────────────┘  │    │
+│  │                       │                          │    │
+│  │  ┌───────────────────────────────────────────┐  │    │
+│  │  │ High-PHY                                  │  │    │
+│  │  │ - Scrambling / Descrambling               │  │    │
+│  │  │ - Modulation / Demodulation               │  │    │
+│  │  │ - Layer mapping                           │  │    │
+│  │  │ - Precoding                               │  │    │
+│  │  └───────────────────────────────────────────┘  │    │
+│  │                                                  │    │
+│  └────────────────────┬────────────────────────────┘    │
+│                       │ Open Fronthaul                  │
+│                       ▼                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                    O-RU                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Real-time requirements
+
+```
+O-DU Timing Constraints:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Time Scale          │ What Happens                     │
+│  ────────────────────┼──────────────────────────────────│
+│                      │                                  │
+│  0.5 ms (slot)       │ Scheduler decision               │
+│                      │ - Which UE to schedule           │
+│                      │ - Which PRBs to allocate         │
+│                      │ - Which MCS to use               │
+│                      │                                  │
+│  1 ms (subframe)     │ HARQ feedback processing         │
+│                      │ - ACK/NACK from UE               │
+│                      │ - Retransmission decision        │
+│                      │                                  │
+│  ~4 ms               │ HARQ round-trip                  │
+│                      │ - Transmit → UE decode → ACK →   │
+│                      │   DU process → retransmit        │
+│                      │                                  │
+│  10 ms (frame)       │ Radio frame boundary             │
+│                      │ - SFN increment                  │
+│                      │                                  │
+│  O-DU must complete processing within strict deadlines  │
+│  Missing deadline = dropped packets or collisions       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Scheduler operation
+
+```
+MAC Scheduler Decision Loop:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Every slot (0.5ms):                                    │
+│                                                          │
+│  1. Collect inputs:                                     │
+│     ├── Buffer status (how much data per UE)           │
+│     ├── CQI reports (channel quality per UE)           │
+│     ├── HARQ status (pending retransmissions)          │
+│     └── QoS requirements (priority, latency)           │
+│                                                          │
+│  2. Allocate resources:                                 │
+│     ┌─────────────────────────────────────────────┐    │
+│     │ Available PRBs: 273 (100 MHz, FR1)          │    │
+│     │                                              │    │
+│     │ UE1: PRB 0-50   (high traffic, good CQI)    │    │
+│     │ UE2: PRB 51-80  (VoNR, guaranteed)          │    │
+│     │ UE3: PRB 81-100 (poor CQI, robust MCS)      │    │
+│     │ [Remaining PRBs for other UEs or reserved]  │    │
+│     │                                              │    │
+│     └─────────────────────────────────────────────┘    │
+│                                                          │
+│  3. Generate DCI (Downlink Control Information):       │
+│     - Resource allocation bitmap                        │
+│     - MCS index                                        │
+│     - HARQ process ID                                  │
+│     - New data indicator (NDI)                         │
+│                                                          │
+│  4. Send to High-PHY for transmission                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### RLC modes
+
+```
+RLC Operating Modes:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Transparent Mode (TM):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ No segmentation, no ARQ                         │    │
+│  │ Used for: Broadcast (SIB), Paging               │    │
+│  │ Overhead: None                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Unacknowledged Mode (UM):                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Segmentation: Yes                               │    │
+│  │ ARQ: No (no retransmission)                    │    │
+│  │ Used for: VoNR, real-time video                │    │
+│  │ Reason: Retransmission adds latency            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Acknowledged Mode (AM):                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Segmentation: Yes                               │    │
+│  │ ARQ: Yes (retransmit on RLC NACK)              │    │
+│  │ Used for: Data, signaling                       │    │
+│  │ Guarantees: In-sequence, reliable delivery     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  RLC AM catches what HARQ misses                        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### HARQ operation
+
+```
+HARQ (Hybrid ARQ) Flow:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  DU (Transmitter)              UE (Receiver)            │
+│  │                              │                       │
+│  │ Initial transmission        │                       │
+│  │ (HARQ process 0, NDI=0)     │                       │
+│  │─────────────────────────────►│                       │
+│  │                              │                       │
+│  │                              │ Decode attempt        │
+│  │                              │ (CRC check)           │
+│  │                              │                       │
+│  │ ◄─────────── NACK ───────────│ Failed                │
+│  │                              │                       │
+│  │ Retransmission              │                       │
+│  │ (HARQ process 0, NDI=0,     │                       │
+│  │  RV=1, different bits)      │                       │
+│  │─────────────────────────────►│                       │
+│  │                              │                       │
+│  │                              │ Soft combining        │
+│  │                              │ (combine with 1st)    │
+│  │                              │                       │
+│  │ ◄─────────── ACK ────────────│ Success               │
+│  │                              │                       │
+│  │ Next new data               │                       │
+│  │ (HARQ process 0, NDI=1)     │                       │
+│  │─────────────────────────────►│                       │
+│  │                              │                       │
+│                                                          │
+│  16 parallel HARQ processes enable pipelining          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Fronthaul interface
+
+```
+O-DU to O-RU (Open Fronthaul):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Control Plane (C-Plane):                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Scheduling information                          │    │
+│  │ - Section descriptors                           │    │
+│  │ - Beamforming weights                           │    │
+│  │ - PRB allocation                                │    │
+│  │                                                  │    │
+│  │ Timing: ~200-300 µs before transmission        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  User Plane (U-Plane):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ IQ samples (frequency domain)                   │    │
+│  │ - After FFT/IFFT at split point                │    │
+│  │ - Compressed (e.g., 9-bit per I, Q)            │    │
+│  │                                                  │    │
+│  │ Timing: Strict, aligned to symbol boundaries   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Synchronization (S-Plane):                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PTP (IEEE 1588) for timing sync                │    │
+│  │ Required accuracy: ±1.5 µs for TDD             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Management (M-Plane):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ NETCONF/YANG for O-RU configuration            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**O-DU deployment considerations:**
+
+| Factor | Edge (near RU) | Aggregated |
+|--------|----------------|------------|
+| Fronthaul latency | < 100 µs | < 250 µs |
+| Fronthaul bandwidth | Lower | Higher (aggregated) |
+| Compute pooling | None | Shared across cells |
+| Failure blast radius | Single cell | Multiple cells |
+
+**Debugging O-DU:**
+
+```bash
+# Scheduler trace
+grep "sched_decision" /var/log/du/mac.log
+
+# HARQ statistics
+mac-cli show harq stats
+
+# RLC buffer status
+rlc-cli show buffer-status --ue-id 1234
+
+# Fronthaul timing
+fh-cli show timing-advance
+
+# Check PRB utilization
+mac-cli show prb-utilization --interval 1s
+```
+
+**Key performance metrics:**
+
+| Metric | Target | Critical |
+|--------|--------|----------|
+| Scheduler cycle | < 100 µs | > 200 µs |
+| HARQ RTT | 4-8 ms | > 16 ms |
+| RLC retrans rate | < 1% | > 5% |
+| PRB utilization | 60-80% | > 95% |
+| Fronthaul jitter | < 10 µs | > 50 µs |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Scheduler deadline miss.** If scheduler can't decide in time, slot is wasted. Use deterministic algorithms.
+
+2. **HARQ buffer overflow.** Too many pending HARQ processes exhaust memory. Monitor HARQ utilization.
+
+3. **RLC reassembly timeout.** Missing segments timeout and trigger retransmission. Set appropriate timers.
+
+4. **Fronthaul delay variation.** Jitter causes late arrivals. O-RU drops late packets.
+
+5. **PRB fragmentation.** Poor scheduling leaves gaps in PRB allocation. Reduces spectral efficiency.
+
+6. **CQI aging.** Using stale CQI leads to wrong MCS selection. Ensure fresh channel feedback.
+
+7. **UL/DL switching.** TDD switching adds complexity. Guard periods must be respected.
+
+8. **Multi-user MIMO coordination.** MU-MIMO requires coordinated scheduling. Pairing wrong UEs wastes capacity.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- 3GPP TS 38.321, "Medium Access Control (MAC) Protocol"
+- 3GPP TS 38.322, "Radio Link Control (RLC) Protocol"
+- 3GPP TS 38.211, "Physical Channels and Modulation"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [O-RU](/en/core-network/o-ran-architecture/o-ru/) — Radio Unit
+- [O-CU](/en/core-network/o-ran-architecture/o-cu/) — Central Unit
+- [Fronthaul requirements](/en/core-network/functional-splits/fronthaul-requirements/) — transport needs
+
+</section>

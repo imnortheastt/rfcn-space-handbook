@@ -8,17 +8,374 @@ track: n3
 unit: policy-and-charging
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "Policy and charging rules"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 11
+prerequisites: ["core-network-n3-policy-and-charging-01-pcf-overview", "core-network-n3-policy-and-charging-02-chf-overview"]
+spiralRevisits: ["core-network-n3-session-management-deep-dive-05-qos-flows"]
+title: "Policy and Charging Rules"
+description: "PCC rules anatomy — SDF filters, QoS parameters, charging keys, and how rules flow from PCF to SMF to UPF."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.503", "3GPP TS 29.512"]
+tags: ["pcc", "5g", "policy", "charging", "sdf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Policy and charging rules
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+PCC rules are the atoms of policy enforcement. Each rule says: "for traffic matching this filter, apply this QoS, charge this way, and gate open or closed."
+
+Understanding PCC rules lets you debug why a video call gets throttled or why certain traffic isn't charged.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What a PCC rule contains
+
+```
+PCC Rule Structure:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  PCC Rule = Traffic Match + Treatment                   │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rule Name: "video_streaming_rule"               │    │
+│  │                                                  │    │
+│  │ Traffic Match (SDF Filter):                     │    │
+│  │ ├── Protocol: UDP                               │    │
+│  │ ├── Remote IP: 203.0.113.0/24                   │    │
+│  │ ├── Remote Port: 1935, 8080                     │    │
+│  │ └── Direction: bidirectional                    │    │
+│  │                                                  │    │
+│  │ QoS Treatment:                                  │    │
+│  │ ├── 5QI: 6 (video streaming)                   │    │
+│  │ ├── ARP: 10                                     │    │
+│  │ ├── MBR: 50 Mbps DL / 5 Mbps UL                │    │
+│  │ └── GBR: none (non-GBR)                        │    │
+│  │                                                  │    │
+│  │ Charging:                                       │    │
+│  │ ├── Rating Group: 100                          │    │
+│  │ ├── Reporting Level: SDF                       │    │
+│  │ └── Online/Offline: offline                    │    │
+│  │                                                  │    │
+│  │ Flow Control:                                   │    │
+│  │ ├── Gate: open                                 │    │
+│  │ └── Redirect: none                             │    │
+│  │                                                  │    │
+│  │ Precedence: 100                                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### SDF filter explained
+
+```
+Service Data Flow Filter:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SDF Filter = Packet Classifier                         │
+│                                                          │
+│  5-tuple matching:                                      │
+│  ├── Source IP / prefix                                │
+│  ├── Destination IP / prefix                           │
+│  ├── Source port / range                               │
+│  ├── Destination port / range                          │
+│  └── Protocol (TCP, UDP, any)                          │
+│                                                          │
+│  Direction:                                             │
+│  ├── Uplink: UE → network                              │
+│  ├── Downlink: network → UE                            │
+│  └── Bidirectional: both                               │
+│                                                          │
+│  Examples:                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ VoLTE signaling:                                │    │
+│  │   permit out ip from any to 198.51.100.10 5060 │    │
+│  │                                                  │    │
+│  │ Video streaming:                                │    │
+│  │   permit in udp from 203.0.113.0/24 1935 to any│    │
+│  │                                                  │    │
+│  │ All traffic (default):                          │    │
+│  │   permit out ip from any to any                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Rule flow: PCF → SMF → UPF
+
+```
+PCC Rule Installation:
+
+PCF                    SMF                    UPF
+│                       │                       │
+│ SM Policy Decision   │                       │
+│ (PCC rules)          │                       │
+│──────────────────────►│                       │
+│                       │                       │
+│                       │ Parse PCC rules      │
+│                       │ Create QoS rules     │
+│                       │ Create charging rules│
+│                       │                       │
+│                       │ PFCP Session Mod     │
+│                       │ - PDR (detection)    │
+│                       │ - QER (QoS enforce)  │
+│                       │ - URR (usage report) │
+│                       │──────────────────────►│
+│                       │                       │
+│                       │                       │ UPF installs:
+│                       │                       │ - Packet filters
+│                       │                       │ - Rate limiters
+│                       │                       │ - Usage counters
+│                       │                       │
+│                       │ PFCP Mod Response    │
+│                       │◄──────────────────────│
+│                       │                       │
+│                       │ NAS: QoS rules to UE │
+│                       │ (for UL marking)     │
+│                       │───────────────────────────► UE
+│                       │                       │
+```
+
+### PCC rule to PFCP mapping
+
+```
+PCC Rule → PFCP Rules Translation:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  PCC Rule Component    →    PFCP Rule                   │
+│  ─────────────────────────────────────────────────────  │
+│                                                          │
+│  SDF Filter            →    PDR (Packet Detection Rule) │
+│  ├── IP address/port        ├── PDI (Packet Detection  │
+│  ├── Protocol               │   Information)           │
+│  └── Direction              └── SDF Filter IE          │
+│                                                          │
+│  QoS Parameters        →    QER (QoS Enforcement Rule)  │
+│  ├── 5QI                    ├── Gate Status            │
+│  ├── MBR                    ├── MBR                    │
+│  ├── GBR                    ├── GBR                    │
+│  └── ARP                    └── QFI                    │
+│                                                          │
+│  Charging Parameters   →    URR (Usage Reporting Rule)  │
+│  ├── Rating Group           ├── Measurement Method     │
+│  ├── Reporting Level        ├── Reporting Triggers     │
+│  └── Online/Offline         └── Volume Threshold       │
+│                                                          │
+│  Gate / Redirect       →    FAR (Forwarding Action)    │
+│  ├── Open/Close             ├── Apply Action (fwd/drop)│
+│  └── Redirect URL           └── Redirect Info          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Rating groups
+
+```
+Rating Group Concept:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Rating Group = Charging Category                       │
+│                                                          │
+│  Multiple PCC rules can share same rating group:        │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rating Group 100: "Standard Data"               │    │
+│  │ ├── PCC Rule: web_browsing (5QI=9)             │    │
+│  │ ├── PCC Rule: email (5QI=9)                    │    │
+│  │ └── PCC Rule: downloads (5QI=8)                │    │
+│  │ → All charged at $0.01/MB                       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rating Group 200: "Premium Video"               │    │
+│  │ ├── PCC Rule: netflix (5QI=6)                  │    │
+│  │ └── PCC Rule: youtube (5QI=6)                  │    │
+│  │ → All charged at $0.00/MB (zero-rated)          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rating Group 300: "Voice"                       │    │
+│  │ └── PCC Rule: volte (5QI=1)                    │    │
+│  │ → Charged at $0.10/min                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Rule precedence
+
+```
+PCC Rule Matching Order:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Packet arrives → match rules by precedence (low first) │
+│                                                          │
+│  Precedence 50:  volte_signaling                        │
+│  ├── SDF: UDP, port 5060                               │
+│  └── 5QI: 5                                            │
+│                                                          │
+│  Precedence 100: volte_media                            │
+│  ├── SDF: UDP, port 16384-32767                        │
+│  └── 5QI: 1                                            │
+│                                                          │
+│  Precedence 200: video_streaming                        │
+│  ├── SDF: UDP/TCP, ports 1935, 443                     │
+│  └── 5QI: 6                                            │
+│                                                          │
+│  Precedence 255: default_bearer                         │
+│  ├── SDF: any                                          │
+│  └── 5QI: 9                                            │
+│                                                          │
+│  Packet to port 5060 → matches volte_signaling (50)    │
+│  Packet to port 443  → matches video_streaming (200)?  │
+│                         or default_bearer (255)?        │
+│  (depends on IP match in SDF filter)                    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Dynamic rule installation
+
+```
+AF-Triggered Rule Installation:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. VoLTE call starts                                   │
+│     IMS (AF) → PCF: Request media resources            │
+│                                                          │
+│  2. PCF creates PCC rule                                │
+│     ┌─────────────────────────────────────────────┐     │
+│     │ Rule: "volte_call_12345"                    │     │
+│     │ SDF: RTP to/from IMS server                 │     │
+│     │ QoS: 5QI=1, GBR=64kbps                     │     │
+│     │ Charging: Rating Group 300                  │     │
+│     └─────────────────────────────────────────────┘     │
+│                                                          │
+│  3. PCF → SMF: SM Policy Update (add rule)             │
+│                                                          │
+│  4. SMF → UPF: PFCP Modification (add PDR/QER/URR)     │
+│                                                          │
+│  5. SMF → UE: QoS rules for UL marking                 │
+│                                                          │
+│  6. Call active, dedicated QoS flow in use             │
+│                                                          │
+│  7. Call ends                                           │
+│     IMS (AF) → PCF: Release media resources            │
+│                                                          │
+│  8. PCF → SMF: SM Policy Update (remove rule)          │
+│                                                          │
+│  9. SMF → UPF: PFCP Modification (remove PDR/QER/URR)  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Common PCC rule patterns:**
+
+| Service | SDF Filter | 5QI | Rating Group |
+|---------|------------|-----|--------------|
+| Default data | any | 9 | 100 |
+| VoLTE signaling | UDP 5060-5061 | 5 | - |
+| VoLTE media | UDP 16384-32767 | 1 | 300 |
+| Video streaming | TCP 443, UDP 1935 | 6 | 200 |
+| Gaming | UDP 3478-3479 | 3 | 100 |
+| Enterprise VPN | IP to 10.0.0.0/8 | 8 | 400 |
+
+**Debugging PCC rules:**
+
+```bash
+# Wireshark: SM policy with PCC rules
+http2.header.path contains "sm-policies" && http2.data
+
+# PFCP PDR/QER installation
+pfcp.create_pdr || pfcp.create_qer
+
+# Check rule precedence
+grep "precedence" /var/log/smf/*.log
+
+# UPF rule verification
+upf_cli show pdr
+upf_cli show qer
+```
+
+**Rule lifecycle:**
+
+| Event | PCC Rule Action |
+|-------|-----------------|
+| Session establishment | Default rules installed |
+| AF requests resources | Dedicated rule added |
+| Policy update | Rules modified |
+| AF releases resources | Dedicated rule removed |
+| Session release | All rules deleted |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Overlapping SDF filters.** Two rules match same traffic — precedence decides. Ensure precedence is correct.
+
+2. **Missing default rule.** If no rule matches, traffic may be dropped. Always have catch-all rule.
+
+3. **Rating group collision.** Same rating group for different services = incorrect billing. Keep groups separate.
+
+4. **Precedence gaps.** Leave room between precedence values for future rules (use 100, 200, 300 not 1, 2, 3).
+
+5. **Bidirectional vs unidirectional.** UL and DL may need separate SDF filters. Check direction carefully.
+
+6. **ARP mismatch.** Allocation and Retention Priority affects preemption. Higher priority can preempt lower.
+
+7. **Dynamic rule timing.** AF rule installation takes time. Media may start before rule is active.
+
+8. **Gate status ignored.** If gate is closed, traffic dropped even if QoS is configured. Check gate status.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.503, "Policy and Charging Control Framework"
+- 3GPP TS 29.512, "SMF Policy Control Service"
+- 3GPP TS 29.244, "PFCP Protocol"
+- 3GPP TS 29.514, "Policy Authorization Service"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Online/offline charging](/en/core-network/policy-and-charging/online-offline-charging/) — charging method details
+- [QoS flows](/en/core-network/session-management-deep-dive/qos-flows/) — how rules become flows
+- [PCF overview](/en/core-network/policy-and-charging/pcf-overview/) — where rules come from
+
+</section>

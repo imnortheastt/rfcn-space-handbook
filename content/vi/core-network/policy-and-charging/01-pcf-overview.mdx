@@ -8,17 +8,361 @@ track: n3
 unit: policy-and-charging
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "Tong quan PCF"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-network-functions-overview-05-nrf-nssf-pcf-nef"]
+spiralRevisits: ["core-network-n3-session-management-deep-dive-02-pdu-session-modification"]
+title: "Tong Quan PCF"
+description: "Kiem soat policy trong 5G — PCF quyet dinh gi, tuong tac voi SMF/AMF, va cac tinh huong policy thuc te."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.503", "3GPP TS 29.512", "3GPP TS 29.507"]
+tags: ["pcf", "5g", "policy", "pcc", "qos"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tong quan PCF
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+PCF la bo nao quyet dinh moi nguoi dung co the lam gi tren mang. Nguoi dung nay co the bat dau goi video khong? Ho nen nhan QoS gi? Ho da vuot gioi han du lieu chua?
+
+Khong co PCF, moi thue bao se duoc xu ly giong nhau — khong phan biet, khong thuc thi, khong mo hinh kinh doanh.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### PCF kiem soat gi
+
+```
+Cac Linh vuc Policy PCF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Policy Quan ly Session (SM):                           │
+│  ├── Quyet dinh QoS (5QI, AMBR, GBR)                   │
+│  ├── Quy tac session (flow nao duoc phep)              │
+│  ├── Lua chon phuong thuc tinh cuoc                    │
+│  └── Dieu khien luu luong (UL classifier, che do SSC)  │
+│                                                          │
+│  Policy Truy cap va Di dong (AM):                       │
+│  ├── Han che vung dich vu                              │
+│  ├── Uu tien lua chon RAT/tan so                       │
+│  ├── Policy lua chon tuyen UE (URSP)                   │
+│  └── Ho tro lua chon network slice                     │
+│                                                          │
+│  Policy UE:                                             │
+│  ├── Quy tac lua chon tuyen gui den UE                 │
+│  └── Cau hinh UE dac thu nha mang                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac giao dien PCF
+
+```
+PCF trong SBA:
+
+              ┌─────────┐
+              │   AF    │ (Application Function)
+              │  N5/Rx  │
+              └────┬────┘
+                   │ Npcf_PolicyAuthorization
+                   ▼
+          ┌────────────────┐
+          │      PCF       │
+          │                │
+          │  Policy Engine │
+          │  + SPR/UDR     │
+          └───────┬────────┘
+        ┌─────────┼─────────┐
+        │         │         │
+        ▼         ▼         ▼
+   ┌─────────┐ ┌─────────┐ ┌─────────┐
+   │   AMF   │ │   SMF   │ │   CHF   │
+   │ N15/Rx  │ │ N7/Rx   │ │ N28/Gy  │
+   └─────────┘ └─────────┘ └─────────┘
+   
+   Npcf_AMPolicy  Npcf_SMPolicy  Tich hop
+   Policy truy cap  QoS session   tinh cuoc
+```
+
+### Tu PCRF sang PCF
+
+```
+So sanh Policy 4G vs 5G:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  4G (EPC):                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  PCRF (Policy & Charging Rules Function)        │    │
+│  │  - Giao dien Gx den PGW (Diameter)              │    │
+│  │  - Giao dien Rx den AF (Diameter)               │    │
+│  │  - Giao dien Sp den SPR (du lieu thue bao)      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  5G (5GC):                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  PCF (Policy Control Function)                   │    │
+│  │  - N7 den SMF (HTTP/2)                          │    │
+│  │  - N5 den AF (HTTP/2)                           │    │
+│  │  - N15 den AMF (HTTP/2)                         │    │
+│  │  - Nudr den UDR (du lieu thue bao)              │    │
+│  │  - SBA, dua tren dich vu                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Thay doi chinh:                                        │
+│  - Diameter → HTTP/2                                    │
+│  - Tach biet policy AM va SM                            │
+│  - UDR thay the SPR                                     │
+│  - Nhan thuc network slice                              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Lien ket SM policy
+
+```
+Thiet lap PDU Session voi PCF:
+
+UE       AMF       SMF       PCF       UDR
+│         │         │         │         │
+│ PDU Sess│         │         │         │
+│ Establ  │         │         │         │
+│ Request │         │         │         │
+│────────►│────────►│         │         │
+│         │         │         │         │
+│         │         │ Npcf_SM │         │
+│         │         │ Policy  │         │
+│         │         │ Create  │         │
+│         │         │ (SUPI,  │         │
+│         │         │  DNN,   │         │
+│         │         │  S-NSSAI)        │
+│         │         │────────►│         │
+│         │         │         │         │
+│         │         │         │ Nudr    │
+│         │         │         │ (lay    │
+│         │         │         │ du lieu │
+│         │         │         │ policy) │
+│         │         │         │────────►│
+│         │         │         │         │
+│         │         │         │ Profile │
+│         │         │         │ policy  │
+│         │         │         │ thue bao│
+│         │         │         │◄────────│
+│         │         │         │         │
+│         │         │ Quyet dinh        │
+│         │         │ SM Policy│        │
+│         │         │ (QoS,    │        │
+│         │         │  quy tac)│        │
+│         │         │◄────────│         │
+│         │         │         │         │
+│         │         │ Ap dung │         │
+│         │         │ policy  │         │
+│         │         │         │         │
+```
+
+### Cau truc quyet dinh policy
+
+```
+Noi dung Quyet dinh SM Policy:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Quy tac Session:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Session AMBR (DL/UL)                          │    │
+│  │ - QoS mac dinh (5QI, ARP)                       │    │
+│  │ - Phuong thuc tinh cuoc                         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Quy tac PCC (theo flow):                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Quy tac 1:                                       │    │
+│  │ - Bo loc SDF: UDP, port 5060-5061               │    │
+│  │ - QoS: 5QI=5, ARP=1                             │    │
+│  │ - Tinh cuoc: online                             │    │
+│  │ - Cong: mo                                      │    │
+│  │                                                  │    │
+│  │ Quy tac 2:                                       │    │
+│  │ - Bo loc SDF: cac port RTP                      │    │
+│  │ - QoS: 5QI=1, GBR=64kbps                       │    │
+│  │ - Tinh cuoc: offline                            │    │
+│  │ - Cong: mo                                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Kiem soat Luu luong:                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Quy tac UL classifier                         │    │
+│  │ - Che do SSC                                    │    │
+│  │ - Policy dieu khien luu luong                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Policy kich hoat boi AF
+
+```
+Application Function Yeu cau QoS:
+
+AF               PCF              SMF
+│                 │                │
+│ Npcf_Policy    │                │
+│ Authorization  │                │
+│ Create         │                │
+│ (thong tin     │                │
+│  media, AF     │                │
+│  session)      │                │
+│───────────────►│                │
+│                 │                │
+│                 │ SM Policy     │
+│                 │ Update        │
+│                 │ Notify        │
+│                 │───────────────►│
+│                 │                │
+│                 │                │ SMF tao
+│                 │                │ QoS flow
+│                 │                │ rieng
+│                 │                │
+│ Authorization  │                │
+│ Response       │                │
+│ (thanh cong)   │                │
+│◄───────────────│                │
+│                 │                │
+
+Vi du: IMS P-CSCF (AF) yeu cau bearer thoai
+```
+
+### Cap nhat policy theo su kien
+
+```
+Cac Tinh huong Thay doi Policy:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Trigger: Dat gioi han du lieu                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 1. CHF thong bao PCF: nguong su dung            │    │
+│  │ 2. PCF danh gia quy tac policy                  │    │
+│  │ 3. PCF gui SM Policy Update den SMF             │    │
+│  │    - Session AMBR moi: 1 Mbps                   │    │
+│  │ 4. SMF ap dung throttling qua UPF               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Trigger: Thoi gian trong ngay                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 1. Timer PCF kich hoat (bat dau gio thap diem)  │    │
+│  │ 2. PCF gui SM Policy Update                     │    │
+│  │    - Tang AMBR len toc do toi da                │    │
+│  │ 3. SMF cap nhat UPF QER                         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Trigger: Thay doi vi tri                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ 1. AMF thong bao PCF: nguoi dung o vung roaming │    │
+│  │ 2. PCF ap dung policy roaming                   │    │
+│  │    - QoS khac, dich vu han che                  │    │
+│  │ 3. PCF cap nhat policy AM va SM                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cac tinh huong policy pho bien:**
+
+| Tinh huong | Hanh dong PCF | Hieu ung SMF |
+|------------|---------------|--------------|
+| Thue bao premium | AMBR cao hon, 5QI uu tien | QoS flow tot hon |
+| Dat gioi han du lieu | AMBR = 1 Mbps | Throttling tai UPF |
+| Bat dau goi VoLTE | Them quy tac GBR | Bearer thoai rieng |
+| Roaming | Ap dung policy PLMN visited | Dich vu han che |
+| Enterprise slice | Quy tac dac thu slice | QoS rieng |
+
+**Debug PCF:**
+
+```bash
+# Wireshark: hoat dong dich vu PCF
+http2 && sbi && pcf
+
+# N7 tao policy
+http2.header.path contains "sm-policies"
+
+# N5 uy quyen AF
+http2.header.path contains "app-sessions"
+
+# Kiem tra quyet dinh policy
+grep "PccRule" /var/log/pcf/*.log
+```
+
+**Cac hoat dong API chinh:**
+
+| Giao dien | Hoat dong | Muc dich |
+|-----------|-----------|----------|
+| N7 (SMF) | SMPoliciesPost | Tao SM policy |
+| N7 (SMF) | SMPoliciesUpdate | Sua doi policy |
+| N15 (AMF) | AMPoliciesPost | Tao AM policy |
+| N5 (AF) | PolicyAuthorizationCreate | AF yeu cau QoS |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Thieu lien ket policy.** SMF phai tao SM policy truoc khi session hoan tat. Khong lien ket = mac dinh/tu choi.
+
+2. **UDR khong kha dung.** PCF khong the lay policy thue bao neu UDR bi loi. Can quy tac du phong.
+
+3. **Thoi gian policy.** Cap nhat PCF co the den trong khi session dang sua doi. Co the xay ra race condition.
+
+4. **Khong khop uy quyen AF.** AF yeu cau QoS ma thue bao khong cho phep. PCF phai tu choi hoac giam cap.
+
+5. **Policy cu.** Quyet dinh policy dua tren du lieu cu (thue bao thay doi, vi tri thay doi). Dang ky su kien.
+
+6. **Xung dot policy slice.** Cac slice khac nhau co the co quy tac policy khac nhau. Dam bao context slice dung.
+
+7. **Tich hop tinh cuoc.** PCF dua vao CHF cho su kien su dung. Thieu tich hop = khong co policy dua tren su dung.
+
+8. **Local breakout.** Tinh huong roaming can tuong tac V-PCF/H-PCF. Quyen policy phu thuoc thoa thuan roaming.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.503, "Policy and Charging Control Framework"
+- 3GPP TS 29.512, "SMF Policy Control Service"
+- 3GPP TS 29.507, "AF Policy Authorization Service"
+- 3GPP TS 29.514, "Policy Authorization Service"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Tong quan CHF](/vi/core-network/policy-and-charging/chf-overview/) — phia tinh cuoc cua PCC
+- [Quy tac policy](/vi/core-network/policy-and-charging/policy-and-charging-rules/) — cau truc quy tac PCC
+- [Luong QoS](/vi/core-network/session-management-deep-dive/qos-flows/) — quyet dinh policy tao ra gi
+
+</section>

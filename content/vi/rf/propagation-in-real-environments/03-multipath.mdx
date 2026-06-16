@@ -8,16 +8,16 @@ track: r2
 unit: propagation-in-real-environments
 order: 3
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 15
 prerequisites: ["rf-r2-propagation-in-real-environments-02-two-ray-model"]
 spiralRevisits: []
-title: "Đa đường"
-description: "Nhiều đường tín hiệu tạo phân tán thời gian và chọn lọc tần số."
-authors: ["tindang"]
+title: "Multipath"
+description: "Nhiều đường tín hiệu tạo ra phân tán thời gian, chọn lọc tần số và ISI."
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
-tags: ["multipath", "delay-spread", "frequency-selectivity", "channel"]
+tags: ["multipath", "delay-spread", "frequency-selectivity", "channel", "ofdm", "coherence-bandwidth"]
 widgets: []
 license: CC-BY-SA-4.0
 status: published
@@ -25,9 +25,13 @@ status: published
 
 <section class="lesson-hook">
 
-## Tại sao đa đường quan trọng?
+## Tại sao multipath quan trọng
 
-Trong môi trường thực, tín hiệu đến qua nhiều đường — trực tiếp, phản xạ, tán xạ, nhiễu xạ. Các đường này có độ trễ khác nhau, tạo bản sao tín hiệu đến vào thời điểm khác nhau. Điều này gây nhiễu xuyên ký hiệu, fading chọn lọc tần số, và quyết định hệ thống có cần cân bằng hay OFDM.
+Trong môi trường thực, tín hiệu đến qua nhiều đường — trực tiếp, phản xạ từ tòa nhà, tán xạ từ phương tiện, nhiễu xạ quanh góc. Những đường này có độ dài khác nhau, nên đến với trễ khác nhau. Máy thu thấy không phải một bản sao tín hiệu sạch, mà hàng chục bản sao chồng lên nhau bị dịch thời gian.
+
+Đây là lý do Wi-Fi dùng OFDM, LTE dùng cyclic prefix, và 5G NR có nhiều lựa chọn khoảng cách subcarrier. Không hiểu multipath, bạn không thể hiểu tại sao những lựa chọn kiến trúc này được thực hiện — hay tại sao hệ thống single-carrier hoạt động hoàn hảo ở đồng bằng lại thất bại thảm hại trong thành phố.
+
+Với kỹ sư cloud xây dựng hệ thống qua radio: multipath xác định coherence bandwidth (băng thông kết hợp) của kênh. Nếu băng thông tín hiệu vượt coherence bandwidth, các thành phần tần số khác nhau của tín hiệu fading độc lập — chế độ thất bại hoàn toàn khác với AWGN.
 
 </section>
 
@@ -35,80 +39,124 @@ Trong môi trường thực, tín hiệu đến qua nhiều đường — trực
 
 ## Trực giác
 
-Hãy tưởng tượng hét trong hẻm núi. Bạn nghe tiếng vọng đến vào thời điểm khác nhau. Tín hiệu vô tuyến làm tương tự trong thành phố — dội từ tòa nhà, đến như bóng ma của bản gốc. Nếu tiếng vọng đến trong một chu kỳ ký hiệu, chúng làm mờ ký hiệu. Nếu trải qua nhiều ký hiệu, chúng gây nhiễu xuyên ký hiệu (ISI).
+### Tiếng vọng trong hẻm núi
+
+Hãy tưởng tượng hét to trong hẻm núi. Bạn nghe giọng đến trực tiếp, rồi tiếng vọng từ vách núi ở các trễ khác nhau — 50 ms, 100 ms, 200 ms sau bản gốc. Nếu bạn hét một từ mỗi 80 ms (125 từ mỗi giây), tiếng vọng 100 ms của từ 1 chồng lên từ 2 — bạn không còn phân biệt được chúng. Đây là **nhiễu liên ký tự (ISI — Inter-Symbol Interference)**.
+
+Tín hiệu vô tuyến trong đô thị hoạt động giống hệt. Tòa nhà cách 150 m tạo ra tiếng vọng đến 1 μs sau đường trực tiếp (thêm 300 m / 3×10⁸ m/s). Nếu chu kỳ ký tự là 0.5 μs (2 Msps), tiếng vọng đó rơi vào ký tự tiếp theo — ISI xảy ra.
+
+### Chọn lọc tần số — góc nhìn nhiễu màu
+
+Multipath cũng tạo ra kênh chọn lọc tần số. Các tần số khác nhau trong tín hiệu trải nghiệm lượng nhiễu xây dựng và triệt tiêu khác nhau từ các đường echo. Kênh có độ trải trễ 1 μs có nhiễu xây dựng ở một số tần số và triệt tiêu ở những tần số khác, với mẫu lặp lại khoảng $1/\tau_{rms} \approx 1$ MHz. Nếu băng thông tín hiệu là 10 MHz, một số dải phụ mạnh trong khi những dải khác yếu — kênh trông như bộ lọc lược, không phải bộ suy giảm phẳng.
+
+OFDM xử lý điều này bằng cách chia tín hiệu thành các subcarrier hẹp, mỗi subcarrier đủ hẹp để kênh có vẻ phẳng trong đó. Mỗi subcarrier chỉ cần bộ cân bằng một hệ số đơn giản (một phép nhân phức) thay vì bộ cân bằng miền thời gian nhiều hệ số.
+
+```
+Kênh chọn lọc tần số (delay spread = 1 μs):
+
+Công suất tín hiệu (dB)
+    0  |---\    /---\    /---
+  -10  |    \  /     \  /
+  -20  |     \/       \/
+       +---+---+---+---+----> Tần số
+           1   2   3   4  MHz
+
+Coherence bandwidth Bc ≈ 1/(5 × 1μs) = 200 kHz
+Băng thông tín hiệu (10 MHz) >> Bc → chọn lọc tần số
+Mỗi đoạn 200 kHz fading độc lập
+```
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Cơ chế
+## Cơ chế hoạt động
 
 ### Đáp ứng xung kênh
 
-Kênh đa đường được đặc trưng bởi:
+Kênh multipath được đặc trưng như bộ lọc tuyến tính biến đổi theo thời gian. Đáp ứng xung của nó là tổng các bản sao bị trễ, co giãn và dịch pha của đầu vào:
 
-$$h(\tau) = \sum_{i=0}^{N-1} a_i \delta(\tau - \tau_i) e^{j\phi_i}$$
+$$h(\tau, t) = \sum_{i=0}^{N-1} a_i(t) \, \delta(\tau - \tau_i) \, e^{j\phi_i(t)}$$
 
-- $a_i$ = biên độ đường i
-- $\tau_i$ = độ trễ đường i
-- $\phi_i$ = pha đường i (từ độ dài đường và sóng mang)
+trong đó:
+- $a_i$ = biên độ của đường $i$ (fading theo thời gian)
+- $\tau_i$ = trễ truyền sóng của đường $i$
+- $\phi_i$ = pha của đường $i$ (bao gồm pha sóng mang từ độ dài đường)
+- $N$ = số thành phần multipath đáng kể
 
-### Hồ sơ trễ công suất (PDP)
+Tín hiệu thu là tích chập của tín hiệu phát với $h(\tau, t)$.
 
-Công suất trung bình vs. độ trễ:
+### Biểu đồ trễ công suất (PDP)
+
+Power Delay Profile (PDP) lấy trung bình độ lớn bình phương đáp ứng xung kênh qua fading quy mô nhỏ:
 
 $$P(\tau) = E[|h(\tau)|^2]$$
 
-Thường mô hình hóa suy giảm theo hàm mũ:
+Thường được mô hình là suy giảm hàm mũ:
+$$P(\tau) = \frac{1}{\bar{\tau}} e^{-\tau/\bar{\tau}}, \quad \tau \geq 0$$
 
-$$P(\tau) = \frac{1}{\tau_{rms}} e^{-\tau/\tau_{rms}}$$
+### Các chỉ số delay spread
 
-### Metric phân tán trễ
+**Trễ dư trung bình** — thời gian đến trung bình có trọng số công suất (so với đường đến đầu tiên đáng kể):
+$$\bar{\tau} = \frac{\sum_k P(\tau_k)\, \tau_k}{\sum_k P(\tau_k)}$$
 
-**Độ trễ dư trung bình:**
-$$\bar{\tau} = \frac{\sum_k P(\tau_k) \tau_k}{\sum_k P(\tau_k)}$$
+**Độ trải trễ RMS** — độ lệch chuẩn thời gian đến có trọng số công suất:
+$$\tau_{rms} = \sqrt{\frac{\sum_k P(\tau_k)\, \tau_k^2}{\sum_k P(\tau_k)} - \bar{\tau}^2}$$
 
-**Phân tán trễ RMS:**
-$$\tau_{rms} = \sqrt{\overline{\tau^2} - (\bar{\tau})^2}$$
+Độ trải trễ RMS là tham số kênh quan trọng nhất cho thiết kế dạng sóng. Nó cho biết tín hiệu có bị ISI không và bộ cân bằng cần phức tạp đến mức nào.
 
-trong đó $\overline{\tau^2} = \frac{\sum_k P(\tau_k) \tau_k^2}{\sum_k P(\tau_k)}$
+### Độ trải trễ điển hình
 
-### Băng thông kết hợp
+| Môi trường | $\tau_{rms}$ điển hình | Ghi chú |
+|------------|------------------------|---------|
+| Trong nhà (văn phòng nhỏ) | 10–50 ns | Đường ngắn |
+| Trong nhà (tòa nhà lớn, mặt bằng mở) | 50–200 ns | Phản xạ dài hơn |
+| Vi ô đô thị | 100–500 ns | Phản xạ cấp đường phố |
+| Macro đô thị | 1–5 μs | Phản xạ tòa nhà xa |
+| Ngoại ô | 200 ns–2 μs | Thay đổi theo clutter |
+| Địa hình đồi núi | 5–20 μs | Đỉnh núi xa |
+| Vệ tinh LEO (gần LOS) | 5–20 ns | Hầu như không có multipath |
 
-Phạm vi tần số mà kênh xấp xỉ phẳng:
+### Coherence bandwidth
 
-$$B_c \approx \frac{1}{5\tau_{rms}} \quad \text{(tương quan 0.9)}$$
+Coherence bandwidth $B_c$ là dải tần số trong đó hàm chuyển đổi kênh xấp xỉ không đổi (tương quan). Nó tỷ lệ nghịch với delay spread:
 
-$$B_c \approx \frac{1}{2\pi\tau_{rms}} \quad \text{(tương quan 0.5)}$$
+$$B_c \approx \frac{1}{5\tau_{rms}} \quad \text{(định nghĩa tương quan 0.9)}$$
 
-### Fading chọn lọc tần số vs. phẳng
+$$B_c \approx \frac{1}{2\pi\tau_{rms}} \quad \text{(định nghĩa tương quan 0.5)}$$
 
-| Điều kiện | Loại | Hiệu ứng |
-|-----------|------|----------|
-| $B_s << B_c$ | Fading phẳng | Tất cả tần số fade cùng nhau |
-| $B_s >> B_c$ | Chọn lọc tần số | Tần số khác fade khác nhau |
+Định nghĩa tương quan 0.5 phổ biến hơn trong thiết kế hệ thống.
 
-trong đó $B_s$ = băng thông tín hiệu.
+### Fading phẳng vs. chọn lọc tần số
 
-### Phân tán trễ điển hình
+| Băng thông tín hiệu $B_s$ vs. $B_c$ | Loại fading | Ảnh hưởng lên tín hiệu |
+|--------------------------------------|-------------|------------------------|
+| $B_s \ll B_c$ | Phẳng (không chọn lọc) | Tất cả tần số fading cùng nhau; không ISI |
+| $B_s \gg B_c$ | Chọn lọc tần số | Tần số khác nhau fading khác nhau; ISI xảy ra |
 
-| Môi trường | τ_rms |
-|------------|-------|
-| Trong nhà (văn phòng nhỏ) | 10-50 ns |
-| Trong nhà (tòa nhà lớn) | 50-200 ns |
-| Cellular đô thị | 1-5 μs |
-| Ngoại ô | 200 ns - 2 μs |
-| Địa hình đồi | đến 20 μs |
+### Ngưỡng ISI
 
-### Điều kiện ISI
-
-ISI xảy ra khi phân tán trễ vượt thời gian ký hiệu:
+ISI xảy ra khi delay spread vượt chu kỳ ký tự $T_s = 1/R_s$:
 
 $$\tau_{rms} > T_s$$
 
-Tốc độ ký hiệu tối đa không ISI:
-
+Tốc độ ký tự tối đa không ISI cho hệ thống single-carrier:
 $$R_s < \frac{1}{\tau_{rms}}$$
+
+Với macro đô thị ($\tau_{rms} = 3$ μs): tốc độ không ISI tối đa = 333 ksps. LTE dùng lớp vật lý 7.68 Mcps — vượt 23 lần ngưỡng này — lý do LTE cần cyclic prefix 4.7–16.7 μs.
+
+### OFDM và cyclic prefix
+
+OFDM giải quyết vấn đề multipath bằng cách:
+
+1. **Chia** tín hiệu băng rộng thành $N$ subcarrier hẹp, mỗi subcarrier có băng thông $B_s/N \ll B_c$. Mỗi subcarrier thấy fading phẳng.
+2. **Thêm** cyclic prefix (CP) có thời lượng $T_{cp} \geq \tau_{max}$. CP hấp thụ ISI với chi phí là overhead.
+3. **Dùng** một hệ số phức đơn mỗi subcarrier để cân bằng (chia subcarrier thu cho ước lượng kênh — một phép nhân).
+
+Phân số overhead CP: $T_{cp} / (T_{cp} + T_{symbol})$.
+
+LTE CP thường: $T_{cp} = 4.7$ μs, $T_{symbol} = 66.7$ μs → overhead = 6.6%.
+LTE CP mở rộng: $T_{cp} = 16.7$ μs → overhead = 20% (cho môi trường delay spread cao).
 
 </section>
 
@@ -116,60 +164,85 @@ $$R_s < \frac{1}{\tau_{rms}}$$
 
 ## Áp dụng
 
-**Ví dụ: Wi-Fi trong nhà**
+### Ví dụ 1: Tại sao Wi-Fi dùng OFDM
 
-τ_rms = 50 ns (văn phòng điển hình).
+Văn phòng trong nhà, $\tau_{rms} = 50$ ns.
 
-Băng thông kết hợp:
-$$B_c = \frac{1}{5 \times 50 \times 10^{-9}} = 4 \text{ MHz}$$
+Coherence bandwidth:
+$$B_c = \frac{1}{2\pi \times 50 \times 10^{-9}} = 3.2 \text{ MHz}$$
 
-Wi-Fi dùng băng thông 20 MHz — chọn lọc tần số.
+Wi-Fi 802.11n dùng băng thông 20 MHz — chọn lọc tần số ($20 \gg 3.2$ MHz).
 
-Đây là lý do Wi-Fi dùng OFDM với subcarrier 312.5 kHz (< 4 MHz).
+Khoảng cách subcarrier OFDM: 312.5 kHz (mỗi subcarrier $\ll$ 3.2 MHz, nên thấy fading phẳng).
 
-**Ví dụ: Thiết kế LTE**
+Thời lượng CP: 800 ns (bao phủ độ trải trễ 50 ns với dự trữ cho trễ dư tối đa 200–300 ns).
 
-τ_rms đô thị = 3 μs.
+### Ví dụ 2: Thông số thiết kế LTE theo multipath đô thị
 
-$$B_c = \frac{1}{5 \times 3 \times 10^{-6}} = 67 \text{ kHz}$$
+Macro đô thị, $\tau_{rms} = 3$ μs, $\tau_{max} = 10$ μs.
 
-LTE dùng subcarrier 15 kHz (< 67 kHz) — mỗi subcarrier thấy fading phẳng.
+Coherence bandwidth (tương quan 0.5):
+$$B_c = \frac{1}{2\pi \times 3 \times 10^{-6}} = 53 \text{ kHz}$$
 
-Cyclic prefix: 4.7 μs (bình thường) — bao phủ 3 μs phân tán trễ với dự trữ.
+Khoảng cách subcarrier LTE: 15 kHz $\ll$ 53 kHz → mỗi subcarrier fading phẳng. ✓
 
-**Ví dụ: Giới hạn đơn sóng mang**
+LTE CP thường: 4.7 μs > $\tau_{rms}$ điển hình, nhưng < $\tau_{max}$ ở địa hình đồi núi. Với triển khai nông thôn/đồi núi có $\tau_{max}$ đến 16 μs, dùng CP mở rộng (16.7 μs) — với chi phí giảm throughput 20%.
 
-τ_rms = 1 μs.
+### Ví dụ 3: Tốc độ ký tự tối đa trong đường hầm metro
 
-Tốc độ ký hiệu tối đa không ISI: 1 Msps.
+Đường hầm metro, $\tau_{rms} = 500$ ns (phản xạ cứng từ tường hầm).
 
-Cho tốc độ cao hơn không OFDM: cần cân bằng.
+Tốc độ single-carrier tối đa không ISI:
+$$R_s < \frac{1}{500 \times 10^{-9}} = 2 \text{ Msps}$$
 
-10 Msps với 1 μs phân tán: bộ cân bằng cần ~10 tap.
+Với 16-QAM (4 bit/ký tự): tốc độ dữ liệu tối đa không cần bộ cân bằng = 8 Mbps.
 
-**Ví dụ: Liên kết vệ tinh**
+Với LTE/5G: dùng OFDM với subcarrier 15 kHz và CP. Không cần lo ISI vì OFDM hấp thụ delay spread.
 
-Vệ tinh LEO, τ_rms ≈ 10 ns (gần LOS).
+### Ví dụ 4: Kênh vệ tinh — gần như phẳng
 
-$$B_c = \frac{1}{5 \times 10 \times 10^{-9}} = 20 \text{ MHz}$$
+Vệ tinh LEO ở góc ngẩng 30°, $\tau_{rms} \approx 15$ ns (gần LOS, rất ít tán xạ).
 
-Kênh vệ tinh cơ bản là fading phẳng đến ~20 MHz băng thông.
+Coherence bandwidth:
+$$B_c = \frac{1}{2\pi \times 15 \times 10^{-9}} = 10.6 \text{ MHz}$$
+
+Kênh NB-IoT 5G NTN với băng thông 200 kHz: $200 \text{ kHz} \ll 10.6 \text{ MHz}$ → fading phẳng. Kênh vệ tinh cho IoT băng hẹp về cơ bản là AWGN — delay spread không phải yếu tố thiết kế chính (Doppler và trễ truyền sóng mới là).
+
+### Ví dụ 5: Tính delay spread từ PDP đo được
+
+PDP đo với ba đường chi phối:
+
+| Đường | Trễ (ns) | Công suất tương đối (dB) | Công suất tuyến tính |
+|-------|----------|--------------------------|----------------------|
+| 0 | 0 | 0 | 1.0 |
+| 1 | 100 | -3 | 0.5 |
+| 2 | 400 | -10 | 0.1 |
+
+Trễ dư trung bình:
+$$\bar{\tau} = \frac{1.0 \times 0 + 0.5 \times 100 + 0.1 \times 400}{1.6} = \frac{90}{1.6} = 56.25 \text{ ns}$$
+
+Độ trải trễ RMS:
+$$\tau_{rms} = \sqrt{\frac{21000}{1.6} - 56.25^2} = \sqrt{13125 - 3164} \approx 99.8 \text{ ns}$$
+
+Coherence bandwidth: $1/(2\pi \times 100\text{ ns}) = 1.6$ MHz.
 
 </section>
 
 <section class="lesson-pitfalls">
 
-## Lỗi thường gặp
+## Các bẫy thường gặp
 
-1. **Bỏ qua phân tán trễ.** Hệ thống thiết kế cho AWGN thất bại trong đa đường. Luôn đặc trưng hóa kênh.
+1. **Nhầm lẫn $\tau_{rms}$ với $\tau_{max}$.** Độ trải trễ RMS là thống kê có trọng số công suất. Trễ dư tối đa $\tau_{max}$ (trễ của đường đáng kể cuối cùng) mới xác định độ dài CP cần thiết. $\tau_{max}$ có thể lớn hơn $\tau_{rms}$ từ 3–5 lần cho PDP hàm mũ.
 
-2. **Nhầm băng thông kết hợp và băng thông tín hiệu.** Bc là thuộc tính kênh; Bs là lựa chọn thiết kế hệ thống.
+2. **Giả định fading phẳng vì kênh băng hẹp.** "Băng hẹp" so với băng thông tín hiệu không giống "băng hẹp" so với coherence bandwidth. Tín hiệu IoT 200 kHz trong kênh macro đô thị ($B_c = 53$ kHz) là chọn lọc tần số dù 200 kHz có vẻ hẹp.
 
-3. **Giá trị τ_rms đơn.** Phân tán trễ thay đổi theo môi trường và hình học liên kết. Dùng mô hình phù hợp.
+3. **Quên trọng số công suất khi tính delay spread.** Đường trễ yếu đóng góp ít vào $\tau_{rms}$. Đường nhiễu được đưa vào tổng làm ô nhiễm kết quả — cần ngưỡng hóa PDP trước khi tính.
 
-4. **Quên trọng số công suất.** Phân tán trễ dùng độ trễ trọng số công suất. Đường muộn yếu đóng góp ít.
+4. **OFDM giải ISI nhưng không giải fading.** OFDM chuyển fading chọn lọc tần số thành fading phẳng mỗi subcarrier — không loại bỏ fading. Mỗi subcarrier vẫn fading theo Rayleigh hoặc Rician. OFDM chỉ làm cho cân bằng khả thi; vẫn cần mã hóa, đa dạng hóa hoặc MIMO để chống fading phẳng còn lại.
 
-5. **OFDM giải quyết mọi thứ.** OFDM chuyển chọn lọc tần số thành phẳng mỗi subcarrier — nhưng vẫn cần CP > τ_max.
+5. **Một giá trị $\tau_{rms}$ duy nhất cho môi trường phức tạp.** Delay spread phụ thuộc nhiều vào vị trí. Mô hình cho $\tau_{rms} = 3$ μs cho "đô thị" là trung vị — từng vị trí có thể từ 0.5 đến 15 μs. Thiết kế cho kịch bản triển khai tệ nhất, không phải trung vị.
+
+6. **Bỏ qua nhiễu liên subcarrier (ICI) do Doppler.** Tính trực giao OFDM phụ thuộc vào kênh không đổi trong một ký tự OFDM. Tính di động nhanh (Doppler cao) khiến kênh thay đổi trong một ký tự, phá tính trực giao và gây ICI. Đây là thách thức chính cho OFDM trong các kịch bản xe cộ tốc độ cao và vệ tinh.
 
 </section>
 
@@ -177,8 +250,9 @@ Kênh vệ tinh cơ bản là fading phẳng đến ~20 MHz băng thông.
 
 ## Tài liệu tham khảo
 
-- Rappaport, *Wireless Communications*, Chapter 5.
-- Goldsmith, *Wireless Communications*, Chapter 3.
-- 3GPP TR 38.901, "Channel model for frequencies from 0.5 to 100 GHz."
+- Rappaport, T.S., *Wireless Communications*, xuất bản lần 2, Chương 5 — PDP, delay spread, coherence bandwidth.
+- Goldsmith, A., *Wireless Communications*, Chương 3 — fading phẳng vs. chọn lọc tần số, lý do OFDM.
+- 3GPP TR 38.901 v17.0 — mô hình kênh với thông số PDP cho tất cả môi trường 5G NR.
+- Proakis, J.G. và Salehi, M., *Digital Communications*, xuất bản lần 5, Chương 14 — cân bằng cho kênh chọn lọc tần số.
 
 </section>

@@ -8,17 +8,424 @@ track: s1
 unit: two-body-problem
 order: 2
 level: L2
-estimatedReadingMinutes: 5
-title: "Orbital elements (COEs)"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["space-s1-two-body-problem-01-keplers-laws"]
+spiralRevisits: []
+title: "Classical Orbital Elements (COEs)"
+description: "The six parameters that uniquely describe an orbit: shape, orientation, and position within the orbit."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["orbital-elements", "coes", "keplerian-elements", "tle", "orbit-description"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Orbital elements (COEs)
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+To describe a satellite's orbit, you need exactly six numbers. These Classical Orbital Elements (COEs) tell you the orbit's shape, how it's tilted in space, and where the satellite is at any moment. Every TLE, every mission design, and every tracking system uses these elements.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The six elements
+
+```
+Classical Orbital Elements:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SHAPE (2 elements):                                    │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  a  = Semi-major axis                             │  │
+│  │       → Size of the orbit (km)                    │  │
+│  │       → Determines period (T² ∝ a³)               │  │
+│  │                                                    │  │
+│  │  e  = Eccentricity                                │  │
+│  │       → Shape: 0 = circle, 0<e&lt;1 = ellipse        │  │
+│  │       → Defines how "stretched" the orbit is      │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ORIENTATION (3 elements):                              │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  i  = Inclination                                 │  │
+│  │       → Tilt relative to equator (degrees)        │  │
+│  │       → 0° = equatorial, 90° = polar              │  │
+│  │                                                    │  │
+│  │  Ω  = Right Ascension of Ascending Node (RAAN)    │  │
+│  │       → Where orbit crosses equator going north   │  │
+│  │       → Measured from vernal equinox (degrees)    │  │
+│  │                                                    │  │
+│  │  ω  = Argument of Periapsis                       │  │
+│  │       → Where periapsis is within the orbit       │  │
+│  │       → Measured from ascending node (degrees)    │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  POSITION (1 element):                                  │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  ν  = True Anomaly (or M = Mean Anomaly)          │  │
+│  │       → Where satellite is in the orbit now       │  │
+│  │       → Measured from periapsis (degrees)         │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  SUMMARY: a, e, i, Ω, ω, ν (or M)                       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Visual representation
+
+```
+Orbital Elements in 3D:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ↑ Z (North)                          │
+│                    │                                    │
+│                    │     Orbital plane                  │
+│                    │    ╱                               │
+│                    │   ╱  ω (arg of periapsis)          │
+│                    │  ╱────→ Periapsis                  │
+│                    │ ╱ ╲                                │
+│                    │╱   ╲ Satellite position (ν)        │
+│  ──────────────────☉────────────→ X (Vernal Equinox)   │
+│                   ╱│╲                                   │
+│                  ╱ │ ╲                                  │
+│                 ╱  │  ╲ Ascending node (Ω)              │
+│                ╱   │   ╲                                │
+│         Y ←───╱    │    ╲                               │
+│                    │     i (inclination)                │
+│                    │                                    │
+│                                                          │
+│  Reference Frame: Earth-Centered Inertial (ECI)         │
+│  • X: Vernal equinox direction                          │
+│  • Z: North pole direction                              │
+│  • Y: Completes right-hand system                       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Detailed element definitions
+
+```
+Element Details:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SEMI-MAJOR AXIS (a)                                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Definition: Half the longest diameter           │    │
+│  │                                                  │    │
+│  │  a = (rp + ra) / 2                              │    │
+│  │                                                  │    │
+│  │  Determines:                                    │    │
+│  │  • Orbital period: T = 2π√(a³/μ)                │    │
+│  │  • Orbital energy: ε = -μ/(2a)                  │    │
+│  │                                                  │    │
+│  │  Typical values:                                │    │
+│  │  • LEO: 6,600 - 8,000 km                        │    │
+│  │  • MEO: 20,000 - 35,000 km                      │    │
+│  │  • GEO: 42,164 km                               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ECCENTRICITY (e)                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Definition: How elliptical the orbit is        │    │
+│  │                                                  │    │
+│  │  e = (ra - rp) / (ra + rp)                      │    │
+│  │                                                  │    │
+│  │  Range:                                         │    │
+│  │  • e = 0: Circle                                │    │
+│  │  • 0 < e < 1: Ellipse (bound orbit)             │    │
+│  │  • e = 1: Parabola                              │    │
+│  │  • e > 1: Hyperbola                             │    │
+│  │                                                  │    │
+│  │  Examples:                                      │    │
+│  │  • ISS: e ≈ 0.0006                              │    │
+│  │  • GTO: e ≈ 0.73                                │    │
+│  │  • Molniya: e ≈ 0.74                            │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  INCLINATION (i)                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Definition: Angle between orbital plane and    │    │
+│  │              equatorial plane                   │    │
+│  │                                                  │    │
+│  │  Range: 0° to 180°                              │    │
+│  │  • i < 90°: Prograde (with Earth rotation)      │    │
+│  │  • i = 90°: Polar                               │    │
+│  │  • i > 90°: Retrograde (against rotation)       │    │
+│  │                                                  │    │
+│  │  Common values:                                 │    │
+│  │  • GEO: i ≈ 0°                                  │    │
+│  │  • ISS: i ≈ 51.6°                               │    │
+│  │  • Sun-sync: i ≈ 98°                            │    │
+│  │  • Polar: i = 90°                               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Angular elements
+
+```
+RAAN, Argument of Periapsis, True Anomaly:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  RIGHT ASCENSION OF ASCENDING NODE (Ω)                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Definition: Angle from vernal equinox to       │    │
+│  │              ascending node, measured in        │    │
+│  │              equatorial plane                   │    │
+│  │                                                  │    │
+│  │  Ascending node: where orbit crosses equator    │    │
+│  │                  going south → north            │    │
+│  │                                                  │    │
+│  │          ↑ North                                │    │
+│  │          │                                      │    │
+│  │          │    ╱ Orbit                           │    │
+│  │    ☉─────┼───○─────→ Vernal equinox            │    │
+│  │          │   ╲ Ascending                        │    │
+│  │          │    ╲ node                            │    │
+│  │          │                                      │    │
+│  │          ←─── Ω ───→                            │    │
+│  │                                                  │    │
+│  │  Range: 0° to 360°                              │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ARGUMENT OF PERIAPSIS (ω)                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Definition: Angle from ascending node to       │    │
+│  │              periapsis, measured in orbital     │    │
+│  │              plane                              │    │
+│  │                                                  │    │
+│  │         Periapsis                               │    │
+│  │              ○                                  │    │
+│  │             ╱                                   │    │
+│  │            ╱ ω                                  │    │
+│  │     ☉────○──────                                │    │
+│  │          Ascending                              │    │
+│  │          node                                   │    │
+│  │                                                  │    │
+│  │  Range: 0° to 360°                              │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  TRUE ANOMALY (ν)                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Definition: Angle from periapsis to current    │    │
+│  │              satellite position, measured at    │    │
+│  │              central body                       │    │
+│  │                                                  │    │
+│  │              Satellite                          │    │
+│  │                  ●                              │    │
+│  │                 ╱                               │    │
+│  │                ╱ ν                              │    │
+│  │     ☉────────○──────                            │    │
+│  │              Periapsis                          │    │
+│  │                                                  │    │
+│  │  Range: 0° to 360°                              │    │
+│  │  ν = 0° at periapsis                            │    │
+│  │  ν = 180° at apoapsis                           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Special cases
+
+```
+Degenerate Cases (Undefined Elements):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  CIRCULAR ORBIT (e = 0)                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Problem: No periapsis → ω undefined            │    │
+│  │                                                  │    │
+│  │  Solution: Use argument of latitude (u)         │    │
+│  │            u = ω + ν                            │    │
+│  │                                                  │    │
+│  │            Measures angle from ascending node   │    │
+│  │            to satellite position                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  EQUATORIAL ORBIT (i = 0°)                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Problem: No ascending node → Ω undefined       │    │
+│  │                                                  │    │
+│  │  Solution: Use longitude of periapsis (ϖ)       │    │
+│  │            ϖ = Ω + ω                            │    │
+│  │                                                  │    │
+│  │            Measures periapsis from vernal       │    │
+│  │            equinox directly                     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  CIRCULAR EQUATORIAL (e = 0, i = 0°)                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Problem: Both Ω and ω undefined                │    │
+│  │                                                  │    │
+│  │  Solution: Use true longitude (l)               │    │
+│  │            l = Ω + ω + ν                        │    │
+│  │                                                  │    │
+│  │            Satellite position measured directly │    │
+│  │            from vernal equinox                  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example orbit descriptions:**
+
+| Orbit | a (km) | e | i (°) | Ω (°) | ω (°) | ν (°) |
+|-------|--------|---|-------|-------|-------|-------|
+| ISS | 6,778 | 0.0006 | 51.6 | varies | varies | varies |
+| GEO | 42,164 | 0.0001 | 0.05 | N/A | N/A | varies |
+| GPS | 26,560 | 0.01 | 55 | varies | varies | varies |
+| Molniya | 26,600 | 0.74 | 63.4 | varies | 270 | varies |
+
+**Converting state vectors to COEs:**
+
+```python
+import numpy as np
+
+def rv_to_coe(r_vec, v_vec, mu=398600.4418):
+    """
+    Convert position/velocity to orbital elements
+    r_vec: position vector (km)
+    v_vec: velocity vector (km/s)
+    mu: gravitational parameter (km³/s²)
+    """
+    r = np.linalg.norm(r_vec)
+    v = np.linalg.norm(v_vec)
+    
+    # Angular momentum
+    h_vec = np.cross(r_vec, v_vec)
+    h = np.linalg.norm(h_vec)
+    
+    # Node vector
+    K = np.array([0, 0, 1])
+    n_vec = np.cross(K, h_vec)
+    n = np.linalg.norm(n_vec)
+    
+    # Eccentricity vector
+    e_vec = ((v**2 - mu/r)*r_vec - np.dot(r_vec, v_vec)*v_vec) / mu
+    e = np.linalg.norm(e_vec)
+    
+    # Semi-major axis
+    energy = v**2/2 - mu/r
+    a = -mu / (2*energy)
+    
+    # Inclination
+    i = np.arccos(h_vec[2]/h)
+    
+    # RAAN
+    Omega = np.arccos(n_vec[0]/n) if n > 1e-10 else 0
+    if n_vec[1] < 0:
+        Omega = 2*np.pi - Omega
+    
+    # Argument of periapsis
+    omega = np.arccos(np.dot(n_vec, e_vec)/(n*e)) if n > 1e-10 and e > 1e-10 else 0
+    if e_vec[2] < 0:
+        omega = 2*np.pi - omega
+    
+    # True anomaly
+    nu = np.arccos(np.dot(e_vec, r_vec)/(e*r)) if e > 1e-10 else 0
+    if np.dot(r_vec, v_vec) < 0:
+        nu = 2*np.pi - nu
+    
+    return {
+        'a': a, 'e': e, 
+        'i': np.degrees(i),
+        'RAAN': np.degrees(Omega),
+        'omega': np.degrees(omega),
+        'nu': np.degrees(nu)
+    }
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Undefined elements.** For circular (e=0) or equatorial (i=0) orbits, some elements are undefined.
+
+2. **Angle ranges.** Angles can be 0-360° or -180° to 180°. Check convention.
+
+3. **Mean vs true anomaly.** M (mean) varies linearly with time. ν (true) does not.
+
+4. **Reference frame.** COEs are typically in ECI (J2000). Other frames exist.
+
+5. **Perturbations change elements.** J2 causes Ω and ω to drift. a and e change with drag.
+
+6. **TLE format.** TLEs use mean elements, not osculating elements.
+
+7. **Units.** a is usually km, angles are degrees or radians. Be consistent.
+
+8. **Epoch matters.** Elements are valid at a specific time. They change with perturbations.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Vallado, D., "Fundamentals of Astrodynamics and Applications"
+- Bate, Mueller, White, "Fundamentals of Astrodynamics"
+- Curtis, H., "Orbital Mechanics for Engineering Students"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Anomalies](/en/space/two-body-problem/anomalies/) — tracking position in orbit
+- [Orbit Propagation](/en/space/two-body-problem/orbit-propagation/) — predicting future positions
+- [Vis-Viva Equation](/en/space/two-body-problem/vis-viva-equation/) — energy relationships
+
+</section>

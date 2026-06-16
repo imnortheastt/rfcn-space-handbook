@@ -8,17 +8,459 @@ track: s7
 unit: modulation-coding-satellite
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
 title: "DVB-S2 va DVB-S2X"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Tieu chuan phat song ve tinh thong tri va su phat trien cua no."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["dvb-s2", "dvb-s2x", "phat-song-ve-tinh", "dieu-che"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# DVB-S2 va DVB-S2X
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Neu ban da tung xem truyen hinh ve tinh, nhan hinh anh thoi tiet, hoac tai du lieu tu ve tinh thong tin GEO, ban da su dung DVB-S2. Day la tieu chuan cong nghiep cho phat song ve tinh tu 2005, va phien ban ke nhiem DVB-S2X (2014) day hieu suat cao hon nua. Cac tieu chuan nay dinh nghia moi thu tu cac phuong an dieu che den cau truc khung den sua loi—chung la "TCP/IP cua phat song ve tinh." Hieu DVB-S2/S2X la thiet yeu cho bat ky ai lam viec voi thong tin ve tinh thuong mai.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### DVB-S2 trong ho cac tieu chuan
+
+```
+Tien hoa Tieu chuan Ve tinh DVB:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1994: DVB-S (The he Dau tien)                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  • Chi QPSK                                           │         │
+│  │  • Ma hoa Reed-Solomon + Convolutional               │         │
+│  │  • ~35% hieu suat pho so voi ly thuyet              │         │
+│  │  • Du tot cho TV SD                                   │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  2005: DVB-S2 (The he Thu hai)                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  • QPSK, 8PSK, 16APSK, 32APSK                        │         │
+│  │  • Ma hoa LDPC + BCH (gan gioi han Shannon)          │         │
+│  │  • ~30% dung luong nhieu hon DVB-S                   │         │
+│  │  • TV HD, du lieu IP, dich vu chuyen nghiep          │         │
+│  │  • ACM (Ma hoa & Dieu che Thich ung)                 │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  2014: DVB-S2X (Mo rong)                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  • Len den 256APSK                                    │         │
+│  │  • 116 MODCOD (so voi 28 trong DVB-S2)               │         │
+│  │  • ~51% dung luong nhieu hon DVB-S2                  │         │
+│  │  • Do hat min hon cho ACM                            │         │
+│  │  • Roll-off nho hon (5%, 10%, 15%, 20%)              │         │
+│  │  • Cau truc sieu khung cho di dong                   │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  HIEU BIET CHINH:                                     │         │
+│  │                                                        │         │
+│  │  DVB-S2 dat trong ~1 dB cua gioi han Shannon!        │         │
+│  │  (Shannon = bit/Hz toi da ly thuyet cho SNR cho truoc)│        │
+│  │                                                        │         │
+│  │  Dieu nay co nghia khong con nhieu cho cho DVB-S3.   │         │
+│  │  Tang truong tuong lai den tu cac linh vuc khac      │         │
+│  │  (anten, tai su dung tan so, tao chum).              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Cau truc khung
+
+```
+Khung Lop Vat ly DVB-S2:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KHUNG BANG CO SO (dau vao):                                        │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ BBHEADER │         TRUONG DU LIEU        │ DEM (opt) │       │   │
+│  │ (10 B)   │      (den 7274 byte)          │           │       │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  Sau khi ma hoa FEC:                                                │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │      BCH      │              LDPC PARITY                  │   │   │
+│  │   (168-192 b) │            (tuy theo ty le)               │   │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  KHUNG LOP VAT LY:                                                  │
+│  ┌─────┬──────────────────────────────────────────────────────┐    │
+│  │ PL  │                       SLOT                           │    │
+│  │ HDR │  ┌─────┬─────┬─────┬─────┬ ... ┬─────┬─────┐       │    │
+│  │     │  │ 90  │ 90  │ 90  │ 90  │     │ 90  │ 90  │       │    │
+│  │ 90  │  │symb │symb │symb │symb │     │symb │symb │       │    │
+│  │symb │  │  P  │     │  P  │     │     │  P  │     │       │    │
+│  └─────┴──┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘       │    │
+│                                                                      │
+│  PL HEADER (90 ky hieu):                                            │
+│  • SOF (Bat dau Khung): 26 ky hieu                                 │
+│  • MODCOD + Loai Khung: 64 ky hieu (trai de ben vung)              │
+│                                                                      │
+│  P = Khoi PILOT (36 ky hieu moi 16 slot)                           │
+│  • Tuy chon nhung thuong bat                                        │
+│  • Phuc hoi song mang/pha cho may thu                              │
+│                                                                      │
+│  KICH THUOC KHUNG:                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Khung binh thuong: 64,800 bit da ma                  │         │
+│  │  Khung ngan:        16,200 bit da ma (do tre thap hon)│         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cac chom sao dieu che
+
+```
+Cac Tuy chon Dieu che DVB-S2/S2X:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  QPSK (2 bit/ky hieu)           8PSK (3 bit/ky hieu)               │
+│                                                                      │
+│        │ ●       ●                     ●     ●                      │
+│        │                             ●    │    ●                    │
+│   ─────┼─────                      ─────┼─────                      │
+│        │                             ●    │    ●                    │
+│        │ ●       ●                     ●     ●                      │
+│                                                                      │
+│  Ben vung nhat, dung              Dung cho dieu kien               │
+│  cho lien ket kho khan           SNR vua phai                       │
+│                                                                      │
+│  ───────────────────────────────────────────────────────────────   │
+│                                                                      │
+│  16APSK (4 bit/ky hieu)          32APSK (5 bit/ky hieu)            │
+│                                                                      │
+│     ●    ●    ●    ●            ●  ●    ●  ●    ●                  │
+│       ●  ●  ●  ●                  ●   ●●●   ●                       │
+│   ●  ●   ┼   ●  ●            ●  ●  ●  ┼  ●  ●  ●                  │
+│       ●  ●  ●  ●                  ●   ●●●   ●                       │
+│     ●    ●    ●    ●            ●  ●    ●  ●    ●                  │
+│                                                                      │
+│  Hai vong: 4 trong,             Ba vong cho                         │
+│  12 ngoai (R=2.7 dien hinh)     hieu suat toi uu                   │
+│                                                                      │
+│  ───────────────────────────────────────────────────────────────   │
+│                                                                      │
+│  THEM DVB-S2X: 64APSK, 128APSK, 256APSK                            │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  TAI SAO "APSK" KHONG PHAI "QAM"?                     │         │
+│  │                                                        │         │
+│  │  • HPA ve tinh hoat dong o bao hoa (phi tuyen)       │         │
+│  │  • QAM co bien do thay doi → meo                     │         │
+│  │  • APSK dung cac vong bien do khong doi → than HPA   │         │
+│  │  • Ty le vong toi uu hoa theo MODCOD                 │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Ty le ma va MODCOD
+
+```
+Chon MODCOD DVB-S2:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MODCOD = Dieu che + Ty le ma                                       │
+│                                                                      │
+│  DVB-S2 (28 MODCOD):                                                │
+│  ┌────────────┬────────────────────────────────────────────────┐   │
+│  │ Dieu che   │ Ty le Ma                                       │   │
+│  ├────────────┼────────────────────────────────────────────────┤   │
+│  │ QPSK       │ 1/4, 1/3, 2/5, 1/2, 3/5, 2/3, 3/4, 4/5, 5/6,  │   │
+│  │            │ 8/9, 9/10                                       │   │
+│  ├────────────┼────────────────────────────────────────────────┤   │
+│  │ 8PSK       │ 3/5, 2/3, 3/4, 5/6, 8/9, 9/10                  │   │
+│  ├────────────┼────────────────────────────────────────────────┤   │
+│  │ 16APSK     │ 2/3, 3/4, 4/5, 5/6, 8/9, 9/10                  │   │
+│  ├────────────┼────────────────────────────────────────────────┤   │
+│  │ 32APSK     │ 3/4, 4/5, 5/6, 8/9, 9/10                       │   │
+│  └────────────┴────────────────────────────────────────────────┘   │
+│                                                                      │
+│  DVB-S2X them 88 MODCOD nua:                                        │
+│  • SNR rat thap: QPSK 2/9, 11/45, 13/45, etc.                      │
+│  • SNR rat cao: 64APSK, 128APSK, 256APSK                           │
+│  • Do hat min hon: buoc ~0.2 dB co the                             │
+│                                                                      │
+│  HIEU SUAT PHO:                                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  MODCOD          │ HS (bps/Hz) │ Es/N0 Yeu cau        │         │
+│  │  ─────────────────┼─────────────┼────────────────      │         │
+│  │  QPSK 1/4         │ 0.49        │ -2.4 dB (!)         │         │
+│  │  QPSK 1/2         │ 0.99        │ 1.0 dB              │         │
+│  │  QPSK 3/4         │ 1.49        │ 4.0 dB              │         │
+│  │  8PSK 2/3         │ 1.98        │ 6.6 dB              │         │
+│  │  16APSK 3/4       │ 2.97        │ 10.2 dB             │         │
+│  │  32APSK 8/9       │ 4.40        │ 13.6 dB             │         │
+│  │  256APSK 3/4 (S2X)│ 5.96        │ 17.7 dB             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  Luu y: Ty le ma thap hon = du thua nhieu hon = hoat dong o SNR thap│
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Van hanh ACM
+
+```
+Ma hoa va Dieu che Thich ung (ACM):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KICH BAN: Ve tinh GEO phuc vu nhieu tram mat dat                  │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │              ┌──────────┐                             │         │
+│  │              │ VE TINH  │                             │         │
+│  │              └────┬─────┘                             │         │
+│  │           ╱       │       ╲                           │         │
+│  │         ╱         │         ╲                         │         │
+│  │       ╱           │           ╲                       │         │
+│  │  ┌─────┐     ┌─────┐     ┌─────┐                     │         │
+│  │  │ A   │     │  B  │     │  C  │                     │         │
+│  │  │Troi │     │Mua  │     │Mua  │                     │         │
+│  │  │quang│     │     │     │to   │                     │         │
+│  │  └─────┘     └─────┘     └─────┘                     │         │
+│  │                                                        │         │
+│  │  Tram A: 32APSK 5/6 → 4.0 bps/Hz (SNR cao)           │         │
+│  │  Tram B: 16APSK 2/3 → 2.6 bps/Hz (vua phai)          │         │
+│  │  Tram C: QPSK 1/2   → 1.0 bps/Hz (SNR thap)          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ACM HOAT DONG NHU THE NAO:                                         │
+│                                                                      │
+│  1. Moi tram do SNR nhan duoc                                       │
+│  2. Tram bao cao SNR qua kenh hoi                                   │
+│  3. Hub chon MODCOD toi uu cho khung cua moi tram                   │
+│  4. MODCOD duoc bao hieu trong PL header (may thu tu giai ma)       │
+│  5. Khi mua tan, tram C duoc nang cap len MODCOD cao hon            │
+│                                                                      │
+│  LOI ICH: Khong lang phi dung luong "thiet ke cho xau nhat"!       │
+│  VCM (Ma hoa & Dieu che Thay doi): Tuong tu nhung khong phan hoi   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Chon MODCOD va tinh toan dung luong:**
+
+```python
+import numpy as np
+
+# Bang MODCOD DVB-S2 (tap con)
+MODCODS = [
+    {"ten": "QPSK 1/4",    "dieu_che": "QPSK",   "ty_le": 0.25, "hs": 0.49, "es_n0_db": -2.35},
+    {"ten": "QPSK 1/3",    "dieu_che": "QPSK",   "ty_le": 0.33, "hs": 0.66, "es_n0_db": -1.24},
+    {"ten": "QPSK 1/2",    "dieu_che": "QPSK",   "ty_le": 0.50, "hs": 0.99, "es_n0_db": 1.00},
+    {"ten": "QPSK 2/3",    "dieu_che": "QPSK",   "ty_le": 0.67, "hs": 1.32, "es_n0_db": 3.10},
+    {"ten": "QPSK 3/4",    "dieu_che": "QPSK",   "ty_le": 0.75, "hs": 1.49, "es_n0_db": 4.03},
+    {"ten": "QPSK 5/6",    "dieu_che": "QPSK",   "ty_le": 0.83, "hs": 1.65, "es_n0_db": 4.68},
+    {"ten": "8PSK 2/3",    "dieu_che": "8PSK",   "ty_le": 0.67, "hs": 1.98, "es_n0_db": 6.62},
+    {"ten": "8PSK 3/4",    "dieu_che": "8PSK",   "ty_le": 0.75, "hs": 2.23, "es_n0_db": 7.91},
+    {"ten": "16APSK 2/3",  "dieu_che": "16APSK", "ty_le": 0.67, "hs": 2.64, "es_n0_db": 9.04},
+    {"ten": "16APSK 3/4",  "dieu_che": "16APSK", "ty_le": 0.75, "hs": 2.97, "es_n0_db": 10.21},
+    {"ten": "16APSK 5/6",  "dieu_che": "16APSK", "ty_le": 0.83, "hs": 3.30, "es_n0_db": 11.03},
+    {"ten": "32APSK 3/4",  "dieu_che": "32APSK", "ty_le": 0.75, "hs": 3.70, "es_n0_db": 12.17},
+    {"ten": "32APSK 5/6",  "dieu_che": "32APSK", "ty_le": 0.83, "hs": 4.12, "es_n0_db": 13.05},
+    {"ten": "32APSK 8/9",  "dieu_che": "32APSK", "ty_le": 0.89, "hs": 4.40, "es_n0_db": 13.64},
+]
+
+def chon_modcod(es_n0_co_san_db, margin_db=1.0):
+    """Chon MODCOD tot nhat cho Es/N0 cho truoc voi margin."""
+    co_the_dung = es_n0_co_san_db - margin_db
+    tot_nhat = None
+    for mc in MODCODS:
+        if mc["es_n0_db"] <= co_the_dung:
+            if tot_nhat is None or mc["hs"] > tot_nhat["hs"]:
+                tot_nhat = mc
+    return tot_nhat
+
+def tinh_toc_do_du_lieu(toc_do_ky_hieu_msps, modcod, rolloff=0.2):
+    """Tinh toc do du lieu cho toc do ky hieu va MODCOD cho truoc."""
+    return toc_do_ky_hieu_msps * modcod["hs"]  # Mbps
+
+print("Phan tich MODCOD DVB-S2")
+print("=" * 60)
+
+print("\n1. Chon MODCOD theo SNR")
+print("-" * 60)
+
+snr_thu = [-2, 0, 3, 6, 9, 12, 14]
+
+print(f"  {'Es/N0':>8} {'MODCOD Da chon':<16} {'Hieu suat':>12}")
+print("-" * 60)
+
+for snr in snr_thu:
+    mc = chon_modcod(snr)
+    if mc:
+        print(f"  {snr:>6.1f} dB  {mc['ten']:<16} {mc['hs']:>8.2f} bps/Hz")
+    else:
+        print(f"  {snr:>6.1f} dB  {'(khong MODCOD)':<<16}")
+
+# Tinh toan dung luong transponder
+print("\n2. Phan tich Dung luong Transponder")
+print("-" * 60)
+
+bang_thong_transponder_mhz = 36  # Transponder Ku-band dien hinh
+rolloffs = [0.35, 0.25, 0.20, 0.15, 0.10, 0.05]
+
+print(f"  Bang thong transponder: {bang_thong_transponder_mhz} MHz")
+print()
+print(f"  {'Roll-off':>8} {'Toc do Ky hieu':>14} {'Dung luong (32APSK 5/6)':>22}")
+print("-" * 60)
+
+modcod_32apsk_56 = MODCODS[-3]  # 32APSK 5/6
+
+for ro in rolloffs:
+    toc_do_ky_hieu = bang_thong_transponder_mhz / (1 + ro)
+    dung_luong = tinh_toc_do_du_lieu(toc_do_ky_hieu, modcod_32apsk_56)
+    dvb = "DVB-S2" if ro >= 0.20 else "DVB-S2X"
+    print(f"  {ro*100:>5.0f}%    {toc_do_ky_hieu:>10.2f} Msps    {dung_luong:>8.1f} Mbps ({dvb})")
+
+# Kich ban ACM
+print("\n3. Cai thien Dung luong ACM")
+print("-" * 60)
+
+# Gia su 10 tram voi dieu kien khac nhau
+tram = [
+    {"id": 1, "snr": 14, "phan_tram_thoi_gian": 10},  # Dieu kien tot
+    {"id": 2, "snr": 12, "phan_tram_thoi_gian": 20},
+    {"id": 3, "snr": 10, "phan_tram_thoi_gian": 30},
+    {"id": 4, "snr": 8, "phan_tram_thoi_gian": 25},
+    {"id": 5, "snr": 5, "phan_tram_thoi_gian": 15},  # Suy giam mua
+]
+
+# CCM: thiet ke cho truong hop xau nhat
+snr_xau_nhat = min(t["snr"] for t in tram)
+ccm_modcod = chon_modcod(snr_xau_nhat)
+
+# ACM: thich ung theo tram
+acm_hs_tb = 0
+tong_thoi_gian = 0
+
+for t in tram:
+    mc = chon_modcod(t["snr"])
+    acm_hs_tb += mc["hs"] * t["phan_tram_thoi_gian"] / 100
+    tong_thoi_gian += t["phan_tram_thoi_gian"]
+
+print(f"  CCM (thiet ke xau nhat): {ccm_modcod['ten']}")
+print(f"    Hieu suat co dinh: {ccm_modcod['hs']:.2f} bps/Hz")
+print()
+print(f"  ACM (thich ung):")
+print(f"    Hieu suat trung binh: {acm_hs_tb:.2f} bps/Hz")
+print()
+
+cai_thien = (acm_hs_tb / ccm_modcod['hs'] - 1) * 100
+print(f"  Cai thien ACM: +{cai_thien:.1f}%")
+
+# Dinh thoi khung
+print("\n4. Dinh thoi Khung")
+print("-" * 60)
+
+toc_do_ky_hieu_msps = 30  # 30 Msps dien hinh
+
+ky_hieu_khung_thuong = 33282  # Voi pilot
+ky_hieu_khung_ngan = 8370
+
+khung_thuong_us = ky_hieu_khung_thuong / toc_do_ky_hieu_msps
+khung_ngan_us = ky_hieu_khung_ngan / toc_do_ky_hieu_msps
+
+print(f"  Toc do ky hieu: {toc_do_ky_hieu_msps} Msps")
+print()
+print(f"  Khung thuong: {ky_hieu_khung_thuong} ky hieu = {khung_thuong_us:.0f} µs = {khung_thuong_us/1000:.2f} ms")
+print(f"  Khung ngan:   {ky_hieu_khung_ngan} ky hieu = {khung_ngan_us:.0f} µs = {khung_ngan_us/1000:.2f} ms")
+print()
+print(f"  Khung ngan huu ich cho: giong noi do tre thap, dich vu tuong tac")
+```
+
+**Thong so chinh:**
+
+| Tham so | DVB-S2 | DVB-S2X |
+|---------|--------|---------|
+| Roll-off | 0.35, 0.25, 0.20 | +0.15, 0.10, 0.05 |
+| MODCOD | 28 | 116 |
+| Dieu che toi da | 32APSK | 256APSK |
+| HS toi da | ~4.4 bps/Hz | ~5.9 bps/Hz |
+| Khoang cach Shannon | ~1.2 dB | ~0.7 dB |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Nham lan DVB-S2 voi DVB-S2X.** S2X yeu cau thiet bi tuong thich. Hau het may thu cu chi ho tro S2.
+
+2. **Dung MODCOD cao khong co du margin.** 32APSK 8/9 hieu qua nhung can ~14 dB Es/N0 cong them margin.
+
+3. **Bo qua roll-off trong tinh toan bang thong.** Toc do ky hieu = bang thong / (1 + roll-off). Roll-off nho = dung luong lon hon.
+
+4. **Quen lui HPA cho APSK bac cao.** 32APSK can lui dau ra 2-3 dB, giam cong suat hieu dung.
+
+5. **ACM khong co kenh hoi hop le.** Can bao cao SNR dang tin cay; do cu gay lech MODCOD.
+
+6. **Tron kich thuoc khung giua luong.** May thu can loai khung nhat quan trong Physical Layer Pipe (PLP).
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- ETSI EN 302 307-1 (DVB-S2)
+- ETSI EN 302 307-2 (DVB-S2X)
+- DVB BlueBook A171-2 (Huong dan Trien khai DVB-S2X)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [ACM](/vi/space/modulation-coding-satellite/acm/) — chon MODCOD thich ung
+- [LDPC va BCH](/vi/space/modulation-coding-satellite/ldpc-bch/) — sua loi ben duoi DVB-S2
+- [MODCODs](/vi/space/modulation-coding-satellite/modcods/) — di sau vao cac to hop dieu che/ma hoa
+
+</section>

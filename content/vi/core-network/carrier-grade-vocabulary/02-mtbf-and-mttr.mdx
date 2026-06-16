@@ -8,17 +8,432 @@ track: n0
 unit: carrier-grade-vocabulary
 order: 2
 level: L1
-estimatedReadingMinutes: 5
-title: "MTBF va MTTR"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 13
+prerequisites: ["core-network-n0-carrier-grade-vocabulary-01-kpis-and-slas"]
+spiralRevisits: ["core-network-n0-carrier-grade-vocabulary-03-redundancy-patterns"]
+title: "MTBF và MTTR"
+description: "Mean Time Between Failures và Mean Time To Repair — toán học đằng sau độ tin cậy, mở rộng sang cloud-native 5G Network Functions và các failure mode phần mềm."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["ITU-T E.800", "IEEE 1366", "Telcordia SR-332"]
+tags: ["mtbf", "mttr", "reliability", "availability", "5g", "cloud-native", "nf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# MTBF va MTTR
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+"Router này đáng tin cậy" là chủ quan. "AMF này có hardware MTBF 1,000,000 giờ nhưng software MTBF chỉ 200 giờ do memory leak" mới có thể hành động được.
+
+MTBF và MTTR là các metric nền tảng để dự đoán và đo lường độ tin cậy. Chúng được dùng để thiết kế redundancy, tính availability, so sánh thiết bị và lập kế hoạch bảo trì. Mọi kỹ sư telecom cần hiểu chúng — và cloud engineer cần hiểu mô hình phần cứng truyền thống mở rộng như thế nào (và ở đâu nó không còn đúng) khi áp dụng cho 5G Network Function containerized.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+### MTBF là gì?
+
+**MTBF (Mean Time Between Failures)** là thời gian trung bình hệ thống hoạt động trước khi fail.
+
+```
+         Failure 1         Failure 2         Failure 3
+            │                  │                  │
+────────────┼──────────────────┼──────────────────┼────────────
+            │                  │                  │
+      Time A = 1000h     Time B = 1200h     Time C = 800h
+
+MTBF = (1000 + 1200 + 800) / 3 = 1000 giờ
+```
+
+**MTBF cao hơn = Đáng tin cậy hơn**
+
+Router carrier-grade với MTBF 1,000,000 giờ về mặt thống kê được kỳ vọng fail một lần mỗi khoảng 114 năm. Nhưng đây là trung bình thống kê, không phải bảo đảm — bất kỳ unit cụ thể nào cũng có thể fail sớm hơn nhiều.
+
+### MTTR là gì?
+
+**MTTR (Mean Time To Repair)** là thời gian trung bình để khôi phục hệ thống fail về trạng thái hoạt động.
+
+```
+Failure xảy ra        Hệ thống khôi phục
+      │                     │
+──────┼─────────────────────┼──────────────────────
+      │                     │
+      │◄──── MTTR = 4h ────►│
+      │                     │
+  Detection + Diagnosis + Repair + Verification
+```
+
+**MTTR thấp hơn = Khôi phục nhanh hơn**
+
+MTTR bao gồm:
+- **Detection time:** Mất bao lâu để biết nó hỏng?
+- **Diagnosis time:** Cái gì fail và tại sao?
+- **Repair time:** Fix hoặc thay thế
+- **Verification time:** Xác nhận nó đang hoạt động
+
+### Phương trình availability
+
+```
+Availability = MTBF / (MTBF + MTTR)
+```
+
+**Ví dụ:**
+```
+MTBF = 10,000 giờ
+MTTR = 1 giờ
+
+Availability = 10,000 / (10,000 + 1) = 99.99%
+```
+
+**Insight quan trọng:** Bạn có thể cải thiện availability bằng cách:
+- Tăng MTBF (component đáng tin cậy hơn)
+- Giảm MTTR (repair nhanh hơn)
+- Thêm redundancy (che giấu failure hoàn toàn)
+
+### Hardware MTBF vs software MTBF
+
+Đây là nơi cloud engineer cần một mental model mới:
+
+| Loại failure | Khoảng MTBF | Nguyên nhân | MTTR |
+|-------------|-------------|-------------|------|
+| Hardware (NIC, ASIC) | 500K–1M giờ | Mài mòn vật lý, ESD | Giờ (swap) |
+| OS / hypervisor | 10K–100K giờ | Kernel panic, resource leak | Phút (reboot) |
+| Container / pod | 100–10K giờ | OOM kill, crash loop, config error | Giây–phút (restart) |
+| Software bug (trigger cụ thể) | Khó đoán | Edge case trong traffic pattern | Giây (pod restart) |
+
+Một 5G Network Function chạy trên Kubernetes có thể có hardware MTBF 1,000,000 giờ nhưng software MTBF chỉ 500 giờ nếu tiến trình NF có memory leak gây OOM kill mỗi ba tuần. Phần cứng không liên quan — phần mềm mới là bottleneck.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế hoạt động
+
+### Tính MTBF
+
+**Cho một component:**
+
+```
+MTBF = Tổng thời gian hoạt động / Số lần failure
+
+Ví dụ:
+100 router chạy 1 năm (8,760 giờ)
+5 failure tổng cộng
+
+MTBF = (100 × 8,760) / 5 = 175,200 giờ
+```
+
+**Cho hệ thống với component nối tiếp:**
+
+Nếu bất kỳ component nào fail, hệ thống fail (không có redundancy).
+
+```
+┌────────┐    ┌────────┐    ┌────────┐
+│ Comp A │───►│ Comp B │───►│ Comp C │
+│MTBF=10K│    │MTBF=20K│    │MTBF=50K│
+└────────┘    └────────┘    └────────┘
+
+1/MTBF_system = 1/MTBF_A + 1/MTBF_B + 1/MTBF_C
+1/MTBF_system = 1/10,000 + 1/20,000 + 1/50,000
+MTBF_system = 5,882 giờ
+```
+
+MTBF hệ thống luôn **thấp hơn** bất kỳ component riêng lẻ nào trong chuỗi nối tiếp.
+
+**Cho component song song (redundant):**
+
+Hệ thống chỉ fail khi tất cả component fail đồng thời.
+
+```
+┌────────┐
+│ Comp A │──┐
+│MTBF=10K│  │
+└────────┘  ├───► Output
+┌────────┐  │
+│ Comp B │──┘
+│MTBF=10K│
+└────────┘
+
+Cho component active-standby giống nhau:
+MTBF_system ≈ MTBF² / (2 × MTTR)   (có repair trong lúc hoạt động)
+
+Với MTBF=10,000h, MTTR=4h:
+MTBF_system ≈ 10,000² / (2 × 4) = 12,500,000 giờ
+```
+
+Redundancy kéo dài MTBF hiệu quả một cách đáng kể bằng cách thay đổi điều kiện failure từ "một trong hai fail" thành "cả hai fail trước khi một cái được sửa."
+
+### Các thành phần của MTTR
+
+**MTTR breakdown:**
+
+| Giai đoạn | Thời gian điển hình | Cách giảm |
+|-----------|---------------------|-----------|
+| Detection | Phút đến giờ | Monitoring tốt hơn, probe interval ngắn hơn |
+| Escalation | Phút | Quy trình on-call rõ ràng |
+| Diagnosis | Phút đến giờ | Logging tốt hơn, structured runbook |
+| Repair | Giây–giờ | Auto-restart (software), spare part (hardware) |
+| Verification | Giây–phút | Health check tự động |
+
+**Ví dụ tính MTTR cho hardware failure:**
+
+```
+Detection:     15 phút (monitoring alert)
+Escalation:    10 phút (NOC liên hệ engineer)
+Diagnosis:     30 phút (xác định line card fail)
+Repair:        90 phút (swap line card, restore config)
+Verification:  15 phút (chạy diagnostic, test traffic)
+
+MTTR = 160 phút = 2.67 giờ
+```
+
+**Ví dụ tính MTTR cho software failure (containerized NF):**
+
+```
+Detection:      30 giây (liveness probe fail → Kubernetes restart pod)
+Escalation:     0 (tự động)
+Repair:         90 giây (pod restart, readiness probe pass)
+Verification:   30 giây (health check, traffic resume)
+
+MTTR = ~2.5 phút
+```
+
+Đây là lý do cloud-native 5G NF có thể đạt MTTR rất thấp cho software failure — việc repair là tự động. Thách thức chuyển sang **đảm bảo pod restart thực sự sửa được vấn đề** (không chỉ che giấu bằng cách restart vào trạng thái lỗi tương tự).
+
+### Bathtub curve — đường cong bồn tắm
+
+Component theo pattern failure rate đặc trưng qua vòng đời:
+
+```
+Failure
+Rate
+  │
+  │  Infant          Useful life           Wear-out
+  │  mortality       (constant rate)       (increasing)
+  │    │                  │                    │
+  │  ──┘                  │                ┌───│
+  │    ╲             ─────┼────────────────┤   │
+  │     ╲                 │                │  ╱
+  │      ╲────────────────┴────────────────┴─╱
+  │
+  └──────────────────────────────────────────────► Time
+```
+
+**Ba giai đoạn:**
+1. **Infant mortality:** Failure sớm từ lỗi sản xuất, vấn đề mối hàn, QA không đủ. Được phát hiện bằng burn-in testing trước khi deploy.
+2. **Useful life:** Failure rate không đổi, ngẫu nhiên. MTBF được định nghĩa cho giai đoạn này — mô hình Poisson process áp dụng ở đây.
+3. **Wear-out:** Failure rate tăng khi tụ điện khô, mối hàn mỏi, bộ phận cơ học mòn. Thay thế trước giai đoạn này.
+
+**Phiên bản phần mềm của bathtub curve:**
+
+Phần mềm không mòn về mặt vật lý, nhưng có các giai đoạn tương tự:
+- Bug sớm được phát hiện trong QA và lúc mới deploy
+- Hoạt động ổn định với crash hiếm gặp
+- "Bit rot" khi dependency lỗi thời, chứng chỉ hết hạn, config drift tích lũy
+
+### Tính availability
+
+**Hệ thống đơn:**
+
+```
+Availability = MTBF / (MTBF + MTTR)
+
+Ví dụ:
+MTBF = 50,000 giờ
+MTTR = 4 giờ
+Availability = 50,000 / 50,004 = 99.992%
+```
+
+**Hệ thống redundant (active-standby):**
+
+```
+Availability_combined = 1 - (Unavailability_A × Unavailability_B)
+
+Trong đó: Unavailability = MTTR / (MTBF + MTTR)
+
+Ví dụ:
+Mỗi hệ thống: MTBF = 50,000h, MTTR = 4h
+Unavailability = 4 / 50,004 = 0.00008
+
+Combined unavailability = 0.00008 × 0.00008 = 6.4 × 10^-9
+Availability = 1 - 6.4 × 10^-9 ≈ 99.9999994%
+```
+
+Giả định này yêu cầu các failure phải **độc lập** — một giả định quan trọng được thảo luận trong phần pitfall.
+
+### Cân nhắc MTBF/MTTR đặc thù 5G
+
+**Software MTBF cho 5G Network Function:**
+
+5G NF là microservice. Failure mode của chúng khác với hardware:
+
+```
+Failure mode AMF:
+├── Process crash (SIGSEGV, OOM)   → MTTR: pod restart ~2 phút
+├── Deadlock / stuck              → MTTR: liveness probe restart ~5 phút
+├── Config error lúc deploy        → MTTR: rollback ~10 phút
+├── Database connection lost       → MTTR: reconnect ~1 phút
+└── Cascading overload (từ SMF)   → MTTR: giờ nếu không phát hiện sớm
+
+Failure mode UPF:
+├── DPDK memory exhaustion         → MTTR: pod restart ~3 phút
+├── GTP-U table full               → MTTR: session cleanup ~5 phút
+└── Kernel bypass driver crash     → MTTR: node reboot ~15 phút (tệ hơn)
+```
+
+**ISSU (In-Service Software Upgrade) và MTTR:**
+
+Rolling upgrade là cơ chế giảm MTTR quan trọng trong 5G:
+
+```
+Upgrade truyền thống (planned downtime):
+  Dừng NF → Upgrade → Restart → Verify
+  MTTR = ~30 phút (theo lịch)
+
+ISSU rolling upgrade:
+  Upgrade pod 1 (pod 2 xử lý traffic) →
+  Chờ readiness probe →
+  Upgrade pod 2 →
+  MTTR = 0 (không có outage visible với người dùng)
+```
+
+ISSU yêu cầu thiết kế NF stateless (TS 23.501 điều 4.2) — session state được lưu trong UDR, không phải bộ nhớ local. Không có thiết kế stateless, upgrade một pod sẽ kill tất cả active session trên pod đó.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+### So sánh thiết bị
+
+| Loại router | MTBF | Mức chi phí | Tốt nhất cho |
+|------------|------|-------------|--------------|
+| Entry-level | 100,000h | $ | Branch không quan trọng |
+| Enterprise | 300,000h | $$ | Dịch vụ business |
+| Carrier-grade | 1,000,000h | $$$ | Telecom core |
+
+Với phần mềm: MTBF không phải spec từ vendor — bạn đo từ lịch sử incident thực tế.
+
+### Chiến lược giảm MTTR
+
+| Chiến lược | Giảm gì | Chi phí |
+|------------|---------|---------|
+| Monitoring tốt hơn (probe interval ngắn hơn) | Detection time | Thấp |
+| Liveness + startup probe (Kubernetes) | Detection + repair (tự động) | Thấp |
+| Spare hardware on-site | Repair time | Trung bình |
+| Staff được đào tạo 24/7 | Tất cả giai đoạn | Cao |
+| Hot-standby với failover tự động | MTTR gần bằng 0 | Cao |
+| ISSU / rolling upgrade | Upgrade MTTR về 0 | Đầu tư thiết kế |
+
+### Thiết kế cho availability
+
+```
+Target: 99.99% (52.6 phút downtime/năm)
+
+Option 1: Hệ thống đơn rất đáng tin cậy
+  MTBF cần = MTTR × 9,999
+  Nếu MTTR = 4h, MTBF phải là 40,000h
+  Router đơn ở 200,000h MTBF: 99.998% — gần nhưng vẫn là single point of failure
+
+Option 2: Hệ thống redundant
+  Hai router, mỗi cái MTBF = 200,000h, MTTR = 4h
+  Combined availability ≈ 99.9999996%
+
+Redundancy hầu như luôn thắng hơn hệ thống đơn siêu đáng tin cậy.
+```
+
+### Theo dõi MTBF/MTTR thực tế
+
+Thiết kế dùng MTBF/MTTR dự đoán từ spec vendor hoặc reliability model. Vận hành phải theo dõi giá trị thực từ incident:
+
+```
+MTBF thực = Tổng giờ hoạt động / Số incident (rolling 12 tháng)
+MTTR thực = Tổng thời gian incident / Số incident
+
+Nếu MTBF thực << MTBF dự đoán:
+  → Software bug, vấn đề config, mismatch môi trường
+
+Nếu MTTR thực >> MTTR kế hoạch:
+  → Detection chậm (thiếu monitoring), diagnosis chậm (thiếu log),
+    repair chậm (không có spare part, không có runbook)
+```
+
+Review thực tế vs dự đoán hàng quý để xác định nơi đầu tư sẽ cải thiện availability nhiều nhất.
+
+### Ví dụ thực tế: Deploy core AMF
+
+```
+Yêu cầu: 99.9999% availability cho AMF (xử lý mobility cho 10M thuê bao)
+
+Cho trước:
+- AMF pod MTBF (hardware): 500,000 giờ
+- AMF software MTBF: 2,000 giờ (crash mỗi ~83 ngày mỗi pod)
+- MTTR hardware: 4 giờ
+- MTTR software: 3 phút (pod restart)
+
+AMF pod đơn:
+  Hardware: 500,000 / 500,004 = 99.9992%
+  Software:   2,000 / 2,000.05 = 99.9975%
+  Combined pod đơn: ~99.997%  ← phần mềm chiếm ưu thế, không phải hardware
+
+Hai AMF pod (active-active, N+1):
+  Unavailability phần mềm mỗi pod = 3phút / (2000h × 60) = 2.5 × 10^-5
+  Combined (cả hai fail đồng thời): (2.5 × 10^-5)² = 6.25 × 10^-10
+  Availability ≈ 99.9999994%  ✓
+```
+
+Bài học: với cloud-native NF, **software MTBF chiếm ưu thế**. Đo lường và cải thiện nó — spec hardware là thứ yếu.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Bẫy thường gặp
+
+1. **Nhầm MTBF với tuổi thọ được đảm bảo.** MTBF 500,000 giờ không có nghĩa thiết bị tồn tại 57 năm. Nó có nghĩa khoảng thời gian inter-failure *trung bình* trên một population lớn. Các unit riêng lẻ có thể fail ngay ngày đầu tiên.
+
+2. **Bỏ qua software MTBF.** Với cloud-native NF, software failure chiếm ưu thế so với hardware failure theo nhiều bậc độ lớn. AMF pod với MTBF 2,000 giờ là bottleneck reliability, không phải hardware 1,000,000 giờ.
+
+3. **Giả định failure độc lập trong hệ thống redundant.** Công thức availability redundancy giả định A và B fail độc lập. Nếu cả hai AMF pod ở trên cùng Kubernetes node, một node failure sẽ làm cả hai mất. Nếu cả hai chạy cùng phiên bản phần mềm, một software bug sẽ crash cả hai đồng thời. Đây là common-cause failure và chúng phá vỡ giả định độc lập.
+
+4. **Giả định MTTR lạc quan.** "3 phút cho pod restart" giả định Kubernetes hoạt động bình thường, image đã được cache, readiness probe hoạt động đúng, và không có config error đang chờ xử lý. MTTR thực tế thường vượt estimate đáng kể.
+
+5. **Không tính detection time trong MTTR.** MTTR bắt đầu từ khi failure xảy ra, không phải từ khi alert. Nếu monitoring poll mỗi 5 phút, detection thôi đã tốn tới 5 phút trước khi repair bắt đầu. Với dịch vụ URLLC có SLA latency 1ms, ngay cả detection time cũng quan trọng — dùng BFD (Bidirectional Forwarding Detection) cho failure detection dưới một giây.
+
+6. **MTBF từ vendor quá lạc quan.** Vendor tính MTBF trong điều kiện lab lý tưởng. MTBF thực tế ở hiện trường thường là 30–50% của spec vendor trong điều kiện deploy thực (biến động nhiệt độ, chất lượng nguồn điện, rung động).
+
+7. **Bỏ qua hai đuôi của bathtub curve.** MTBF áp dụng cho phần phẳng useful-life. Hardware mới và hardware đang lão hóa có failure rate cao hơn. Chạy burn-in testing cho deployment mới và lên kế hoạch thay thế trước khi wear-out bắt đầu.
+
+8. **Crash-loop che giấu MTBF thực.** Nếu pod crash và Kubernetes restart nó mỗi 5 phút, incident log hiển thị "pod restarted" nhưng MTBF trông như 5 phút. Root cause (memory leak, config bug, dependency failure) phải được sửa — không chỉ chấp nhận như "pod churn bình thường."
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- ITU-T E.800, "Terms and definitions related to quality of service"
+- MIL-HDBK-217F, "Reliability Prediction of Electronic Equipment"
+- Telcordia SR-332, "Reliability Prediction Procedure for Electronic Equipment"
+- IEEE 1366, "Guide for Electric Power Distribution Reliability Indices"
+- 3GPP TS 23.501, điều 4.2, "Stateless NF design principles"
+- Beyer et al., *Site Reliability Engineering*, O'Reilly, 2016 (MTTR và incident management)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Tiếp theo
+
+- [Redundancy patterns](/vi/core-network/carrier-grade-vocabulary/redundancy-patterns/) — implement high availability
+- [Five nines availability](/vi/core-network/why-telcos-build-differently/five-nines-availability/) — đạt 99.999%
+- [Capacity planning basics](/vi/core-network/carrier-grade-vocabulary/capacity-planning-basics/) — sizing cho reliability
+
+</section>

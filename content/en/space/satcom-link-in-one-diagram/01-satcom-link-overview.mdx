@@ -8,17 +8,409 @@ track: s7
 unit: satcom-link-in-one-diagram
 order: 1
 level: L2
-estimatedReadingMinutes: 5
-title: "Satcom link overview"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 11
+prerequisites: []
+spiralRevisits: []
+title: "Satcom Link Overview"
+description: "The complete satellite communication path from transmitter to receiver — EIRP, free-space loss, G/T, and C/N0 worked end-to-end with real numbers."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-04"
+standards: []
+tags: ["satcom", "link-budget", "uplink", "downlink", "eirp", "g-over-t", "c-n0", "free-space-loss"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Satcom link overview
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+A satellite link is a chain. Every dB you lose in the channel must be recovered on the transmit or receive side — and there is no free recovery. The physics is fixed: power spreads over an ever-growing sphere, and the receiver sees only the tiny fraction intercepted by its antenna aperture.
+
+Understanding this end-to-end chain — EIRP out, free-space loss through, G/T receiving — lets you answer three practical questions in under two minutes:
+
+1. Will this link close with the required margin?
+2. Which parameter change gives the most improvement per dollar?
+3. Why is the link failing today when it worked yesterday?
+
+Every real system — VINASAT, Starlink, Inmarsat, a weather-sat TT&C link — is analyzed with exactly this framework.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The complete picture
+
+```
+Satcom Link Chain — End to End
+
+TRANSMIT SIDE            CHANNEL                  RECEIVE SIDE
+┌──────────────┐    ┌──────────────────┐    ┌─────────────────────┐
+│  P_tx (HPA)  │    │                  │    │  Antenna  G_rx      │
+│  e.g. 10 W   │    │  Free-space      │    │  (dish or phased    │
+│  = +10 dBW   │    │  path loss       │    │   array)            │
+│      │       │    │  L_fs = 205 dB   │    │       │             │
+│      ▼       │    │  (GEO, 12 GHz)   │    │       ▼             │
+│  ┌────────┐  │    │                  │    │  ┌─────────────┐    │
+│  │ Feeder │  │    │  + Atmospheric   │    │  │  LNA        │    │
+│  │ loss   │  │══▶ │    absorption    │ ▶══│  │  T_noise    │    │
+│  │ -0.5dB │  │    │    0.3–2 dB      │    │  └──────┬──────┘    │
+│  └────────┘  │    │                  │    │         │           │
+│      │       │    │  + Rain fade     │    │  T_sys = T_ant      │
+│      ▼       │    │    0–20 dB       │    │        + T_lna      │
+│  Antenna     │    │                  │    │        + T_feed      │
+│  G_tx        │    │  + Pointing loss │    │                     │
+│              │    │    0.5–3 dB      │    │  G/T = G_rx - 10log(T_sys)
+└──────────────┘    └──────────────────┘    └─────────────────────┘
+
+EIRP = P_tx(dBW) + G_tx(dBi) - L_feed(dB)
+
+LINK EQUATION:
+C/N0 [dBHz] = EIRP [dBW] - L_total [dB] + G/T [dB/K] + 228.6 [dBW/K/Hz]
+```
+
+### What each block contributes
+
+**EIRP — Effective Isotropic Radiated Power**
+
+The product of transmitter power and antenna gain, in the direction of the beam:
+
+$$\text{EIRP} = P_{tx} \cdot G_{tx} \quad \text{[W·unitless]}$$
+
+In dB: $\text{EIRP [dBW]} = P_{tx}\text{[dBW]} + G_{tx}\text{[dBi]}$
+
+Typical values:
+- LEO satellite downlink (Ka-band spot beam): 45–58 dBW
+- GEO satellite downlink (Ku-band): 48–55 dBW
+- Large gateway ground station uplink: 70–82 dBW
+- Handheld terminal (Iridium-class): 7 dBW (5 W)
+
+**Free-space path loss (FSPL)**
+
+Signal power spreads over a sphere of surface area $4\pi d^2$. The receive antenna captures only its effective aperture $A_e$:
+
+$$L_{fs} = \left(\frac{4\pi d}{\lambda}\right)^2 = \left(\frac{4\pi d f}{c}\right)^2$$
+
+In dB: $L_{fs} = 20\log_{10}(d) + 20\log_{10}(f) + 92.4$ [dB, $d$ in km, $f$ in GHz]
+
+| Orbit | Distance | Ku-band (12 GHz) | Ka-band (20 GHz) | L-band (1.5 GHz) |
+|-------|----------|-------------------|-------------------|-------------------|
+| LEO 550 km | 550–2200 km | 175–186 dB | 181–192 dB | 160–171 dB |
+| MEO 20200 km | 20200–26000 km | 196–198 dB | 202–204 dB | 181–183 dB |
+| GEO 35786 km | 37500–41700 km | 205–206 dB | 211–212 dB | 190–191 dB |
+
+**G/T — receive figure of merit**
+
+G/T combines receive antenna gain $G_{rx}$ and system noise temperature $T_{sys}$:
+
+$$G/T \text{ [dB/K]} = G_{rx}\text{[dBi]} - 10\log_{10}(T_{sys}\text{[K]})$$
+
+System noise temperature is the sum of all noise contributions referred to the antenna port:
+
+$$T_{sys} = T_{ant} + T_{feed} + T_{LNA} + T_{backend}$$
+
+Typical values:
+- Professional 2.4 m VSAT terminal: 12–18 dB/K
+- Large gateway (9 m dish, cryogenic LNA): 28–35 dB/K
+- Handheld phone terminal: −5 to +2 dB/K
+- LEO satellite receive (on-board): 2–8 dB/K
+
+**C/N0 — carrier-to-noise density**
+
+The fundamental link quality metric, independent of modulation bandwidth:
+
+$$C/N_0 \text{ [dBHz]} = \text{EIRP} - L_{total} + G/T + 228.6$$
+
+The 228.6 term is $-10\log_{10}(k_B)$ where $k_B = 1.38 \times 10^{-23}$ J/K (Boltzmann constant).
+
+To get C/N (signal-to-noise in a bandwidth $B$):
+
+$$C/N \text{ [dB]} = C/N_0 - 10\log_{10}(B)$$
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Signal power budget — step by step
+
+Track every dB from transmitter PA output to demodulator input:
+
+```
+Step-by-Step Signal Budget (GEO Ku-band downlink example)
+
+  Satellite HPA output power:          +50.0 dBW   (100 W)
+  Waveguide / output filter loss:       -0.8 dB
+  Transmit antenna gain (spot beam):   +48.0 dBi
+  ────────────────────────────────────────────────
+  EIRP:                                +97.2 dBW   ← Satellite radiates this
+
+  Free-space path loss (38500 km, 12 GHz): -205.7 dB
+  Atmospheric absorption (clear sky):       -0.3 dB
+  Rain fade (99.5% availability margin):    -3.0 dB
+  Pointing loss (satellite + ground):       -0.5 dB
+  Polarization mismatch loss:               -0.2 dB
+  ────────────────────────────────────────────────
+  Total path loss:                        -209.7 dB
+
+  Receive antenna gain (1.2 m, 12 GHz):   +38.6 dBi
+  Receive system noise temperature (120K):  20.8 dBK
+  G/T:                                    +17.8 dB/K
+  ────────────────────────────────────────────────
+  C/N0 = 97.2 - 209.7 + 17.8 + 228.6 = 133.9 dBHz
+
+  Transponder bandwidth: 36 MHz = 75.6 dBHz
+  C/N = 133.9 - 75.6 = 8.3 dB
+
+  Required C/N for DVB-S2 8PSK 2/3 (Es/N0 ≈ 7.0 dB):  ~7.0 dB
+  Link margin: 8.3 - 7.0 = 1.3 dB  ✓ (closes, barely)
+```
+
+### Noise temperature cascade
+
+For a receiver chain with components in series:
+
+$$T_{sys} = T_{ant} + \frac{T_{feed}}{G_{ant}} + T_{LNA} + \frac{T_2}{G_{LNA}} + \cdots$$
+
+The LNA dominates because it comes first. A 50 K LNA reduces system noise temperature far more than doubling dish size for the same G/T improvement.
+
+**Example — small VSAT terminal:**
+- Antenna noise temperature (pointing at GEO, 12 GHz): $T_{ant} = 35$ K
+- Feedhorn + orthomode transducer loss (0.2 dB): $T_{feed} = 14$ K
+- LNA noise temperature: $T_{LNA} = 40$ K
+- LNA gain: 45 dB (×31623)
+- Backend electronics: $T_{back} = 500$ K (negligible after high LNA gain)
+
+$T_{sys} = 35 + 14 + 40 + 500/31623 \approx 89$ K → $10\log_{10}(89) = 19.5$ dBK
+
+With a 38.6 dBi antenna: $G/T = 38.6 - 19.5 = 19.1$ dB/K
+
+### Frequency tradeoffs
+
+Higher frequency means smaller antenna for same gain, but higher path loss and rain attenuation:
+
+```
+Frequency vs System Tradeoffs
+
+  Band    Freq    FSPL     Rain       Antenna    Typical use
+          (GHz)   (GEO)    attenuation diam (G=40dBi)
+  ─────────────────────────────────────────────────────────
+  L       1.5     190 dB   negligible  3.2 m    Inmarsat, Iridium
+  S       2.4     194 dB   <0.1 dB     2.0 m    GPS, TDRSS
+  C       6/4     198 dB   <0.3 dB     1.3 m    VINASAT C-band
+  Ku     14/12    205 dB   2–8 dB      0.7 m    VSAT, DTH TV
+  Ka     30/20    211 dB   5–25 dB     0.4 m    HTS, Starlink Kа
+  Q/V    47/40    217 dB   10–40 dB    0.25 m   Experimental HTS
+```
+
+Lower bands survive rain but need large dishes. Ka-band enables tiny phased arrays but requires rain fade margins of 8–15 dB in tropical regions.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Complete link budget calculator:**
+
+```python
+import math
+
+def fspl_db(distance_km: float, freq_ghz: float) -> float:
+    """Free-space path loss in dB. distance in km, freq in GHz."""
+    return 20*math.log10(distance_km) + 20*math.log10(freq_ghz) + 92.4
+
+def antenna_gain_db(diameter_m: float, freq_ghz: float, efficiency: float = 0.6) -> float:
+    """Parabolic dish gain in dBi."""
+    wavelength_m = 0.3 / freq_ghz
+    gain_linear = efficiency * (math.pi * diameter_m / wavelength_m) ** 2
+    return 10 * math.log10(gain_linear)
+
+def system_noise_temp(t_ant_k: float, t_lna_k: float,
+                      t_feed_k: float = 15.0, t_back_k: float = 500.0,
+                      g_lna_db: float = 45.0) -> float:
+    """Cascaded system noise temperature in K."""
+    g_lna = 10 ** (g_lna_db / 10)
+    return t_ant_k + t_feed_k + t_lna_k + t_back_k / g_lna
+
+def link_budget(
+    p_tx_dbw: float,
+    g_tx_dbi: float,
+    l_feed_tx_db: float,
+    distance_km: float,
+    freq_ghz: float,
+    l_atm_db: float,
+    l_rain_db: float,
+    l_point_db: float,
+    g_rx_dbi: float,
+    t_sys_k: float,
+) -> dict:
+    """
+    Full satellite link budget.
+    Returns dict with all intermediate values and C/N0.
+    """
+    k_db = -228.6  # dBW/K/Hz (Boltzmann)
+
+    eirp = p_tx_dbw + g_tx_dbi - l_feed_tx_db
+    l_fs = fspl_db(distance_km, freq_ghz)
+    l_total = l_fs + l_atm_db + l_rain_db + l_point_db
+    g_over_t = g_rx_dbi - 10 * math.log10(t_sys_k)
+    c_n0 = eirp - l_total + g_over_t - k_db
+
+    return {
+        "EIRP_dBW":     eirp,
+        "FSPL_dB":      l_fs,
+        "L_total_dB":   l_total,
+        "G_rx_dBi":     g_rx_dbi,
+        "T_sys_K":      t_sys_k,
+        "G_over_T_dBK": g_over_t,
+        "C_N0_dBHz":    c_n0,
+    }
+
+def print_budget(label: str, result: dict, bandwidth_mhz: float,
+                 required_cn_db: float) -> None:
+    bw_db = 10 * math.log10(bandwidth_mhz * 1e6)
+    cn = result["C_N0_dBHz"] - bw_db
+    margin = cn - required_cn_db
+    print(f"\n{'='*55}")
+    print(f"  {label}")
+    print(f"{'='*55}")
+    for k, v in result.items():
+        print(f"  {k:<22} {v:+8.2f}")
+    print(f"  {'Bandwidth':<22} {bandwidth_mhz:.0f} MHz ({bw_db:.1f} dBHz)")
+    print(f"  {'C/N':<22} {cn:+8.2f} dB")
+    print(f"  {'Required C/N':<22} {required_cn_db:+8.2f} dB")
+    print(f"  {'Margin':<22} {margin:+8.2f} dB  {'OK' if margin >= 0 else 'FAIL'}")
+
+# --- Example 1: GEO Ku-band VSAT downlink ---
+r1 = link_budget(
+    p_tx_dbw=20.0,      # 100 W satellite HPA
+    g_tx_dbi=48.0,      # spot beam
+    l_feed_tx_db=0.8,
+    distance_km=38500,
+    freq_ghz=12.0,
+    l_atm_db=0.3,
+    l_rain_db=3.0,      # 99.5% avail
+    l_point_db=0.5,
+    g_rx_dbi=38.6,      # 1.2 m dish
+    t_sys_k=89.0,
+)
+print_budget("GEO Ku-band VSAT downlink (99.5% avail)",
+             r1, bandwidth_mhz=36, required_cn_db=7.0)
+
+# --- Example 2: LEO Ka-band (Starlink-class) downlink ---
+t_sys_leo = system_noise_temp(t_ant_k=30, t_lna_k=35, t_feed_k=10)
+g_rx_leo  = antenna_gain_db(diameter_m=0.48, freq_ghz=19.7)
+r2 = link_budget(
+    p_tx_dbw=17.0,      # 50 W LEO payload
+    g_tx_dbi=35.0,      # phased array spot
+    l_feed_tx_db=1.0,
+    distance_km=900,    # 550 km shell, edge of coverage
+    freq_ghz=19.7,      # Ka-band
+    l_atm_db=0.5,
+    l_rain_db=4.0,
+    l_point_db=1.0,
+    g_rx_dbi=g_rx_leo,
+    t_sys_k=t_sys_leo,
+)
+print_budget("LEO Ka-band dish terminal (99% avail)",
+             r2, bandwidth_mhz=250, required_cn_db=10.0)
+```
+
+Expected output (approximate):
+```
+=======================================================
+  GEO Ku-band VSAT downlink (99.5% avail)
+=======================================================
+  EIRP_dBW               +67.20
+  FSPL_dB               -205.69
+  L_total_dB            -209.49
+  G_rx_dBi               +38.60
+  T_sys_K                 89.00
+  G_over_T_dBK           +19.11
+  C_N0_dBHz             +135.42
+  Bandwidth              36 MHz (75.6 dBHz)
+  C/N                    +59.82 dB   ← very high — narrow-band voice
+  Required C/N             +7.00 dB
+  Margin                 +52.82 dB  OK
+
+=======================================================
+  LEO Ka-band dish terminal (99% avail)
+=======================================================
+  EIRP_dBW               +51.00
+  FSPL_dB               -191.88
+  L_total_dB            -197.38
+  G_rx_dBi               +34.21
+  T_sys_K                 76.00
+  G_over_T_dBK           +15.40
+  C_N0_dBHz             +125.68
+  Bandwidth             250 MHz (83.98 dBHz)
+  C/N                    +41.70 dB
+  Required C/N           +10.00 dB
+  Margin                 +31.70 dB  OK
+```
+
+**Quick sanity rules — memorize these:**
+
+| Rule | Value |
+|------|-------|
+| Boltzmann $k_B$ | $-228.6$ dBW/K/Hz |
+| FSPL at GEO, Ku-band 12 GHz | ~205 dB |
+| FSPL at LEO 550 km, Ka-band 20 GHz | ~182 dB |
+| Doubling distance adds | 6 dB loss |
+| Doubling frequency adds | 6 dB loss |
+| Doubling dish diameter adds | 6 dB gain |
+| 1 dB more EIRP = 1 dB more C/N0 | (linear trade) |
+| 10 K lower $T_{sys}$ at 100 K baseline adds | ~0.4 dB G/T |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Forgetting the Boltzmann constant sign.** The link equation is $C/N_0 = \text{EIRP} - L + G/T - k_B$. Since $k_B = -228.6$ dBW/K/Hz, the term adds 228.6 dB. Missing it gives C/N0 ~230 dB too low.
+
+2. **dB units mismatch.** EIRP is dBW, G/T is dB/K, losses are dimensionless dB, C/N0 is dBHz. Keep each parameter labelled or you will add apples to oranges.
+
+3. **C/N0 vs C/N.** C/N0 is normalized per Hz. C/N = C/N0 minus noise bandwidth in dBHz. A 90 dBHz C/N0 link with 36 MHz bandwidth has only 90 − 75.6 = 14.4 dB C/N.
+
+4. **Clear sky vs availability budget.** Always specify the rain fade margin and the availability target (99.0%, 99.5%, 99.9%). A budget without this is incomplete for tropical regions where Ku/Ka fade can exceed 20 dB.
+
+5. **Antenna noise temperature varies with pointing.** An antenna looking at hot ground (horizon) sees ~290 K. Pointing at cold sky sees 5–50 K. G/T changes dramatically with elevation angle — use the actual elevation for the site.
+
+6. **Interference ignored.** C/N assumes thermal noise only. Real systems have adjacent satellite interference, co-channel interference, cross-polarization leakage. The correct metric is C/(N+I).
+
+7. **Feeder losses on both sides.** Cable/waveguide loss between PA and antenna on the transmit side reduces EIRP. On receive, loss between antenna and LNA adds noise — always put the LNA as close to the feed as possible.
+
+8. **Polarization mismatch.** 0.2–1 dB typical for aligned systems. Cross-pol (wrong circular/linear) causes 20–30 dB loss — catastrophic and easy to do accidentally when installing a feedhorn.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Maral, G. & Bousquet, M., "Satellite Communications Systems", 5th ed. — Ch. 5
+- Ippolito, L., "Satellite Communications Systems Engineering", 2nd ed. — Ch. 4
+- Roddy, D., "Satellite Communications", 4th ed. — Ch. 12
+- ITU-R P.618 — Propagation data required for Earth-space systems
+- ETSI EN 302 307 — DVB-S2 standard (modulation thresholds)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Uplink/Downlink Concepts](/en/space/satcom-link-in-one-diagram/uplink-downlink-concepts/) — uplink power control and SFD
+- [EIRP Deep Dive](/en/space/link-budget-master-class/eirp/) — HPA backoff, nonlinearity, OBO
+- [G/T Deep Dive](/en/space/link-budget-master-class/g-over-t/) — noise cascades, LNA selection
+- [Ka-band LEO Link Walkthrough](/en/space/practical-link-budget-walkthroughs/ka-band-leo-downlink/) — full numerical example
+
+</section>

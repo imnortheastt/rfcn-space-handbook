@@ -9,16 +9,415 @@ unit: ntn-in-3gpp
 order: 4
 level: L4
 estimatedReadingMinutes: 5
-title: "IoT-NTN"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "IoT-NTN — Ve tinh Bang hep cho IoT Lon"
+description: "LTE-M va NB-IoT qua ve tinh: cach 3GPP dieu chinh giao thuc bang hep cho phu song IoT toan cau voi thay doi UE toi thieu."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 36.331", "3GPP TS 36.300", "3GPP TR 36.763"]
+tags: ["iot-ntn", "nb-iot", "lte-m", "3gpp", "iot-ve-tinh"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# IoT-NTN
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Co hang ty thiet bi IoT can ket noi ngoai vung phu song di dong: container van chuyen giua dai duong, may theo doi gia suc o trang trai xa xoi, cam bien duong ong trong sa mac. NR-NTN nham vao smartphone, nhung IoT-NTN nham vao phan duoi dai — thiet bi truyen kilobyte moi ngay, ngu hang gio, va chay bang mot pin trong mot thap ky. Release 17 dieu chinh NB-IoT va LTE-M cho ve tinh, cho phep phu song IoT toan cau thuc su voi thay doi toi thieu cho chipset hien co.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### IoT-NTN vs NR-NTN
+
+```
+Tai sao Hai Tieu chuan?
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  NR-NTN (5G):                                                       │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Muc tieu: Smartphone, thiet bi bang rong                      │ │
+│  │  Bang thong: 5-100 MHz                                         │ │
+│  │  Toc do du lieu: 1-100+ Mbps                                   │ │
+│  │  Nang luong: Co the luon bat                                   │ │
+│  │  Pin: Sac hang ngay                                            │ │
+│  │  Do phuc tap: Stack 5G NR day du                               │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  IoT-NTN (LTE):                                                     │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Muc tieu: Cam bien, may theo doi, dong ho do                  │ │
+│  │  Bang thong: 180 kHz (NB-IoT) hoac 1.4 MHz (LTE-M)            │ │
+│  │  Toc do du lieu: 10 kbps - 1 Mbps                              │ │
+│  │  Nang luong: Cuc thap, PSM/eDRX                                │ │
+│  │  Pin: Tuoi tho 10+ nam                                         │ │
+│  │  Do phuc tap: Tap con LTE don gian hoa                         │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  THONG TIN CHINH: Chipset NB-IoT/LTE-M hien co co the duoc nang   │
+│  cap cho ve tinh voi cap nhat firmware (GNSS + thay doi timing)    │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Lop phu song
+
+```
+Tang cuong Phu song IoT-NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LOP PHU SONG NB-IoT (Mo rong cho NTN):                            │
+│                                                                      │
+│  ┌─────────────┬───────────────────────────────────────────────┐  │
+│  │ Lop         │ Mo ta                                           │  │
+│  ├─────────────┼───────────────────────────────────────────────┤  │
+│  │ Normal      │ MCL 144 dB — mat dat do thi/ngoai o            │  │
+│  │ Robust      │ MCL 154 dB — trong nha sau mat dat             │  │
+│  │ Extreme     │ MCL 164 dB — tang ham, ngam                    │  │
+│  │ NTN         │ MCL 170+ dB — lien ket ve tinh LEO             │  │
+│  └─────────────┴───────────────────────────────────────────────┘  │
+│                                                                      │
+│  DAT DUOC PHU SONG NTN:                                            │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Lap lai: Len den 2048× cho NPDSCH/NPDCCH                     │ │
+│  │  Trai thoi gian: Truyen don co the keo dai phut               │ │
+│  │  Tang cong suat: Tap trung chum ve tinh                       │ │
+│  │  Toc do du lieu thap hon: San 160 bps cho phu song cuc doan   │ │
+│  │                                                                 │ │
+│  │  Danh doi: Phu song ↔ Thong luong ↔ Pin                       │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Bang tan
+
+```
+Phan bo Pho IoT-NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  BANG S (Chinh):                                                    │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Bang 23 (bang S):                                             │ │
+│  │    UL: 2000-2020 MHz                                           │ │
+│  │    DL: 2180-2200 MHz                                           │ │
+│  │    Truong hop su dung: IoT toan cau (pho Globalstar)          │ │
+│  │                                                                 │ │
+│  │  Tuong duong Bang 256 cho NB-IoT/LTE-M:                       │ │
+│  │    Cung pho voi NR-NTN n256                                   │ │
+│  │    1980-2010 MHz UL / 2170-2200 MHz DL                        │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  BANG L (Phu):                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Tuong duong Bang 255:                                         │ │
+│  │    Pho Inmarsat/Iridium                                        │ │
+│  │    IoT hang hai/hang khong di san                              │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  BANG THONG KENH:                                                   │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  NB-IoT: 180 kHz (mot PRB)                                    │ │
+│  │  LTE-M: 1.4 MHz (toi thieu 6 PRB)                             │ │
+│  │                                                                 │ │
+│  │  Ve tinh co the ho tro 50+ song mang NB-IoT moi chum          │ │
+│  │  Dung luong lon cho thiet bi toc do thap                       │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Dieu chinh NTN cho NB-IoT
+
+```
+Thay doi Giao thuc Chinh cho IoT-NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1. TIMING ADVANCE (Giong NR-NTN):                                 │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  N_TA = N_TA,common + N_TA,offset + N_TA,UE                   │ │
+│  │                                                                 │ │
+│  │  • TA-Common phat trong SIB-NTN                                │ │
+│  │  • UE tinh offset tu GNSS + ephemeris                          │ │
+│  │  • Pham vi mo rong: len den 40 ms (ho tro GEO)                 │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  2. TICH HOP GNSS:                                                 │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Bat buoc cho UE IoT-NTN                                       │ │
+│  │  Nhung: Thu GNSS ton nhieu nang luong                          │ │
+│  │                                                                 │ │
+│  │  Toi uu:                                                        │ │
+│  │  • GNSS ho tro tu mang (SUPL qua NTN)                         │ │
+│  │  • Vi tri da biet cuoi + hieu luc tuoi                         │ │
+│  │  • Do chinh xac vi tri: ±5 km du cho TA                        │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  3. HOAT DONG HARQ:                                                │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  NB-IoT: HARQ thuong vo hieu (nhu mat dat cuc doan)           │ │
+│  │  LTE-M: Mo rong bo dinh thoi HARQ RTT                          │ │
+│  │                                                                 │ │
+│  │  Ly do: NB-IoT da dua vao lap lai                              │ │
+│  │  Khong tang hieu qua tu HARQ o phu song cuc doan               │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  4. THU GIAN DOAN (eDRX):                                          │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  eDRX mat dat toi da: ~43 phut                                 │ │
+│  │  eDRX NTN toi da: Mo rong den hang gio                         │ │
+│  │                                                                 │ │
+│  │  Tai sao dai hon? Ve tinh di qua UE dang ngu                   │ │
+│  │  UE can canh hanh thuc day voi kha nang nhin thay ve tinh     │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Che do tiet kiem nang luong
+
+```
+Toi uu Nang luong IoT-NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CHE DO TIET KIEM NANG LUONG (PSM):                                │
+│                                                                      │
+│     Hoat dong        Bo dinh thoi TAU     Ngu PSM                   │
+│   ┌─────────┐      ┌──────────┐      ┌───────────────────────┐    │
+│   │ TX/RX   │─────>│ eDRX     │─────>│ Tat Radio             │    │
+│   │ ~100 mA │      │ ~1 mA    │      │ ~3 µA                 │    │
+│   └─────────┘      └──────────┘      └───────────────────────┘    │
+│       │                 │                      │                    │
+│     Giay             Phut                Gio den Ngay               │
+│                                                                      │
+│  TANG CUONG NTN:                                                    │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Van de: Ve tinh khong luon nhin thay                          │ │
+│  │                                                                 │ │
+│  │  Giai phap: Thuc day theo lich phu hop voi luot qua ve tinh   │ │
+│  │                                                                 │ │
+│  │    1. UE biet quy dao ve tinh tu ephemeris                     │ │
+│  │    2. UE tinh cua so nhin thay tiep theo                       │ │
+│  │    3. UE ngu den khi cua so gan den                            │ │
+│  │    4. UE thuc day, thu ve tinh, truyen                         │ │
+│  │    5. UE quay lai PSM                                          │ │
+│  │                                                                 │ │
+│  │  Ket qua: Pin toi uu cho kha dung ve tinh                      │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**May tinh ngan sach lien ket va tuoi tho pin IoT-NTN:**
+
+```python
+import math
+
+def ngan_sach_lien_ket_iot_ntn(tan_so_ghz, do_cao_ve_tinh_km, goc_nang_do,
+                                cong_suat_ue_dbm, anten_ue_dbi, ve_tinh_gt_db,
+                                bang_thong_khz, so_lap_lai):
+    """
+    Tinh ngan sach lien ket IoT-NTN voi tang ich lap lai.
+    """
+    ban_kinh_trai_dat = 6371
+    el_rad = math.radians(goc_nang_do)
+    
+    khoang_cach_nghieng = (-ban_kinh_trai_dat * math.sin(el_rad) + 
+                           math.sqrt((ban_kinh_trai_dat * math.sin(el_rad))**2 + 
+                                    2 * ban_kinh_trai_dat * do_cao_ve_tinh_km + do_cao_ve_tinh_km**2))
+    
+    fspl = 32.45 + 20 * math.log10(tan_so_ghz * 1000) + 20 * math.log10(khoang_cach_nghieng)
+    
+    ue_eirp = cong_suat_ue_dbm + anten_ue_dbi
+    
+    tang_ich_lap_lai = 10 * math.log10(so_lap_lai)
+    
+    cong_suat_nhan = ue_eirp - fspl + ve_tinh_gt_db + tang_ich_lap_lai
+    
+    mcl = fspl - anten_ue_dbi - ve_tinh_gt_db - tang_ich_lap_lai
+    
+    return {
+        "khoang_cach_nghieng_km": khoang_cach_nghieng,
+        "fspl_db": fspl,
+        "tang_ich_lap_lai_db": tang_ich_lap_lai,
+        "mcl_db": mcl
+    }
+
+def uoc_tinh_tuoi_tho_pin(dung_luong_pin_mah, tx_ma, rx_ma, ngu_ua,
+                           thoi_gian_tx_s_moi_ngay, thoi_gian_rx_s_moi_ngay):
+    """
+    Uoc tinh tuoi tho pin thiet bi IoT.
+    """
+    tx_gio_moi_ngay = thoi_gian_tx_s_moi_ngay / 3600
+    rx_gio_moi_ngay = thoi_gian_rx_s_moi_ngay / 3600
+    ngu_gio_moi_ngay = 24 - tx_gio_moi_ngay - rx_gio_moi_ngay
+    
+    tieu_thu_hang_ngay_mah = (
+        tx_ma * tx_gio_moi_ngay +
+        rx_ma * rx_gio_moi_ngay +
+        (ngu_ua / 1000) * ngu_gio_moi_ngay
+    )
+    
+    pin_ngay = dung_luong_pin_mah / tieu_thu_hang_ngay_mah
+    pin_nam = pin_ngay / 365
+    
+    return {
+        "tieu_thu_hang_ngay_mah": tieu_thu_hang_ngay_mah,
+        "pin_ngay": pin_ngay,
+        "pin_nam": pin_nam
+    }
+
+print("Phan tich IoT-NTN")
+print("=" * 70)
+
+print("\n1. So sanh Ngan sach Lien ket")
+print("-" * 70)
+
+kich_ban = [
+    ("Mat dat NB-IoT", 0.9, 0, 90, 14, 0, 2, 1),
+    ("NTN Normal", 2.0, 600, 45, 23, 0, 10, 1),
+    ("NTN Robust", 2.0, 600, 30, 23, 0, 10, 128),
+    ("NTN Extreme", 2.0, 600, 20, 23, 0, 10, 2048),
+]
+
+print(f"  {'Kich ban':<20} {'FSPL(dB)':<10} {'Lap':<6} {'Tang ich':<10} {'MCL(dB)':<10}")
+print(f"  {'-'*20} {'-'*10} {'-'*6} {'-'*10} {'-'*10}")
+
+for ten, tan_so, do_cao, goc_nang, cs, ant, gt, lap in kich_ban:
+    if do_cao == 0:
+        print(f"  {ten:<20} {'N/A':<10} {lap:<6} {'N/A':<10} {'144':<10}")
+    else:
+        lb = ngan_sach_lien_ket_iot_ntn(tan_so, do_cao, goc_nang, cs, ant, gt, 180, lap)
+        print(f"  {ten:<20} {lb['fspl_db']:<10.1f} {lap:<6} {lb['tang_ich_lap_lai_db']:<10.1f} {lb['mcl_db']:<10.1f}")
+
+print("\n2. Uoc tinh Tuoi tho Pin")
+print("-" * 70)
+
+print("""
+  Gia dinh:
+    - Pin 5000 mAh (pin lithium so cap AA)
+    - Dong TX: 200 mA @ +23 dBm
+    - Dong RX: 10 mA
+    - Dong ngu: 3 µA (PSM)
+""")
+
+mau_su_dung = [
+    ("Theo doi tai san (1 tin/gio)", 30, 60),
+    ("Doc dong ho (1 tin/ngay)", 30, 10),
+    ("Chi khan cap (1 tin/tuan)", 5, 5),
+]
+
+for ten, tx_s, rx_s in mau_su_dung:
+    bl = uoc_tinh_tuoi_tho_pin(5000, 200, 10, 3, tx_s, rx_s)
+    print(f"  {ten}: {bl['pin_nam']:.1f} nam")
+
+print("\n3. So sanh IoT-NTN vs NR-NTN")
+print("-" * 70)
+print("""
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Tham so         │ IoT-NTN (NB-IoT)    │ NR-NTN                    │
+  │  ────────────────┼─────────────────────┼─────────────────────────  │
+  │  Bang thong      │ 180 kHz             │ 5-100 MHz                 │
+  │  Toc do dinh     │ 160 kbps            │ 100+ Mbps                 │
+  │  Tuoi tho pin    │ 10+ nam             │ Sac hang ngay             │
+  │  Thiet bi        │ Cam bien, theo doi  │ Smartphone                │
+  │  GNSS bat buoc   │ Co                  │ Co                        │
+  │  HARQ            │ Thuong vo hieu      │ Bat/vo hieu               │
+  │  Lap lai         │ Len den 2048×       │ Khong can                 │
+  │  Gia moi thiet bi│ $5-20               │ $200+                     │
+  └─────────────────────────────────────────────────────────────────────┘
+""")
+```
+
+**Cong thuc IoT-NTN chinh:**
+
+| Tham so | Cong thuc |
+|---------|-----------|
+| Tang ich lap lai | 10 × log₁₀(N_lap) dB |
+| Toc do hieu qua | Toc_do_co_ban / N_lap |
+| Tieu thu hang ngay | TX×I_tx + RX×I_rx + Ngu×I_ngu |
+| Tuoi tho pin | Dung_luong / Tieu_thu_hang_ngay |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Bo qua cong suat GNSS.** Thu GNSS tieu thu 20-50 mA trong 30+ giay. Tinh vao trong tinh toan pin.
+
+2. **Quen kha nang nhin thay ve tinh.** Thiet bi IoT khong the truyen khi khong co ve tinh tren dau. Lap lich truyen cho cua so nhin thay.
+
+3. **Toi uu qua muc cho thong luong.** IoT-NTN la ve phu song, khong phai toc do. 100 byte/gio la du cho hau het cam bien.
+
+4. **Danh gia thap tac dong lap lai.** 2048× lap lai nghia la tin nhan 100 byte mat ~10 giay thoi gian phat. Lap ke hoach phu hop.
+
+5. **Tron lan gia dinh mat dat va NTN.** NB-IoT mat dat co MCL 144 dB. NTN can 170+ dB. Thiet ke cho truong hop kho hon.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TR 36.763 v17.0.0 — Nghien cuu ho tro NB-IoT/eMTC cho NTN
+- 3GPP TS 36.331 v17.3.0 — E-UTRA RRC (mo rong NTN)
+- 3GPP TS 36.300 v17.2.0 — Mo ta tong the E-UTRAN (kien truc NTN)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [NR-NTN](/vi/space/ntn-in-3gpp/nr-ntn/) — bien the bang rong cho smartphone
+- [Van de UE Ve tinh](/vi/space/ntn-in-3gpp/satellite-ue-problem/) — thach thuc direct-to-device
+- [DVB-S2](/vi/space/dvb-s-standards/dvb-s2/) — tieu chuan ve tinh phat de so sanh
+
+</section>

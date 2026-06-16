@@ -8,17 +8,373 @@ track: n3
 unit: session-management-deep-dive
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "Giai phong phien PDU"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-session-management-deep-dive-01-pdu-session-establishment"]
+spiralRevisits: ["core-network-n3-mobility-management-02-deregistration"]
+title: "Giai Phong PDU Session"
+description: "Huy ket noi du lieu — do UE khoi tao, do mang khoi tao, va thu tuc don dep."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.502", "3GPP TS 24.501"]
+tags: ["pdu-session", "5g", "release", "smf", "upf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Giai phong phien PDU
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+PDU session khong ton tai mai mai. Khi ban dong ung dung, het du lieu, hoac bi huy dang ky, session phai duoc **giai phong**. Dieu nay giai phong dia chi IP, tai nguyen UPF, va bearer RAN.
+
+Giai phong dung cach la thiet yeu — session bi ro ri tieu thu tai nguyen mang vo thoi han.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Khi nao giai phong xay ra
+
+```
+Trigger Giai phong PDU Session:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE khoi tao:                                           │
+│  ├── Nguoi dung tat du lieu di dong                    │
+│  ├── App khong con can ket noi                         │
+│  └── Nguoi dung chuyen sang WiFi                       │
+│                                                          │
+│  Mang khoi tao:                                         │
+│  ├── Thue bao bi cham dut                               │
+│  ├── Policy tu choi (gioi han du lieu, thoi gian)      │
+│  ├── Timeout khong hoat dong                           │
+│  ├── UPF bi loi                                         │
+│  └── Hanh dong admin (OAM)                             │
+│                                                          │
+│  Ngam dinh (trong khi huy dang ky):                    │
+│  ├── UE tat nguon (huy dang ky switch-off)             │
+│  └── Huy dang ky ngam dinh (UE khong lien lac duoc)    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Nhung gi duoc don dep
+
+```
+Tai nguyen Duoc Giai phong:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Phia UE:                                               │
+│  ├── Dia chi IP duoc giai phong                        │
+│  ├── Quy tac QoS bi xoa                                │
+│  └── Cau hinh DNS bi xoa                               │
+│                                                          │
+│  Phia RAN:                                              │
+│  ├── DRB (Data Radio Bearer) duoc giai phong           │
+│  └── Context QoS flow bi xoa                           │
+│                                                          │
+│  Phia SMF:                                              │
+│  ├── Context PDU session bi xoa                        │
+│  └── Lien ket policy PCF duoc giai phong               │
+│                                                          │
+│  Phia UPF:                                              │
+│  ├── PFCP session bi xoa                               │
+│  ├── Quy tac PDR/FAR/QER/URR bi xoa                   │
+│  ├── Dia chi IP tra ve pool                            │
+│  └── Tunnel GTP-U bi huy                               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Giai phong do UE khoi tao
+
+```
+Giai phong PDU Session do UE khoi tao:
+
+UE           gNB          AMF          SMF          UPF
+│             │            │            │            │
+│ PDU Session │            │            │            │
+│ Release Req │            │            │            │
+│ (session ID)│            │            │            │
+│────────────►│───────────►│            │            │
+│             │            │            │            │
+│             │            │ Nsmf_PDU   │            │
+│             │            │ Session    │            │
+│             │            │ ReleaseSM  │            │
+│             │            │ Context    │            │
+│             │            │───────────►│            │
+│             │            │            │            │
+│             │            │            │ N4 Session │
+│             │            │            │ Deletion   │
+│             │            │            │ (PFCP)     │
+│             │            │            │───────────►│
+│             │            │            │            │
+│             │            │            │ N4 Session │
+│             │            │            │ Del Resp   │
+│             │            │            │◄───────────│
+│             │            │            │            │
+│             │            │ SM Context │            │
+│             │            │ Released   │            │
+│             │            │◄───────────│            │
+│             │            │            │            │
+│             │ N2 PDU Sess│            │            │
+│             │ Resource   │            │            │
+│             │ Release Cmd│            │            │
+│             │◄───────────│            │            │
+│             │            │            │            │
+│ RRC Reconfig│            │            │            │
+│ (xoa DRB)   │            │            │            │
+│◄────────────│            │            │            │
+│             │            │            │            │
+│ RRC Reconfig│            │            │            │
+│ Complete    │            │            │            │
+│────────────►│            │            │            │
+│             │            │            │            │
+│             │ N2 PDU Sess│            │            │
+│             │ Resource   │            │            │
+│             │ Release Rsp│            │            │
+│             │───────────►│            │            │
+│             │            │            │            │
+│ PDU Session │            │            │            │
+│ Release Cmd │            │            │            │
+│◄────────────│◄───────────│            │            │
+│             │            │            │            │
+│ PDU Session │            │            │            │
+│ Release     │            │            │            │
+│ Complete    │            │            │            │
+│────────────►│───────────►│            │            │
+│             │            │            │            │
+```
+
+### Giai phong do mang khoi tao
+
+```
+Giai phong do Mang khoi tao (vd, vi pham policy):
+
+PCF          SMF          AMF          gNB          UE
+│             │            │            │            │
+│ Policy      │            │            │            │
+│ cham dut    │            │            │            │
+│ session     │            │            │            │
+│────────────►│            │            │            │
+│             │            │            │            │
+│             │ N4 Session │            │            │
+│             │ Deletion   │            │            │
+│             │───────────►│ UPF        │            │
+│             │            │            │            │
+│             │ Namf_Comm  │            │            │
+│             │ N1N2Msg    │            │            │
+│             │ Transfer   │            │            │
+│             │───────────►│            │            │
+│             │            │            │            │
+│             │            │ N2 PDU Sess│            │
+│             │            │ Resource   │            │
+│             │            │ Release Cmd│            │
+│             │            │───────────►│            │
+│             │            │            │            │
+│             │            │            │ RRC Reconfig
+│             │            │            │───────────►│
+│             │            │            │            │
+│             │            │ PDU Session│            │
+│             │            │ Release Cmd│            │
+│             │            │─────────────────────────►│
+│             │            │            │            │
+│             │            │            │            │
+│             │            │ PDU Session│            │
+│             │            │ Release    │            │
+│             │            │ Complete   │            │
+│             │            │◄─────────────────────────│
+│             │            │            │            │
+```
+
+### Giai phong trong khi huy dang ky
+
+```
+Giai phong Session Trong Huy dang ky Switch-off:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE gui Deregistration Request (switch-off)             │
+│                   │                                      │
+│                   ▼                                      │
+│  AMF nhan huy dang ky                                   │
+│                   │                                      │
+│                   ▼                                      │
+│  Cho moi PDU session dang hoat dong:                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  AMF → SMF: Nsmf_PDUSession_ReleaseSMContext   │    │
+│  │                                                  │    │
+│  │  SMF → UPF: N4 Session Deletion                 │    │
+│  │                                                  │    │
+│  │  SMF → PCF: Giai phong lien ket policy          │    │
+│  │                                                  │    │
+│  │  Khong NAS message den UE (switch-off = UE di) │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                   │                                      │
+│                   ▼                                      │
+│  Tat ca session giai phong, huy dang ky hoan thanh     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Gia tri nguyen nhan giai phong
+
+```
+Nguyen nhan Giai phong 5GSM:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  │ Cause │ Y nghia                       │ Ai Dat      │
+│  │───────│───────────────────────────────│─────────────│
+│  │  26   │ Thieu tai nguyen              │ SMF         │
+│  │  29   │ Xac thuc nguoi dung that bai  │ SMF/PCF     │
+│  │  31   │ Yeu cau bi tu choi, khong ro  │ SMF         │
+│  │  32   │ Tuy chon dich vu khong ho tro │ SMF         │
+│  │  33   │ Dich vu yeu cau khong dang ky │ SMF/UDM     │
+│  │  36   │ Huy kich hoat binh thuong     │ UE/SMF      │
+│  │  38   │ Loi mang                      │ SMF         │
+│  │  39   │ Yeu cau kich hoat lai         │ SMF         │
+│  │  43   │ PDU session ID khong hop le   │ SMF         │
+│  │  44   │ Loi ngu nghia trong TFT       │ SMF         │
+│  │  50   │ Loai PDU session khong ho tro │ SMF         │
+│  │ 111   │ Loi giao thuc, khong ro       │ Bat ky      │
+│  │                                                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Xoa N4 session
+
+```
+Xoa PFCP Session (N4):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SMF gui Session Deletion Request:                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  PFCP Session Deletion Request                   │    │
+│  │  - SEID (session endpoint ID)                   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  UPF hanh dong:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. Xoa tat ca quy tac PDR                      │    │
+│  │  2. Xoa tat ca quy tac FAR                      │    │
+│  │  3. Xoa tat ca quy tac QER                      │    │
+│  │  4. Xoa tat ca quy tac URR                      │    │
+│  │  5. Tra dia chi IP ve pool                      │    │
+│  │  6. Huy tunnel GTP-U                            │    │
+│  │  7. Bao cao su dung cuoi (neu URR cau hinh)     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  UPF gui Session Deletion Response:                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  PFCP Session Deletion Response                  │    │
+│  │  - Cause: Yeu cau duoc chap nhan                │    │
+│  │  - Usage Report (neu URR dang hoat dong)        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tinh huong giai phong pho bien:**
+
+| Tinh huong | Nguoi khoi tao | Nguyen nhan |
+|------------|----------------|-------------|
+| Nguoi dung bat che do may bay | UE | huy dang ky switch-off |
+| Vuot gioi han du lieu | Mang (PCF) | vi pham policy |
+| Het so du tra truoc | Mang (CHF) | su kien tinh cuoc |
+| Timeout khong hoat dong | Mang (SMF) | timer het han |
+| Bao tri mang | Mang (OAM) | hanh dong admin |
+
+**Debug giai phong:**
+
+```bash
+# Bo loc Wireshark cho tin nhan release
+nas-5gs.sm.message_type == 0xd1 || nas-5gs.sm.message_type == 0xd3 || nas-5gs.sm.message_type == 0xd4
+
+# N4 session deletion
+pfcp.message_type == 5 || pfcp.message_type == 6
+
+# Kiem tra session bi bo roi
+grep "session.state" /var/log/smf/*.log | grep -v "released"
+```
+
+**Xu ly su co:**
+
+| Van de | Kiem tra |
+|--------|----------|
+| Session khong giai phong | SMF bi ket? N4 timeout? |
+| IP khong tra ve pool | UPF deletion response nhan duoc? |
+| DRB khong giai phong | Tin nhan N2 den gNB da gui? |
+| Su dung khong bao cao | URR da cau hinh? Bao cao cuoi nhan duoc? |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Quen xoa N4.** SMF phai xoa PFCP session. Thieu dieu nay ro ri tai nguyen UPF.
+
+2. **Khong bao cao su dung cuoi.** Neu URR da cau hinh, UPF nen gui bao cao su dung cuoi. Thieu dieu nay gay loi tinh cuoc.
+
+3. **Tai nguyen RAN khong giai phong.** AMF phai gui N2 release den gNB. Thieu dieu nay giu DRB da cap phat.
+
+4. **Can pool IP.** Neu session khong giai phong dung cach, pool IP can. Giam sat muc su dung pool.
+
+5. **Khong giai phong lien ket PCF.** SMF nen thong bao PCF. Lien ket policy cu lang phi tai nguyen PCF.
+
+6. **Bo qua nguyen nhan release.** Cac nguyen nhan khac nhau can xu ly khac nhau. "Reactivation requested" nghia la UE nen thu lai.
+
+7. **Giai phong trong handover.** Dung giai phong session chi vi gNB thay doi. Chi chuyen duong, session van con.
+
+8. **Session multi-homed.** UE voi ca 3GPP va non-3GPP access — giai phong mot khong giai phong cai kia.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.502, "Procedures for 5GS"
+- 3GPP TS 24.501, "NAS protocol for 5GS"
+- 3GPP TS 29.502, "SMF Services"
+- 3GPP TS 29.244, "PFCP Protocol"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Huy dang ky](/vi/core-network/mobility-management/deregistration/) — roi mang hoan toan
+- [Chon UPF](/vi/core-network/session-management-deep-dive/upf-selection/) — hieu vong doi UPF
+- [Tinh cuoc](/vi/core-network/policy-and-charging/chf-overview/) — bao cao su dung va thanh toan
+
+</section>

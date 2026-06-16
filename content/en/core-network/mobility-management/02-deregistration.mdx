@@ -8,17 +8,368 @@ track: n3
 unit: mobility-management
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "Deregistration procedure"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-mobility-management-01-registration"]
+spiralRevisits: ["core-network-n3-session-management-deep-dive-03-pdu-session-release"]
+title: "Deregistration Procedure"
+description: "How a UE leaves the network — explicit, implicit, and network-initiated deregistration."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.502", "3GPP TS 24.501"]
+tags: ["deregistration", "5g", "amf", "mobility"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Deregistration procedure
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Registration gets a UE onto the network. **Deregistration** takes it off. This happens when you power off your phone, airplane mode activates, or the network decides to disconnect you.
+
+Understanding deregistration helps you debug "disappeared device" scenarios and optimize network resource management.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### When deregistration happens
+
+```
+Deregistration Triggers:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE-Initiated:                                          │
+│  ├── Power off / shutdown                               │
+│  ├── Airplane mode                                      │
+│  ├── SIM removal                                        │
+│  └── Switch off 5G (settings change)                   │
+│                                                          │
+│  Network-Initiated:                                     │
+│  ├── Subscription terminated                            │
+│  ├── OAM administrative action                          │
+│  ├── Re-auth failure                                    │
+│  └── Illegal UE detection                               │
+│                                                          │
+│  Implicit (automatic):                                  │
+│  ├── Periodic registration timer (T3512) expiry        │
+│  ├── Mobile reachable timer expiry                     │
+│  └── Implicit deregistration timer expiry              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Deregistration types
+
+| Type | Initiator | Example |
+|------|-----------|---------|
+| **Explicit UE** | UE | User powers off phone |
+| **Explicit Network** | AMF | Admin disconnects user |
+| **Implicit** | Timer | UE went silent too long |
+
+### What gets cleaned up
+
+```
+Deregistration Cleanup:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Before Deregistration:                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ UE Context in AMF                               │    │
+│  │ - 5G-GUTI, security context, allowed NSSAI     │    │
+│  │                                                  │    │
+│  │ PDU Sessions (in SMF)                           │    │
+│  │ - IP addresses, QoS rules, UPF resources       │    │
+│  │                                                  │    │
+│  │ UDM Registration                                │    │
+│  │ - "UE registered at AMF-001"                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                          │                               │
+│                          ▼ Deregistration                │
+│                                                          │
+│  After Deregistration:                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ AMF: UE context released                        │    │
+│  │ SMF: PDU sessions released (if switch-off)     │    │
+│  │ UDM: Registration record deleted               │    │
+│  │ UPF: Resources freed                            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### UE-initiated deregistration
+
+```
+UE-Initiated Deregistration (normal power-off):
+
+UE                gNB                AMF               UDM
+│                  │                  │                  │
+│ User powers off  │                  │                  │
+│      │           │                  │                  │
+│      ▼           │                  │                  │
+│ Deregistration   │                  │                  │
+│ Request          │                  │                  │
+│ - Type: switch off                  │                  │
+│ - 5G-GUTI        │                  │                  │
+│─────────────────►│─────────────────►│                  │
+│                  │                  │                  │
+│                  │                  │ Nudm_UECM_Dereg  │
+│                  │                  │─────────────────►│
+│                  │                  │                  │
+│                  │                  │      OK          │
+│                  │                  │◄─────────────────│
+│                  │                  │                  │
+│                  │  UE Context      │                  │
+│                  │  Release Command │                  │
+│                  │◄─────────────────│                  │
+│                  │                  │                  │
+│                  │  UE Context      │                  │
+│                  │  Release Complete│                  │
+│                  │─────────────────►│                  │
+│                  │                  │                  │
+│ Deregistration   │                  │                  │
+│ Accept           │◄─────────────────│                  │
+│◄─────────────────│                  │                  │
+│                  │                  │                  │
+│ (UE turns off)   │                  │                  │
+```
+
+### Deregistration request types
+
+```
+Deregistration Request IE:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  De-registration type:                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Bits:                                            │    │
+│  │                                                  │    │
+│  │ Switch-off (bit 3):                             │    │
+│  │   0 = normal deregistration                     │    │
+│  │   1 = switch-off (don't wait for accept)        │    │
+│  │                                                  │    │
+│  │ Re-registration required (bit 2):               │    │
+│  │   0 = no re-registration needed                 │    │
+│  │   1 = UE shall re-register                      │    │
+│  │                                                  │    │
+│  │ Access type (bits 0-1):                         │    │
+│  │   01 = 3GPP access                              │    │
+│  │   10 = non-3GPP access                          │    │
+│  │   11 = 3GPP + non-3GPP                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Network-initiated deregistration
+
+```
+Network-Initiated Deregistration:
+
+AMF                gNB                UE
+│                  │                  │
+│ Admin triggers   │                  │
+│ deregistration   │                  │
+│      │           │                  │
+│      ▼           │                  │
+│ Deregistration   │                  │
+│ Request          │                  │
+│ - Cause: OAM     │                  │
+│ intervention     │                  │
+│─────────────────►│─────────────────►│
+│                  │                  │
+│                  │                  │ UE receives
+│                  │                  │ and processes
+│                  │                  │
+│ Deregistration   │                  │
+│ Accept           │◄─────────────────│
+│◄─────────────────│                  │
+│                  │                  │
+│ UE Context       │                  │
+│ Release          │                  │
+│─────────────────►│                  │
+│                  │                  │
+│                  │ RRC Release      │
+│                  │─────────────────►│
+│                  │                  │
+```
+
+### Implicit deregistration
+
+```
+Implicit Deregistration (UE went silent):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Timeline:                                              │
+│                                                          │
+│  0          T3512        Mobile       Implicit          │
+│  │          (54 min)     Reachable    Dereg Timer       │
+│  │          │            │            │                  │
+│  ▼          ▼            ▼            ▼                  │
+│  Last     Expected     Start       Trigger              │
+│  contact   periodic    paging      implicit             │
+│            update      timer       dereg                │
+│            missed                                        │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ T3512 (periodic reg): ~54 min                    │    │
+│  │ Mobile reachable timer: network config           │    │
+│  │ Implicit dereg timer: network config             │    │
+│  │                                                  │    │
+│  │ After implicit dereg timer expires:             │    │
+│  │ - AMF releases UE context                        │    │
+│  │ - UDM notified (UECM deregistration)            │    │
+│  │ - PDU sessions released                          │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### PDU session handling during deregistration
+
+```
+PDU Session Fate During Deregistration:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Switch-off deregistration:                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ AMF sends Nsmf_PDUSession_ReleaseSMContext      │    │
+│  │ to each SMF for all PDU sessions                │    │
+│  │                                                  │    │
+│  │ → SMF releases N4 session with UPF              │    │
+│  │ → UPF releases resources                        │    │
+│  │ → IP addresses returned to pool                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Normal deregistration (re-attach expected):            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Network MAY keep PDU sessions for a while       │    │
+│  │ (especially for SSC mode 2/3)                   │    │
+│  │                                                  │    │
+│  │ → If UE re-registers quickly, sessions restored │    │
+│  │ → If timer expires, sessions released           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Deregistration causes
+
+```
+Network-Initiated Deregistration Causes:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  5GMM Cause Values:                                     │
+│                                                          │
+│  │ Cause │ Meaning                                      │
+│  │───────│──────────────────────────────────────────────│
+│  │   3   │ Illegal UE                                   │
+│  │   5   │ PEI not accepted                             │
+│  │   6   │ Illegal ME                                   │
+│  │  11   │ PLMN not allowed                             │
+│  │  12   │ Tracking area not allowed                    │
+│  │  13   │ Roaming not allowed in this TA               │
+│  │  22   │ Congestion                                   │
+│  │  72   │ Non-3GPP access to 5GCN not allowed          │
+│  │  73   │ Serving network not authorized               │
+│  │  76   │ Insufficient user-plane resources            │
+│  │  90   │ Re-authentication required                   │
+│  │  95   │ Semantically incorrect message               │
+│  │                                                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Timer configuration:**
+
+| Timer | Purpose | Typical Value |
+|-------|---------|---------------|
+| T3512 | Periodic registration | 54 min |
+| Mobile reachable | Start paging after T3512 miss | 4 min |
+| Implicit dereg | Release context if unreachable | 4 min |
+| T3522 | Deregistration retry | 6 sec |
+
+**Debugging deregistration:**
+
+```bash
+# Wireshark filter for deregistration
+nas-5gs.mm.message_type == 0x45 || nas-5gs.mm.message_type == 0x46
+
+# Check UDM registration status
+curl -X GET "https://udm.5gc/nudm-uecm/v1/imsi-310260123456789/registrations"
+```
+
+**Common scenarios:**
+
+| Symptom | Check |
+|---------|-------|
+| UE can't reconnect after power cycle | Stale context in AMF, wait for implicit dereg |
+| Repeated deregistration | Network-initiated cause, check AMF logs |
+| Sessions not released | SMF notified? Check N11 interface |
+| UDM still shows registered | UECM deregistration failed, check SBI |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Forgetting switch-off flag.** When UE powers off, it sets switch-off=1 so network doesn't wait for accept. Missing this wastes time.
+
+2. **Not releasing PDU sessions.** AMF must notify SMF to release sessions. Missing this leaks resources.
+
+3. **Ignoring implicit deregistration.** If UE disappears (battery dies, out of coverage), implicit dereg is the only cleanup path.
+
+4. **Too aggressive timers.** Very short implicit dereg timers cause frequent re-registrations for UEs in bad coverage.
+
+5. **Not updating UDM.** AMF must call Nudm_UECM_Deregistration. Missing this leaves stale registration records.
+
+6. **Re-registration loop.** If deregistration cause requires re-registration but underlying issue isn't fixed, UE loops.
+
+7. **Context mismatch after failure.** If AMF crashes mid-deregistration, UE and network state diverge. Need recovery procedures.
+
+8. **Multi-access confusion.** UE can be registered over 3GPP and non-3GPP simultaneously. Deregistration must specify which access.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.502, "Procedures for 5GS"
+- 3GPP TS 24.501, "NAS protocol for 5GS"
+- 3GPP TS 23.501, "System architecture for 5GS"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Handover](/en/core-network/mobility-management/handover/) — moving between cells without deregistering
+- [Idle and connected modes](/en/core-network/mobility-management/idle-connected-modes/) — understanding UE states
+- [PDU session release](/en/core-network/session-management-deep-dive/pdu-session-release/) — session cleanup details
+
+</section>

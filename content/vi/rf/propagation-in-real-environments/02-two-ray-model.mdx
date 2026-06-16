@@ -8,16 +8,16 @@ track: r2
 unit: propagation-in-real-environments
 order: 2
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 14
 prerequisites: ["rf-r2-propagation-in-real-environments-01-reflection-refraction-diffraction"]
 spiralRevisits: []
-title: "Mô hình hai tia"
-description: "Phản xạ mặt đất tạo mẫu fading phụ thuộc khoảng cách."
-authors: ["tindang"]
+title: "Mô hình hai tia (two-ray model)"
+description: "Phản xạ mặt đất tạo ra mẫu fading phụ thuộc khoảng cách và path loss dốc hơn."
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
-tags: ["two-ray", "ground-reflection", "path-loss", "propagation"]
+tags: ["two-ray", "ground-reflection", "path-loss", "propagation", "breakpoint-distance"]
 widgets: []
 license: CC-BY-SA-4.0
 status: published
@@ -25,9 +25,13 @@ status: published
 
 <section class="lesson-hook">
 
-## Tại sao mô hình hai tia?
+## Tại sao cần mô hình hai tia?
 
-Suy hao không gian tự do dự đoán tín hiệu giảm theo 1/d². Nhưng đo đạc trên mặt đất phẳng cho thấy 1/d⁴ vượt qua khoảng cách chuyển tiếp. Mô hình hai tia giải thích điều này: sóng trực tiếp cộng sóng phản xạ mặt đất giao thoa, tạo đỉnh và điểm null xen kẽ, chuyển sang suy hao dốc hơn ở phạm vi xa.
+Free-space path loss dự đoán công suất tín hiệu giảm theo $1/d^2$ — 20 dB mỗi thập phân. Nhưng các phép đo trên mặt đất bằng phẳng liên tục cho thấy $1/d^4$ ngoài một khoảng cách nhất định. Ô tế bào ở 2 km thấy thêm khoảng 6 dB tổn hao so với dự đoán không gian tự do; ở 5 km chênh lệch vượt 10 dB. Bỏ qua sai số này xóa sạch nửa link margin trước khi bạn triển khai một site nào.
+
+Mô hình hai tia giải thích chính xác sự chênh lệch này: sóng phản xạ từ mặt đất gây nhiễu với đường trực tiếp. Gần máy phát, hai đường luân phiên cộng và triệt tiêu nhau, tạo ra cường độ tín hiệu dao động. Ngoài **khoảng cách điểm gãy** (breakpoint), sóng phản xạ gần như lệch pha 180° với đường trực tiếp và triệt tiêu một phần — chuyển sang quy luật $1/d^4$ dốc hơn.
+
+Điều này quan trọng với mọi liên kết mặt đất: trạm gốc macrocell, hop vi ba điểm-tới-điểm, và liên kết không-đất đều hoạt động trong chế độ mà hình học hai tia là cơ chế truyền sóng chi phối.
 
 </section>
 
@@ -35,69 +39,102 @@ Suy hao không gian tự do dự đoán tín hiệu giảm theo 1/d². Nhưng đ
 
 ## Trực giác
 
-Hãy tưởng tượng hai đường: tầm nhìn trực tiếp và dội từ mặt đất. Gần máy phát, hai đường này có độ dài và pha khác nhau — chúng có thể cộng hoặc triệt tiêu. Xa hơn, cả hai đường gần như nằm ngang, hiệu pha ổn định ở 180°, và chúng triệt tiêu một phần — cho quy luật 1/d⁴.
+### Hai đường, một máy thu
+
+Hãy hình dung máy phát trên tháp và máy thu trên mặt đất cách nhau khoảng cách $d$. Tồn tại hai đường:
+
+1. **Đường trực tiếp**: đường thẳng từ TX đến RX, độ dài $d_1$.
+2. **Đường phản xạ mặt đất**: bật lại từ mặt đất, độ dài $d_2 > d_1$.
+
+Vì hệ số phản xạ mặt đất ở góc tới tiếp tuyến xấp xỉ $-1$ (đảo pha 180°, như đã suy luận trong bài phản xạ), sóng phản xạ đến bị đảo ngược. Sóng trực tiếp và phản xạ chồng lên nhau tại máy thu.
+
+**Gần máy phát** ($d \ll d_b$): chênh lệch độ dài đường $\Delta = d_2 - d_1$ lớn so với bước sóng. Khi máy thu di chuyển, $\Delta$ thay đổi nhanh so với $\lambda$, khiến hai sóng luân phiên cộng (xây dựng) và triệt tiêu (phá hủy). Cường độ tín hiệu dao động ±20 dB hoặc hơn qua khoảng cách vài bước sóng.
+
+**Xa máy phát** ($d \gg d_b$): cả hai đường gần như nằm ngang. Chênh lệch đường $\Delta \approx 2h_t h_r / d$ trở nên nhỏ hơn nhiều so với $\lambda$. Hiệu pha $\Delta\phi = 2\pi\Delta/\lambda \approx 4\pi h_t h_r / (\lambda d)$ tiếp cận không khi $d$ tăng — nhưng vì phản xạ đảo sóng (cộng thêm $\pi$ radian), tổng hiệu pha giữa đường trực tiếp và phản xạ tiếp cận $\pi$. Hai sóng gần như triệt tiêu nhau. Sự triệt tiêu tệ hơn khi $d$ tăng, cho ra suy giảm $1/d^4$ dốc hơn.
+
+```
+Hình học hai tia:
+
+TX (cao ht)              RX (cao hr)
+      |                       |
+      |    Đường trực tiếp d1 |
+      |---------------------- |
+      |                       |
+      |  d'  |     d''        |
+      |______mặt đất__________|
+             Đường phản xạ d2 > d1
+
+Chênh lệch đường: Δ = d2 - d1 ≈ 2·ht·hr / d  (trường xa)
+Hiệu pha: Δφ = (2π/λ)·Δ + π (π từ phản xạ)
+```
+
+$\pi$ từ phản xạ có nghĩa là khi $d$ tăng và $\Delta \to 0$, tổng hiệu pha tiếp cận $\pi$ — nhiễu triệt tiêu. Sự triệt tiêu hai tia tệ hơn theo khoảng cách, không tốt hơn.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Cơ chế
+## Cơ chế hoạt động
 
-### Hình học
+### Hình học và độ dài đường
 
-TX ở độ cao $h_t$, RX ở độ cao $h_r$, cách nhau khoảng cách d.
+TX ở độ cao $h_t$, RX ở độ cao $h_r$, cách nhau theo chiều ngang $d$.
 
-Độ dài đường trực tiếp:
+Đường trực tiếp (chính xác):
 $$d_1 = \sqrt{d^2 + (h_t - h_r)^2} \approx d + \frac{(h_t - h_r)^2}{2d}$$
 
-Độ dài đường phản xạ:
+Đường phản xạ (qua điểm ảnh tại $-h_t$):
 $$d_2 = \sqrt{d^2 + (h_t + h_r)^2} \approx d + \frac{(h_t + h_r)^2}{2d}$$
 
-Hiệu đường:
+Chênh lệch đường:
 $$\Delta = d_2 - d_1 \approx \frac{2h_t h_r}{d}$$
 
-Hiệu pha:
-$$\Delta\phi = \frac{2\pi}{\lambda}\Delta = \frac{4\pi h_t h_r}{\lambda d}$$
+Hiệu pha tổng (chênh lệch độ dài đường cộng 180° từ phản xạ):
+$$\Delta\phi_{total} = \frac{4\pi h_t h_r}{\lambda d} + \pi$$
 
-### Công suất nhận
+### Công suất thu — công thức nhiễu hai tia
 
-Bao gồm hệ số phản xạ mặt đất Γ ≈ -1:
+Với hệ số phản xạ mặt đất $\Gamma \approx -1$:
 
-$$P_r = P_t G_t G_r \left(\frac{\lambda}{4\pi d}\right)^2 \left|1 + \Gamma e^{-j\Delta\phi}\right|^2$$
+$$P_r = P_t G_t G_r \left(\frac{\lambda}{4\pi d}\right)^2 \left|1 - e^{-j\frac{4\pi h_t h_r}{\lambda d}}\right|^2$$
 
-Số hạng giao thoa $|1 - e^{-j\Delta\phi}|^2 = 4\sin^2(\Delta\phi/2)$.
+Số hạng nhiễu $\left|1 - e^{-j\psi}\right|^2 = 4\sin^2(\psi/2)$ với $\psi = 4\pi h_t h_r / (\lambda d)$.
 
-### Hai chế độ
+**Trường gần** ($\psi$ lớn, nhiều dao động): công suất thu dao động giữa 0 và $4 \times$ giá trị không gian tự do — đỉnh +6 dB so với Friis và null hoàn toàn.
 
-**Trường gần (d < d_c):**
+**Trường xa** ($\psi \ll 1$, $\sin(\psi/2) \approx \psi/2$):
 
-$$P_r \propto \frac{1}{d^2} \times \text{dao động}$$
+$$P_r \approx P_t G_t G_r \left(\frac{\lambda}{4\pi d}\right)^2 \cdot \psi^2 = P_t G_t G_r \frac{h_t^2 h_r^2}{d^4}$$
 
-Giao thoa xây dựng/phá hủy xen kẽ.
+Lưu ý: $\lambda$ triệt tiêu hoàn toàn. Công suất trường xa hai tia chỉ phụ thuộc độ cao và khoảng cách, **không phụ thuộc tần số**.
 
-**Trường xa (d > d_c):**
+### Khoảng cách điểm gãy (breakpoint)
 
-Khi $\Delta\phi << 1$: $\sin(\Delta\phi/2) \approx \Delta\phi/2$
+Sự chuyển tiếp từ dao động sang $1/d^4$ đơn điệu xảy ra tại:
 
-$$P_r = P_t G_t G_r \frac{h_t^2 h_r^2}{d^4}$$
+$$d_b = \frac{4 h_t h_r}{\lambda}$$
 
-Quy luật lũy thừa bốn — 40 dB/decade.
+Tương đương, $d_b$ là nơi $\psi = \pi$ (null đầu tiên của dao động), hoặc nơi vùng Fresnel thứ nhất vừa chạm mặt đất.
 
-### Khoảng cách chuyển tiếp
+### Công thức path loss hai tia (ngoài điểm gãy)
 
-Chuyển tiếp xảy ra khi vùng Fresnel thứ nhất chạm đất:
+$$L_{2ray}[\text{dB}] = 40\log_{10}(d) - 20\log_{10}(h_t) - 20\log_{10}(h_r)$$
 
-$$d_c = \frac{4 h_t h_r}{\lambda}$$
+Tính chất chính:
+- **40 dB/thập phân** khoảng cách (vs. 20 dB/thập phân cho không gian tự do)
+- **Không phụ thuộc tần số** — hiệu ứng tần số biến mất ở trường xa
+- **Phụ thuộc độ cao**: tăng cả hai anten hệ số $k$ lần giảm path loss $40\log_{10}(k)$ dB — tăng gấp đôi cả hai độ cao cho 12 dB cải thiện
 
-Hoặc tương đương, khi $\Delta\phi = \pi/2$.
+### Bảng khoảng cách điểm gãy tham khảo
 
-### Phương trình suy hao đường
+| Tần số | $h_t = 30$ m, $h_r = 1.5$ m | $h_t = 10$ m, $h_r = 1.5$ m |
+|--------|-----------------------------|-----------------------------|
+| 900 MHz | 545 m | 182 m |
+| 1.8 GHz | 1090 m | 363 m |
+| 2.1 GHz | 1273 m | 424 m |
+| 28 GHz | 16.800 m | 5600 m |
 
-Vượt quá chuyển tiếp:
-
-$$L = 40\log_{10}(d) - 20\log_{10}(h_t) - 20\log_{10}(h_r)$$
-
-Lưu ý: không phụ thuộc tần số trong trường xa hai tia.
+Lưu ý: ở 28 GHz với độ cao tháp macro điển hình, $d_b$ vượt kích thước ô điển hình — vi ô mmWave thường hoạt động trong chế độ không gian tự do, lý do path loss mmWave trong ô gần $n=2$ hơn $n=4$.
 
 </section>
 
@@ -105,67 +142,73 @@ Lưu ý: không phụ thuộc tần số trong trường xa hai tia.
 
 ## Áp dụng
 
-**Ví dụ: Trạm di động**
+### Ví dụ 1: Macrocell ở 900 MHz — chuyển từ không gian tự do sang hai tia
 
-Tần số: 900 MHz (λ = 0.33 m)
-Chiều cao trạm: 30 m
-Chiều cao di động: 1.5 m
+Tháp $h_t = 30$ m, máy di động $h_r = 1.5$ m, 900 MHz ($\lambda = 0.333$ m).
 
-Khoảng cách chuyển tiếp:
-$$d_c = \frac{4 \times 30 \times 1.5}{0.33} = 545 \text{ m}$$
+$$d_b = \frac{4 \times 30 \times 1.5}{0.333} = 540 \text{ m}$$
 
-Ở 100 m (< dc): giống không gian tự do với dao động.
-Ở 1 km (> dc): hai tia 1/d⁴ áp dụng.
+Path loss ở 500 m (vừa trong $d_b$): dùng FSPL.
+$$L_{fs} = 32.45 - 6 + 59.1 = 85.5 \text{ dB}$$
 
-Suy hao đường ở 1 km:
-$$L = 40\log_{10}(1000) - 20\log_{10}(30) - 20\log_{10}(1.5) = 120 - 29.5 - 3.5 = 87 \text{ dB}$$
+Path loss ở 2 km (xa $d_b$): dùng hai tia.
+$$L_{2ray} = 40\log_{10}(2000) - 20\log_{10}(30) - 20\log_{10}(1.5) = 132 - 29.5 - 3.5 = 99 \text{ dB}$$
 
-**Ví dụ: Wi-Fi qua bãi đậu xe**
+FSPL ở 2 km: 97.6 dB. Hai tia thêm 1.4 dB. Ở 5 km: hai tia = 113 dB; FSPL = 105.6 dB. Chênh lệch: 7.4 dB — khoảng cách tăng theo khoảng cách.
 
-2.4 GHz, cả hai ăng-ten ở độ cao 2 m.
+### Ví dụ 2: Ảnh hưởng của độ cao tháp lên vùng phủ
 
-$$d_c = \frac{4 \times 2 \times 2}{0.125} = 128 \text{ m}$$
+Cùng kịch bản. So sánh $h_t = 30$ m vs. $h_t = 60$ m ở 5 km (cả hai ngoài $d_b$).
 
-Dưới 128 m: mong đợi điểm null và đỉnh.
-Trên 128 m: suy hao hai tia chiếm ưu thế.
+$$L_{30m} = 146 - 29.5 - 3.5 = 113 \text{ dB}$$
+$$L_{60m} = 146 - 35.6 - 3.5 = 106.9 \text{ dB}$$
 
-Ở 50 m (trước dc): khoảng cách null ≈ $\frac{\lambda d}{2h_t h_r} = \frac{0.125 \times 50}{2 \times 4} = 0.78$ m.
+Tăng gấp đôi độ cao tháp tiết kiệm 6 dB path loss — tương đương tăng 4 lần công suất phát, hoặc tăng 40% bán kính phủ sóng.
 
-Di chuyển 0.78 m có thể dao động tín hiệu 20+ dB.
+### Ví dụ 3: Wi-Fi qua bãi đỗ xe ở 2.4 GHz
 
-**Ví dụ: Không-đất**
+Cả hai anten ở $h = 2$ m, 2.4 GHz ($\lambda = 0.125$ m).
 
-Máy bay ở 3000 m, trạm mặt đất ở 10 m, 1 GHz.
+$$d_b = \frac{4 \times 2 \times 2}{0.125} = 128 \text{ m}$$
 
-$$d_c = \frac{4 \times 3000 \times 10}{0.3} = 400 \text{ km}$$
+Trong 128 m: tín hiệu dao động. Khoảng cách giữa các null ở 50 m:
+$$\Delta d_{null} = \frac{0.125 \times 50}{2 \times 2 \times 2} = 0.78 \text{ m}$$
 
-Trong 400 km: hai tia không áp dụng, dùng không gian tự do.
+Di chuyển chưa đến 1 m có thể thay đổi công suất thu 20 dB — giải thích các "điểm chết" trong Wi-Fi bãi đỗ xe.
 
-**Ví dụ: So sánh suy hao đường**
+### Ví dụ 4: Liên kết không-đất — hai tia không áp dụng
 
-Ở 2 km, trạm 30 m, di động 1.5 m:
+Máy bay ở $h_t = 3000$ m, terminal mặt đất ở $h_r = 10$ m, 1 GHz.
 
-Không gian tự do (900 MHz): $20\log(4\pi \times 2000/0.33) = 20\log(76000) = 97.6$ dB
+$$d_b = \frac{4 \times 3000 \times 10}{0.3} = 400.000 \text{ m} = 400 \text{ km}$$
 
-Hai tia: $40\log(2000) - 20\log(30) - 20\log(1.5) = 132 - 29.5 - 3.5 = 99$ dB
+Trong 400 km: mô hình hai tia không áp dụng — dùng FSPL. Lý do liên kết không-đất ở độ cao trung-cao được mô hình tốt bằng FSPL đơn giản trong phạm vi hoạt động.
 
-Hai tia dự đoán ~1.5 dB suy hao hơn — khớp gần xác nhận vùng hai tia.
+### Ví dụ 5: Vệ tinh với mặt đất — luôn là không gian tự do
+
+Vệ tinh LEO ở 600 km. Ngay cả với $h_r = 100$ m (terminal mặt đất cao):
+
+$$d_b = \frac{4 \times 600000 \times 100}{0.15} = 1.6 \times 10^9 \text{ m} \gg 600 \text{ km}$$
+
+Liên kết vệ tinh ở hoàn toàn trong chế độ không gian tự do. Phản xạ mặt đất chỉ liên quan ở góc ngẩng rất thấp (dưới ~5°), nơi đường phản xạ và trực tiếp hội tụ.
 
 </section>
 
 <section class="lesson-pitfalls">
 
-## Lỗi thường gặp
+## Các bẫy thường gặp
 
-1. **Áp dụng hai tia quá gần.** Dưới khoảng cách chuyển tiếp, dùng không gian tự do với dao động, không phải 1/d⁴.
+1. **Áp dụng hai tia trước điểm gãy.** Quy luật $1/d^4$ chỉ đúng ngoài $d_b$. Dưới điểm gãy, dùng không gian tự do với dao động. Áp dụng hai tia ngây thơ ở khoảng cách ngắn dự đoán tổn hao quá ít.
 
-2. **Quên mặt đất không hoàn hảo.** Mặt đất thực không phẳng hay phản xạ hoàn hảo. Độ nhám tán xạ năng lượng.
+2. **Giả định Gamma = -1 luôn luôn.** Hệ số phản xạ mặt đất thực phụ thuộc loại đất, độ ẩm, tần số và phân cực. Đất ướt có $|\Gamma| \to 1$ (xấp xỉ tốt). Cát khô: $|\Gamma| \approx 0.5$. Dùng $\Gamma = -1$ cho đất khô đánh giá quá cao hiệu ứng triệt tiêu.
 
-3. **Giả định Γ = -1.** Hệ số phản xạ mặt đất phụ thuộc tần số, phân cực, và loại đất. Phạm vi: -0.3 đến -1.
+3. **Bỏ qua tán xạ bề mặt nhám.** Mặt đất thực không bằng phẳng. Tiêu chí Rayleigh $\sigma_h > \lambda / (8\cos\theta_i)$ xác định khi nào độ nhám quan trọng. Ở tần số cao hơn (>3 GHz), độ nhám mặt đất phân tán phản xạ thành búp rộng thay vì phản xạ gương, làm yếu sự triệt tiêu hai tia. Số mũ thực gần $n = 3$ hơn $n = 4$.
 
-4. **Bỏ qua đa đường.** Hai tia là độ phức tạp tối thiểu. Môi trường thực có tòa nhà, cây, địa hình.
+4. **Dùng hai tia trong nhà.** Trong nhà, hàng chục phản xạ từ tường, sàn và trần chi phối. Hai tia là mô hình ngoài trời, mặt đất phẳng, một phản xạ. Áp dụng trong nhà là sai.
 
-5. **Dùng hai tia trong nhà.** Nhiều phản xạ chiếm ưu thế. Hai tia là mô hình đất phẳng ngoài trời.
+5. **Quên sự triệt tiêu tần số.** Kết quả đáng ngạc nhiên là path loss hai tia không phụ thuộc tần số ở trường xa có thể gây hiểu lầm rằng chỉ độ cao anten quan trọng. Điều này chỉ đúng ngoài $d_b$. Dưới $d_b$, tần số ảnh hưởng mạnh đến cả mẫu dao động và path loss.
+
+6. **Hiểu sai "không phụ thuộc tần số."** Phát biểu này đề cập đến **công suất thu với độ lợi anten đã cho**. Nếu so sánh anten đẳng hướng ở các tần số khác nhau, khẩu độ hiệu dụng khác nhau tái đưa phụ thuộc tần số vào. Kết quả hai tia giả định cùng $G_t$ và $G_r$ bất kể tần số.
 
 </section>
 
@@ -173,8 +216,9 @@ Hai tia dự đoán ~1.5 dB suy hao hơn — khớp gần xác nhận vùng hai 
 
 ## Tài liệu tham khảo
 
-- Rappaport, *Wireless Communications*, Chapter 4.
-- Goldsmith, *Wireless Communications*, Chapter 2.
-- Parsons, *The Mobile Radio Propagation Channel*, Chapter 3.
+- Rappaport, T.S., *Wireless Communications*, xuất bản lần 2, Chương 3 — suy luận mô hình hai tia và ví dụ số.
+- Goldsmith, A., *Wireless Communications*, Chương 2 — trình bày ngắn gọn về khoảng cách điểm gãy và hành vi trường xa.
+- Parsons, J.D., *The Mobile Radio Propagation Channel*, xuất bản lần 2, Chương 3 — vật lý phản xạ mặt đất và hàm ý thực tế.
+- 3GPP TR 38.901 — bao gồm mô hình hai độ dốc (tương tự hai tia) cho các kịch bản UMa và UMi.
 
 </section>

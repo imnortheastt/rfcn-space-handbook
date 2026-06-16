@@ -8,17 +8,327 @@ track: n0
 unit: mpls-vlan-vrf
 order: 3
 level: L2
-estimatedReadingMinutes: 5
-title: "Khai niem VRF"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-mpls-vlan-vrf-02-mpls-label-switching"]
+spiralRevisits: ["core-network-n2-mpls-vlan-vrf-04-l3vpn"]
+title: "Khái niệm VRF"
+description: "Virtual Routing and Forwarding — nhiều bảng định tuyến trên một router để cô lập và multitenancy."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["RFC 4364"]
+tags: ["vrf", "routing", "multitenancy", "networking"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Khai niem VRF
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+Một router, nhiều khách hàng. Mỗi khách hàng muốn mạng private riêng với địa chỉ IP trùng nhau. Làm sao giữ họ cô lập?
+
+**VRF (Virtual Routing and Forwarding)** tạo nhiều virtual router bên trong một physical router. Mỗi VRF có bảng định tuyến riêng, hoàn toàn cô lập với các VRF khác. Đây là nền tảng của MPLS VPN service.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+### VRF là gì?
+
+VRF là **routing table instance riêng biệt** trên router. Mỗi VRF được cô lập — route trong một VRF không nhìn thấy được từ VRF khác.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Physical Router                       │
+│                                                          │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐   │
+│  │   VRF: RED   │  │  VRF: BLUE   │  │ Global Table │   │
+│  │              │  │              │  │              │   │
+│  │ 10.0.0.0/24  │  │ 10.0.0.0/24  │  │ 192.0.2.0/24│   │
+│  │ 10.1.0.0/24  │  │ 10.2.0.0/24  │  │ 203.0.113/24│   │
+│  │              │  │              │  │              │   │
+│  └──────────────┘  └──────────────┘  └──────────────┘   │
+│                                                          │
+│  Interface:                                              │
+│  eth0 → VRF RED    eth1 → VRF BLUE    eth2 → Global     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Insight quan trọng:** Cả RED và BLUE đều có 10.0.0.0/24, nhưng chúng hoàn toàn riêng biệt. Traffic trong RED không bao giờ reach được BLUE (trừ khi được config explicit).
+
+### VRF vs VLAN
+
+| Khía cạnh | VLAN | VRF |
+|-----------|------|-----|
+| Layer | Layer 2 (switching) | Layer 3 (routing) |
+| Cô lập | Broadcast domain | Routing table |
+| IP trùng | Không (cùng L3 network) | Có (routing table khác nhau) |
+| Ở đâu | Switch | Router |
+
+VLAN segment ở Layer 2. VRF segment ở Layer 3. Chúng thường làm việc cùng nhau: VLAN kết nối đến VRF.
+
+### Tại sao VRF?
+
+| Use case | VRF giúp như thế nào |
+|----------|----------------------|
+| Multitenancy | Mỗi customer có VRF riêng |
+| Địa chỉ trùng | Cùng 10.0.0.0/24 trong nhiều VRF |
+| Service separation | Management VRF tách biệt production |
+| MPLS VPN | VRF là nền tảng của L3VPN |
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### Thành phần VRF
+
+Mỗi VRF có:
+
+1. **Routing table (RIB):** Lưu route cho VRF này
+2. **Forwarding table (FIB):** Dùng cho fast packet forwarding
+3. **Interface:** Physical hoặc logical interface được gán vào VRF này
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                      VRF: CUSTOMER_A                     │
+│                                                          │
+│  RIB (Routing Table):                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Destination      Next Hop        Interface      │    │
+│  │ 10.0.0.0/24      Connected       eth0.100       │    │
+│  │ 10.1.0.0/24      10.0.0.254      eth0.100       │    │
+│  │ 0.0.0.0/0        10.0.0.1        eth0.100       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Interface: eth0.100, eth1.200                          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### VRF-Lite vs MPLS VRF
+
+**VRF-Lite:** VRF không có MPLS. Mỗi VRF là local cho router. Để extend qua các router, bạn cần link vật lý riêng hoặc VLAN trunk.
+
+```
+VRF-Lite: Link riêng per VRF
+
+┌────────┐   VRF A link    ┌────────┐
+│Router 1│◄───────────────►│Router 2│
+│        │   VRF B link    │        │
+│        │◄───────────────►│        │
+└────────┘                 └────────┘
+```
+
+**MPLS VRF:** VRF extend qua MPLS backbone dùng VPN label. Một link vật lý carry tất cả VRF.
+
+```
+MPLS VRF: Một link, MPLS label
+
+┌────────┐    MPLS trunk    ┌────────┐
+│  PE    │◄────────────────►│  PE    │
+│        │  Label:          │        │
+│ VRF A  │  100 = VRF A     │ VRF A  │
+│ VRF B  │  200 = VRF B     │ VRF B  │
+└────────┘                  └────────┘
+```
+
+### Route Distinguisher (RD)
+
+Trong MPLS VPN, customer khác nhau có thể có cùng IP prefix (v.d., 10.0.0.0/24). BGP carry cả hai mà không nhầm lẫn như thế nào?
+
+**Route Distinguisher** làm route unique.
+
+```
+Customer A prefix: 10.0.0.0/24
+Customer B prefix: 10.0.0.0/24
+
+Với RD:
+65000:100:10.0.0.0/24  (Customer A)
+65000:200:10.0.0.0/24  (Customer B)
+```
+
+**RD format:** 8 byte, thường `AS:nn` hoặc `IP:nn`
+
+**Quan trọng:** RD làm route unique cho BGP. Nó không control route import/export. Đó là việc của Route Target.
+
+### Route Target (RT)
+
+**Route Target** control VRF nào import route nào.
+
+```
+VRF CUSTOMER_A:
+  Export RT: 65000:100
+  Import RT: 65000:100
+
+VRF CUSTOMER_B:
+  Export RT: 65000:200
+  Import RT: 65000:200
+```
+
+Khi route được advertise:
+1. PE thêm export RT vào route
+2. PE khác nhận route
+3. Mỗi VRF import route match import RT của nó
+
+**Ví dụ extranet:** Customer A và B share một số route:
+
+```
+VRF CUSTOMER_A:
+  Export RT: 65000:100
+  Import RT: 65000:100, 65000:999  (shared)
+
+VRF CUSTOMER_B:
+  Export RT: 65000:200
+  Import RT: 65000:200, 65000:999  (shared)
+
+VRF SHARED_SERVICES:
+  Export RT: 65000:999
+  Import RT: 65000:100, 65000:200
+```
+
+### Packet flow trong MPLS L3VPN
+
+```
+Customer A        PE1              P              PE2        Customer A
+Site 1             │               │               │          Site 2
+   │               │               │               │             │
+   │  IP packet    │               │               │             │
+   │──────────────►│               │               │             │
+   │               │               │               │             │
+   │               │ Push label:   │               │             │
+   │               │ Transport=100 │               │             │
+   │               │ VPN=500       │               │             │
+   │               │──────────────►│               │             │
+   │               │               │               │             │
+   │               │               │ Swap 100→200  │             │
+   │               │               │──────────────►│             │
+   │               │               │               │             │
+   │               │               │               │ Pop label   │
+   │               │               │               │ Look up VRF │
+   │               │               │               │ Forward IP  │
+   │               │               │               │────────────►│
+```
+
+**Hai label:**
+- **Outer (transport):** Đưa packet qua MPLS backbone
+- **Inner (VPN):** Xác định VRF ở egress PE
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Pattern VRF phổ biến:**
+
+| Pattern | Mô tả |
+|---------|-------|
+| Customer VRF | Một VRF per customer, cô lập hoàn toàn |
+| Management VRF | VRF riêng cho device management |
+| Internet VRF | VRF dedicated cho Internet access |
+| Shared service | VRF với route được import bởi nhiều customer VRF |
+
+**Ví dụ configuration (Cisco-style):**
+
+```bash
+# Tạo VRF
+vrf definition CUSTOMER_A
+  rd 65000:100
+  address-family ipv4
+    route-target export 65000:100
+    route-target import 65000:100
+
+# Gán interface vào VRF
+interface GigabitEthernet0/0.100
+  encapsulation dot1q 100
+  vrf forwarding CUSTOMER_A
+  ip address 10.0.0.1 255.255.255.0
+
+# Verify VRF route
+show ip route vrf CUSTOMER_A
+```
+
+**Troubleshooting VRF:**
+
+1. **Route không có trong VRF table:**
+   - Interface có ở đúng VRF không?
+   - Kiểm tra BGP VPN address family
+   - Verify RT import/export match
+
+2. **Ping fail giữa VRF site:**
+   - Kiểm tra MPLS path (label assigned?)
+   - Verify VRF route trên cả hai PE
+   - Kiểm tra VPN label đúng
+
+3. **Route leak giữa VRF:**
+   - Kiểm tra RT configuration (import nhầm?)
+   - Review import policy
+
+**Command hữu ích:**
+
+```bash
+# Xem VRF configuration
+show vrf detail CUSTOMER_A
+
+# Xem route trong VRF
+show ip route vrf CUSTOMER_A
+
+# Xem BGP VPNv4 route
+show bgp vpnv4 unicast all
+
+# Ping từ VRF
+ping vrf CUSTOMER_A 10.0.0.5
+
+# Traceroute từ VRF
+traceroute vrf CUSTOMER_A 10.0.0.5
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Quên gán interface vào VRF trước IP.** Nếu bạn config IP trước, rồi gán VRF, IP config bị xóa. Luôn gán VRF trước.
+
+2. **Nhầm RD với RT.** RD làm route unique trong BGP. RT control import/export. Chúng liên quan nhưng serve mục đích khác nhau.
+
+3. **RT leakage.** Vô tình import route từ sai VRF phá vỡ isolation. Luôn double-check RT configuration.
+
+4. **VRF-aware service.** DHCP, DNS, NTP phải VRF-aware. Service trong global table không serve được client trong VRF mà không có config đặc biệt.
+
+5. **Quên management VRF.** Nếu bạn đưa management interface vào VRF, bạn có thể mất access đến device. Plan management connectivity cẩn thận.
+
+6. **Scale limit.** Mỗi VRF tiêu tốn memory (routing table, FIB). Hàng trăm VRF đòi hỏi capacity planning cẩn thận.
+
+7. **Asymmetric routing trong VRF.** Giống như global routing, VRF traffic có thể đi đường khác vào/ra. Điều này có thể break stateful service.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- RFC 4364, "BGP/MPLS IP Virtual Private Networks (VPNs)"
+- RFC 4382, "MPLS/BGP Layer 3 Virtual Private Network Management Information Base"
+- Cisco, "MPLS Virtual Private Networks Configuration Guide"
+- Pepelnjak & Guichard, *MPLS and VPN Architectures*, Cisco Press
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [L3VPN](/vi/core-network/mpls-vlan-vrf/l3vpn/) — full MPLS VPN implementation
+- [L2VPN](/vi/core-network/mpls-vlan-vrf/l2vpn/) — Layer 2 VPN service
+- [Inter-AS VPN](/vi/core-network/mpls-vlan-vrf/inter-as-vpn/) — VPN qua provider boundary
+
+</section>

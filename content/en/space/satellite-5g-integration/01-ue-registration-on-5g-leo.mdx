@@ -8,17 +8,459 @@ track: s11
 unit: satellite-5g-integration
 order: 1
 level: L4
-estimatedReadingMinutes: 5
-title: "How a UE registers on a 5G LEO satellite"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: []
+spiralRevisits: []
+title: "How a UE Registers on a 5G LEO Satellite"
+description: "Understanding the 3GPP NTN registration procedure with timing advance, ephemeris, and feeder link considerations."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 38.300", "3GPP TS 38.821"]
+tags: ["5g-ntn", "ue-registration", "leo", "timing-advance", "ephemeris"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# How a UE registers on a 5G LEO satellite
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+5G Non-Terrestrial Networks (NTN) let standard smartphones connect directly to LEO satellites. But the physics are different: 600 km altitude means 4-8 ms delay and rapid satellite motion. Understanding how 3GPP adapted the registration procedure—with ephemeris broadcasts, timing advance, and moving cells—reveals the engineering that makes "phone to satellite" work.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The NTN architecture
+
+```
+5G NTN System Architecture:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                     🛰 LEO Satellite (600 km)                        │
+│                    ┌──────────────────────┐                         │
+│                    │   Transparent or     │                         │
+│                    │   Regenerative       │                         │
+│                    │   Payload            │                         │
+│                    └──────────────────────┘                         │
+│                         ╱        ╲                                  │
+│                        ╱          ╲                                 │
+│            Service    ╱            ╲   Feeder                       │
+│            Link      ╱              ╲  Link                         │
+│            (NR)     ╱                ╲ (high capacity)              │
+│                    ╱                  ╲                             │
+│                   ╱                    ╲                            │
+│                  📱                     📡                           │
+│                  UE                   Gateway                       │
+│                                         │                           │
+│                                         │                           │
+│                                    ┌────┴────┐                      │
+│                                    │  5G CN  │                      │
+│                                    │  (AMF,  │                      │
+│                                    │   SMF)  │                      │
+│                                    └─────────┘                      │
+│                                                                      │
+│  TWO PAYLOAD TYPES:                                                 │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  TRANSPARENT (bent-pipe):                                   │   │
+│  │  • Satellite just amplifies and frequency-shifts            │   │
+│  │  • gNB is on the ground (at gateway)                       │   │
+│  │  • Higher latency (service + feeder link delays)           │   │
+│  │                                                              │   │
+│  │  REGENERATIVE (onboard gNB):                                │   │
+│  │  • gNB-DU or full gNB runs on satellite                    │   │
+│  │  • Lower latency for air interface                         │   │
+│  │  • More complex satellite                                   │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Key differences from terrestrial
+
+```
+NTN vs Terrestrial 5G Challenges:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Challenge        │ Terrestrial       │ LEO NTN                    │
+│  ─────────────────┼───────────────────┼──────────────────────────  │
+│  Round-trip delay │ &lt;1 ms             │ 8-50 ms                    │
+│  Doppler shift    │ ~Hz               │ ~50 kHz @ 2 GHz           │
+│  Cell movement    │ Static            │ Cell moves at 7 km/s      │
+│  Cell size        │ &lt;10 km            │ 100-1000 km diameter      │
+│  Timing advance   │ 0-667 μs          │ Up to 45 ms needed        │
+│  Handover rate    │ Minutes/hours     │ Every 1-2 minutes         │
+│                                                                      │
+│  ═══════════════════════════════════════════════════════════════    │
+│                                                                      │
+│  3GPP SOLUTIONS:                                                    │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  1. Ephemeris broadcast: UE knows satellite position        │   │
+│  │  2. Common timing advance: Pre-compensate for distance      │   │
+│  │  3. Doppler pre-compensation: UE adjusts frequency          │   │
+│  │  4. Earth-fixed vs satellite-fixed cells                   │   │
+│  │  5. Extended timers for procedures                          │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Registration flow
+
+```
+UE Registration on 5G NTN (Simplified):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  UE                  Satellite              gNB/GW              AMF │
+│  │                      │                      │                  │ │
+│  │ 1. Receive SIB19     │                      │                  │ │
+│  │◄─────────────────────│                      │                  │ │
+│  │   (ephemeris,        │                      │                  │ │
+│  │    common TA,        │                      │                  │ │
+│  │    cell type)        │                      │                  │ │
+│  │                      │                      │                  │ │
+│  │ 2. Calculate TA and Doppler                                    │ │
+│  │    from ephemeris + GNSS position                              │ │
+│  │                      │                      │                  │ │
+│  │ 3. RACH Preamble     │                      │                  │ │
+│  │    (pre-compensated) │                      │                  │ │
+│  │─────────────────────▶│─────────────────────▶│                  │ │
+│  │                      │                      │                  │ │
+│  │ 4. RAR (TA adjustment)                      │                  │ │
+│  │◄─────────────────────│◄─────────────────────│                  │ │
+│  │                      │                      │                  │ │
+│  │ 5. Msg3: RRC Setup Request                  │                  │ │
+│  │─────────────────────▶│─────────────────────▶│                  │ │
+│  │                      │                      │                  │ │
+│  │ 6. Msg4: Contention Resolution              │                  │ │
+│  │◄─────────────────────│◄─────────────────────│                  │ │
+│  │                      │                      │                  │ │
+│  │ 7. RRC Setup Complete + NAS Registration    │                  │ │
+│  │─────────────────────▶│─────────────────────▶│─────────────────▶│ │
+│  │                      │                      │                  │ │
+│  │ 8. Authentication, Security Mode            │                  │ │
+│  │◄────────────────────────────────────────────────────────────── │ │
+│  │                      │                      │                  │ │
+│  │ 9. Registration Accept                      │                  │ │
+│  │◄────────────────────────────────────────────────────────────── │ │
+│  │                      │                      │                  │ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### SIB19: The NTN information
+
+```
+System Information Block 19 (NTN-specific):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SIB19 CONTENTS:                                                    │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  EPHEMERIS DATA:                                            │   │
+│  │  • Satellite position (orbital elements or state vector)    │   │
+│  │  • Velocity vector                                          │   │
+│  │  • Reference time (SFN + subframe)                         │   │
+│  │  • Validity period                                          │   │
+│  │                                                              │   │
+│  │  UE uses this + GNSS to calculate:                         │   │
+│  │  • Distance to satellite → propagation delay               │   │
+│  │  • Relative velocity → Doppler shift                       │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  TIMING ADVANCE:                                            │   │
+│  │  • Common TA offset (reference point, e.g., cell center)   │   │
+│  │  • UE calculates differential TA from its position         │   │
+│  │                                                              │   │
+│  │  Total TA = Common TA + UE-specific TA                     │   │
+│  │                                                              │   │
+│  │  For LEO at 600 km:                                        │   │
+│  │  • Min delay (directly overhead): 4 ms round-trip          │   │
+│  │  • Max delay (low elevation): ~16 ms round-trip            │   │
+│  │  • Common TA covers bulk of this                           │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  CELL TYPE:                                                 │   │
+│  │  • Earth-fixed: Cell stays in one geographic area          │   │
+│  │    (satellite beams steer to compensate motion)            │   │
+│  │  • Satellite-fixed: Cell moves with satellite              │   │
+│  │    (UE experiences frequent cell changes)                  │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Timing advance calculation
+
+```
+UE Timing Advance Calculation:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  STEP 1: UE gets its position from GNSS                             │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  UE position: (lat, lon, alt) → (x_ue, y_ue, z_ue) ECEF    │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  STEP 2: UE calculates satellite position from ephemeris            │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  From SIB19: orbital elements or position/velocity          │   │
+│  │  Propagate to current time → (x_sat, y_sat, z_sat)         │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  STEP 3: Calculate distance                                         │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  d = √[(x_sat - x_ue)² + (y_sat - y_ue)² + (z_sat - z_ue)²]│   │
+│  │                                                              │   │
+│  │  Example: Satellite at 600 km, UE at 45° elevation          │   │
+│  │  d ≈ 800 km                                                 │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  STEP 4: Convert to timing advance                                  │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Propagation delay = d / c = 800 km / 3×10⁵ km/s = 2.67 ms │   │
+│  │  Round-trip = 2 × 2.67 ms = 5.33 ms                        │   │
+│  │                                                              │   │
+│  │  TA in NR units: TA = (5.33 ms × 2) / T_c                  │   │
+│  │  where T_c = 1/(480000 × 4096) ≈ 0.509 ns                  │   │
+│  │                                                              │   │
+│  │  For transparent satellite: add feeder link delay too      │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  STEP 5: Pre-compensate Doppler                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  Relative velocity from ephemeris and UE position          │   │
+│  │  v_rel ≈ 0 to 7 km/s (depends on geometry)                 │   │
+│  │                                                              │   │
+│  │  Doppler = f × v_rel / c                                   │   │
+│  │  At 2 GHz, 7 km/s → 47 kHz shift                          │   │
+│  │                                                              │   │
+│  │  UE adjusts its transmit frequency to pre-compensate       │   │
+│  │                                                              │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Timing advance calculation:**
+
+```python
+import numpy as np
+
+def calculate_ntn_timing_advance(
+    ue_lat_deg, ue_lon_deg, ue_alt_m,
+    sat_x_km, sat_y_km, sat_z_km,
+    feeder_delay_ms=0
+):
+    """
+    Calculate timing advance for 5G NTN.
+    
+    Returns: TA in milliseconds
+    """
+    # Convert UE position to ECEF
+    earth_radius_km = 6371
+    lat_rad = np.radians(ue_lat_deg)
+    lon_rad = np.radians(ue_lon_deg)
+    r_ue = earth_radius_km + ue_alt_m / 1000
+    
+    ue_x = r_ue * np.cos(lat_rad) * np.cos(lon_rad)
+    ue_y = r_ue * np.cos(lat_rad) * np.sin(lon_rad)
+    ue_z = r_ue * np.sin(lat_rad)
+    
+    # Distance to satellite
+    d_km = np.sqrt(
+        (sat_x_km - ue_x)**2 + 
+        (sat_y_km - ue_y)**2 + 
+        (sat_z_km - ue_z)**2
+    )
+    
+    # Propagation delay
+    c_km_s = 299792.458
+    prop_delay_ms = d_km / c_km_s * 1000
+    
+    # Round-trip time (service link)
+    rtt_service_ms = 2 * prop_delay_ms
+    
+    # Total RTT including feeder link (for transparent)
+    rtt_total_ms = rtt_service_ms + 2 * feeder_delay_ms
+    
+    return {
+        'distance_km': d_km,
+        'one_way_delay_ms': prop_delay_ms,
+        'rtt_service_ms': rtt_service_ms,
+        'rtt_total_ms': rtt_total_ms,
+        'ta_ms': rtt_total_ms
+    }
+
+def calculate_doppler(
+    freq_ghz, ue_lat_deg, ue_lon_deg,
+    sat_vx_km_s, sat_vy_km_s, sat_vz_km_s,
+    sat_x_km, sat_y_km, sat_z_km
+):
+    """
+    Calculate Doppler shift for NTN link.
+    """
+    # UE position (simplified, assuming on surface)
+    earth_radius_km = 6371
+    lat_rad = np.radians(ue_lat_deg)
+    lon_rad = np.radians(ue_lon_deg)
+    
+    ue_x = earth_radius_km * np.cos(lat_rad) * np.cos(lon_rad)
+    ue_y = earth_radius_km * np.cos(lat_rad) * np.sin(lon_rad)
+    ue_z = earth_radius_km * np.sin(lat_rad)
+    
+    # Unit vector from UE to satellite
+    dx = sat_x_km - ue_x
+    dy = sat_y_km - ue_y
+    dz = sat_z_km - ue_z
+    d = np.sqrt(dx**2 + dy**2 + dz**2)
+    ux, uy, uz = dx/d, dy/d, dz/d
+    
+    # Radial velocity (dot product of velocity and unit vector)
+    v_radial = sat_vx_km_s * ux + sat_vy_km_s * uy + sat_vz_km_s * uz
+    
+    # Doppler shift
+    c_km_s = 299792.458
+    doppler_hz = freq_ghz * 1e9 * v_radial / c_km_s
+    
+    return {
+        'radial_velocity_km_s': v_radial,
+        'doppler_hz': doppler_hz,
+        'doppler_khz': doppler_hz / 1000
+    }
+
+# Example: LEO satellite at 600 km altitude
+print("5G NTN Timing Advance Example")
+print("=" * 55)
+
+# Satellite position (simplified: directly south of equator)
+sat_altitude_km = 600
+sat_x = 0
+sat_y = 6371 + sat_altitude_km  # On equator, 0° longitude
+sat_z = 0
+
+# UE at different latitudes
+ue_positions = [
+    (0, 0, 0, "Directly below"),
+    (10, 0, 0, "10° away"),
+    (30, 0, 0, "30° away"),
+    (50, 0, 0, "50° away (low elevation)"),
+]
+
+for lat, lon, alt, desc in ue_positions:
+    result = calculate_ntn_timing_advance(lat, lon, alt, sat_x, sat_y, sat_z)
+    print(f"\n{desc}:")
+    print(f"  Distance: {result['distance_km']:.1f} km")
+    print(f"  One-way delay: {result['one_way_delay_ms']:.2f} ms")
+    print(f"  RTT (service): {result['rtt_service_ms']:.2f} ms")
+
+# With transparent payload (add feeder link)
+print("\n" + "=" * 55)
+print("With Transparent Payload (feeder link delay = 10 ms):")
+result = calculate_ntn_timing_advance(30, 0, 0, sat_x, sat_y, sat_z, feeder_delay_ms=10)
+print(f"  Total RTT: {result['rtt_total_ms']:.2f} ms")
+print(f"  Required TA: {result['ta_ms']:.2f} ms")
+
+# Doppler example
+print("\n" + "=" * 55)
+print("Doppler Shift Example (2 GHz, satellite moving)")
+# Satellite moving east at orbital velocity
+v_orbital = 7.5  # km/s for 600 km altitude
+doppler_result = calculate_doppler(
+    2.0,  # 2 GHz (S-band)
+    30, 0,  # UE position
+    v_orbital, 0, 0,  # Satellite velocity (eastward)
+    sat_x, sat_y, sat_z
+)
+print(f"  Radial velocity: {doppler_result['radial_velocity_km_s']:.2f} km/s")
+print(f"  Doppler shift: {doppler_result['doppler_khz']:.1f} kHz")
+```
+
+**NTN timing parameters:**
+
+| Parameter | LEO (600 km) | MEO (8000 km) | GEO (36000 km) |
+|-----------|--------------|---------------|----------------|
+| Min RTT | 4 ms | 54 ms | 240 ms |
+| Max RTT | 25 ms | 80 ms | 280 ms |
+| Max Doppler (2 GHz) | ±48 kHz | ±10 kHz | ±1 kHz |
+| Cell change rate | 1-2 min | 5-10 min | N/A |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **GNSS requirement.** UE must have GNSS fix for TA calculation; no GNSS = no NTN.
+
+2. **Ephemeris validity.** Ephemeris ages; UE must track time and request updates.
+
+3. **Transparent vs regenerative.** Total delay very different; architecture matters.
+
+4. **Doppler residual.** Pre-compensation isn't perfect; gNB handles residual.
+
+5. **Earth-fixed cell complexity.** Requires beam steering; increases satellite cost.
+
+6. **Timer scaling.** All NR timers (T300, T310, etc.) must be extended for NTN.
+
+7. **Power consumption.** Continuous GNSS and Doppler tracking drain UE battery.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 38.300 (NR overall description)
+- 3GPP TS 38.821 (NTN study)
+- 3GPP TR 38.863 (NTN enhancements)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [NTN Mobility Management](/en/space/satellite-5g-integration/ntn-mobility-management/) — handover in NTN
+- [NTN vs Terrestrial Handover](/en/space/satellite-5g-integration/ntn-vs-terrestrial-handover/) — multi-connectivity
+- [LEO Constellation Architecture](/en/space/leo-constellation-architecture/starlink-class-design/) — system view
+
+</section>

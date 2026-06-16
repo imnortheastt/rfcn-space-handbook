@@ -8,17 +8,459 @@ track: s7
 unit: modulation-coding-satellite
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
 title: "DVB-S2 and DVB-S2X"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "The dominant satellite broadcast standard and its evolution."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["dvb-s2", "dvb-s2x", "satellite-broadcast", "modulation"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# DVB-S2 and DVB-S2X
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+If you've ever watched satellite TV, received weather imagery, or downloaded data from a GEO communications satellite, you've used DVB-S2. It's the industry standard for satellite broadcast since 2005, and its successor DVB-S2X (2014) pushes efficiency even further. These standards define everything from modulation schemes to frame structures to error correction—they're the "TCP/IP of satellite broadcasting." Understanding DVB-S2/S2X is essential for anyone working with commercial satellite communications.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### DVB-S2 in the standards family
+
+```
+DVB Satellite Standards Evolution:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  1994: DVB-S (First Generation)                                     │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  • QPSK only                                          │         │
+│  │  • Reed-Solomon + Convolutional coding               │         │
+│  │  • ~35% spectral efficiency vs theoretical           │         │
+│  │  • Good enough for SD TV                             │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  2005: DVB-S2 (Second Generation)                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  • QPSK, 8PSK, 16APSK, 32APSK                        │         │
+│  │  • LDPC + BCH coding (near Shannon limit)            │         │
+│  │  • ~30% more capacity than DVB-S                     │         │
+│  │  • HD TV, IP data, professional services             │         │
+│  │  • ACM (Adaptive Coding & Modulation)                │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                         │                                            │
+│                         ▼                                            │
+│  2014: DVB-S2X (Extension)                                          │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  • Up to 256APSK                                      │         │
+│  │  • 116 MODCODs (vs 28 in DVB-S2)                     │         │
+│  │  • ~51% more capacity than DVB-S2                    │         │
+│  │  • Finer granularity for ACM                         │         │
+│  │  • Smaller roll-off (5%, 10%, 15%, 20%)              │         │
+│  │  • Super-frame structure for mobile                  │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  KEY INSIGHT:                                         │         │
+│  │                                                        │         │
+│  │  DVB-S2 gets within ~1 dB of Shannon limit!          │         │
+│  │  (Shannon = theoretical max bits/Hz for given SNR)   │         │
+│  │                                                        │         │
+│  │  This means there's not much room for a DVB-S3.      │         │
+│  │  Future gains come from other domains (antennas,     │         │
+│  │  frequency reuse, beamforming).                       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Frame structure
+
+```
+DVB-S2 Physical Layer Frame:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  BASEBAND FRAME (input):                                            │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │ BBHEADER │           DATA FIELD           │ PADDING (opt) │   │   │
+│  │ (10 B)   │      (up to 7274 bytes)        │               │   │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  After FEC encoding:                                                 │
+│  ┌──────────────────────────────────────────────────────────────┐   │
+│  │      BCH      │                LDPC PARITY                │   │   │
+│  │   (168-192 b) │              (depends on rate)            │   │   │
+│  └──────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  PHYSICAL LAYER FRAME:                                              │
+│  ┌─────┬──────────────────────────────────────────────────────┐    │
+│  │ PL  │                     SLOTS                            │    │
+│  │ HDR │  ┌─────┬─────┬─────┬─────┬ ... ┬─────┬─────┐       │    │
+│  │     │  │ 90  │ 90  │ 90  │ 90  │     │ 90  │ 90  │       │    │
+│  │ 90  │  │symb │symb │symb │symb │     │symb │symb │       │    │
+│  │symb │  │  P  │     │  P  │     │     │  P  │     │       │    │
+│  └─────┴──┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘       │    │
+│                                                                      │
+│  PL HEADER (90 symbols):                                            │
+│  • SOF (Start of Frame): 26 symbols                                │
+│  • MODCOD + Frame Type: 64 symbols (spread to be robust)           │
+│                                                                      │
+│  P = PILOT blocks (36 symbols every 16 slots)                      │
+│  • Optional but usually enabled                                     │
+│  • Carrier/phase recovery for receiver                             │
+│                                                                      │
+│  FRAME SIZES:                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Normal frame: 64,800 coded bits                      │         │
+│  │  Short frame:  16,200 coded bits (lower latency)     │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Modulation constellations
+
+```
+DVB-S2/S2X Modulation Options:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  QPSK (2 bits/symbol)           8PSK (3 bits/symbol)               │
+│                                                                      │
+│        │ ●       ●                     ●     ●                      │
+│        │                             ●    │    ●                    │
+│   ─────┼─────                      ─────┼─────                      │
+│        │                             ●    │    ●                    │
+│        │ ●       ●                     ●     ●                      │
+│                                                                      │
+│  Most robust, used               Used for moderate                  │
+│  for challenging links           SNR conditions                     │
+│                                                                      │
+│  ───────────────────────────────────────────────────────────────   │
+│                                                                      │
+│  16APSK (4 bits/symbol)          32APSK (5 bits/symbol)            │
+│                                                                      │
+│     ●    ●    ●    ●            ●  ●    ●  ●    ●                  │
+│       ●  ●  ●  ●                  ●   ●●●   ●                       │
+│   ●  ●   ┼   ●  ●            ●  ●  ●  ┼  ●  ●  ●                  │
+│       ●  ●  ●  ●                  ●   ●●●   ●                       │
+│     ●    ●    ●    ●            ●  ●    ●  ●    ●                  │
+│                                                                      │
+│  Two rings: 4 inner,            Three rings for                     │
+│  12 outer (R=2.7 typical)       optimal efficiency                  │
+│                                                                      │
+│  ───────────────────────────────────────────────────────────────   │
+│                                                                      │
+│  DVB-S2X ADDITIONS: 64APSK, 128APSK, 256APSK                       │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  WHY "APSK" NOT "QAM"?                                │         │
+│  │                                                        │         │
+│  │  • Satellite HPAs operate in saturation (nonlinear)  │         │
+│  │  • QAM has varying amplitude → distortion            │         │
+│  │  • APSK uses constant-envelope rings → HPA friendly  │         │
+│  │  • Ring ratio optimized per MODCOD                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Code rates and MODCODs
+
+```
+DVB-S2 MODCOD Selection:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MODCOD = MODulation + CODing rate                                  │
+│                                                                      │
+│  DVB-S2 (28 MODCODs):                                               │
+│  ┌────────────┬────────────────────────────────────────────────┐   │
+│  │ Modulation │ Code Rates                                     │   │
+│  ├────────────┼────────────────────────────────────────────────┤   │
+│  │ QPSK       │ 1/4, 1/3, 2/5, 1/2, 3/5, 2/3, 3/4, 4/5, 5/6,  │   │
+│  │            │ 8/9, 9/10                                       │   │
+│  ├────────────┼────────────────────────────────────────────────┤   │
+│  │ 8PSK       │ 3/5, 2/3, 3/4, 5/6, 8/9, 9/10                  │   │
+│  ├────────────┼────────────────────────────────────────────────┤   │
+│  │ 16APSK     │ 2/3, 3/4, 4/5, 5/6, 8/9, 9/10                  │   │
+│  ├────────────┼────────────────────────────────────────────────┤   │
+│  │ 32APSK     │ 3/4, 4/5, 5/6, 8/9, 9/10                       │   │
+│  └────────────┴────────────────────────────────────────────────┘   │
+│                                                                      │
+│  DVB-S2X adds 88 more MODCODs:                                      │
+│  • Very low SNR: QPSK 2/9, 11/45, 13/45, etc.                      │
+│  • Very high SNR: 64APSK, 128APSK, 256APSK                         │
+│  • Finer granularity: ~0.2 dB steps possible                       │
+│                                                                      │
+│  SPECTRAL EFFICIENCY:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  MODCOD          │ Eff (bps/Hz) │ Es/N0 Required     │         │
+│  │  ─────────────────┼──────────────┼────────────────     │         │
+│  │  QPSK 1/4         │ 0.49         │ -2.4 dB (!)        │         │
+│  │  QPSK 1/2         │ 0.99         │ 1.0 dB             │         │
+│  │  QPSK 3/4         │ 1.49         │ 4.0 dB             │         │
+│  │  8PSK 2/3         │ 1.98         │ 6.6 dB             │         │
+│  │  16APSK 3/4       │ 2.97         │ 10.2 dB            │         │
+│  │  32APSK 8/9       │ 4.40         │ 13.6 dB            │         │
+│  │  256APSK 3/4 (S2X)│ 5.96         │ 17.7 dB            │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  Note: Lower code rate = more redundancy = works at lower SNR     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### ACM operation
+
+```
+Adaptive Coding and Modulation (ACM):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SCENARIO: GEO satellite serving multiple ground terminals         │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │              ┌──────────┐                             │         │
+│  │              │ SATELLITE │                            │         │
+│  │              └────┬─────┘                             │         │
+│  │           ╱       │       ╲                           │         │
+│  │         ╱         │         ╲                         │         │
+│  │       ╱           │           ╲                       │         │
+│  │  ┌─────┐     ┌─────┐     ┌─────┐                     │         │
+│  │  │ A   │     │  B  │     │  C  │                     │         │
+│  │  │Clear│     │Rain │     │Heavy│                     │         │
+│  │  │sky  │     │     │     │rain │                     │         │
+│  │  └─────┘     └─────┘     └─────┘                     │         │
+│  │                                                        │         │
+│  │  Terminal A: 32APSK 5/6 → 4.0 bps/Hz (high SNR)      │         │
+│  │  Terminal B: 16APSK 2/3 → 2.6 bps/Hz (moderate)      │         │
+│  │  Terminal C: QPSK 1/2   → 1.0 bps/Hz (low SNR)       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  HOW ACM WORKS:                                                     │
+│                                                                      │
+│  1. Each terminal measures received SNR                            │
+│  2. Terminal reports SNR via return channel                        │
+│  3. Hub selects optimal MODCOD for each terminal's frames          │
+│  4. MODCOD signaled in PL header (receiver self-decodes)           │
+│  5. When rain clears, terminal C gets upgraded to higher MODCOD   │
+│                                                                      │
+│  BENEFIT: No "design for worst case" wasted capacity!              │
+│  VCM (Variable Coding & Modulation): Similar but without feedback  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**MODCOD selection and capacity calculation:**
+
+```python
+import numpy as np
+
+# DVB-S2 MODCOD table (subset)
+MODCODS = [
+    {"name": "QPSK 1/4",    "mod": "QPSK",   "rate": 0.25, "eff": 0.49, "es_n0_db": -2.35},
+    {"name": "QPSK 1/3",    "mod": "QPSK",   "rate": 0.33, "eff": 0.66, "es_n0_db": -1.24},
+    {"name": "QPSK 1/2",    "mod": "QPSK",   "rate": 0.50, "eff": 0.99, "es_n0_db": 1.00},
+    {"name": "QPSK 2/3",    "mod": "QPSK",   "rate": 0.67, "eff": 1.32, "es_n0_db": 3.10},
+    {"name": "QPSK 3/4",    "mod": "QPSK",   "rate": 0.75, "eff": 1.49, "es_n0_db": 4.03},
+    {"name": "QPSK 5/6",    "mod": "QPSK",   "rate": 0.83, "eff": 1.65, "es_n0_db": 4.68},
+    {"name": "8PSK 2/3",    "mod": "8PSK",   "rate": 0.67, "eff": 1.98, "es_n0_db": 6.62},
+    {"name": "8PSK 3/4",    "mod": "8PSK",   "rate": 0.75, "eff": 2.23, "es_n0_db": 7.91},
+    {"name": "16APSK 2/3",  "mod": "16APSK", "rate": 0.67, "eff": 2.64, "es_n0_db": 9.04},
+    {"name": "16APSK 3/4",  "mod": "16APSK", "rate": 0.75, "eff": 2.97, "es_n0_db": 10.21},
+    {"name": "16APSK 5/6",  "mod": "16APSK", "rate": 0.83, "eff": 3.30, "es_n0_db": 11.03},
+    {"name": "32APSK 3/4",  "mod": "32APSK", "rate": 0.75, "eff": 3.70, "es_n0_db": 12.17},
+    {"name": "32APSK 5/6",  "mod": "32APSK", "rate": 0.83, "eff": 4.12, "es_n0_db": 13.05},
+    {"name": "32APSK 8/9",  "mod": "32APSK", "rate": 0.89, "eff": 4.40, "es_n0_db": 13.64},
+]
+
+def select_modcod(available_es_n0_db, margin_db=1.0):
+    """Select best MODCOD for given Es/N0 with margin."""
+    usable = available_es_n0_db - margin_db
+    best = None
+    for mc in MODCODS:
+        if mc["es_n0_db"] <= usable:
+            if best is None or mc["eff"] > best["eff"]:
+                best = mc
+    return best
+
+def calculate_data_rate(symbol_rate_msps, modcod, rolloff=0.2):
+    """Calculate data rate for given symbol rate and MODCOD."""
+    return symbol_rate_msps * modcod["eff"]  # Mbps
+
+print("DVB-S2 MODCOD Analysis")
+print("=" * 60)
+
+print("\n1. MODCOD Selection by SNR")
+print("-" * 60)
+
+test_snrs = [-2, 0, 3, 6, 9, 12, 14]
+
+print(f"  {'Es/N0':>8} {'Selected MODCOD':<16} {'Efficiency':>12}")
+print("-" * 60)
+
+for snr in test_snrs:
+    mc = select_modcod(snr)
+    if mc:
+        print(f"  {snr:>6.1f} dB  {mc['name']:<16} {mc['eff']:>8.2f} bps/Hz")
+    else:
+        print(f"  {snr:>6.1f} dB  {'(no MODCOD)':<<16}")
+
+# Transponder capacity calculation
+print("\n2. Transponder Capacity Analysis")
+print("-" * 60)
+
+transponder_bw_mhz = 36  # Typical Ku-band transponder
+rolloffs = [0.35, 0.25, 0.20, 0.15, 0.10, 0.05]
+
+print(f"  Transponder bandwidth: {transponder_bw_mhz} MHz")
+print()
+print(f"  {'Roll-off':>8} {'Symbol Rate':>14} {'Capacity (32APSK 5/6)':>22}")
+print("-" * 60)
+
+modcod_32apsk_56 = MODCODS[-3]  # 32APSK 5/6
+
+for ro in rolloffs:
+    symbol_rate = transponder_bw_mhz / (1 + ro)
+    capacity = calculate_data_rate(symbol_rate, modcod_32apsk_56)
+    dvb = "DVB-S2" if ro >= 0.20 else "DVB-S2X"
+    print(f"  {ro*100:>5.0f}%    {symbol_rate:>10.2f} Msps    {capacity:>8.1f} Mbps ({dvb})")
+
+# ACM scenario
+print("\n3. ACM Capacity Improvement")
+print("-" * 60)
+
+# Assume 10 terminals with varying conditions
+terminals = [
+    {"id": 1, "snr": 14, "time_pct": 10},  # Excellent conditions
+    {"id": 2, "snr": 12, "time_pct": 20},
+    {"id": 3, "snr": 10, "time_pct": 30},
+    {"id": 4, "snr": 8, "time_pct": 25},
+    {"id": 5, "snr": 5, "time_pct": 15},  # Rain fade
+]
+
+# CCM: design for worst case
+worst_snr = min(t["snr"] for t in terminals)
+ccm_modcod = select_modcod(worst_snr)
+
+# ACM: adapt per terminal
+acm_avg_eff = 0
+total_time = 0
+
+for t in terminals:
+    mc = select_modcod(t["snr"])
+    acm_avg_eff += mc["eff"] * t["time_pct"] / 100
+    total_time += t["time_pct"]
+
+print(f"  CCM (worst-case design): {ccm_modcod['name']}")
+print(f"    Fixed efficiency: {ccm_modcod['eff']:.2f} bps/Hz")
+print()
+print(f"  ACM (adaptive):")
+print(f"    Average efficiency: {acm_avg_eff:.2f} bps/Hz")
+print()
+
+improvement = (acm_avg_eff / ccm_modcod['eff'] - 1) * 100
+print(f"  ACM improvement: +{improvement:.1f}%")
+
+# Frame timing
+print("\n4. Frame Timing")
+print("-" * 60)
+
+symbol_rate_msps = 30  # 30 Msps typical
+
+normal_frame_symbols = 33282  # With pilots
+short_frame_symbols = 8370
+
+normal_frame_us = normal_frame_symbols / symbol_rate_msps
+short_frame_us = short_frame_symbols / symbol_rate_msps
+
+print(f"  Symbol rate: {symbol_rate_msps} Msps")
+print()
+print(f"  Normal frame: {normal_frame_symbols} symbols = {normal_frame_us:.0f} µs = {normal_frame_us/1000:.2f} ms")
+print(f"  Short frame:  {short_frame_symbols} symbols = {short_frame_us:.0f} µs = {short_frame_us/1000:.2f} ms")
+print()
+print(f"  Short frames useful for: low-latency voice, interactive services")
+```
+
+**Key specifications:**
+
+| Parameter | DVB-S2 | DVB-S2X |
+|-----------|--------|---------|
+| Roll-off | 0.35, 0.25, 0.20 | +0.15, 0.10, 0.05 |
+| MODCODs | 28 | 116 |
+| Max modulation | 32APSK | 256APSK |
+| Max efficiency | ~4.4 bps/Hz | ~5.9 bps/Hz |
+| Gap to Shannon | ~1.2 dB | ~0.7 dB |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing DVB-S2 with DVB-S2X.** S2X requires compatible equipment. Most legacy receivers only support S2.
+
+2. **Using high MODCODs without link margin.** 32APSK 8/9 is efficient but needs ~14 dB Es/N0 plus margin.
+
+3. **Ignoring roll-off in bandwidth calculations.** Symbol rate = bandwidth / (1 + roll-off). Small roll-off = more capacity.
+
+4. **Forgetting HPA backoff for high-order APSK.** 32APSK needs 2-3 dB output backoff, reducing effective power.
+
+5. **ACM without proper return channel.** Need reliable SNR reporting; stale measurements cause MODCOD mismatches.
+
+6. **Mixing frame sizes mid-stream.** Receivers need consistent frame type within a Physical Layer Pipe (PLP).
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ETSI EN 302 307-1 (DVB-S2)
+- ETSI EN 302 307-2 (DVB-S2X)
+- DVB BlueBook A171-2 (DVB-S2X Implementation Guidelines)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [ACM](/en/space/modulation-coding-satellite/acm/) — adaptive MODCOD selection
+- [LDPC and BCH](/en/space/modulation-coding-satellite/ldpc-bch/) — the error correction beneath DVB-S2
+- [MODCODs](/en/space/modulation-coding-satellite/modcods/) — deep dive into modulation/coding combinations
+
+</section>

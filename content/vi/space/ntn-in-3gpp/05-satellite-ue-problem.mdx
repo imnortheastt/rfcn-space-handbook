@@ -9,16 +9,420 @@ unit: ntn-in-3gpp
 order: 5
 level: L5
 estimatedReadingMinutes: 5
-title: "Van de UE ve tinh"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "Van de UE Ve tinh — Tai sao Direct-to-Device Kho"
+description: "Cac thach thuc ky thuat ket noi smartphone khong sua doi voi ve tinh: ngan sach lien ket, vat ly anten, pho tan, va rang buoc phap ly."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 38.101-5", "ITU-R S.1428"]
+tags: ["satellite-ue", "direct-to-device", "ngan-sach-lien-ket", "vat-ly-anten", "d2d"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Van de UE ve tinh
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+"Tai sao dien thoai cua toi khong the ket noi truc tiep voi Starlink?" la cau hoi moi ky su deu nghe. Cau tra loi lien quan den vat ly ma khong luong phan mem nao co the vuot qua: smartphone co anten nho, cong suat phat han che, va khong the huong len troi. Ket noi chung voi ve tinh 600 km doi hoi dong ngan sach lien ket xau hon 20+ dB so voi di dong mat dat. Bai hoc nay giai thich tai sao direct-to-device ve tinh ve co ban la kho, va cach cac dich vu nhu T-Mobile/Starlink va AST SpaceMobile tiep can van de khac nhau.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Bat doi xung co ban
+
+```
+Thach thuc Ngan sach Lien ket Direct-to-Device:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DUONG XUONG (Ve tinh → Dien thoai): Tuong doi De                  │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Ve tinh EIRP: 50-60 dBW (voi mang anten lon)                 │ │
+│  │  Do nhay dien thoai: -110 dBm (may thu LTE/NR dien hinh)      │ │
+│  │  Suy hao khong gian tu do: ~160 dB @ 2 GHz, 600 km            │ │
+│  │                                                                 │ │
+│  │  Bien do lien ket: 50 dBW + 30 dBm - 160 dB - (-110 dBm)     │ │
+│  │                  = 80 - 160 + 110 = +30 dB bien do ✓          │ │
+│  │                                                                 │ │
+│  │  Ket qua: Duong xuong hoat dong voi cong suat ve tinh vua     │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  DUONG LEN (Dien thoai → Ve tinh): Phan Kho                        │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Dien thoai EIRP: 23 dBm (0.2 W, gioi han phap ly)            │ │
+│  │  Tang ich anten dien thoai: ~0 dBi (omni, cam bat ky huong)   │ │
+│  │  Ve tinh G/T: 10-15 dB/K (truong hop tot nhat)                │ │
+│  │  Suy hao khong gian tu do: ~160 dB                            │ │
+│  │                                                                 │ │
+│  │  Bien do lien ket: 23 dBm + 10 dB - 160 dB - nhieu            │ │
+│  │                  = Rat chat, ~0 dB bien do ⚠️                  │ │
+│  │                                                                 │ │
+│  │  Ket qua: UL LA yeu to gioi han                                │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  THONG TIN CHINH: Moi dich vu direct-to-device deu bi rang buoc   │
+│  boi duong len. Ve tinh phai co tang ich thu cuc cao, hoac UE     │
+│  phai truyen lau hon/cham hon de bu.                               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Vat ly anten dien thoai
+
+```
+Tai sao Anten Dien thoai Khong the Lam Tot hon:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TANG ICH ANTEN vs KICH THUOC:                                     │
+│                                                                      │
+│  Tang ich (dBi) ≈ 10 × log₁₀(4π × Ae / λ²)                        │
+│                                                                      │
+│  Trong do Ae = dien tich kho hieu dung                              │
+│         λ = buoc song                                               │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  Loai Anten         │ Kich thuoc  │ Tang ich│ Truong hop SD   │ │
+│  │  ───────────────────┼─────────────┼─────────┼───────────────  │ │
+│  │  Dien thoai (tich hop)│ ~5 cm      │ ~0 dBi │ Omni, moi huong │ │
+│  │  Dau cuoi VSAT       │ Chao 60 cm │ ~35 dBi│ Co dinh, theo doi │ │
+│  │  Chao Starlink       │ Pha 50 cm  │ ~33 dBi│ Tu theo doi     │ │
+│  │  Mang ve tinh        │ 10+ m      │ ~50 dBi│ Phia khong gian │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  RANG BUOC DIEN THOAI:                                             │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. Kich thuoc: Anten phai vua trong than dien thoai           │ │
+│  │     → Khong the tang dien tich kho                             │ │
+│  │                                                                 │ │
+│  │  2. Huong: Nguoi dung cam dien thoai bat ky huong nao          │ │
+│  │     → Phai la omni hoac mau tang ich thap                      │ │
+│  │     → Khong the huong vao ve tinh                              │ │
+│  │                                                                 │ │
+│  │  3. Hap thu co the: Co the nguoi hap thu RF                    │ │
+│  │     → Suy hao 3-6 dB khi giu ap vao dau                       │ │
+│  │                                                                 │ │
+│  │  4. Phan cuc: Ve tinh dung tron, dien thoai la tuyen tinh     │ │
+│  │     → Suy hao lech phan cuc 3 dB                               │ │
+│  │                                                                 │ │
+│  │  Tong suy giam so voi ly tuong: -10 den -15 dB                │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Gioi han cong suat phap ly
+
+```
+Rang buoc Cong suat Phat:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LOP CONG SUAT UE (3GPP):                                          │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │  Lop  │ CS Toi da │ EIRP (0 dBi ant) │ Thiet bi Dien hinh    │ │
+│  │  ─────┼───────────┼──────────────────┼────────────────────── │ │
+│  │  3    │ 23 dBm    │ 23 dBm           │ Smartphone            │ │
+│  │  2    │ 26 dBm    │ 26 dBm           │ Gan tren xe           │ │
+│  │  1    │ 31 dBm    │ 31 dBm           │ Dau cuoi co dinh      │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TAI SAO DIEN THOAI KHONG THE PHAT CAO HON?                        │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. Gioi han SAR (Ty le Hap thu Cu the)                        │ │
+│  │     → Nang luong RF toi da hap thu boi mo nguoi                │ │
+│  │     → 23 dBm da day gioi han SAR gan dau                       │ │
+│  │                                                                 │ │
+│  │  2. Hao pin                                                     │ │
+│  │     → TX 200 mW hao pin nhanh                                  │ │
+│  │     → TX 1W se qua nhiet dien thoai                            │ │
+│  │                                                                 │ │
+│  │  3. Quy dinh pho                                                │ │
+│  │     → Bang MSS co gioi han EIRP                                │ │
+│  │     → Gioi han PFD tai mat dat (ITU-R S.1428)                 │ │
+│  │                                                                 │ │
+│  │  4. Nhieu voi mat dat                                          │ │
+│  │     → Dien thoai phat len troi cung buc xa xuong dat           │ │
+│  │     → Khong duoc gay nhieu di dong mat dat                     │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Hai cach tiep can direct-to-device
+
+```
+Cach tiep can Nganh cong nghiep:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CACH 1: Ve tinh nho, dich vu hep (T-Mobile/Starlink)              │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Chien luoc: Chap nhan gioi han UL, cung cap dich vu chi van ban │
+│  │                                                                 │ │
+│  │  Ve tinh: Starlink v2 chuan voi mang anten ~5m                 │ │
+│  │  Dich vu: SMS/iMessage, SOS khan cap                           │ │
+│  │  Toc do du lieu: ~100 kbps moi nguoi dung (chia se)           │ │
+│  │  Do tre: ~30 ms (LEO)                                          │ │
+│  │                                                                 │ │
+│  │  Cach hoat dong:                                                │ │
+│  │    • UE phat tai 23 dBm                                        │ │
+│  │    • Ve tinh dung mang pha lon cho tang ich thu                │ │
+│  │    • Bang thong rat hep (~200 kHz moi UE)                      │ │
+│  │    • Thoi gian phat dai (giay moi tin nhan)                    │ │
+│  │    • Khong thoai, khong video, chi van ban                     │ │
+│  │                                                                 │ │
+│  │  Uu diem: Hoat dong voi dien thoai hien co (cap nhat firmware) │ │
+│  │  Han che: Chi van ban, dung luong chia se                      │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  CACH 2: Ve tinh khong lo, dich vu day du (AST SpaceMobile)       │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Chien luoc: Xay ve tinh lon de dong ngan sach UL             │ │
+│  │                                                                 │ │
+│  │  Ve tinh: BlueWalker 3 = anten 64 m² (mo ra trong quy dao)    │ │
+│  │  Dich vu: Thoai, van ban, du lieu 4G                          │ │
+│  │  Toc do du lieu: 5-10 Mbps moi cell                           │ │
+│  │  Do tre: ~30 ms (LEO)                                          │ │
+│  │                                                                 │ │
+│  │  Cach hoat dong:                                                │ │
+│  │    • Tang ich anten ve tinh: ~50 dBi                           │ │
+│  │    • Duong kinh chum: ~10 km tren mat dat                      │ │
+│  │    • Moi chum phuc vu vai tram nguoi dung                      │ │
+│  │    • Dang song LTE/5G chuan, khong thay doi dien thoai         │ │
+│  │                                                                 │ │
+│  │  Uu diem: Dich vu di dong day du, thoai hoat dong             │ │
+│  │  Han che: Chi phi ve tinh khong lo, rui ro manh vo             │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Ky thuat dong ngan sach lien ket
+
+```
+Dong Ngan sach UL:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KY THUAT 1: Tang ich anten ve tinh                                │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Ve tinh chuan: anten 2-3m → ~30 dBi                          │ │
+│  │  Direct-to-device: mang 10-64 m² → 45-50 dBi                  │ │
+│  │                                                                 │ │
+│  │  Cai thien +15-20 dB tang ich                                  │ │
+│  │                                                                 │ │
+│  │  Danh doi: Chi phi ve tinh, khoi luong phong, rui ro trien khai │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  KY THUAT 2: Giam bang thong                                       │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Di dong chuan: kenh 10-20 MHz                                 │ │
+│  │  Ve tinh D2D: 180 kHz - 1.4 MHz (do rong NB-IoT/LTE-M)        │ │
+│  │                                                                 │ │
+│  │  BW hep hon → san nhieu thap hon → SNR tot hon                │ │
+│  │  10 MHz → 180 kHz = giam nhieu 17 dB                          │ │
+│  │                                                                 │ │
+│  │  Danh doi: Thong luong thap hon                                │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  KY THUAT 3: Trai thoi gian (lap lai)                              │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Truyen cung du lieu N lan → nhan N× nang luong                │ │
+│  │  Tang ich xu ly: 10 × log₁₀(N) dB                             │ │
+│  │                                                                 │ │
+│  │  Lap lai 128× = +21 dB tang ich                                │ │
+│  │  Lap lai 2048× = +33 dB tang ich                               │ │
+│  │                                                                 │ │
+│  │  Danh doi: Thong luong giam tuong ung                          │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**May tinh ngan sach lien ket direct-to-device:**
+
+```python
+import math
+
+def ngan_sach_ul_d2d(tan_so_ghz, do_cao_ve_tinh_km, goc_nang_do,
+                      cong_suat_ue_dbm, anten_ue_dbi,
+                      dien_tich_anten_ve_tinh_m2, nhiet_do_nhieu_ve_tinh_k,
+                      bang_thong_hz, so_lap_lai):
+    """
+    Tinh ngan sach duong len direct-to-device.
+    """
+    ban_kinh_trai_dat = 6371
+    el_rad = math.radians(goc_nang_do)
+    
+    khoang_cach_nghieng = (-ban_kinh_trai_dat * math.sin(el_rad) + 
+                           math.sqrt((ban_kinh_trai_dat * math.sin(el_rad))**2 + 
+                                    2 * ban_kinh_trai_dat * do_cao_ve_tinh_km + do_cao_ve_tinh_km**2))
+    
+    c = 3e8
+    buoc_song = c / (tan_so_ghz * 1e9)
+    
+    fspl = 20 * math.log10(4 * math.pi * khoang_cach_nghieng * 1000 / buoc_song)
+    
+    ae = dien_tich_anten_ve_tinh_m2 * 0.6
+    tang_ich_anten_ve_tinh = 10 * math.log10(4 * math.pi * ae / buoc_song**2)
+    
+    suy_hao_co_the = 4
+    suy_hao_phan_cuc = 3
+    suy_hao_khi_quyen = 0.5
+    tong_suy_hao = fspl + suy_hao_co_the + suy_hao_phan_cuc + suy_hao_khi_quyen
+    
+    tang_ich_lap_lai = 10 * math.log10(so_lap_lai)
+    
+    return {
+        "khoang_cach_nghieng_km": khoang_cach_nghieng,
+        "fspl_db": fspl,
+        "tang_ich_anten_ve_tinh_dbi": tang_ich_anten_ve_tinh,
+        "tong_suy_hao_db": tong_suy_hao,
+        "tang_ich_lap_lai_db": tang_ich_lap_lai
+    }
+
+print("Phan tich Ve tinh Direct-to-Device")
+print("=" * 70)
+
+print("\n1. Tai sao Duong len LA Van de")
+print("-" * 70)
+
+print("""
+  DUONG XUONG (Ve tinh → Dien thoai):
+    Ve tinh EIRP: +60 dBm (1000W vao anten 30 dBi)
+    Suy hao duong: -160 dB
+    Do nhay dien thoai: -110 dBm
+    → Bien do: +10 dB ✓
+    
+  DUONG LEN (Dien thoai → Ve tinh):
+    Dien thoai EIRP: +23 dBm (200mW, anten 0 dBi)
+    Suy hao duong: -160 dB
+    Ve tinh G/T: +10 dB/K
+    → Bien do: -7 dB ✗ (can them!)
+""")
+
+print("\n2. Ky thuat Dong Ngan sach")
+print("-" * 70)
+
+print("""
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Ky thuat               │ Tang ich  │ Danh doi                     │
+  │  ───────────────────────┼───────────┼────────────────────────────  │
+  │  Anten ve tinh lon hon  │ +15-20 dB │ Chi phi, khoi luong, trien khai │
+  │  Bang thong hep hon     │ +10-17 dB │ Thong luong thap hon         │
+  │  Lap lai 128×           │ +21 dB    │ Thoi gian TX dai 128×        │
+  │  Quy dao thap hon       │ +2 dB     │ Nhieu ve tinh hon, HO nhanh  │
+  │  Tao chum (phia ve tinh)│ +5-10 dB  │ Do phuc tap, dung luong      │
+  └─────────────────────────────────────────────────────────────────────┘
+""")
+
+print("\n3. Kha nang Dich vu theo Ngan sach")
+print("-" * 70)
+
+print("""
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Bien do Lien ket │ Dich vu Dat duoc             │ Vi du            │
+  │  ─────────────────┼──────────────────────────────┼────────────────  │
+  │  < 0 dB           │ Khong gi hoat dong           │ Satcom chuan     │
+  │  0-5 dB           │ SOS khan cap (van ban)       │ iPhone 14+       │
+  │  5-10 dB          │ SMS/iMessage                 │ T-Mobile/Starlink │
+  │  10-15 dB         │ Cuoc goi thoai (chat luong thap) │ AST prototype │
+  │  15-20 dB         │ Du lieu 1-5 Mbps             │ AST thuong mai   │
+  │  > 20 dB          │ Bang rong (giong VSAT)       │ Dau cuoi rieng   │
+  └─────────────────────────────────────────────────────────────────────┘
+""")
+
+print("\n4. Tai sao Dien thoai Khong the Phat Nhieu hon")
+print("-" * 70)
+
+print("""
+  Rang buoc                  Tac dong
+  ───────────────────────────────────────────────────────────────────
+  Gioi han SAR (FCC/ICNIRP)  23 dBm toi da gan co the
+  Tuoi tho pin               TX 200 mW da hao nhanh
+  Tan nhiet                  > 500 mW qua nhiet dien thoai
+  Quy tac pho                Gioi han EIRP MSS theo ITU-R
+  Nhieu                      Khong the gay nhieu mang mat dat
+  
+  Ket qua: Dien thoai bi mac o 23 dBm. Ve tinh phai bu.
+""")
+```
+
+**Thong tin chinh:** Dien thoai khong the thay doi. Moi cai thien phai den tu phia ve tinh hoac dang song.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Gia dinh DL = UL.** Ngan sach duong xuong tot hon 30+ dB. Dich vu bi gioi han boi UL, khong phai DL.
+
+2. **Bo qua suy hao co the.** Dien thoai giu ap vao co the mat 3-6 dB. Thuc te xau hon dac ta.
+
+3. **Quen ve trong nha.** Ve tinh D2D yeu cau tam nhin thang. Khong co tin hieu qua toa nha.
+
+4. **Hua qua muc ve thong luong.** "5G tu khong gian" nghe hay. Thuc te: tin nhan van ban cho hau het nguoi dung.
+
+5. **Bo qua thuc te pho.** D2D can doi tac MNO cho pho. Nha khai thac ve tinh thuan tuy khong the lam mot minh.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 38.101-5 v17.6.0 — Dac ta vo tuyen UE NR NTN
+- ITU-R S.1428 — Phoi hop giua MSS va mat dat
+- FCC Report & Order 22-274 — Quy tac Phu song Bo sung tu Khong gian
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [NR-NTN](/vi/space/ntn-in-3gpp/nr-ntn/) — tieu chuan 3GPP cho phep D2D
+- [Co ban Ngan sach Lien ket](/vi/space/link-budgets/link-budget-basics/) — co ban phan tich lien ket ve tinh
+- [Chom sao LEO](/vi/space/constellations/leo-constellations/) — tai sao D2D chi dung LEO
+
+</section>

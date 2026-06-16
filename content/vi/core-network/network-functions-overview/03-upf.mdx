@@ -8,17 +8,418 @@ track: n3
 unit: network-functions-overview
 order: 3
 level: L2
-estimatedReadingMinutes: 5
-title: "UPF — Chuc nang mat phang nguoi dung"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-network-functions-overview-02-smf"]
+spiralRevisits: ["core-network-n4-session-management-deep-dive-02-upf-deployment"]
+title: "UPF — Chuc Nang User Plane"
+description: "Dong co goi tin cua 5G — chuyen tiep, NAT, thuc thi QoS, va dat o edge."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 29.244"]
+tags: ["upf", "5g", "user-plane", "pfcp", "data-plane"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# UPF — Chuc nang mat phang nguoi dung
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Moi byte du lieu nguoi dung — luong video, yeu cau web, goi tin game — chay qua **UPF**.
+
+UPF la noi goi tin thuc su di chuyen. Trong khi AMF va SMF xu ly signaling (control plane), UPF xu ly **data plane**. No la ngua keo lam cho hieu nang 5G tro thanh hien thuc.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### UPF lam gi
+
+```
+UPF trong duong du lieu:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│      UE ──► gNB ──────► UPF ──────► Internet            │
+│                          │                               │
+│                     Du lieu nguoi dung                   │
+│                    (duong ham GTP-U)                     │
+│                                                          │
+│                          │                               │
+│                    SMF dieu khien                        │
+│                    (PFCP / N4)                           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Diem quan trong:** UPF la "ngu" — no lam theo chi dan SMF. SMF noi "chuyen tiep goi tin khop X den Y voi QoS Z", UPF thuc hien.
+
+### Trach nhiem chinh
+
+| Trach nhiem | Y nghia |
+|-------------|---------|
+| **Chuyen tiep goi tin** | Route du lieu nguoi dung giua gNB va DN |
+| **Ket thuc GTP-U** | Encap/decap duong ham GTP tu RAN |
+| **Thuc thi QoS** | Gioi han toc do, danh dau, lap lich |
+| **Thuc thi policy** | Ap dung quy tac PCF (chan, chuyen huong) |
+| **Bao cao su dung** | Theo doi du lieu de tinh cuoc |
+| **Dem** | Luu goi tin cho UE idle (downlink) |
+| **NAT** | Dich dia chi cho IPv4 |
+| **Nghe lén hop phap** | Sao goi tin cho co quan phap luat |
+
+### Tu 4G sang 5G user plane
+
+```
+4G User Plane:
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  eNodeB ──► SGW ──► PGW ──► Internet                    │
+│             │        │                                   │
+│          (neo)    (neo + policy + NAT)                  │
+│                                                          │
+│  Hai node, vi tri co dinh                               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+5G User Plane:
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  gNB ──► UPF ──► Internet                               │
+│           │                                              │
+│    (mot chuc nang, vi tri linh hoat)                    │
+│                                                          │
+│  Mot node, co the o bat cu dau (trung tam, edge, v.v.)  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Khac biet chinh:** UPF hop nhat chuc nang SGW va PGW, co the dat o bat cu dau.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Giao dien UPF
+
+```
+Giao dien UPF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ┌─────────┐                          │
+│                    │   SMF   │                          │
+│                    └────┬────┘                          │
+│                         │ N4 (PFCP)                     │
+│                         │ Dieu khien                    │
+│                         │                                │
+│  ┌─────────┐      ┌─────┴─────┐      ┌─────────┐       │
+│  │   gNB   │◄────►│    UPF    │◄────►│   DN    │       │
+│  └─────────┘  N3  │           │  N6  └─────────┘       │
+│              GTP-U │           │  IP                    │
+│                    └─────┬─────┘                        │
+│                          │ N9                           │
+│                          │ GTP-U                        │
+│                    ┌─────┴─────┐                        │
+│                    │  I-UPF    │ (trung gian)           │
+│                    └───────────┘                        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+N3: gNB ↔ UPF (du lieu nguoi dung, GTP-U)
+N4: SMF ↔ UPF (dieu khien, PFCP)
+N6: UPF ↔ Data Network (IP)
+N9: UPF ↔ UPF (chuoi, GTP-U)
+```
+
+### Cau truc PFCP session
+
+SMF lap trinh UPF qua PFCP voi cac quy tac nay:
+
+```
+Quy tac PFCP Session:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  PDR (Packet Detection Rule):                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Rule ID: 1                                       │    │
+│  │ Precedence: 100                                  │    │
+│  │ PDI (Packet Detection Information):              │    │
+│  │   Source Interface: Access (tu gNB)              │    │
+│  │   Local F-TEID: 0x12345678                       │    │
+│  │   UE IP Address: 10.0.0.5                        │    │
+│  │ → FAR ID: 1 (lam gi)                             │    │
+│  │ → QER ID: 1 (QoS ap dung)                        │    │
+│  │ → URR ID: 1 (su dung bao cao)                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  FAR (Forwarding Action Rule):                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ FAR ID: 1                                        │    │
+│  │ Apply Action: Forward                            │    │
+│  │ Forwarding Parameters:                           │    │
+│  │   Destination Interface: SGi-LAN (den DN)        │    │
+│  │   Outer Header Creation: None                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  QER (QoS Enforcement Rule):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ QER ID: 1                                        │    │
+│  │ Gate Status: Open                                │    │
+│  │ MBR Uplink: 100 Mbps                             │    │
+│  │ MBR Downlink: 500 Mbps                           │    │
+│  │ QFI: 9                                           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  URR (Usage Reporting Rule):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ URR ID: 1                                        │    │
+│  │ Measurement Method: Volume                       │    │
+│  │ Reporting Triggers: Nguong volume, thoi gian    │    │
+│  │ Volume Threshold: 100 MB                         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Pipeline xu ly goi tin
+
+```
+Xu ly goi tin UPF:
+
+Uplink (UE → Internet):
+
+gNB                         UPF                         DN
+ │                           │                           │
+ │  GTP-U encapsulated      │                           │
+ │  (ngoai: IP/UDP/GTP)      │                           │
+ │  (trong: goi nguoi dung)  │                           │
+ │──────────────────────────►│                           │
+ │                           │                           │
+ │                      ┌────┴────┐                      │
+ │                      │ 1. Khop PDR (F-TEID, UE IP)   │
+ │                      │ 2. Ap dung QER (gioi han)     │
+ │                      │ 3. Thuc hien FAR (chuyen tiep)│
+ │                      │ 4. Cap nhat URR (dem byte)    │
+ │                      │ 5. NAT neu can                │
+ │                      │ 6. Decap GTP, chuyen tiep IP  │
+ │                      └────┬────┘                      │
+ │                           │                           │
+ │                           │  Goi IP                   │
+ │                           │──────────────────────────►│
+ │                           │                           │
+
+
+Downlink (Internet → UE):
+
+DN                          UPF                         gNB
+ │                           │                           │
+ │  Goi IP                  │                           │
+ │──────────────────────────►│                           │
+ │                           │                           │
+ │                      ┌────┴────┐                      │
+ │                      │ 1. Khop PDR (UE IP, DN)       │
+ │                      │ 2. Ap dung QER (gioi han)     │
+ │                      │ 3. Thuc hien FAR (chuyen tiep)│
+ │                      │ 4. Cap nhat URR (dem byte)    │
+ │                      │ 5. Encap trong GTP-U          │
+ │                      │ 6. Chuyen tiep den gNB        │
+ │                      └────┬────┘                      │
+ │                           │                           │
+ │                           │  GTP-U encapsulated      │
+ │                           │──────────────────────────►│
+ │                           │                           │
+```
+
+### Mo hinh trien khai UPF
+
+```
+Tuy chon trien khai:
+
+1. UPF Trung tam:
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  gNB ──► gNB ──► gNB ──────┐                           │
+│                             │                            │
+│                        ┌────▼────┐                      │
+│                        │   UPF   │──► Internet          │
+│                        └─────────┘                      │
+│                        (DC khu vuc)                     │
+│                                                          │
+│  Uu: Don gian hon, it UPF                               │
+│  Nhuoc: Do tre cao hon                                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+2. UPF Edge (Local Breakout):
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  gNB ──► UPF Edge ──► App cuc bo                       │
+│           │                                              │
+│           └──► UPF Trung tam ──► Internet               │
+│                                                          │
+│  Uu: Do tre sieu thap cho dich vu cuc bo               │
+│  Nhuoc: Nhieu UPF quan ly                               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+3. Chuoi UPF (I-UPF + PSA-UPF):
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  gNB ──► I-UPF ──► PSA-UPF ──► Internet                │
+│           │                                              │
+│      (trung gian)    (PDU Session Anchor)               │
+│                                                          │
+│  Use case: Di dong khong ngat session                   │
+│  I-UPF thay doi theo di dong, PSA-UPF giu nguyen       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Dem cho UE idle
+
+```
+Dem Downlink:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UE trong CM-IDLE (khong co ket noi hoat dong)          │
+│                                                          │
+│  Internet ──► UPF                                       │
+│                │                                         │
+│           ┌────┴────┐                                   │
+│           │  Dem    │  Goi tin luu tru                  │
+│           │ goi tin │  DDN gui den SMF                  │
+│           └────┬────┘                                   │
+│                │                                         │
+│  SMF thong bao AMF → AMF paging UE                      │
+│                │                                         │
+│  UE tra loi, ket noi lai                                │
+│                │                                         │
+│           ┌────┴────┐                                   │
+│           │Chuyen   │  Goi tin dem gui di               │
+│           │ buffer  │                                   │
+│           └─────────┘                                   │
+│                                                          │
+│  DDN = Downlink Data Notification                       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Xem xet hieu nang
+
+```
+Yeu to hieu nang UPF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Thong luong:                                           │
+│  ├── Chuyen tiep toc do line (100 Gbps+)               │
+│  ├── DPDK / SR-IOV de bypass kernel                    │
+│  └── Offload phan cung (SmartNIC)                      │
+│                                                          │
+│  Do tre:                                                │
+│  ├── Xu ly duoi mili-giay                              │
+│  ├── Nhan thuc NUMA                                     │
+│  └── Cau truc du lieu khong khoa                       │
+│                                                          │
+│  Scale:                                                 │
+│  ├── Hang trieu session                                │
+│  ├── Tra cuu quy tac hieu qua (bang hash)              │
+│  └── Trang thai session moi UE                         │
+│                                                          │
+│  Do tin cay:                                            │
+│  ├── Du phong N+1                                       │
+│  ├── Failover co trang thai                            │
+│  └── Giam sat suc khoe                                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tham so cau hinh UPF:**
+
+| Tham so | Muc dich | Vi du |
+|---------|----------|-------|
+| Giao dien N3 | Ket noi gNB | Dia chi IP, pool TEID |
+| Giao dien N6 | Ket noi DN | Dia chi IP, tag VLAN |
+| Peer N4 | Ket noi SMF | Dia chi IP SMF |
+| Pool IP | Dai dia chi UE | 10.0.0.0/8 |
+| Kich thuoc buffer | Dem idle | 1000 goi/UE |
+| Dai TEID GTP | ID duong ham | 0x10000000-0x1FFFFFFF |
+
+**Chi so dung luong:**
+
+| Chi so | Mo ta |
+|--------|-------|
+| Thong luong | Gbps (uplink + downlink) |
+| Session | PDU session dong thoi |
+| PPS | Goi tin moi giay |
+| Do tre | Tre xu ly (P50, P99) |
+| Su dung buffer | So goi tin dem |
+
+**Xu ly su co:**
+
+| Van de | Kiem tra |
+|--------|----------|
+| Khong co luong du lieu | PDR/FAR cai dat, duong ham GTP len |
+| Do tre cao | Su dung CPU, do sau hang doi |
+| Mat goi tin | Gioi han toc do QER, tran buffer |
+| QoS sai | Cau hinh QER, danh dau QFI |
+| Khong khop tinh cuoc | Nguong URR, bao cao |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **UPF thong minh (sai).** UPF chi thuc hien quy tac. Neu luu luong khong chay, kiem tra lap trinh PFCP cua SMF.
+
+2. **Bo qua quan ly TEID.** ID duong ham phai duy nhat. Trung TEID lam hong session.
+
+3. **UPF trung tam cho use case edge.** App do tre sieu thap can UPF edge. Vi tri trung tam them mili-giay.
+
+4. **Kich co buffer.** Qua nho: mat goi. Qua lon: can kiet memory. Tinh chinh theo mau luu luong.
+
+5. **Phuc tap NAT.** IPv4 NAT can lap ke hoach can than. CGN (Carrier-Grade NAT) them overhead trang thai.
+
+6. **Bo qua PFCP heartbeat.** Mat N4 association nghia la UPF ngung nhan cap nhat. Giam sat trang thai association.
+
+7. **Test hieu nang muon.** Hieu nang data plane kho du doan. Test thong luong va do tre som.
+
+8. **Mot UPF cho tat ca luu luong.** Cac slice khac nhau co the can UPF khac nhau. Lap ke hoach tach luu luong.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.501, "System architecture for 5G System"
+- 3GPP TS 29.244, "Interface between CP and UP (PFCP)"
+- 3GPP TS 29.281, "GPRS Tunnelling Protocol User Plane (GTPv1-U)"
+- 3GPP TS 23.502, "Procedures for 5G System"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [AUSF va UDM](/vi/core-network/network-functions-overview/ausf-udm/) — authentication va du lieu thue bao
+- [Trien khai UPF](/vi/core-network/session-management-deep-dive/upf-deployment/) — edge vs trung tam
+- [QoS flow](/vi/core-network/session-management-deep-dive/qos-flows/) — thuc thi trong UPF
+
+</section>

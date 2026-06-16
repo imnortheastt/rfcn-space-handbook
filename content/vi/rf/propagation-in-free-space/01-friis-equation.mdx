@@ -8,12 +8,12 @@ track: r2
 unit: propagation-in-free-space
 order: 1
 level: L2
-estimatedReadingMinutes: 10
+estimatedReadingMinutes: 14
 prerequisites: ["rf-r0-decibels-and-units-01-decibels"]
 spiralRevisits: []
 title: "Phương trình truyền dẫn Friis"
 description: "Phương trình ngân sách liên kết cơ bản cho radio tầm nhìn thẳng."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -29,7 +29,9 @@ status: published
 
 Bạn có máy phát với công suất và độ lợi anten đã biết. Máy thu ở một khoảng cách nào đó với anten riêng. Bao nhiêu công suất đến được máy thu?
 
-Phương trình truyền dẫn Friis trả lời câu hỏi này cho truyền lan không gian tự do — trường hợp lý tưởng không có vật cản, không mặt đất, không khí quyển. Đây là điểm khởi đầu cho mọi ngân sách liên kết, tính toán truyền thông vệ tinh, và thiết kế hệ thống không dây.
+Phương trình truyền dẫn Friis trả lời câu hỏi này cho truyền sóng trong không gian tự do — trường hợp lý tưởng không có vật cản, không có mặt đất, không có khí quyển. Đây là điểm khởi đầu cho mọi ngân sách liên kết (link budget), mọi thiết kế hệ thống vệ tinh, và mọi ước tính vùng phủ sóng không dây. Trước khi tính thêm tổn hao mưa, tổn hao xuyên tường hay dự trữ fading, bạn cần nền tảng này. Kỹ sư nào bỏ qua bước này sẽ tạo ra link budget hoặc quá lạc quan hoặc quá thận trọng vô ích.
+
+Điều này cũng quan trọng với kỹ sư backend và cloud: khi hệ thống của bạn phụ thuộc vào liên kết vô tuyến — relay drone, cảm biến IoT, cổng vệ tinh — phương trình Friis là kiểm tra sanity đầu tiên. Nếu vật lý cho thấy link không thể đóng (close), không có tối ưu phần mềm nào cứu được bạn.
 
 </section>
 
@@ -37,19 +39,53 @@ Phương trình truyền dẫn Friis trả lời câu hỏi này cho truyền la
 
 ## Trực giác
 
-Anten phát bức xạ công suất ra ngoài. Ở khoảng cách $d$, công suất đó trải trên mặt cầu diện tích $4\pi d^2$. Càng xa, tín hiệu càng loãng.
+### Năng lượng lan ra trong không gian ba chiều
 
-Anten thu bắt một phần năng lượng đang lan tỏa này. Anten lớn hơn, độ lợi cao hơn bắt được nhiều hơn. Phương trình Friis kết hợp các yếu tố: công suất phát, độ lợi anten phát, tổn hao lan tỏa, và diện tích hiệu dụng anten thu.
+Anten phát bức xạ công suất ra mọi hướng (giả sử anten đẳng hướng tạm thời). Ở khoảng cách $d$, công suất đó trải đều trên mặt cầu có diện tích $4\pi d^2$. Mật độ công suất (W/m²) ở khoảng cách $d$ là:
 
-Hiểu biết chính: tổn hao không gian tự do tăng theo **bình phương** khoảng cách. Gấp đôi khoảng cách, mất 6 dB (hệ số 4 về công suất). Đây thuần túy là lan tỏa hình học, không phải hấp thụ.
+$$S = \frac{P_t G_t}{4\pi d^2}$$
+
+trong đó $G_t$ là độ lợi anten phát, tập trung công suất theo hướng ưu tiên với hệ số $G_t$ so với anten đẳng hướng.
+
+Anten thu chặn một phần mật độ công suất này, xác định bởi **khẩu độ hiệu dụng** (effective aperture) $A_e$:
+
+$$P_r = S \cdot A_e = \frac{P_t G_t}{4\pi d^2} \cdot A_e$$
+
+Độ lợi anten và khẩu độ hiệu dụng liên hệ nhau qua:
+
+$$A_e = \frac{G_r \lambda^2}{4\pi}$$
+
+Thế vào cho ra phương trình Friis. Số hạng $\lambda^2$ là chìa khóa: tần số càng cao thì bước sóng càng ngắn, nghĩa là anten có cùng độ lợi sẽ có khẩu độ hiệu dụng nhỏ hơn và thu được ít công suất hơn.
+
+### Quy luật bình phương khoảng cách
+
+Path loss trong không gian tự do tăng theo **bình phương** khoảng cách. Tăng gấp đôi khoảng cách: diện tích mặt cầu tăng 4 lần, mật độ công suất giảm 4 lần, mất 6 dB. Mỗi lần khoảng cách tăng 10 lần, mất 20 dB. Đây hoàn toàn là hiệu ứng hình học — không có hấp thụ, không có tán xạ. Đây là chi phí tối thiểu không thể tránh của truyền thông không dây.
+
+```
+Mật độ công suất theo khoảng cách (anten đẳng hướng, công suất phát 1 W):
+
+Khoảng cách   Diện tích mặt cầu   Mật độ công suất
+    1 m          12.6 m²            0.08 W/m²
+   10 m         1257 m²             0.0008 W/m²    (-20 dB so với 1m)
+  100 m        125664 m²            0.000008 W/m²  (-40 dB so với 1m)
+    1 km       12.6×10⁶ m²          8×10⁻¹⁰ W/m²  (-60 dB so với 1m)
+
+Tăng khoảng cách 10 lần → mất 20 dB
+```
+
+### Tại sao tần số lại quan trọng
+
+Tần số cao hơn nghĩa là $\lambda$ nhỏ hơn. Với cùng độ lợi anten thu, khẩu độ hiệu dụng $A_e = G_r \lambda^2 / 4\pi$ co lại. Đây không phải hấp thụ nhiều hơn — sóng vẫn truyền đi dễ dàng như vậy. Vấn đề là anten cùng độ lợi ở 28 GHz có kích thước vật lý nhỏ hơn anten ở 1 GHz, nên thu được ít công suất hơn.
+
+Hệ quả thực tế: mmWave (28 GHz, 39 GHz) có thêm ~28 dB "path loss tự do" so với 900 MHz ở cùng khoảng cách. Kỹ sư bù lại bằng mảng beamforming độ lợi cao — cùng vật lý đó hoạt động có lợi cho bạn.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Cơ chế
+## Cơ chế hoạt động
 
-### Phương trình Friis
+### Phương trình Friis dạng tuyến tính
 
 $$P_r = P_t \cdot G_t \cdot G_r \cdot \left(\frac{\lambda}{4\pi d}\right)^2$$
 
@@ -58,41 +94,56 @@ trong đó:
 - $P_t$ = công suất phát (W)
 - $G_t$ = độ lợi anten phát (tuyến tính, không phải dB)
 - $G_r$ = độ lợi anten thu (tuyến tính)
-- $\lambda$ = bước sóng (m)
+- $\lambda$ = bước sóng (m) = $c/f$
 - $d$ = khoảng cách (m)
 
-### Dạng decibel
+Số hạng $\left(\frac{\lambda}{4\pi d}\right)^2$ là nghịch đảo của path loss trong không gian tự do.
+
+### Dạng decibel — dạng dùng hàng ngày
 
 $$P_r[\text{dBm}] = P_t[\text{dBm}] + G_t[\text{dBi}] + G_r[\text{dBi}] - L_{fs}[\text{dB}]$$
 
-trong đó tổn hao đường truyền không gian tự do (FSPL) là:
+trong đó free-space path loss (FSPL — tổn hao đường truyền tự do) là:
 
-$$L_{fs} = 20\log_{10}\left(\frac{4\pi d}{\lambda}\right) = 20\log_{10}(d) + 20\log_{10}(f) + 20\log_{10}\left(\frac{4\pi}{c}\right)$$
+$$L_{fs} = 20\log_{10}(4\pi d / \lambda) = 20\log_{10}(d) + 20\log_{10}(f) + 20\log_{10}(4\pi/c)$$
 
-### Công thức FSPL thực tế
+### Công thức FSPL thực dụng
 
 Với $d$ tính bằng km và $f$ tính bằng MHz:
 $$L_{fs}[\text{dB}] = 32.45 + 20\log_{10}(d_\text{km}) + 20\log_{10}(f_\text{MHz})$$
 
 Với $d$ tính bằng mét và $f$ tính bằng GHz:
-$$L_{fs}[\text{dB}] = 92.45 + 20\log_{10}(d_\text{m}) + 20\log_{10}(f_\text{GHz})$$
+$$L_{fs}[\text{dB}] = 20\log_{10}(d_\text{m}) + 20\log_{10}(f_\text{GHz}) + 92.45$$
+
+Nhớ một trong hai công thức này tiết kiệm thời gian khi ước tính nhanh. Ở 1 GHz và 1 km: $L_{fs} = 32.45 + 60 + 60 = 92.5$ dB. Tăng gấp đôi tần số: cộng thêm 6 dB. Tăng gấp đôi khoảng cách: cộng thêm 6 dB.
 
 ### Quan hệ khẩu độ hiệu dụng
 
-Độ lợi anten liên hệ với khẩu độ hiệu dụng:
+Độ lợi anten và khẩu độ hiệu dụng là hai cách nhìn cùng một thuộc tính:
 
 $$G = \frac{4\pi A_e}{\lambda^2}$$
 
-Điều này giải thích $\lambda^2$ trong Friis: tần số cao hơn nghĩa là khẩu độ hiệu dụng nhỏ hơn cho cùng độ lợi, do đó tổn hao nhiều hơn.
+Điều này giải thích sự phụ thuộc vào $\lambda^2$ trong Friis: chảo parabol có diện tích vật lý cố định $A_e$ sẽ có độ lợi cao hơn ở tần số cao hơn (bước sóng $\lambda$ nhỏ hơn), nhưng nếu bạn chỉ định độ lợi cố định, thì khẩu độ hiệu dụng sẽ co lại ở tần số cao hơn.
 
-### Giá trị tham chiếu
+### Bảng FSPL tham khảo
 
-| Tần số | FSPL 1 km | FSPL 10 km |
-|--------|-----------|------------|
-| 100 MHz | 72 dB | 92 dB |
-| 1 GHz | 92 dB | 112 dB |
-| 10 GHz | 112 dB | 132 dB |
-| 28 GHz | 121 dB | 141 dB |
+| Tần số | 100 m | 1 km | 10 km | 600 km (LEO) |
+|--------|-------|------|-------|--------------|
+| 100 MHz | 52 dB | 72 dB | 92 dB | 134 dB |
+| 1 GHz | 72 dB | 92 dB | 112 dB | 154 dB |
+| 2 GHz | 78 dB | 98 dB | 118 dB | 160 dB |
+| 10 GHz | 92 dB | 112 dB | 132 dB | 174 dB |
+| 28 GHz | 101 dB | 121 dB | 141 dB | 183 dB |
+
+Cột 600 km liên quan đến liên kết vệ tinh LEO — bạn lập tức thấy tại sao liên kết vệ tinh cần anten độ lợi cao hoặc công suất phát lớn.
+
+### Cấu trúc link budget
+
+Link budget hoàn chỉnh xếp chồng các số hạng bổ sung lên Friis:
+
+$$P_r = P_t + G_t + G_r - L_{fs} - L_{rain} - L_{body} - L_{penetration} - L_{pointing} + \ldots$$
+
+Friis cho bạn sàn tối thiểu. Mọi số hạng khác là khấu trừ thêm. Độ nhạy máy thu (mức tín hiệu tối thiểu có thể phát hiện, MDS) xác định ngưỡng bạn phải ở trên. Chênh lệch giữa công suất thu và MDS là **link margin** (dự trữ liên kết) — bộ đệm an toàn của kỹ sư.
 
 </section>
 
@@ -100,51 +151,67 @@ $$G = \frac{4\pi A_e}{\lambda^2}$$
 
 ## Áp dụng
 
-**Ví dụ: Liên kết Wi-Fi**
+### Ví dụ 1: Liên kết Wi-Fi
 
-2.4 GHz, máy phát 100 mW (20 dBm), anten 3 dBi, khoảng cách 100 m.
+2.4 GHz, máy phát 20 dBm, anten 3 dBi cả hai đầu, khoảng cách 100 m.
 
-FSPL = 92.45 + 20log₁₀(100) + 20log₁₀(2.4) = 92.45 + 40 + 7.6 = 80 dB
+$$L_{fs} = 92.45 + 20\log_{10}(100) + 20\log_{10}(2.4) = 92.45 + 40 + 7.6 = 80 \text{ dB}$$
 
-$P_r$ = 20 + 3 + 3 − 80 = −54 dBm
+$$P_r = 20 + 3 + 3 - 80 = -54 \text{ dBm}$$
 
-Điều này cao hơn nhiều so với độ nhạy máy thu Wi-Fi điển hình (−70 đến −90 dBm).
+Độ nhạy máy thu Wi-Fi điển hình: -70 đến -90 dBm. Link margin: 16–36 dB. Thoải mái.
 
-**Ví dụ: Liên kết vệ tinh ở GEO**
+### Ví dụ 2: 5G NR ở 28 GHz (mmWave)
 
-Đường xuống 12 GHz, vệ tinh ở 36,000 km, 50 W EIRP (47 dBW), chảo 1 m (41 dBi ở 12 GHz).
+28 GHz, trạm gốc 30 dBm, massive MIMO với độ lợi hiệu dụng 24 dBi, UE với mảng beamforming 10 dBi, khoảng cách 200 m.
 
-FSPL = 32.45 + 20log₁₀(36000) + 20log₁₀(12000) = 32.45 + 91.1 + 81.6 = 205.2 dB
+$$L_{fs} = 92.45 + 20\log_{10}(200) + 20\log_{10}(28) = 92.45 + 46.0 + 28.9 = 118.4 \text{ dB}$$
 
-$P_r$ = 47 + 41 − 205.2 = −117.2 dBW = −87.2 dBm
+$$P_r = 30 + 24 + 10 - 118.4 = -54.4 \text{ dBm}$$
 
-**Ví dụ: 5G mmWave ở 28 GHz**
+Độ nhạy máy thu NR ở băng thông 100 MHz: khoảng -86 dBm (noise figure ~7 dB, SNR mục tiêu ~10 dB). Link margin: 31.6 dB. Anten độ lợi cao bù cho tần số cao — nhưng bạn mất margin này ngay khi LOS bị chắn.
 
-28 GHz, máy phát 30 dBm, anten 18 dBi cả hai đầu, khoảng cách 200 m.
+### Ví dụ 3: Downlink vệ tinh GEO
 
-FSPL = 92.45 + 20log₁₀(200) + 20log₁₀(28) = 92.45 + 46 + 28.9 = 118.4 dB
+Ku-band 12 GHz, vệ tinh ở 36.000 km, EIRP vệ tinh = 47 dBW (50 W vào anten 30 dBi), chảo thu 60 cm (khoảng 34 dBi ở 12 GHz).
 
-$P_r$ = 30 + 18 + 18 − 118.4 = −52.4 dBm
+$$L_{fs} = 32.45 + 20\log_{10}(36000) + 20\log_{10}(12000) = 32.45 + 91.1 + 81.6 = 205.2 \text{ dB}$$
 
-Anten độ lợi cao bù đắp cho tổn hao đường truyền cao hơn ở mmWave.
+EIRP = $P_t + G_t = 47$ dBW = 77 dBm.
+
+$$P_r = 77 + 34 - 205.2 = -94.2 \text{ dBm}$$
+
+LNB noise figure ~1 dB, yêu cầu SNR điển hình ~10 dB. Ngưỡng tối thiểu: khoảng -100 dBm. Margin: 5.8 dB — chật chội nhưng dùng được cho broadcast.
+
+### Ví dụ 4: Uplink IoT qua vệ tinh LEO
+
+S-band 2 GHz, thiết bị IoT ở 23 dBm, anten omni 0 dBi, vệ tinh ở 600 km với mảng anten thu 3 m² (độ lợi khẩu độ: $G = 4\pi \times 3 / 0.15^2 \approx 5026$ tuyến tính = 37 dBi).
+
+$$L_{fs} = 32.45 + 20\log_{10}(600) + 20\log_{10}(2000) = 32.45 + 55.6 + 66.0 = 154 \text{ dB}$$
+
+$$P_r = 23 + 0 + 37 - 154 = -94 \text{ dBm}$$
+
+Nhiệt độ tạp âm máy thu vệ tinh 300 K, băng thông 200 kHz: noise floor $\approx -121$ dBm. SNR = 27 dB — đủ cho BPSK. Uplink IoT đóng tốt ở băng thông hẹp.
 
 </section>
 
 <section class="lesson-pitfalls">
 
-## Lỗi thường gặp
+## Các bẫy thường gặp
 
-1. **Chỉ không gian tự do.** Friis giả định không có vật cản, phản xạ, hoặc hiệu ứng khí quyển. Liên kết thực có tổn hao bổ sung và đa đường. Dùng Friis làm đường cơ sở, sau đó thêm biên.
+1. **Chỉ đúng trong không gian tự do.** Friis giả định không có vật cản, phản xạ hay hiệu ứng khí quyển. Liên kết thực tế có thêm 10–40 dB tổn hao từ multipath, shadowing, mưa và xuyên tường. Dùng Friis làm nền tảng, rồi cộng thêm dự trữ cho môi trường thực.
 
-2. **Tham chiếu độ lợi anten.** Độ lợi phải tương đối với đẳng hướng (dBi). Nếu thông số cho dBd (tương đối với dipole), cộng thêm 2.15 dB để chuyển đổi.
+2. **Độ lợi phải tính bằng dBi.** Nếu datasheet ghi độ lợi bằng dBd (so với dipole nửa sóng), cộng thêm 2.15 dB để chuyển sang dBi. Quên điều này gây sai số hệ thống 2 dB.
 
-3. **Trường gần không hợp lệ.** Friis áp dụng trong trường xa ($d > 2D^2/\lambda$ với kích thước khẩu độ $D$). Trong trường gần, quy luật lan tỏa khác.
+3. **Chỉ đúng ở trường xa.** Friis áp dụng trong vùng trường xa khi $d > 2D^2/\lambda$ (khoảng cách Fraunhofer, $D$ = kích thước lớn nhất của anten). Ở khoảng cách gần, quy luật lan sóng khác. Với chảo 1 m ở 28 GHz, ranh giới trường xa là khoảng 190 m.
 
-4. **"Tổn hao" tần số.** Tần số cao hơn không tổn hao nhiều công suất hơn một cách cố hữu — nó chỉ nghĩa là khẩu độ hiệu dụng nhỏ hơn cho cùng độ lợi. Anten độ lợi cao hơn ở tần số cao hơn có thể có tổn hao đường truyền bằng hoặc thấp hơn.
+4. **"Tổn hao tần số" là hiệu ứng khẩu độ.** Tần số cao hơn không làm suy giảm tín hiệu nhiều hơn về bản chất. Anten độ lợi cao hơn ở tần số cao hơn có thể có path loss hiệu dụng bằng hoặc thấp hơn. Nhầm lẫn phát sinh khi so sánh các hệ thống ở tần số khác nhau với cùng thông số độ lợi anten — chỉ công bằng khi cả hai anten bị ràng buộc cùng kích thước vật lý.
 
-5. **Tuyến tính vs. dB.** Phương trình nhân độ lợi tuyến tính nhưng cộng độ lợi dB. Trộn quy ước gây sai số. Chuyển đổi nhất quán.
+5. **Nhầm lẫn EIRP.** EIRP = $P_t \times G_t$ (tuyến tính) hoặc $P_t[\text{dBm}] + G_t[\text{dBi}]$. Nếu thông số đã cho EIRP trực tiếp, đừng cộng thêm $G_t$ nữa — nó đã được tính trong đó. Đây là lỗi link budget phổ biến.
 
-6. **Nhầm lẫn EIRP.** EIRP = $P_t \cdot G_t$. Nếu được cho EIRP trực tiếp, không cộng $G_t$ lại.
+6. **Nhất quán tuyến tính và dB.** Phương trình nhân các đại lượng tuyến tính nhưng cộng các đại lượng dB. Đừng trộn lẫn: nếu tính $P_r$ ở dạng tuyến tính thì giữ mọi thứ tuyến tính. Chuyển đổi giữa chừng gây lỗi khó tìm.
+
+7. **Sai lệch phân cực (polarization mismatch).** Friis ngầm giả định phân cực hoàn hảo. Phân cực vuông góc mất toàn bộ công suất (-∞ dB); sai lệch 45° mất 3 dB. Thêm hệ số sai lệch phân cực khi hai anten không cùng phân cực.
 
 </section>
 
@@ -152,8 +219,9 @@ Anten độ lợi cao bù đắp cho tổn hao đường truyền cao hơn ở m
 
 ## Tài liệu tham khảo
 
-- Friis, H.T., "A Note on a Simple Transmission Formula," Proc. IRE, 1946 — bài báo gốc.
-- Balanis, *Antenna Theory*, Chương 2 — suy dẫn từ nguyên lý anten.
-- ITU-R P.525 — tiêu chuẩn tính toán truyền lan không gian tự do.
+- Friis, H.T., "A Note on a Simple Transmission Formula," Proc. IRE, tháng 5/1946 — bài báo gốc một trang.
+- Balanis, C.A., *Antenna Theory: Analysis and Design*, xuất bản lần 4, Chương 2 — suy luận từ nguyên lý đầu tiên.
+- Rappaport, T.S., *Wireless Communications: Principles and Practice*, xuất bản lần 2, Chương 3 — ngữ cảnh link budget thực tế.
+- ITU-R P.525-4 — "Calculation of free-space attenuation."
 
 </section>

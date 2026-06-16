@@ -9,16 +9,456 @@ unit: ntn-in-3gpp
 order: 3
 level: L4
 estimatedReadingMinutes: 5
-title: "NR-NTN"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "NR-NTN — 5G New Radio cho Mang Khong Mat dat"
+description: "Dac ta quy pham 3GPP cho 5G NR qua ve tinh: bang tan, kha nang UE, va thu tuc mang chuan hoa trong Release 17."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 38.300", "3GPP TS 38.101-5"]
+tags: ["nr-ntn", "3gpp", "5g-nr", "release-17", "5g-ve-tinh"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# NR-NTN
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+NR-NTN la noi 5G dua tren ve tinh tro thanh hien thuc. Release 17 (2022) lay cac nghien cuu (TR 38.811, TR 38.821) va chuyen chung thanh dac ta quy pham. Bay gio cac nha san xuat chipset nhu Qualcomm, MediaTek, va Skylo co the che tao modem NR-NTN hoat dong voi bat ky mang ve tinh tuan thu nao. Day la tieu chuan dang sau T-Mobile/Starlink direct-to-cell, AST SpaceMobile, va bang rong hang hai/hang khong the he tiep theo.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### NR-NTN chuan hoa gi
+
+```
+NR-NTN: Tu Nghien cuu den Dac ta Quy pham
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DAC TA QUY PHAM NR-NTN RELEASE 17:                                │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  TS 38.101-5  │ Truyen va thu vo tuyen UE NR NTN              │ │
+│  │               │ (bang tan, lop cong suat, dac ta RF)          │ │
+│  │                                                                 │ │
+│  │  TS 38.300    │ Mo ta tong the NR (kien truc NTN)            │ │
+│  │                                                                 │ │
+│  │  TS 38.213    │ Thu tuc lop vat ly (HARQ cho NTN)            │ │
+│  │                                                                 │ │
+│  │  TS 38.321    │ Giao thuc MAC (mo rong timing advance)        │ │
+│  │                                                                 │ │
+│  │  TS 38.331    │ Giao thuc RRC (SIB19, di dong cho NTN)       │ │
+│  │                                                                 │ │
+│  │  TS 38.104    │ Truyen vo tuyen gNB (dac ta gateway NTN)     │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  KHAC BIET CHINH TU NR MAT DAT:                                    │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  • SIB19 cho ephemeris ve tinh                                 │ │
+│  │  • GNSS bat buoc trong UE                                      │ │
+│  │  • Mo rong timing advance (TA-Common + TA-Offset)              │ │
+│  │  • HARQ vo hieu hoa hoac mo rong (16 → 32 tien trinh)         │ │
+│  │  • Handover co dieu kien cho LEO                               │ │
+│  │  • Bu truoc Doppler boi UE                                     │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Bang tan NR-NTN
+
+```
+Bang tan NR-NTN Dinh nghia trong TS 38.101-5:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  BANG S (Chinh cho direct-to-device):                              │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Bang n256 (bang S FDD):                                       │ │
+│  │    UL: 1980-2010 MHz (30 MHz)                                  │ │
+│  │    DL: 2170-2200 MHz (30 MHz)                                  │ │
+│  │    Khoang cach song cong: 160 MHz                              │ │
+│  │    Truong hop su dung: Direct-to-smartphone (Starlink, AST)    │ │
+│  │                                                                 │ │
+│  │  Dac diem:                                                      │ │
+│  │    • Suy hao khong gian tu do thap hon bang Ka                 │ │
+│  │    • Suy hao mua toi thieu (< 1 dB)                           │ │
+│  │    • Doppler quan ly duoc (±36 kHz tai LEO-600)                │ │
+│  │    • Hoat dong voi anten smartphone chuan                      │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  BANG L (Di san/IoT tap trung):                                    │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Bang n255 (bang L FDD):                                       │ │
+│  │    UL: 1626.5-1660.5 MHz (34 MHz)                             │ │
+│  │    DL: 1525-1559 MHz (34 MHz)                                  │ │
+│  │    Truong hop su dung: Hang hai, hang khong, IoT               │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  BANG Ka (Backhaul thong luong cao):                               │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Bang n510/n511 (bang Ka):                                     │ │
+│  │    17.7-20.2 GHz (DL), 27.5-30 GHz (UL)                       │ │
+│  │    Truong hop su dung: Dau cuoi co dinh, VSAT, backhaul       │ │
+│  │    Yeu cau: Anten huong, theo doi tich cuc                    │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Lop kha nang UE
+
+```
+Phan loai UE NR-NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  LOP 1: CAM TAY (Tich hop Smartphone)                              │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Lop cong suat: 3 (23 dBm, 200 mW)                             │ │
+│  │  Anten: Omni, tich hop vao dien thoai                         │ │
+│  │  GNSS: Bat buoc (cho timing/Doppler)                           │ │
+│  │  Bang: n255, n256                                              │ │
+│  │  Bang thong: 5-20 MHz dien hinh                                │ │
+│  │                                                                 │ │
+│  │  Rang buoc ngan sach lien ket:                                 │ │
+│  │    UL han che (duong dien thoai → ve tinh yeu nhat)           │ │
+│  │    ~1-5 Mbps thong luong dien hinh                            │ │
+│  │                                                                 │ │
+│  │  Truong hop su dung: Nhan tin khan cap, du lieu co ban, thoai │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  LOP 2: XE CO (Cho phep anten lon hon)                             │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Lop cong suat: 2 (26 dBm) hoac 1 (31 dBm)                    │ │
+│  │  Anten: Gan noc, tang ich trung binh (5-10 dBi)               │ │
+│  │  GNSS: Bat buoc                                                 │ │
+│  │  Bang thong: Len den 40 MHz                                    │ │
+│  │                                                                 │ │
+│  │  Truong hop su dung: O to ket noi, xe tai, tau hoa            │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  LOP 3: VSAT (Dau cuoi co dinh/hang hai)                          │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Lop cong suat: 1 (len den 33 dBm)                             │ │
+│  │  Anten: Huong, theo doi (30+ dBi cho Ka)                      │ │
+│  │  Bang: Bang Ka (n510/n511) hoac bang Ku                       │ │
+│  │  Bang thong: Len den 400 MHz                                   │ │
+│  │                                                                 │ │
+│  │  Truong hop su dung: Bang rong hang hai, hang khong, DN       │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cau truc SIB19
+
+```
+Khoi Thong tin He thong 19 (Rieng NTN):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Noi dung SIB19 (phat boi gNB):                                    │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  ntn-Config:                                                   │ │
+│  │    ├── epochTime              (thoi gian tham chieu)           │ │
+│  │    ├── ta-Info                                                │ │
+│  │    │   ├── ta-Common          (tre den diem tham chieu)       │ │
+│  │    │   └── ta-CommonDrift     (toc do thay doi)               │ │
+│  │    │                                                           │ │
+│  │    ├── ephemerisInfo          (vi tri ve tinh)                │ │
+│  │    │   ├── positionX/Y/Z      (toa do ECEF, m)                │ │
+│  │    │   └── velocityX/Y/Z      (van toc ECEF, m/s)             │ │
+│  │    │   HOAC                                                    │ │
+│  │    │   └── orbitalParameters  (phan tu Kepler)                │ │
+│  │    │                                                           │ │
+│  │    ├── cellSpecificKoffset    (offset lap lich)               │ │
+│  │    └── kmac                   (dieu chinh timing MAC)          │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  THU TUC UE:                                                        │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. UE nhan SIB19 tren DL                                     │ │
+│  │  2. UE trich xuat vi tri ve tinh tu ephemerisInfo             │ │
+│  │  3. UE doc vi tri cua no tu GNSS                              │ │
+│  │  4. UE tinh toan:                                              │ │
+│  │     - Khoang cach nghieng → TA-Offset                         │ │
+│  │     - Van toc tuong doi → Bu Doppler                          │ │
+│  │  5. UE ap dung bu truoc khi truyen UL                         │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Co che timing advance
+
+```
+Timing Advance NR-NTN (Quy pham):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CONG THUC:                                                         │
+│                                                                      │
+│  N_TA = N_TA,common + N_TA,offset + N_TA,UE                        │
+│                                                                      │
+│  Trong do:                                                          │
+│    N_TA,common = ta-Common tu SIB19 (don vi T_c × 64)             │
+│    N_TA,offset = UE tinh tu GNSS + ephemeris                       │
+│    N_TA,UE = dieu chinh TA NR chuan tu MAC-CE                     │
+│                                                                      │
+│  DO PHAN GIAI THOI GIAN:                                           │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  T_c = 1 / (480,000 × 4096) = 0.509 ns                        │ │
+│  │  T_c × 64 = 32.55 ns                                          │ │
+│  │  Pham vi N_TA,common: 0 den 2^20 - 1 (len den 34 ms)          │ │
+│  │                                                                 │ │
+│  │  So sanh voi NR mat dat:                                       │ │
+│  │    Pham vi N_TA: 0 den 3846 × 16 (len den ~2 ms)              │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+│  TINH TOAN TA CUA UE:                                              │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  1. Lay vi tri ECEF ve tinh [x_s, y_s, z_s] tu SIB19          │ │
+│  │  2. Lay vi tri ECEF UE [x_u, y_u, z_u] tu GNSS                │ │
+│  │  3. Lay vi tri ECEF tham chieu [x_r, y_r, z_r] tu SIB19       │ │
+│  │                                                                 │ │
+│  │  4. Tinh khoang cach nghieng:                                  │ │
+│  │     d_UE = sqrt((x_s-x_u)² + (y_s-y_u)² + (z_s-z_u)²)         │ │
+│  │     d_ref = sqrt((x_s-x_r)² + (y_s-y_r)² + (z_s-z_r)²)        │ │
+│  │                                                                 │ │
+│  │  5. TA_offset = 2 × (d_UE - d_ref) / c                        │ │
+│  │     (he so 2 cho khu hoi trong che do trong suot)              │ │
+│  │                                                                 │ │
+│  └───────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**May tinh ngan sach lien ket va timing NR-NTN:**
+
+```python
+import math
+
+def ngan_sach_lien_ket_nr_ntn(tan_so_ghz, do_cao_ve_tinh_km, goc_nang_do, 
+                               ue_eirp_dbm, ve_tinh_gt_db, bang_thong_mhz):
+    """
+    Tinh ngan sach lien ket NR-NTN cho duong len.
+    """
+    ban_kinh_trai_dat = 6371
+    el_rad = math.radians(goc_nang_do)
+    
+    khoang_cach_nghieng = (-ban_kinh_trai_dat * math.sin(el_rad) + 
+                           math.sqrt((ban_kinh_trai_dat * math.sin(el_rad))**2 + 
+                                    2 * ban_kinh_trai_dat * do_cao_ve_tinh_km + do_cao_ve_tinh_km**2))
+    
+    fspl = 32.45 + 20 * math.log10(tan_so_ghz * 1000) + 20 * math.log10(khoang_cach_nghieng)
+    
+    suy_hao_khi_quyen = 0.5 if tan_so_ghz < 10 else 2.0
+    
+    cong_suat_nhan = ue_eirp_dbm - fspl - suy_hao_khi_quyen + ve_tinh_gt_db
+    
+    he_so_nhieu = 3.0
+    k_boltz = -228.6
+    nhieu_nhiet = k_boltz + 10 * math.log10(bang_thong_mhz * 1e6) + he_so_nhieu
+    
+    snr = cong_suat_nhan - nhieu_nhiet
+    
+    return {
+        "khoang_cach_nghieng_km": khoang_cach_nghieng,
+        "fspl_db": fspl,
+        "suy_hao_khi_quyen_db": suy_hao_khi_quyen,
+        "cong_suat_nhan_dbm": cong_suat_nhan,
+        "nhieu_nhiet_dbm": nhieu_nhiet,
+        "snr_db": snr
+    }
+
+def uoc_tinh_thong_luong_nr_ntn(snr_db, bang_thong_mhz, harq_enabled):
+    """
+    Uoc tinh thong luong NR-NTN dua tren SNR.
+    """
+    if snr_db < -3:
+        se = 0.15
+        dieu_che = "QPSK 1/8"
+    elif snr_db < 0:
+        se = 0.4
+        dieu_che = "QPSK 1/3"
+    elif snr_db < 3:
+        se = 0.8
+        dieu_che = "QPSK 1/2"
+    elif snr_db < 6:
+        se = 1.2
+        dieu_che = "QPSK 3/4"
+    elif snr_db < 10:
+        se = 2.0
+        dieu_che = "16QAM 1/2"
+    else:
+        se = 3.0
+        dieu_che = "16QAM 3/4"
+    
+    overhead = 0.75 if harq_enabled else 0.70
+    
+    thong_luong_mbps = bang_thong_mhz * se * overhead
+    
+    return {
+        "snr_db": snr_db,
+        "hieu_qua_pho": se,
+        "dieu_che": dieu_che,
+        "thong_luong_mbps": thong_luong_mbps
+    }
+
+print("Ngan sach Lien ket va Cau hinh NR-NTN")
+print("=" * 70)
+
+print("\n1. Bang tan NR-NTN")
+print("-" * 70)
+print("""
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Bang   │ UL (MHz)        │ DL (MHz)        │ Truong hop Su dung  │
+  │  ───────┼─────────────────┼─────────────────┼───────────────────  │
+  │  n255   │ 1626.5-1660.5   │ 1525-1559       │ Bang L, IoT/di san  │
+  │  n256   │ 1980-2010       │ 2170-2200       │ Bang S, smartphone  │
+  │  n510   │ 27.5-30 GHz     │ 17.7-20.2 GHz   │ Bang Ka, VSAT       │
+  └─────────────────────────────────────────────────────────────────────┘
+""")
+
+print("\n2. Ngan sach Lien ket Duong len (Smartphone → LEO-600)")
+print("-" * 70)
+
+lb = ngan_sach_lien_ket_nr_ntn(
+    tan_so_ghz=2.0,
+    do_cao_ve_tinh_km=600,
+    goc_nang_do=30,
+    ue_eirp_dbm=23,
+    ve_tinh_gt_db=10,
+    bang_thong_mhz=5
+)
+
+print(f"""
+  Tham so:
+    Tan so: 2 GHz (bang S n256)
+    Do cao ve tinh: 600 km
+    Goc nang: 30°
+    UE EIRP: 23 dBm (Lop cong suat 3)
+    Ve tinh G/T: 10 dB/K
+    Bang thong: 5 MHz
+    
+  Ngan sach Lien ket:
+    Khoang cach nghieng: {lb['khoang_cach_nghieng_km']:.0f} km
+    Suy hao khong gian tu do: {lb['fspl_db']:.1f} dB
+    Suy hao khi quyen: {lb['suy_hao_khi_quyen_db']:.1f} dB
+    Cong suat nhan: {lb['cong_suat_nhan_dbm']:.1f} dBm
+    Nhieu nhiet: {lb['nhieu_nhiet_dbm']:.1f} dBm
+    SNR: {lb['snr_db']:.1f} dB
+""")
+
+tp = uoc_tinh_thong_luong_nr_ntn(lb['snr_db'], 5, True)
+print(f"""
+  Uoc tinh Thong luong:
+    SNR: {tp['snr_db']:.1f} dB
+    Dieu che: {tp['dieu_che']}
+    Hieu qua pho: {tp['hieu_qua_pho']:.1f} bps/Hz
+    Thong luong uoc tinh: {tp['thong_luong_mbps']:.1f} Mbps
+""")
+
+print("\n3. Lop Cong suat UE cho NTN")
+print("-" * 70)
+print("""
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  Lop  │ CS Toi da │ Thiet bi Dien hinh│ Anten            │ Bang   │
+  │  ─────┼───────────┼───────────────────┼──────────────────┼──────  │
+  │  3    │ 23 dBm    │ Smartphone        │ Omni, tich hop   │ n256   │
+  │  2    │ 26 dBm    │ Xe co             │ Gan noc          │ n256   │
+  │  1    │ 31 dBm    │ VSAT/IoT gateway  │ Huong            │ n510   │
+  └─────────────────────────────────────────────────────────────────────┘
+""")
+```
+
+**Cong thuc chinh tu dac ta NR-NTN:**
+
+| Tham so | Cong thuc |
+|---------|-----------|
+| N_TA,offset | 2 × (d_UE - d_ref) / c / (T_c × 64) |
+| K1_min | ceil(RTT / thoi_luong_slot) + thoi_gian_xu_ly |
+| FSPL | 32.45 + 20·log₁₀(f_MHz) + 20·log₁₀(d_km) |
+| Thong luong | BW × SE × (1 - overhead) |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Quen lien ket feeder cho trong suot.** Duong UE-gateway co HAI nhay khong gian. Ngan sach lien ket phai bao gom ca hai.
+
+2. **Su dung sai do phan giai TA.** NR-NTN su dung don vi T_c × 64 cho N_TA,common, khong phai T_c × 16 NR chuan.
+
+3. **Bo qua rang buoc bang.** Bang S (n256) chi co 30 MHz tong. Dung lap ke hoach cho song mang 100 MHz.
+
+4. **Gia dinh HARQ luon hoat dong.** Trien khai GEO thuong vo hieu hoa HARQ. Lap ke hoach cho truyen lai lop RLC.
+
+5. **Danh gia thap han che UL.** EIRP smartphone (23 dBm) + anten omni → UL la nut that. DL co the nhanh gap 10 lan.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 38.101-5 v17.6.0 — Truyen va thu vo tuyen UE NR NTN
+- 3GPP TS 38.300 v17.3.0 — Mo ta tong the NR Giai doan 2
+- 3GPP TS 38.331 v17.3.0 — Dac ta giao thuc RRC NR
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [TR 38.821](/vi/space/ntn-in-3gpp/tr-38-821/) — nghien cuu giai phap dang sau cac dac ta nay
+- [IoT-NTN](/vi/space/ntn-in-3gpp/iot-ntn/) — bien the bang hep cho thiet bi IoT
+- [Van de UE Ve tinh](/vi/space/ntn-in-3gpp/satellite-ue-problem/) — thach thuc tich hop smartphone
+
+</section>

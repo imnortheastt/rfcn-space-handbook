@@ -8,12 +8,12 @@ track: r0
 unit: maxwells-equations-engineers-view
 order: 4
 level: L2
-estimatedReadingMinutes: 7
+estimatedReadingMinutes: 14
 prerequisites: ["rf-r0-maxwells-equations-engineers-view-03-ampere-law"]
 spiralRevisits: []
 title: "Wave equation"
 description: "Deriving electromagnetic wave propagation."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,11 @@ status: published
 
 ## Why the wave equation?
 
-Maxwell's equations predict that electromagnetic disturbances propagate through space at the speed of light. The wave equation is the mathematical consequence — it governs every RF signal from DC to daylight.
+Maxwell's equations predict that electromagnetic disturbances propagate through space at the speed of light. The wave equation is the mathematical consequence of coupling Faraday's law and Ampere's law — it governs every RF signal from the lowest ELF submarine communication band to millimeter-wave 5G.
 
-Understanding this equation connects antenna radiation, transmission line behavior, and free-space propagation.
+Understanding this equation is the bridge between abstract field theory and practical RF engineering. Antenna radiation patterns come from wave equation solutions in spherical coordinates. Transmission line theory is the wave equation in one dimension. Free-space path loss is a statement about how wave amplitude decreases with distance. Waveguide cutoff frequencies are eigenvalues of the wave equation constrained by boundary conditions.
+
+One equation — everything in RF propagation follows from it.
 
 </section>
 
@@ -37,9 +39,25 @@ Understanding this equation connects antenna radiation, transmission line behavi
 
 ## Intuition
 
-Faraday: changing B creates E. Ampere-Maxwell: changing E creates B. Together: a disturbance in E creates B, which creates E, which creates B... The disturbance propagates outward as a wave.
+### The chase that creates a wave
 
-The speed comes from $\epsilon$ and $\mu$ — the electric and magnetic "stiffness" of space.
+Faraday's law: a changing $\mathbf{B}$ creates curl in $\mathbf{E}$. Ampere-Maxwell: a changing $\mathbf{E}$ creates curl in $\mathbf{H}$. Together, they set up a feedback loop.
+
+Imagine a pulse of electric field. By Ampere's law, this creates a ring of magnetic field around it. The growing magnetic ring, by Faraday's law, drives a new ring of electric field slightly further out. That new electric field ring drives another magnetic ring... The disturbance hops outward, each step recreating the conditions for the next.
+
+This is not merely a metaphor — it is the exact physics. The rate at which the disturbance hops is determined by how quickly each law responds: $\varepsilon$ controls how easily $\mathbf{E}$ is produced from $\mathbf{D}$, and $\mu$ controls how easily $\mathbf{H}$ is produced from $\mathbf{B}$. Stiffer medium (higher $\varepsilon$ or $\mu$) → slower propagation. Free space has the minimum "stiffness" — its wave speed is $c = 1/\sqrt{\mu_0\varepsilon_0} \approx 3 \times 10^8$ m/s.
+
+### Why E and H are perpendicular
+
+When the wave moves in the $+z$ direction, $\mathbf{E}$ points in $x$ and $\mathbf{H}$ points in $y$. These three directions are mutually perpendicular ($\hat{x} \times \hat{y} = \hat{z}$), and the Poynting vector $\mathbf{S} = \mathbf{E} \times \mathbf{H}$ points in the propagation direction.
+
+This is not arbitrary — it falls directly out of the curl equations. A plane wave with $\mathbf{E}$ parallel to propagation would require $\nabla \cdot \mathbf{E} \neq 0$ (nonzero divergence), which contradicts Gauss's law in a source-free region. So the transverse nature of electromagnetic waves is enforced by all four Maxwell equations simultaneously.
+
+### Wave impedance as E-to-H ratio
+
+In free space, the ratio $|\mathbf{E}|/|\mathbf{H}| = \eta_0 = 377\,\Omega$. This is the intrinsic impedance of free space. It is a fixed property of the vacuum — not a circuit element, not a material property, but the ratio at which the electromagnetic field must hold when propagating freely.
+
+When a wave enters a material with $\varepsilon_r > 1$ (denser dielectric), the impedance drops below 377 Ω. This mismatch between air and substrate causes reflections at interfaces — the origin of antenna ground-plane effects, PCB transmission line impedance changes, and radar target reflectivity.
 
 </section>
 
@@ -49,72 +67,96 @@ The speed comes from $\epsilon$ and $\mu$ — the electric and magnetic "stiffne
 
 ### Derivation in source-free region
 
-Start with Maxwell's equations ($\mathbf{J} = 0$, $\rho = 0$):
+Start with Maxwell's equations in a source-free, linear, isotropic region ($\mathbf{J} = 0$, $\rho = 0$, $\mathbf{D} = \varepsilon\mathbf{E}$, $\mathbf{B} = \mu\mathbf{H}$):
 
 $$\nabla \times \mathbf{E} = -\mu \frac{\partial \mathbf{H}}{\partial t}$$
-$$\nabla \times \mathbf{H} = \epsilon \frac{\partial \mathbf{E}}{\partial t}$$
 
-Take curl of first equation:
-$$\nabla \times \nabla \times \mathbf{E} = -\mu \frac{\partial}{\partial t}(\nabla \times \mathbf{H})$$
+$$\nabla \times \mathbf{H} = \varepsilon \frac{\partial \mathbf{E}}{\partial t}$$
 
-Substitute second equation:
-$$\nabla \times \nabla \times \mathbf{E} = -\mu \epsilon \frac{\partial^2 \mathbf{E}}{\partial t^2}$$
+Take the curl of the first equation:
 
-Use vector identity $\nabla \times \nabla \times \mathbf{E} = \nabla(\nabla \cdot \mathbf{E}) - \nabla^2 \mathbf{E}$:
+$$\nabla \times (\nabla \times \mathbf{E}) = -\mu \frac{\partial}{\partial t}(\nabla \times \mathbf{H})$$
 
-Since $\nabla \cdot \mathbf{E} = 0$ in source-free region:
+Substitute the second equation into the right side:
 
-$$\nabla^2 \mathbf{E} = \mu \epsilon \frac{\partial^2 \mathbf{E}}{\partial t^2}$$
+$$\nabla \times (\nabla \times \mathbf{E}) = -\mu\varepsilon \frac{\partial^2 \mathbf{E}}{\partial t^2}$$
 
-### Wave equation
+Apply the vector identity $\nabla \times (\nabla \times \mathbf{E}) = \nabla(\nabla \cdot \mathbf{E}) - \nabla^2 \mathbf{E}$. In a source-free region, $\nabla \cdot \mathbf{E} = 0$:
 
-$$\nabla^2 \mathbf{E} - \frac{1}{v^2} \frac{\partial^2 \mathbf{E}}{\partial t^2} = 0$$
+$$\boxed{\nabla^2 \mathbf{E} = \mu\varepsilon \frac{\partial^2 \mathbf{E}}{\partial t^2}}$$
 
-where phase velocity:
+An identical derivation gives the same equation for $\mathbf{H}$.
 
-$$v = \frac{1}{\sqrt{\mu \epsilon}}$$
+### Phase velocity
 
-In free space: $v = c = 3 \times 10^8$ m/s.
+Comparing with the standard wave equation $\nabla^2 f = (1/v^2)\partial^2 f/\partial t^2$:
+
+$$v = \frac{1}{\sqrt{\mu\varepsilon}} = \frac{c}{\sqrt{\mu_r \varepsilon_r}}$$
+
+- Free space: $v = c = 2.998 \times 10^8$ m/s
+- FR4 substrate ($\varepsilon_r = 4.4$, $\mu_r = 1$): $v = c/\sqrt{4.4} = 0.477c$
+- RG-58 coax ($\varepsilon_r = 2.3$): $v = c/\sqrt{2.3} = 0.659c$
+
+The velocity factor (VF) of a transmission line is $v/c = 1/\sqrt{\varepsilon_r}$ for non-magnetic materials — directly from the wave equation.
 
 ### Plane wave solution
 
-For wave traveling in +z direction:
+For a uniform plane wave traveling in the $+z$ direction with $\mathbf{E}$ polarized in $\hat{x}$:
 
-$$\mathbf{E} = E_0 e^{j(\omega t - kz)} \hat{x}$$
+$$\mathbf{E}(z,t) = E_0 \cos(\omega t - kz)\,\hat{x}$$
 
-where:
-- $k = \omega/v = \omega\sqrt{\mu\epsilon}$ (wave number)
-- $\lambda = 2\pi/k = v/f$ (wavelength)
+or in complex phasor notation:
 
-### Helmholtz equation
+$$\tilde{\mathbf{E}}(z) = E_0 e^{-jkz}\,\hat{x}$$
 
-For sinusoidal steady state ($e^{j\omega t}$ assumed):
+where the wave number (propagation constant in lossless media):
 
-$$\nabla^2 \mathbf{E} + k^2 \mathbf{E} = 0$$
+$$k = \frac{\omega}{v} = \omega\sqrt{\mu\varepsilon} = \frac{2\pi}{\lambda}$$
 
-This is the frequency-domain wave equation.
+The associated magnetic field from Faraday's law:
+
+$$\tilde{\mathbf{H}}(z) = \frac{E_0}{\eta} e^{-jkz}\,\hat{y}, \quad \eta = \sqrt{\frac{\mu}{\varepsilon}}$$
+
+### Helmholtz equation (frequency domain)
+
+Substituting $e^{j\omega t}$ time dependence, $\partial/\partial t \to j\omega$, the wave equation becomes:
+
+$$\nabla^2 \tilde{\mathbf{E}} + k^2 \tilde{\mathbf{E}} = 0$$
+
+This is the Helmholtz equation — the time-independent wave equation. All frequency-domain antenna and circuit analysis starts here. The parameter $k$ is the free-space wave number; in lossy media it becomes the complex propagation constant $\gamma = \alpha + j\beta$, where $\alpha$ is the attenuation constant (Np/m) and $\beta$ is the phase constant (rad/m).
+
+### Propagation constant in lossy media
+
+Replace $\varepsilon$ with the complex permittivity $\varepsilon_c = \varepsilon(1 - j\tan\delta)$ where $\tan\delta$ is the loss tangent. The propagation constant becomes complex:
+
+$$\gamma = j\omega\sqrt{\mu\varepsilon_c} = \alpha + j\beta$$
+
+For a wave propagating in $+z$: $e^{-\gamma z} = e^{-\alpha z} e^{-j\beta z}$
+
+- $e^{-\alpha z}$: amplitude decays exponentially with distance
+- $e^{-j\beta z}$: phase advances with distance
+
+The skin depth $\delta_s = 1/\alpha$ in a good conductor. The 1/e amplitude point.
 
 ### Wave impedance
 
-$$\eta = \frac{E}{H} = \sqrt{\frac{\mu}{\epsilon}}$$
+$$\eta = \sqrt{\frac{\mu}{\varepsilon}} = \eta_0\sqrt{\frac{\mu_r}{\varepsilon_r}}, \quad \eta_0 = 376.73\,\Omega \approx 377\,\Omega$$
 
-In free space: $\eta_0 = 377\ \Omega$.
+In a lossy medium:
 
-### Relationship between E and H
+$$\eta_c = \sqrt{\frac{\mu}{\varepsilon_c}} = \eta_0\sqrt{\frac{\mu_r}{\varepsilon_r(1 - j\tan\delta)}}$$
 
-For a plane wave:
-- E and H are perpendicular
-- E and H are in phase
-- $|\mathbf{E}| = \eta |\mathbf{H}|$
-- Both perpendicular to propagation direction
+The impedance becomes complex: the phase difference between $\mathbf{E}$ and $\mathbf{H}$ is no longer zero.
 
-### Power flow
+### Power flow: Poynting vector
 
-Poynting vector:
-$$\mathbf{S} = \mathbf{E} \times \mathbf{H}$$
+The instantaneous power flow density (W/m²):
 
-Average power density:
-$$\langle S \rangle = \frac{1}{2} \text{Re}(\mathbf{E} \times \mathbf{H}^*) = \frac{|E|^2}{2\eta}$$
+$$\mathbf{S}(t) = \mathbf{E}(t) \times \mathbf{H}(t)$$
+
+Time-averaged power density (what instruments measure):
+
+$$\langle \mathbf{S} \rangle = \frac{1}{2}\,\text{Re}(\tilde{\mathbf{E}} \times \tilde{\mathbf{H}}^*) = \frac{|E_0|^2}{2\eta}\,\hat{z}$$
 
 </section>
 
@@ -122,39 +164,60 @@ $$\langle S \rangle = \frac{1}{2} \text{Re}(\mathbf{E} \times \mathbf{H}^*) = \f
 
 ## Apply
 
-**Example: Wavelength calculation**
+### Example 1: Wavelength across frequency bands
 
-Frequency: 2.4 GHz.
+$$\lambda = \frac{v}{f} = \frac{c}{f\sqrt{\mu_r\varepsilon_r}}$$
 
-In free space: $\lambda = c/f = 3 \times 10^8 / 2.4 \times 10^9 = 0.125$ m = 12.5 cm.
+| Band | Frequency | Free-space $\lambda$ | In FR4 ($\varepsilon_r = 4.4$) |
+|------|-----------|---------------------|-------------------------------|
+| WiFi 2.4G | 2.4 GHz | 12.5 cm | 5.96 cm |
+| WiFi 5G | 5.8 GHz | 5.17 cm | 2.47 cm |
+| mmWave | 28 GHz | 10.7 mm | 5.1 mm |
+| V-band | 60 GHz | 5.0 mm | 2.4 mm |
 
-In dielectric ($\epsilon_r = 4$): $\lambda = 12.5 / \sqrt{4} = 6.25$ cm.
+A half-wave dipole at 2.4 GHz is 6.25 cm long in free space. In FR4, the same resonant structure fits in 2.98 cm — which is why PCB antenna dimensions are strongly affected by substrate permittivity.
 
-**Example: Power density**
+### Example 2: Power density budget for a link
 
-Electric field: 1 V/m RMS in free space.
+A 2.4 GHz access point transmits 100 mW EIRP (20 dBm). At 10 m range:
 
-Power density: $S = E^2/(2 \times 377) = 1/(754) = 1.33$ mW/m².
+Received power density (isotropic spreading):
 
-**Example: Propagation in lossy medium**
+$$S = \frac{P_t}{4\pi r^2} = \frac{0.1}{4\pi \times 100} \approx 79.6\,\mu\text{W/m}^2$$
 
-For lossy dielectric with conductivity σ:
+Electric field amplitude:
 
-$$k = \omega\sqrt{\mu\epsilon}\sqrt{1 - j\sigma/(\omega\epsilon)}$$
+$$|E| = \sqrt{2\eta_0 S} = \sqrt{2 \times 377 \times 79.6 \times 10^{-6}} \approx 245\,\text{mV/m}$$
 
-The imaginary part gives attenuation.
+This is the field strength your device antenna sees. Regulatory emission limits (e.g., FCC Part 15) are typically expressed as field strength (V/m at a reference distance) — directly from this power-to-field conversion.
 
-At 1 GHz in seawater (σ = 4 S/m):
+### Example 3: Propagation in lossy media — seawater
 
-Skin depth: ~8 cm. Submarine communication requires very low frequencies.
+Seawater: $\varepsilon_r \approx 81$, $\sigma \approx 4$ S/m at 1 GHz.
 
-**Example: Velocity in transmission line**
+Loss tangent: $\tan\delta = \sigma/(\omega\varepsilon) = 4/(2\pi \times 10^9 \times 81 \times 8.854 \times 10^{-12}) \approx 0.89$
 
-Coax with $\epsilon_r = 2.3$ (polyethylene).
+This is a high-loss medium (tan δ close to 1). The skin depth:
 
-$v = c/\sqrt{2.3} = 0.66c$.
+$$\delta_s = \frac{1}{\alpha} \approx \sqrt{\frac{2}{\omega\mu\sigma}} = \sqrt{\frac{2}{2\pi \times 10^9 \times 4\pi \times 10^{-7} \times 4}} \approx 8.0\,\text{cm}$$
 
-Signal takes 50% longer to traverse same length vs. free space.
+After just 8 cm, the wave amplitude drops to 37% (1/e). After one meter, the signal is attenuated by $e^{-12.5} \approx -54$ dB. Submarine communication at 1 GHz is impossible — this is why the US Navy uses extremely low frequency (ELF, 3–30 Hz) transmitters where skin depth in seawater is tens of meters.
+
+### Example 4: Transmission line velocity factor and time delay
+
+RG-58 coaxial cable: $\varepsilon_r = 2.3$ (polyethylene dielectric), $\mu_r = 1$.
+
+Phase velocity: $v = c/\sqrt{2.3} = 0.659c$
+
+Velocity factor: VF = 65.9%
+
+Time delay per meter: $t_d = 1/v = \sqrt{2.3}/c = 5.08$ ns/m
+
+For a 1.5 m cable feeding a 2.4 GHz antenna:
+
+Phase delay: $\phi = \omega t_d L = 2\pi \times 2.4 \times 10^9 \times 5.08 \times 10^{-9} \times 1.5 \approx 115\,\text{rad} = 6,590°$
+
+This is 18.3 full wavelengths of phase shift. At microwave frequencies, even small variations in cable length (millimeters) cause meaningful phase shifts. This is why phased array antenna calibration requires precise physical cable length matching or electronic delay compensation.
 
 </section>
 
@@ -162,15 +225,15 @@ Signal takes 50% longer to traverse same length vs. free space.
 
 ## Pitfalls
 
-1. **Confusing phase and group velocity.** In dispersive media, $v_p = \omega/k$ differs from $v_g = d\omega/dk$. Energy travels at group velocity.
+1. **Confusing phase velocity and group velocity.** Phase velocity $v_p = \omega/k$ is the speed of constant-phase surfaces — it can exceed $c$ in anomalous dispersion regions, but this does not violate relativity. Group velocity $v_g = d\omega/dk$ is the speed of energy transport and signal envelopes — this is always $\leq c$. In waveguides, $v_p > c$ and $v_g < c$, with $v_p v_g = c^2$.
 
-2. **Forgetting medium effects.** $\epsilon_r$ and $\mu_r$ change wavelength and impedance. Always specify the medium.
+2. **Forgetting that wavelength changes in a medium.** The frequency $f$ stays the same when a wave enters a dielectric — the source still oscillates at the same rate. What changes is the wavelength: $\lambda = v/f = \lambda_0/\sqrt{\varepsilon_r}$. This is why a patch antenna designed for free space has the wrong resonant frequency when placed on a PCB.
 
-3. **Using wrong impedance.** Wave impedance $\eta$ differs from transmission line characteristic impedance $Z_0$. Related but not equal.
+3. **Mixing up wave impedance $\eta$ and transmission line impedance $Z_0$.** Wave impedance $\eta = \sqrt{\mu/\varepsilon}$ is a property of the medium. Transmission line $Z_0$ depends on the geometry (conductor spacing, radius ratio) as well as the medium. For a coaxial line, $Z_0 = (60/\sqrt{\varepsilon_r})\ln(b/a)$ — same $\varepsilon_r$ but different because of geometry.
 
-4. **Ignoring losses.** Real materials have loss tangent. At high frequencies, even small losses cause significant attenuation.
+4. **Ignoring loss tangent at high frequencies.** A substrate like Rogers 4003C has $\tan\delta = 0.0027$ at 10 GHz. Over a 10 cm trace, the attenuation is $\alpha L \approx 0.15$ dB/cm × 10 cm = 1.5 dB — significant. Always check the substrate loss tangent at the operating frequency; data sheets often specify it at 1 MHz where it is much smaller.
 
-5. **Assuming plane waves everywhere.** Near sources, fields don't look like plane waves. The wave equation still holds, but solutions are more complex.
+5. **Assuming plane wave behavior in the near field.** The plane wave solution is valid only in the far field ($r \gg \lambda$). Near an antenna or a circuit element, the fields have reactive components (evanescent fields, stored energy) that are not described by the propagating wave solution. The ratio $E/H \neq 377\,\Omega$ in the near field — near a small electric dipole, $E$ dominates; near a small magnetic dipole (loop), $H$ dominates.
 
 </section>
 
@@ -178,8 +241,8 @@ Signal takes 50% longer to traverse same length vs. free space.
 
 ## References
 
-- Griffiths, *Introduction to Electrodynamics*, Chapter 9.
-- Pozar, *Microwave Engineering*, Chapter 1.
-- Cheng, *Field and Wave Electromagnetics*, Chapter 8.
+- Griffiths, *Introduction to Electrodynamics*, Chapter 9 — derivation of wave equation, plane waves, energy transport.
+- Pozar, *Microwave Engineering*, Chapter 1 — Helmholtz equation, propagation constant, wave impedance in engineering form.
+- Cheng, *Field and Wave Electromagnetics*, Chapter 8 — systematic treatment including lossy media and group velocity.
 
 </section>

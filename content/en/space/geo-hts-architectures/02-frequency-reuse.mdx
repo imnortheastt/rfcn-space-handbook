@@ -8,17 +8,399 @@ track: s7
 unit: geo-hts-architectures
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "Frequency reuse"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["spot-beams"]
+spiralRevisits: []
+title: "Frequency Reuse"
+description: "Color patterns and spatial isolation that multiply HTS capacity without more spectrum."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["frequency-reuse", "color-pattern", "hts", "c-over-i", "interference"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Frequency reuse
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Spectrum is expensive and scarce. A traditional satellite uses each frequency once. HTS satellites reuse the same frequencies across many spot beams—turning 500 MHz of spectrum into 5+ GHz of effective bandwidth. The technique is identical to cellular networks but operates at orbital scale.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Color patterns
+
+```
+Frequency Reuse Concept:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SINGLE USE (Traditional):                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Available spectrum: 500 MHz                    │    │
+│  │  ┌──────────────────────────────────────┐       │    │
+│  │  │        One wide beam: 500 MHz         │       │    │
+│  │  └──────────────────────────────────────┘       │    │
+│  │                                                  │    │
+│  │  Effective capacity: 500 MHz × 1 = 500 MHz     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  4-COLOR REUSE:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Split 500 MHz into 4 colors:                   │    │
+│  │  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐               │    │
+│  │  │  A  │ │  B  │ │  C  │ │  D  │  (125 MHz ea) │    │
+│  │  └─────┘ └─────┘ └─────┘ └─────┘               │    │
+│  │                                                  │    │
+│  │  Arrange beams so same color doesn't touch:     │    │
+│  │                                                  │    │
+│  │     A   B   A   B   A   B                       │    │
+│  │       C   D   C   D   C                         │    │
+│  │     A   B   A   B   A   B                       │    │
+│  │       C   D   C   D   C                         │    │
+│  │                                                  │    │
+│  │  20 beams × 125 MHz = 2.5 GHz effective!       │    │
+│  │  → 5× capacity from same spectrum              │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Reuse factor
+
+```
+Reuse Factor Definition:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  N = Number of distinct frequency/polarization groups   │
+│                                                          │
+│  Common patterns:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  N=4 (2 freq × 2 pol):                          │    │
+│  │  ┌─────────┬─────────┐                          │    │
+│  │  │ f₁ RHCP │ f₁ LHCP │                          │    │
+│  │  │    A    │    B    │                          │    │
+│  │  ├─────────┼─────────┤                          │    │
+│  │  │ f₂ RHCP │ f₂ LHCP │                          │    │
+│  │  │    C    │    D    │                          │    │
+│  │  └─────────┴─────────┘                          │    │
+│  │                                                  │    │
+│  │  N=7 (hexagonal lattice):                       │    │
+│  │      1   2   3                                  │    │
+│  │    7   ●   4                                    │    │
+│  │      6   5                                      │    │
+│  │                                                  │    │
+│  │  N=3 (aggressive reuse):                        │    │
+│  │      A   B   C   A   B   C                      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  CAPACITY MULTIPLICATION:                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Effective BW = (System BW / N) × Num_beams     │    │
+│  │                                                  │    │
+│  │  Reuse gain = Num_beams / N                     │    │
+│  │                                                  │    │
+│  │  Example: 100 beams, N=4                        │    │
+│  │  Reuse gain = 100/4 = 25×                       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Co-channel interference
+
+```
+C/I Ratio (Carrier-to-Interference):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TARGET BEAM:                                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │        Same-frequency interferers               │    │
+│  │                                                  │    │
+│  │           [B]        [B]                        │    │
+│  │             ╲         ╱                          │    │
+│  │       [B]────[A]────[B]   ← Target beam A       │    │
+│  │             ╱         ╲                          │    │
+│  │           [B]        [B]                        │    │
+│  │                                                  │    │
+│  │  C/I = Power_desired / Σ Power_interferers      │    │
+│  │                                                  │    │
+│  │  For 4-color pattern:                           │    │
+│  │  First-tier interferers at distance D (center   │    │
+│  │  to center of nearest same-color beam)          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ISOLATION MECHANISMS:                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  1. SPATIAL SEPARATION:                         │    │
+│  │     Same-color beams physically distant         │    │
+│  │     Path loss + antenna sidelobe rolloff        │    │
+│  │                                                  │    │
+│  │  2. POLARIZATION:                               │    │
+│  │     RHCP vs LHCP adds ~25-30 dB isolation       │    │
+│  │     When used in combination with frequency     │    │
+│  │                                                  │    │
+│  │  3. ANTENNA PATTERN:                            │    │
+│  │     Beam sidelobes typically -20 to -30 dB      │    │
+│  │     Further reduces interference                │    │
+│  │                                                  │    │
+│  │  Target C/I: typically 15-25 dB                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 4-color hexagonal pattern
+
+```
+Classic 4-Color Pattern:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  HEXAGONAL BEAM LAYOUT:                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │       A       B       A       B       A          │    │
+│  │         ╲   ╱   ╲   ╱   ╲   ╱   ╲   ╱            │    │
+│  │     C       D       C       D       C            │    │
+│  │         ╱   ╲   ╱   ╲   ╱   ╲   ╱   ╲            │    │
+│  │       A       B       A       B       A          │    │
+│  │         ╲   ╱   ╲   ╱   ╲   ╱   ╲   ╱            │    │
+│  │     C       D       C       D       C            │    │
+│  │         ╱   ╲   ╱   ╲   ╱   ╲   ╱   ╲            │    │
+│  │       A       B       A       B       A          │    │
+│  │                                                  │    │
+│  │  Each beam surrounded by different colors       │    │
+│  │  Nearest same-color beam is 2 beam-widths away  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  COLOR DEFINITION (typical Ka-band):                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Color │ Frequency    │ Polarization            │    │
+│  │  ──────┼──────────────┼─────────────            │    │
+│  │    A   │ 19.7-20.2 GHz│   RHCP                  │    │
+│  │    B   │ 19.7-20.2 GHz│   LHCP                  │    │
+│  │    C   │ 20.2-20.7 GHz│   RHCP                  │    │
+│  │    D   │ 20.2-20.7 GHz│   LHCP                  │    │
+│  │                                                  │    │
+│  │  → 2 frequencies × 2 polarizations = 4 colors   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Aggressive reuse
+
+```
+N=3 and N=2 Patterns:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  N=3 REUSE (Higher capacity, more interference):        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │       A       B       C       A       B          │    │
+│  │         ╲   ╱   ╲   ╱   ╲   ╱   ╲   ╱            │    │
+│  │     C       A       B       C       A            │    │
+│  │         ╱   ╲   ╱   ╲   ╱   ╲   ╱   ╲            │    │
+│  │       B       C       A       B       C          │    │
+│  │                                                  │    │
+│  │  Same-color beams are closer → lower C/I        │    │
+│  │  Requires better sidelobe control               │    │
+│  │  33% more capacity vs N=4                       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  N=1 FULL REUSE (with interference cancellation):       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │       A       A       A       A       A          │    │
+│  │         ╲   ╱   ╲   ╱   ╲   ╱   ╲   ╱            │    │
+│  │     A       A       A       A       A            │    │
+│  │         ╱   ╲   ╱   ╲   ╱   ╲   ╱   ╲            │    │
+│  │       A       A       A       A       A          │    │
+│  │                                                  │    │
+│  │  All beams use same frequency                   │    │
+│  │  Relies on digital beamforming + interference   │    │
+│  │  cancellation to maintain link quality          │    │
+│  │  Theoretical maximum capacity                   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Frequency reuse calculations:**
+
+```python
+import numpy as np
+
+def frequency_reuse_capacity(system_bw_mhz, num_colors, num_beams):
+    """
+    Calculate effective bandwidth with frequency reuse
+    
+    Returns: dict with capacity metrics
+    """
+    bw_per_beam = system_bw_mhz / num_colors
+    effective_bw = bw_per_beam * num_beams
+    reuse_gain = num_beams / num_colors
+    
+    return {
+        'bw_per_beam_mhz': bw_per_beam,
+        'effective_bw_mhz': effective_bw,
+        'reuse_gain': reuse_gain
+    }
+
+def carrier_to_interference(antenna_gain_db, sidelobe_level_db, 
+                            reuse_distance_beamwidths, num_interferers=6):
+    """
+    Estimate C/I for hexagonal pattern
+    
+    reuse_distance_beamwidths: distance to nearest same-color beam
+                               in units of beamwidth
+    """
+    # Simplified: interference from sidelobes of co-channel beams
+    # At distance D, antenna pattern rolloff provides isolation
+    
+    # First-tier interferers: typically 6 in hexagonal grid
+    # Each at distance D, contributing through sidelobe level
+    
+    # Path loss difference (simplified, assumes flat earth)
+    # Power falls as 1/distance^2 in free space
+    distance_loss_db = 20 * np.log10(reuse_distance_beamwidths)
+    
+    # C/I per interferer = main beam gain - sidelobe - distance factor
+    single_ci = antenna_gain_db - sidelobe_level_db - distance_loss_db
+    
+    # Multiple interferers (power sum)
+    aggregate_ci = single_ci - 10 * np.log10(num_interferers)
+    
+    return aggregate_ci
+
+def polarization_isolation(cross_pol_db=25):
+    """
+    Additional isolation from orthogonal polarization
+    
+    Typical values: 25-30 dB for circular polarization
+    """
+    return cross_pol_db
+
+# Example: Ka-band HTS design
+print("Frequency Reuse Analysis:")
+print("=" * 50)
+
+# System parameters
+system_bw = 500  # MHz
+num_beams = 100
+
+for n_colors in [7, 4, 3]:
+    result = frequency_reuse_capacity(system_bw, n_colors, num_beams)
+    print(f"\nN={n_colors} reuse pattern:")
+    print(f"  Bandwidth per beam: {result['bw_per_beam_mhz']:.1f} MHz")
+    print(f"  Effective bandwidth: {result['effective_bw_mhz']/1000:.1f} GHz")
+    print(f"  Reuse gain: {result['reuse_gain']:.1f}×")
+
+# C/I estimation
+print("\n" + "=" * 50)
+print("C/I Estimation (4-color pattern):")
+
+# Typical antenna parameters
+main_beam_gain = 45  # dBi
+sidelobe_level = -25  # dB relative to peak
+reuse_distance = 2.0  # beam widths to nearest co-channel
+
+ci = carrier_to_interference(main_beam_gain, sidelobe_level, 
+                             reuse_distance, num_interferers=6)
+print(f"  C/I (spatial only): {ci:.1f} dB")
+
+# With polarization discrimination
+ci_with_pol = ci + polarization_isolation(25)
+print(f"  C/I (with pol isolation): {ci_with_pol:.1f} dB")
+```
+
+**Reuse pattern comparison:**
+
+| Pattern | Colors | Reuse Gain | C/I Margin | Complexity |
+|---------|--------|------------|------------|------------|
+| N=7 | 7 | Low | High (~25dB) | Simple |
+| N=4 | 4 | Medium | Good (~18dB) | Standard |
+| N=3 | 3 | High | Lower (~15dB) | Moderate |
+| N=1 | 1 | Maximum | Requires IC | Complex |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring sidelobes.** Antenna sidelobe levels directly impact achievable C/I.
+
+2. **Edge beam distortion.** Beams at coverage edge have different geometry—may need different reuse.
+
+3. **Rain scatter.** Precipitation can scatter signals between beams, degrading isolation.
+
+4. **Cross-polarization.** Real antennas have imperfect cross-pol; don't assume ideal 30dB.
+
+5. **Traffic hotspots.** Same reuse everywhere ignores that demand varies spatially.
+
+6. **Interference aggregation.** Multiple same-color beams all contribute—don't consider just one.
+
+7. **Gateway backhaul.** Gateway links also need frequency planning; can't ignore feeder side.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Maral, G., "Satellite Communications Systems"
+- ITU-R S.672 (antenna pattern for satellite systems)
+- DVB-S2X implementation guidelines
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [HTS Payload Architecture](/en/space/geo-hts-architectures/hts-payload-architecture/) — putting it together
+- [Spot Beams](/en/space/geo-hts-architectures/spot-beams/) — beam fundamentals
+- [Link Budget](/en/space/practical-link-budget-walkthroughs/ka-band-leo-downlink/) — calculating with interference
+
+</section>

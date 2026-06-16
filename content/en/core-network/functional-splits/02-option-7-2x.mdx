@@ -8,17 +8,401 @@ track: n6
 unit: functional-splits
 order: 2
 level: L4
-estimatedReadingMinutes: 5
-title: "Option 7.2x in detail"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n6-functional-splits-01-split-options-overview"]
+spiralRevisits: []
+title: "Option 7-2x in Detail"
+description: "O-RAN's chosen split — Category A vs B, section types, timing, and the Open Fronthaul interface."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG4.CUS", "O-RAN.WG4.MP"]
+tags: ["o-ran", "5g", "split", "7-2x", "fronthaul", "ecpri"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Option 7.2x in detail
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Option 7-2x is O-RAN's defining technical choice. It determines what goes over fronthaul, what the RU must do, and how vendors interoperate.
+
+Understanding 7-2x in detail is essential for O-RAN deployments — it affects capacity planning, equipment selection, and troubleshooting.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### 7-2x split point
+
+```
+Option 7-2x Split Location:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  O-DU Processing:                                       │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ RLC → MAC → High-PHY                            │    │
+│  │                                                  │    │
+│  │ High-PHY outputs:                               │    │
+│  │ ┌───────────────────────────────────────────┐   │    │
+│  │ │ - Resource element mapping done            │   │    │
+│  │ │ - Modulation symbols (QPSK, 16/64/256QAM) │   │    │
+│  │ │ - Layer mapping done                       │   │    │
+│  │ │ - Precoding done (Cat-A) or weights (Cat-B)│   │    │
+│  │ │ - Frequency domain IQ samples             │   │    │
+│  │ └───────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                          │                               │
+│                          │ Open Fronthaul (eCPRI)       │
+│                          │ - C-Plane: scheduling info   │
+│                          │ - U-Plane: IQ data           │
+│                          ▼                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ O-RU Processing (Low-PHY):                      │    │
+│  │                                                  │    │
+│  │ ┌───────────────────────────────────────────┐   │    │
+│  │ │ - IFFT (frequency → time domain)          │   │    │
+│  │ │ - Cyclic prefix insertion                  │   │    │
+│  │ │ - Digital beamforming (Cat-B only)        │   │    │
+│  │ │ - DFE (CFR, DPD)                          │   │    │
+│  │ │ - DAC, RF, antenna                        │   │    │
+│  │ └───────────────────────────────────────────┘   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Category A vs Category B
+
+```
+O-RU Categories:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Category A:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  DU does:                                       │    │
+│  │  - Full precoding (beamforming matrix)          │    │
+│  │  - Outputs per-antenna-port IQ samples          │    │
+│  │                                                  │    │
+│  │  RU does:                                       │    │
+│  │  - IFFT only (no beamforming)                   │    │
+│  │  - Simpler, cheaper                             │    │
+│  │                                                  │    │
+│  │  Fronthaul:                                     │    │
+│  │  - One stream per antenna port                  │    │
+│  │  - Higher BW (scales with antenna count)        │    │
+│  │                                                  │    │
+│  │  Use case: 2T2R, 4T4R (lower MIMO)             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Category B:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  DU does:                                       │    │
+│  │  - Outputs per-layer IQ + beamforming weights   │    │
+│  │  - Beams, not antennas                          │    │
+│  │                                                  │    │
+│  │  RU does:                                       │    │
+│  │  - Digital beamforming (apply weights)          │    │
+│  │  - IFFT per antenna                             │    │
+│  │  - More complex                                 │    │
+│  │                                                  │    │
+│  │  Fronthaul:                                     │    │
+│  │  - Fewer streams (layers << antennas)           │    │
+│  │  - Lower BW for massive MIMO                    │    │
+│  │                                                  │    │
+│  │  Use case: 32T32R, 64T64R (massive MIMO)       │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### eCPRI message structure
+
+```
+eCPRI Frame Format:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Ethernet Frame:                                        │
+│  ┌────────┬────────┬─────────────────────────────────┐  │
+│  │ Dst MAC│ Src MAC│ EtherType (0xAEFE = eCPRI)      │  │
+│  └────────┴────────┴─────────────────────────────────┘  │
+│                                                          │
+│  eCPRI Header (8 bytes):                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Byte 0: Protocol revision (0x10)                │    │
+│  │ Byte 1: Message type                            │    │
+│  │         0x00: IQ Data (U-Plane)                 │    │
+│  │         0x02: Real-time Control (C-Plane)       │    │
+│  │ Bytes 2-3: Payload size                         │    │
+│  │ Bytes 4-5: RTC_ID / PC_ID                       │    │
+│  │ Bytes 6-7: SEQ_ID (sequence number)             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  O-RAN Section Header (for IQ data):                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - Data direction (UL/DL)                        │    │
+│  │ - Payload version                               │    │
+│  │ - Filter index                                  │    │
+│  │ - Frame ID, subframe ID, slot ID, symbol ID     │    │
+│  │ - Section ID                                    │    │
+│  │ - Start PRB, number of PRBs                     │    │
+│  │ - RE mask (which REs in PRB)                    │    │
+│  │ - Compression header (if compressed)            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  IQ Samples:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ [I0, Q0], [I1, Q1], ... per RE, per PRB         │    │
+│  │ Bit width: 9-16 bits per I/Q (configurable)     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### C-Plane section types
+
+```
+O-RAN C-Plane Section Types:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Section Type 0: Unused resource blocks                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Indicates PRBs with no data                     │    │
+│  │ RU can reduce power during these PRBs           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Section Type 1: Most used (DL/UL data)                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ - PRB allocation (start, count)                 │    │
+│  │ - Beamforming info (beam ID or weights)         │    │
+│  │ - Symbol mask                                   │    │
+│  │ - Compression parameters                        │    │
+│  │                                                  │    │
+│  │ One section per PRB group with same beam       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Section Type 3: PRACH                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Random access channel configuration             │    │
+│  │ - PRACH format                                  │    │
+│  │ - Time/frequency offset                         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Section Type 5: UE-specific beamforming               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ For Cat-B: beam weights sent inline             │    │
+│  │ Per-UE beam direction                           │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Section Type 6: Channel info / feedback               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ CSI-RS, SRS configuration                       │    │
+│  │ Used for beamforming weight calculation         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Timing advance
+
+```
+O-RAN Fronthaul Timing:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  DL Timing (DU → RU):                                   │
+│                                                          │
+│  DU                                   RU                │
+│  │ C-Plane message                    │                 │
+│  │ (T2a advance)                      │                 │
+│  │─────────────────────────────────────►                │
+│  │                                    │ Process C-Plane │
+│  │                                    │                 │
+│  │ U-Plane message                    │                 │
+│  │ (Ta3 advance)                      │                 │
+│  │─────────────────────────────────────►                │
+│  │                                    │ IFFT, transmit  │
+│  │                                    │                 │
+│  │                            Air interface │           │
+│  │                                    │─────────────────►
+│  │                                    │                 │
+│                                                          │
+│  Timing Parameters:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  T2a_min_cp: Minimum C-Plane advance            │    │
+│  │  T2a_max_cp: Maximum C-Plane advance            │    │
+│  │                                                  │    │
+│  │  Ta3_min: Minimum U-Plane advance               │    │
+│  │  Ta3_max: Maximum U-Plane advance               │    │
+│  │                                                  │    │
+│  │  Typical values (µs):                           │    │
+│  │  T2a_min_cp: 285                                │    │
+│  │  T2a_max_cp: 429                                │    │
+│  │  Ta3_min: 25                                    │    │
+│  │  Ta3_max: 131                                   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Late packets (arrive after Ta3_min):                   │
+│  - DROPPED by RU                                        │
+│  - Results in missing symbols                           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### IQ compression
+
+```
+Fronthaul Compression Methods:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Block Floating Point (BFP):                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Raw: 16-bit I, 16-bit Q per sample             │    │
+│  │                                                  │    │
+│  │  Compressed:                                    │    │
+│  │  - 9-bit I, 9-bit Q (mantissa)                  │    │
+│  │  - 4-bit exponent shared per PRB                │    │
+│  │                                                  │    │
+│  │  Compression ratio: ~56%                        │    │
+│  │                                                  │    │
+│  │  PRB (12 subcarriers):                          │    │
+│  │  Raw:    12 × 32 bits = 384 bits               │    │
+│  │  BFP:    12 × 18 bits + 4 = 220 bits           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Modulation Compression:                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Uses modulation info from C-Plane              │    │
+│  │  QPSK: 2 bits → minimal expansion              │    │
+│  │  256QAM: 8 bits → more expansion needed        │    │
+│  │                                                  │    │
+│  │  Higher compression for lower modulation        │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Trade-offs:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ More compression → Lower BW, Higher EVM         │    │
+│  │ Less compression → Higher BW, Lower EVM         │    │
+│  │                                                  │    │
+│  │ Typical: 9-bit BFP balances both               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Configuration examples:**
+
+| Parameter | Cat-A (4T4R) | Cat-B (64T64R) |
+|-----------|--------------|----------------|
+| Streams | 4 (per antenna) | 8 (per layer) |
+| BW (100 MHz, BFP) | ~10 Gbps | ~25 Gbps |
+| RU beamforming | No | Yes |
+| Beam weights | N/A | Per-PRB or codebook |
+
+**Debugging fronthaul:**
+
+```bash
+# Capture eCPRI traffic
+tcpdump -i eth0 ether proto 0xaefe -w fronthaul.pcap
+
+# Check timing violations
+grep "late_packet\|timing_error" /var/log/du/fronthaul.log
+
+# O-RAN M-Plane: check RU status
+netconf-cli get --filter "<o-ran-delay-management/>"
+
+# Verify compression settings
+netconf-cli get --filter "<o-ran-compression-factors/>"
+
+# Section header analysis (Wireshark filter)
+# oran.c_section.type == 1
+```
+
+**Timing budget example:**
+
+```
+DU processing:    100 µs
+Ethernet switch:   10 µs (per hop)
+Fiber delay:        5 µs/km
+RU processing:     50 µs
+
+For 10 km fiber + 2 switches:
+Total delay = 100 + 20 + 50 + 50 = 220 µs
+
+Ta3_max = 131 µs → PROBLEM: need shorter path or edge DU
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Cat-A/B mismatch.** DU and RU must agree on category. Wrong config breaks beamforming completely.
+
+2. **Section type confusion.** Using wrong section type for PRACH or SRS causes detection failure.
+
+3. **Timing window violations.** Late C-Plane or U-Plane packets are silently dropped. No retransmission.
+
+4. **Compression negotiation.** DU and RU must agree on compression. Mismatch corrupts IQ data.
+
+5. **VLAN priority.** C-Plane needs higher priority than U-Plane. Incorrect QoS drops control messages.
+
+6. **Sequence number gaps.** Missing SEQ_IDs indicate packet loss. Monitor fronthaul quality.
+
+7. **Beam weight timing.** For Cat-B, beam weights must arrive before U-Plane. Misalignment causes wrong beams.
+
+8. **Symbol boundary alignment.** IQ data must align to symbol boundaries. Drift causes inter-symbol interference.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- O-RAN Alliance WG4, "Management Plane Specification"
+- eCPRI Specification V2.0, "Common Public Radio Interface: eCPRI"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Fronthaul requirements](/en/core-network/functional-splits/fronthaul-requirements/) — transport sizing
+- [O-RU](/en/core-network/o-ran-architecture/o-ru/) — Radio Unit details
+- [O-DU](/en/core-network/o-ran-architecture/o-du/) — Distributed Unit
+
+</section>

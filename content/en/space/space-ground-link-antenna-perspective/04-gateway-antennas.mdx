@@ -8,17 +8,451 @@ track: s7
 unit: space-ground-link-antenna-perspective
 order: 4
 level: L4
-estimatedReadingMinutes: 5
-title: "Gateway antennas"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Gateway Antennas — Large Earth Station Systems"
+description: "Understanding teleport architecture and high-throughput ground segment design."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["gateway", "teleport", "earth-station", "hts", "ground-segment"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Gateway antennas
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Gateway earth stations are the backbone of satellite communications—massive antenna farms that aggregate traffic from millions of user terminals. Whether you're designing HTS constellations, planning ground segment capacity, or understanding satellite network architecture, gateways are where space meets terrestrial infrastructure. A single gateway can handle 10-100+ Gbps of throughput.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Gateway architecture overview
+
+```
+Gateway Earth Station (Teleport) Architecture:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SATELLITE CONSTELLATION                                            │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │    ☆ Sat 1      ☆ Sat 2      ☆ Sat 3      ☆ Sat N        │   │
+│  │      │            │            │            │              │   │
+│  │      └────────────┴────────────┴────────────┘              │   │
+│  │                       │ (feeder links)                     │   │
+│  └───────────────────────┼───────────────────────────────────┘   │
+│                          ▼                                        │
+│  ┌─────────────────────────────────────────────────────────────┐ │
+│  │                    GATEWAY SITE                              │ │
+│  │  ┌─────┐ ┌─────┐ ┌─────┐ ┌─────┐         Antenna farm     │ │
+│  │  │ ◠◠◠ │ │ ◠◠◠ │ │ ◠◠◠ │ │ ◠◠◠ │         (7-13m dishes)  │ │
+│  │  │ 7m  │ │ 9m  │ │ 11m │ │ 13m │                           │ │
+│  │  └──┬──┘ └──┬──┘ └──┬──┘ └──┬──┘                           │ │
+│  │     │       │       │       │                               │ │
+│  │  ┌──┴───────┴───────┴───────┴──┐                           │ │
+│  │  │      RF EQUIPMENT SHELTER    │                           │ │
+│  │  │  ┌──────────────────────┐   │                           │ │
+│  │  │  │ LNAs, HPAs, Upconv   │   │                           │ │
+│  │  │  │ Downconv, Modems     │   │                           │ │
+│  │  │  └──────────────────────┘   │                           │ │
+│  │  └─────────────┬───────────────┘                           │ │
+│  │                │                                            │ │
+│  │  ┌─────────────▼───────────────┐                           │ │
+│  │  │     NETWORK OPERATIONS       │                           │ │
+│  │  │  ┌────┐ ┌────┐ ┌────────┐   │                           │ │
+│  │  │  │NMS │ │NOC │ │Routers │   │                           │ │
+│  │  │  └────┘ └────┘ └────────┘   │                           │ │
+│  │  └─────────────┬───────────────┘                           │ │
+│  │                │                                            │ │
+│  └────────────────┼────────────────────────────────────────────┘ │
+│                   │                                               │
+│                   ▼                                               │
+│  ═══════════ FIBER TO INTERNET PoP ═══════════                   │
+│                                                                    │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Gateway vs user terminal comparison
+
+```
+Gateway vs User Terminal:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Parameter          │ Gateway           │ User terminal            │
+│  ───────────────────┼───────────────────┼──────────────────────────│
+│  Antenna size       │ 7-13m             │ 0.6-1.2m                 │
+│  EIRP               │ 70-85 dBW         │ 40-55 dBW                │
+│  G/T                │ 35-45 dB/K        │ 10-20 dB/K               │
+│  Throughput         │ 10-100+ Gbps      │ 10-500 Mbps              │
+│  Cost               │ $5-50M            │ $500-5000                │
+│  Power consumption  │ 100-500 kW        │ 50-200 W                 │
+│  Quantity needed    │ 10-100 per fleet  │ Millions                 │
+│  Link type          │ Feeder link       │ User link                │
+│  Frequency          │ Ka/Q/V-band       │ Ku/Ka-band               │
+│                                                                      │
+│  KEY INSIGHT: Gateways are few but powerful; terminals many but    │
+│  small. System design balances gateway capacity vs user reach.     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### RF chain architecture
+
+```
+Gateway RF Signal Path:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TRANSMIT PATH (Forward Link):                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  [User data] ──► [Modem] ──► [Upconverter] ──►       │         │
+│  │                               (IF → RF)               │         │
+│  │                                   │                   │         │
+│  │                   ┌───────────────▼───────────────┐  │         │
+│  │                   │     HPA (High Power Amp)      │  │         │
+│  │                   │  ┌──────────────────────────┐ │  │         │
+│  │                   │  │ SSPA: 50-500W (Ku/Ka)   │ │  │         │
+│  │                   │  │ TWTA: 200W-2kW (C/Ku)   │ │  │         │
+│  │                   │  │ Klystron: 1-5kW (C)     │ │  │         │
+│  │                   │  └──────────────────────────┘ │  │         │
+│  │                   └───────────────┬───────────────┘  │         │
+│  │                                   │                   │         │
+│  │                   ┌───────────────▼───────────────┐  │         │
+│  │                   │     FEED + ANTENNA (7-13m)   │  │         │
+│  │                   └───────────────────────────────┘  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  RECEIVE PATH (Return Link):                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  [Antenna] ──► [LNA] ──► [Downconverter] ──► [Modem] │         │
+│  │                 │         (RF → IF)                   │         │
+│  │                 │                                      │         │
+│  │    LNA specs:   │                                      │         │
+│  │    NF: 0.5-1.5 dB                                     │         │
+│  │    Gain: 40-60 dB                                     │         │
+│  │    Cryo-cooled for lowest NF                          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Gateway diversity for rain fade
+
+```
+Gateway Diversity Strategy:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Ka/V-band gateways suffer rain fade → need geographic diversity   │
+│                                                                      │
+│  SITE DIVERSITY:                                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    Rain cell                                          │         │
+│  │    ┌───────────┐                                     │         │
+│  │    │ ▓▓▓▓▓▓▓▓▓ │ ← 20 dB fade                        │         │
+│  │    │ ▓▓▓▓▓▓▓▓▓ │                                     │         │
+│  │    └───────────┘                                     │         │
+│  │       │                                               │         │
+│  │    ┌──▼──┐                            ┌─────┐        │         │
+│  │    │ GW1 │ ←─── 100km+ ───►           │ GW2 │        │         │
+│  │    │ X   │       spacing              │ ✓   │        │         │
+│  │    └─────┘                            └─────┘        │         │
+│  │    (faded)                            (clear)        │         │
+│  │                                                        │         │
+│  │  • Primary/backup switching in < 100ms               │         │
+│  │  • Fiber interconnect between sites                  │         │
+│  │  • N+1 redundancy common (e.g., 8+1 for 8 beams)    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SITE SELECTION CRITERIA:                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Factor              │ Requirement                    │         │
+│  │  ────────────────────┼────────────────────────────── │         │
+│  │  Rain rate (R0.01)   │ < 30 mm/hr preferred          │         │
+│  │  Cloud cover         │ Low annual average            │         │
+│  │  Fiber connectivity  │ Multiple diverse paths        │         │
+│  │  Power grid          │ Reliable + backup gen         │         │
+│  │  Land availability   │ 5-20 acres per site          │         │
+│  │  RF environment      │ Low RFI, no interference      │         │
+│  │  Satellite visibility│ Min 5° elevation              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### HTS gateway scaling
+
+```
+High-Throughput Satellite Gateway Scaling:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  HTS CAPACITY EXAMPLE (100 Gbps total system):                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Satellite: 100 user beams × 500 MHz × 4 bps/Hz      │         │
+│  │           = 200 Gbps forward + 200 Gbps return       │         │
+│  │                                                        │         │
+│  │  Gateway beams: 10 beams × 2 GHz × 5 bps/Hz          │         │
+│  │               = 100 Gbps per polarization            │         │
+│  │                                                        │         │
+│  │  Frequency reuse: Q/V-band feeder + Ka user          │         │
+│  │                                                        │         │
+│  │  GATEWAY DISTRIBUTION:                                │         │
+│  │  ┌───────────────────────────────────────────┐       │         │
+│  │  │                                            │       │         │
+│  │  │  Region     │ # Sites │ Antennas/site    │       │         │
+│  │  │  ───────────┼─────────┼─────────────────  │       │         │
+│  │  │  North Am.  │ 4       │ 8 × 9m           │       │         │
+│  │  │  Europe     │ 3       │ 6 × 11m          │       │         │
+│  │  │  Asia-Pac   │ 3       │ 6 × 9m           │       │         │
+│  │  │  ───────────┼─────────┼─────────────────  │       │         │
+│  │  │  TOTAL      │ 10      │ 60 antennas      │       │         │
+│  │  │                                            │       │         │
+│  │  └───────────────────────────────────────────┘       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  NGSO GATEWAY CHALLENGE:                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  LEO constellation (e.g., Starlink):                 │         │
+│  │  • Need 100+ gateway sites for global coverage       │         │
+│  │  • Each site needs 4-8 tracking antennas             │         │
+│  │  • Continuous handoffs between satellites            │         │
+│  │  • Fiber backhaul at every location                  │         │
+│  │                                                        │         │
+│  │  Solution: Optical inter-satellite links (OISLs)     │         │
+│  │  reduce gateway dependency by routing in space       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Gateway link budget and capacity calculations:**
+
+```python
+import numpy as np
+
+def gateway_eirp_dbw(power_w, antenna_gain_dbi, losses_db=2.0):
+    """
+    Calculate gateway EIRP.
+    
+    Args:
+        power_w: HPA output power in watts
+        antenna_gain_dbi: Antenna gain in dBi
+        losses_db: Feed and waveguide losses
+    
+    Returns:
+        EIRP in dBW
+    """
+    power_dbw = 10 * np.log10(power_w)
+    return power_dbw + antenna_gain_dbi - losses_db
+
+def gateway_gt_dbk(antenna_gain_dbi, system_temp_k, losses_db=1.0):
+    """
+    Calculate gateway G/T.
+    """
+    noise_temp_db = 10 * np.log10(system_temp_k)
+    return antenna_gain_dbi - losses_db - noise_temp_db
+
+def parabolic_gain_dbi(diameter_m, freq_ghz, efficiency=0.65):
+    """
+    Calculate parabolic antenna gain.
+    """
+    wavelength = 0.3 / freq_ghz  # meters
+    area = np.pi * (diameter_m / 2) ** 2
+    gain = efficiency * (4 * np.pi * area) / (wavelength ** 2)
+    return 10 * np.log10(gain)
+
+def gateway_capacity_gbps(bandwidth_mhz, spectral_efficiency, num_antennas, duty_cycle=1.0):
+    """
+    Calculate total gateway throughput capacity.
+    """
+    capacity_per_antenna = bandwidth_mhz * spectral_efficiency / 1000  # Gbps
+    return capacity_per_antenna * num_antennas * duty_cycle
+
+def diversity_availability(single_site_avail, num_sites, correlation=0.1):
+    """
+    Estimate availability with gateway diversity.
+    
+    Args:
+        single_site_avail: Single site availability (e.g., 0.99)
+        num_sites: Number of diverse sites
+        correlation: Rain correlation between sites (0-1)
+    
+    Returns:
+        Combined availability
+    """
+    # Simplified model: independent sites + correlation factor
+    single_unavail = 1 - single_site_avail
+    # Correlated unavailability model
+    combined_unavail = single_unavail ** num_sites * (1 + correlation * (num_sites - 1))
+    return 1 - combined_unavail
+
+# Example calculations
+print("Gateway Earth Station Analysis")
+print("=" * 60)
+
+# Antenna gain vs frequency
+print("\n1. Antenna Gain vs Diameter and Frequency")
+print("-" * 60)
+print(f"  {'Diameter':>10} {'Ku (12 GHz)':>14} {'Ka (20 GHz)':>14} {'V (50 GHz)':>14}")
+
+for diameter in [5, 7, 9, 11, 13]:
+    gain_ku = parabolic_gain_dbi(diameter, 12)
+    gain_ka = parabolic_gain_dbi(diameter, 20)
+    gain_v = parabolic_gain_dbi(diameter, 50)
+    print(f"  {diameter:>8}m {gain_ku:>12.1f} dBi {gain_ka:>12.1f} dBi {gain_v:>12.1f} dBi")
+
+# EIRP and G/T for typical gateway
+print("\n2. Gateway Link Budget Parameters")
+print("-" * 60)
+configs = [
+    ("9m Ka-band", 9, 20, 400, 80),   # diameter, freq, power_w, sys_temp_k
+    ("11m Ka-band", 11, 20, 600, 75),
+    ("13m Ka-band", 13, 20, 1000, 70),
+    ("9m V-band", 9, 50, 200, 150),
+]
+
+print(f"  {'Config':<15} {'Gain':>10} {'EIRP':>10} {'G/T':>10}")
+for name, diam, freq, power, temp in configs:
+    gain = parabolic_gain_dbi(diam, freq)
+    eirp = gateway_eirp_dbw(power, gain)
+    gt = gateway_gt_dbk(gain, temp)
+    print(f"  {name:<15} {gain:>8.1f} dBi {eirp:>8.1f} dBW {gt:>8.1f} dB/K")
+
+# Capacity calculation
+print("\n3. Gateway Throughput Capacity")
+print("-" * 60)
+scenarios = [
+    ("GEO HTS", 2000, 4.5, 8, 1.0),     # bw_mhz, se, num_ant, duty
+    ("LEO gateway", 500, 3.5, 4, 0.4),   # duty < 1 due to handoffs
+    ("MEO gateway", 1000, 4.0, 6, 0.6),
+]
+
+print(f"  {'Scenario':<15} {'BW':>10} {'SE':>8} {'Antennas':>10} {'Capacity':>12}")
+print(f"  {'':<15} {'(MHz)':>10} {'(bps/Hz)':>8} {'':>10} {'(Gbps)':>12}")
+
+for name, bw, se, num_ant, duty in scenarios:
+    cap = gateway_capacity_gbps(bw, se, num_ant, duty)
+    print(f"  {name:<15} {bw:>10} {se:>8.1f} {num_ant:>10} {cap:>12.1f}")
+
+# Site diversity availability
+print("\n4. Gateway Diversity Availability")
+print("-" * 60)
+single_avail = 0.995  # 99.5% at single site (Ka-band with rain)
+
+print(f"  Single site availability: {single_avail*100:.2f}%")
+print(f"  {'Sites':>8} {'Correlation':>12} {'Combined avail':>16}")
+
+for sites in [1, 2, 3, 4]:
+    for corr in [0.0, 0.1, 0.3]:
+        avail = diversity_availability(single_avail, sites, corr)
+        print(f"  {sites:>8} {corr:>12.1f} {avail*100:>15.4f}%")
+
+# Cost comparison
+print("\n5. Gateway Cost Breakdown (Typical)")
+print("-" * 60)
+costs = [
+    ("Antenna (9m)", 500_000, 1_500_000),
+    ("RF equipment", 300_000, 800_000),
+    ("Modem/baseband", 200_000, 500_000),
+    ("Shelter/civil", 100_000, 300_000),
+    ("Fiber backhaul", 50_000, 200_000),
+    ("Power/cooling", 100_000, 400_000),
+    ("Installation", 100_000, 300_000),
+]
+
+print(f"  {'Component':<20} {'Low ($)':>15} {'High ($)':>15}")
+total_low, total_high = 0, 0
+for comp, low, high in costs:
+    print(f"  {comp:<20} {low:>15,} {high:>15,}")
+    total_low += low
+    total_high += high
+
+print("-" * 60)
+print(f"  {'TOTAL (per antenna)':<20} {total_low:>15,} {total_high:>15,}")
+```
+
+**Key gateway specifications:**
+
+| System | Antenna size | Frequency | EIRP | G/T | Capacity |
+|--------|--------------|-----------|------|-----|----------|
+| VIASAT-3 gateway | 7.3m | Q/V-band | 82 dBW | 42 dB/K | 15 Gbps/site |
+| O3b mPOWER gateway | 7.3m | Ka-band | 78 dBW | 38 dB/K | 10 Gbps/site |
+| Starlink gateway | 2.4m (ESA) | Ka-band | 65 dBW | 28 dB/K | 20 Gbps/site |
+| Telesat Lightspeed | 4.5m | Ka-band | 72 dBW | 32 dB/K | 25 Gbps/site |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Rain fade underestimation.** V-band gateways can see 30+ dB fade; budget margin and diversity carefully.
+
+2. **Fiber dependency.** Gateway without fiber = stranded capacity. Verify multiple diverse fiber paths.
+
+3. **Interference to/from other systems.** ITU coordination required; gateway EIRP density limits apply.
+
+4. **Power and cooling.** Large HPAs generate significant heat; plan for 2-3× power for cooling.
+
+5. **LEO tracking complexity.** NGSO gateways need multiple tracking antennas and fast handoff logic.
+
+6. **Regulatory delays.** Gateway licensing can take 6-18 months; start early.
+
+7. **Scaling vs redundancy.** N+M redundancy (e.g., 8+2) needed for maintenance without outage.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU-R S.580 (Earth station radiation patterns)
+- ITU-R S.524 (Maximum permissible EIRP density)
+- INTELSAT Earth Station Standards (IESS)
+- Viasat, SES, Telesat technical documentation
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Link Budget Master Class](/en/space/link-budget-master-class/) — detailed calculations
+- [Rain Fade and ACM](/en/space/frequency-bands-and-regulatory/ku-ka-q-v-w-bands/) — mitigation strategies
+- [Phased Arrays](/en/space/space-ground-link-antenna-perspective/phased-arrays-on-ground/) — ESA-based gateways
+
+</section>

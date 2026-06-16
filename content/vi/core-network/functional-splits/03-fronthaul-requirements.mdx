@@ -8,17 +8,391 @@ track: n6
 unit: functional-splits
 order: 3
 level: L4
-estimatedReadingMinutes: 5
-title: "Yeu cau fronthaul theo tung phan tach"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n6-functional-splits-02-option-7-2x"]
+spiralRevisits: []
+title: "Yeu cau Fronthaul"
+description: "Yeu cau bang thong, do tre, jitter, va dong bo cho transport fronthaul O-RAN."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG4.CUS", "IEEE 802.1CM", "ITU-T G.8275.1"]
+tags: ["o-ran", "5g", "fronthaul", "transport", "timing", "ethernet"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Yeu cau fronthaul theo tung phan tach
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Fronthaul O-RAN khong phai Ethernet binh thuong. No mang mau IQ thoi gian thuc voi rang buoc timing micro giay. Lo cua so, goi bi bo.
+
+Hieu yeu cau fronthaul la can thiet cho thiet ke mang transport. Du tru thieu gay mat goi. Du tru nhieu lang phi dung luong va ngan sach.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Fronthaul vs backhaul
+
+```
+Cac Phan Mang Transport:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Fronthaul (DU ↔ RU):                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Noi dung: Mau IQ (mien tan so)                  │    │
+│  │ Giao thuc: eCPRI tren Ethernet                  │    │
+│  │ Bang thong: 10-100 Gbps (tuy MIMO)              │    │
+│  │ Do tre: < 100-250 µs mot chieu                  │    │
+│  │ Jitter: < 10 µs                                 │    │
+│  │ Dong bo: ±1.5 µs pha (TDD)                      │    │
+│  │                                                  │    │
+│  │ Che do loi: Symbol bi bo                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Midhaul (CU ↔ DU):                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Noi dung: PDCP PDU tren GTP-U                   │    │
+│  │ Giao thuc: IP/Ethernet                          │    │
+│  │ Bang thong: 1-25 Gbps (toc do du lieu user)     │    │
+│  │ Do tre: < 1-10 ms                               │    │
+│  │ Jitter: < 1 ms                                  │    │
+│  │                                                  │    │
+│  │ Che do loi: Suy giam user plane                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Backhaul (CU ↔ Core):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Noi dung: Bao hieu N2, user plane N3            │    │
+│  │ Giao thuc: IP/Ethernet                          │    │
+│  │ Bang thong: 1-10 Gbps                           │    │
+│  │ Do tre: < 10-50 ms                              │    │
+│  │                                                  │    │
+│  │ Che do loi: Gian doan dich vu                   │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Phan tich bang thong
+
+```
+Tinh Bang thong Fronthaul (Option 7-2x):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Cong thuc:                                             │
+│  BW = Fs × Nsymbol × Nprb × Nre × Nant × Nbits × (1+OH)│
+│                                                          │
+│  Trong do:                                              │
+│  - Fs: Toc do subframe (1000/s)                        │
+│  - Nsymbol: Symbol moi subframe (14 × 2 cho 30kHz)     │
+│  - Nprb: PRB (273 cho 100 MHz)                         │
+│  - Nre: Subcarrier moi PRB (12)                        │
+│  - Nant: Cong antenna                                  │
+│  - Nbits: Bit moi mau IQ (32 raw, 18 BFP)              │
+│  - OH: Overhead (~10-20%)                              │
+│                                                          │
+│  Vi du (100 MHz, 64T64R, Cat-B voi BFP):               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Moi layer: 1000 × 28 × 273 × 12 × 18 = 1.65 Gbps│   │
+│  │  8 layers (Cat-B): 8 × 1.65 = 13.2 Gbps         │    │
+│  │  Voi C-Plane + overhead: ~25 Gbps               │    │
+│  │                                                  │    │
+│  │  Cat-A (64 streams): ~50+ Gbps                  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  So sanh theo cau hinh:                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Cau hinh    │ BW Raw      │ Nen (BFP)           │    │
+│  │ ────────────┼─────────────┼─────────────────────│    │
+│  │ 4T4R        │ ~10 Gbps    │ ~6 Gbps             │    │
+│  │ 32T32R Cat-A│ ~80 Gbps    │ ~45 Gbps            │    │
+│  │ 64T64R Cat-A│ ~160 Gbps   │ ~90 Gbps            │    │
+│  │ 64T64R Cat-B│ ~40 Gbps    │ ~25 Gbps            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Ngan sach do tre
+
+```
+Thanh phan Do tre Fronthaul:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Xu ly DU:                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Xu ly MAC/PHY: 50-150 µs                        │    │
+│  │ Dong goi: 10-20 µs                              │    │
+│  │ NIC/DMA: 5-10 µs                                │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Mang:                                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Switch Ethernet (moi hop): 5-15 µs              │    │
+│  │   - Cut-through: 5 µs                           │    │
+│  │   - Store-forward: 10-15 µs                     │    │
+│  │ Lan truyen cap quang: 5 µs/km                   │    │
+│  │ Serialization (25G): 3 µs cho khung 9000B      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Xu ly RU:                                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ NIC/buffer: 5-10 µs                             │    │
+│  │ Xu ly C-Plane: 10-20 µs                         │    │
+│  │ IFFT/beamforming: 20-50 µs                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Tong Ngan sach (Ta3_max = 131 µs dien hinh):          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  DU:       100 µs                               │    │
+│  │  Mang:      30 µs (1 hop, 3 km cap quang)       │    │
+│  │  RU:        50 µs                               │    │
+│  │  ────────────────────────                        │    │
+│  │  Tong:     180 µs → VUOT QUA 131 µs!            │    │
+│  │                                                  │    │
+│  │  Giai phap: DU edge, it hop hon, cap ngan hon   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Yeu cau dong bo
+
+```
+Timing va Dong bo Fronthaul:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dong bo Tan so:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Yeu cau: ±50 ppb (binh thuong), ±16 ppb (rong)  │    │
+│  │ Phuong phap: SyncE (Synchronous Ethernet)       │    │
+│  │                                                  │    │
+│  │ Khong co SyncE:                                 │    │
+│  │ - Troi clock gay loi timing symbol              │    │
+│  │ - Nhieu lien song mang tang                     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Dong bo Pha/Thoi gian:                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Yeu cau (TDD):                                  │    │
+│  │ - ±1.5 µs tai giao dien khong khi               │    │
+│  │ - ±3.0 µs tai dau noi antenna                   │    │
+│  │                                                  │    │
+│  │ Phuong phap: PTP (IEEE 1588v2)                  │    │
+│  │ - Profile: ITU-T G.8275.1 (full on-path)       │    │
+│  │ - Moi switch phai la boundary clock            │    │
+│  │                                                  │    │
+│  │ Khong co PTP:                                   │    │
+│  │ - Xung dot UL/DL TDD                           │    │
+│  │ - Nhieu cell lan can                            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Thay the: GPS tai RU                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Moi RU co bo thu GPS                            │    │
+│  │ + Doc lap voi timing mang                       │    │
+│  │ - Chi phi moi RU, van de phu song trong nha     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Yeu cau QoS
+
+```
+Lop Luu luong Fronthaul (IEEE 802.1CM):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Anh xa Uu tien VLAN (PCP):                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  PCP │ Lop Luu luong     │ Su dung              │    │
+│  │  ────┼────────────────────┼─────────────────────│    │
+│  │  7   │ Dieu khien mang   │ PTP, SyncE           │    │
+│  │  6   │ C-Plane           │ Thong tin lap lich   │    │
+│  │  5   │ U-Plane (cao)     │ Du lieu IQ DL        │    │
+│  │  4   │ U-Plane (thuong)  │ Du lieu IQ UL        │    │
+│  │  3   │ M-Plane           │ NETCONF/YANG         │    │
+│  │  0-2 │ Best effort       │ Khac                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Yeu cau Jitter:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Bien thien Do tre Goi (PDV): < 10 µs            │    │
+│  │                                                  │    │
+│  │ Nguon jitter:                                   │    │
+│  │ - Hang doi switch                               │    │
+│  │ - Dao nguoc uu tien                             │    │
+│  │ - Bung luu luong                                │    │
+│  │                                                  │    │
+│  │ Giam thieu:                                     │    │
+│  │ - Hang doi uu tien nghiem ngat                  │    │
+│  │ - Dinh hinh luu luong tai DU                    │    │
+│  │ - Preemption (802.1Qbu)                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Tuy chon transport
+
+```
+Cong nghe Transport Fronthaul:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Cap quang toi (chuyen dung):                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ + Do tre thap nhat                              │    │
+│  │ + Kiem soat toan bo bang thong                  │    │
+│  │ + Khong jitter tu luu luong khac                │    │
+│  │ - Chi phi cao nhat (thue cap quang)             │    │
+│  │ - Gioi han o vung co nhieu cap quang            │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Buoc song (DWDM):                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ + Chia se ha tang cap quang                     │    │
+│  │ + 10-100G moi buoc song                         │    │
+│  │ + Do tre thap (DWDM thu dong)                   │    │
+│  │ - ROADM them do tre (10-20 µs)                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Ethernet (chuyen mach):                                │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ + Hieu qua chi phi                              │    │
+│  │ + Topo linh hoat                                │    │
+│  │ + Ghep kenh thong ke                            │    │
+│  │ - Moi hop them do tre                           │    │
+│  │ - Can TSN cho tinh xac dinh                     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Khong day (mmWave / FSO):                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ + Khong can cap quang                           │    │
+│  │ + Trien khai nhanh                              │    │
+│  │ - Phu thuoc thoi tiet (FSO)                     │    │
+│  │ - Bang thong han che                            │    │
+│  │ - Can LOS                                       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tom tat yeu cau:**
+
+| Tham so | Yeu cau | Ghi chu |
+|---------|---------|---------|
+| Bang thong | 10-100 Gbps | Moi RU, tuy MIMO |
+| Do tre | < 100-250 µs | Mot chieu, cua so Ta3 |
+| Jitter | < 10 µs | PDV |
+| Mat goi | < 10^-6 | Thuc te bang khong |
+| Dong bo tan so | ±50 ppb | SyncE |
+| Dong bo pha (TDD) | ±1.5 µs | PTP G.8275.1 |
+
+**Lap ke hoach transport:**
+
+```bash
+# Tinh do tre
+fiber_km=5
+switch_hops=2
+switch_delay_us=10
+
+total_network_us=$((fiber_km * 5 + switch_hops * switch_delay_us))
+echo "Do tre mang: ${total_network_us} µs"
+
+# Bang thong moi sector
+mimo_config="64T64R"
+bw_mhz=100
+cat_b_layers=8
+bfp_bits=18
+
+# Moi layer: 1000 × 28 × 273 × 12 × 18 bits/s
+per_layer_gbps=1.65
+total_gbps=$((cat_b_layers * per_layer_gbps * 12 / 10))  # voi 20% overhead
+echo "BW Fronthaul: ~${total_gbps} Gbps"
+```
+
+**Yeu cau switch:**
+
+| Tinh nang | Tai sao |
+|-----------|---------|
+| Cong 25G/100G | Bang thong fronthaul |
+| Cut-through | Giam do tre |
+| PTP BC | Dong bo pha |
+| SyncE | Dong bo tan so |
+| 802.1Qbv (TSN) | Do tre xac dinh |
+| 802.1Qbu | Preemption khung |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Vuot ngan sach do tre.** Cong tat ca thanh phan. Them mot hop switch co the pha vo timing.
+
+2. **PTP khong dau cuoi.** Moi switch phai nhan biet PTP. Mot switch transparent pha hu do chinh xac pha.
+
+3. **Dut chuoi SyncE.** Tat ca switch can SyncE. Mot switch khong SyncE pha vo chuoi tan so.
+
+4. **Du ky qua muc.** Ghep kenh thong ke that bai cho fronthaul. Phai du tru dung luong dinh.
+
+5. **Cau hinh QoS sai.** C-Plane phai co uu tien cao hon. Anh xa PCP sai bo tin dieu khien.
+
+6. **Bat ngo do dai cap quang.** Duong ngam dai hon tam nhin. Khao sat duong thuc te.
+
+7. **Thieu dinh hinh luu luong.** Dau ra DU bung gay tran buffer switch. Dinh hinh tai egress.
+
+8. **Phuc tap du phong.** Chuyen doi phai < 50 ms. Can duong bao ve tinh toan truoc.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- IEEE 802.1CM, "Time-Sensitive Networking for Fronthaul"
+- ITU-T G.8275.1, "PTP Profile for Phase/Time Synchronization"
+- Small Cell Forum, "5G FAPI: PHY API Specification"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Tong quan eCPRI](/vi/core-network/fronthaul-interface/ecpri-overview/) — giao thuc fronthaul
+- [Spec fronthaul O-RAN](/vi/core-network/fronthaul-interface/o-ran-fronthaul-spec/) — spec chi tiet
+- [Option 7-2x](/vi/core-network/functional-splits/option-7-2x/) — chi tiet phan tach
+
+</section>

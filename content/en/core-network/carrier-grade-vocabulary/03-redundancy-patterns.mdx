@@ -8,17 +8,412 @@ track: n0
 unit: carrier-grade-vocabulary
 order: 3
 level: L2
-estimatedReadingMinutes: 5
-title: "Redundancy patterns"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n0-carrier-grade-vocabulary-02-mtbf-and-mttr"]
+spiralRevisits: ["core-network-n1-why-telcos-build-differently-02-five-nines-availability"]
+title: "Redundancy Patterns"
+description: "1+1, N+1, N+M, active-active, active-standby — the building blocks of high availability."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["ITU-T G.841", "MEF 2.0"]
+tags: ["redundancy", "high-availability", "failover", "networking"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Redundancy patterns
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Single points of failure kill availability. The math is simple: if one component has 99.9% availability, two components in parallel give you 99.9999%.
+
+Redundancy patterns are how telecom networks achieve "five nines" and beyond. Understanding them lets you design systems that survive failures gracefully.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The redundancy spectrum
+
+```
+Less redundant                                         More redundant
+     │                                                        │
+     ▼                                                        ▼
+┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐   ┌────────┐
+│ Single │   │  Cold  │   │  Warm  │   │  Hot   │   │ Active │
+│        │   │Standby │   │Standby │   │Standby │   │ Active │
+└────────┘   └────────┘   └────────┘   └────────┘   └────────┘
+     │            │            │            │            │
+   No HA     Minutes      Seconds      Subsec       Zero
+  fallback   failover     failover     failover    failover
+```
+
+**Key tradeoffs:**
+- More redundancy = higher cost
+- More redundancy = lower failover time
+- More redundancy = more complexity
+
+### Common patterns
+
+**1+1 (One-plus-one):**
+```
+┌──────────┐
+│ Primary  │──────┐
+│ (Active) │      │
+└──────────┘      ├──────► Traffic
+┌──────────┐      │
+│ Standby  │──────┘
+│ (Idle)   │
+└──────────┘
+
+100% spare capacity. Primary fails → standby takes over.
+```
+
+**N+1 (N-plus-one):**
+```
+┌──────────┐
+│ Active 1 │──────┐
+└──────────┘      │
+┌──────────┐      │
+│ Active 2 │──────┼──────► Traffic
+└──────────┘      │
+┌──────────┐      │
+│ Active 3 │──────┤
+└──────────┘      │
+┌──────────┐      │
+│ Standby  │──────┘
+└──────────┘
+
+One spare covers N working units.
+Any one fails → standby takes over.
+```
+
+**N+M (N-plus-M):**
+```
+Same as N+1, but with M spares.
+Can survive M simultaneous failures.
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Standby modes
+
+**Cold standby:**
+- Backup is powered off or unconfigured
+- Manual intervention to bring up
+- Failover time: minutes to hours
+- Lowest cost, lowest availability
+
+```
+Normal:      Failure:       Recovery:
+┌──────┐     ┌──────┐       ┌──────┐
+│Active│     │ FAIL │       │ OFF  │
+│  ON  │     │      │       │      │
+└──────┘     └──────┘       └──────┘
+┌──────┐     ┌──────┐       ┌──────┐
+│Standby     │Standby       │ NOW  │
+│ OFF  │     │ OFF  │  →    │ACTIVE│  (manual boot)
+└──────┘     └──────┘       └──────┘
+```
+
+**Warm standby:**
+- Backup is powered on, configured
+- State sync periodic or on-change
+- Automatic failover
+- Failover time: seconds
+
+```
+Normal:           Failure:          Recovery:
+┌──────┐          ┌──────┐          ┌──────┐
+│Active│          │ FAIL │          │ FAIL │
+│Sync ─┼────┐     │      │          │      │
+└──────┘    │     └──────┘          └──────┘
+            ▼
+┌──────┐          ┌──────┐          ┌──────┐
+│Standby          │Standby          │ NOW  │
+│READY │          │READY │    →     │ACTIVE│  (auto)
+└──────┘          └──────┘          └──────┘
+```
+
+**Hot standby:**
+- Backup runs same config, synced continuously
+- Stateful failover (sessions preserved)
+- Automatic, sub-second failover
+
+```
+Normal:           Failure:          Recovery:
+┌──────┐          ┌──────┐          ┌──────┐
+│Active│          │ FAIL │          │ FAIL │
+│State─┼─────┐    │      │          │      │
+└──────┘     │    └──────┘          └──────┘
+        sync │
+┌──────┐     ▼    ┌──────┐          ┌──────┐
+│Standby          │Standby          │ NOW  │
+│SYNCED│          │SYNCED│    →     │ACTIVE│  (&lt;50ms)
+└──────┘          └──────┘          └──────┘
+```
+
+### Active-active vs active-standby
+
+**Active-standby:**
+```
+┌──────────────────────────────────────┐
+│            Load Balancer             │
+└─────────────────┬────────────────────┘
+                  │
+        ┌─────────┴─────────┐
+        │                   │
+        ▼                   ▼
+   ┌────────┐          ┌────────┐
+   │ Active │          │Standby │
+   │  100%  │          │   0%   │
+   │ traffic│          │traffic │
+   └────────┘          └────────┘
+
+- Standby idle until failure
+- Simpler state management
+- Wastes standby capacity
+```
+
+**Active-active:**
+```
+┌──────────────────────────────────────┐
+│            Load Balancer             │
+└─────────────────┬────────────────────┘
+                  │
+        ┌─────────┴─────────┐
+        │                   │
+        ▼                   ▼
+   ┌────────┐          ┌────────┐
+   │ Active │          │ Active │
+   │  50%   │          │  50%   │
+   │ traffic│          │traffic │
+   └────────┘          └────────┘
+
+- Both handle traffic
+- Better resource utilization
+- Needs split-brain prevention
+- State sync more complex
+```
+
+### Redundancy layers
+
+High availability requires redundancy at multiple layers:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Application Layer                    │
+│  Active-active cluster, session replication, DB HA     │
+└─────────────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────────────────────────────────────┐
+│                     Network Layer                        │
+│  Dual uplinks, ECMP, link aggregation, VRRP/HSRP       │
+└─────────────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────────────────────────────────────┐
+│                    Hardware Layer                        │
+│  Dual power supplies, redundant fans, RAID storage     │
+└─────────────────────────────────────────────────────────┘
+                          │
+┌─────────────────────────────────────────────────────────┐
+│                     Facility Layer                       │
+│  Dual power feeds, UPS, generator, cooling redundancy  │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Key insight:** Redundancy at one layer doesn't help if another layer is single point of failure.
+
+### Network redundancy protocols
+
+**VRRP (Virtual Router Redundancy Protocol):**
+```
+┌────────────────────────────────────────────────────────┐
+│                    Virtual IP: 10.0.0.1                │
+│                         │                              │
+│            ┌────────────┴────────────┐                 │
+│            │                         │                 │
+│       ┌────┴────┐              ┌────┴────┐            │
+│       │Router A │              │Router B │            │
+│       │ Master  │              │ Backup  │            │
+│       │10.0.0.2 │              │10.0.0.3 │            │
+│       │Priority │              │Priority │            │
+│       │  100    │              │   50    │            │
+│       └─────────┘              └─────────┘            │
+└────────────────────────────────────────────────────────┘
+
+- Clients point to virtual IP
+- Master responds
+- Master fails → backup takes virtual IP
+- Failover: 1-3 seconds
+```
+
+**Link aggregation (LAG/LACP):**
+```
+┌────────┐                      ┌────────┐
+│        │  Link 1  ──────────  │        │
+│ Switch │  Link 2  ──────────  │ Switch │
+│   A    │  Link 3  ──────────  │   B    │
+│        │  Link 4  ──────────  │        │
+└────────┘                      └────────┘
+           ◄──── LAG bundle ────►
+
+- Multiple links appear as one
+- Traffic load-balanced across links
+- One link fails → traffic shifts to others
+- No failover delay
+```
+
+**ECMP (Equal-Cost Multi-Path):**
+```
+                    ┌────────┐
+                    │  Core  │
+                    │ Router │
+                    └────┬───┘
+              ┌──────────┼──────────┐
+              │          │          │
+          ┌───┴───┐  ┌───┴───┐  ┌───┴───┐
+          │Path A │  │Path B │  │Path C │
+          │Cost=10│  │Cost=10│  │Cost=10│
+          └───────┘  └───────┘  └───────┘
+
+- Multiple equal-cost paths
+- Traffic hash-based across paths
+- One path fails → traffic redistributes
+- Sub-second convergence
+```
+
+### Calculating combined availability
+
+**Series (both must work):**
+```
+A_total = A₁ × A₂ × A₃ × ...
+
+Example: 99.9% × 99.9% = 99.8%
+Adding components in series decreases availability.
+```
+
+**Parallel (either works):**
+```
+A_total = 1 - (1-A₁) × (1-A₂) × ...
+
+Example: 1 - (0.001 × 0.001) = 99.9999%
+Adding redundant components increases availability.
+```
+
+**Real-world example:**
+```
+Single router: 99.9%
+Dual routers (active-standby): 1 - (0.001)² = 99.9999%
+Add single firewall in path: 99.9999% × 99.9% = 99.899%
+
+The firewall becomes the bottleneck.
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Choosing redundancy pattern:**
+
+| Pattern | Use case | Spare capacity | Cost |
+|---------|----------|----------------|------|
+| 1+1 | Critical, low volume | 100% | High |
+| N+1 | High volume, some risk tolerance | 1/N | Medium |
+| N+M | High volume, strict SLA | M/N | Higher |
+| Active-active | High volume, max utilization | 0% | Highest |
+
+**Design checklist:**
+
+1. **Identify single points of failure:** Trace the path. What's not redundant?
+2. **Match redundancy to SLA:** 99.9% needs basic redundancy. 99.999% needs everything redundant.
+3. **Test failover:** Redundancy untested is redundancy unproven.
+4. **Consider failure domains:** Geographic, power, provider diversity.
+5. **Plan for N-1:** Can you survive one failure and still meet SLA?
+
+**Common telecom redundancy:**
+
+| Component | Typical pattern |
+|-----------|-----------------|
+| Core router | Active-standby or active-active |
+| Edge router | N+1 |
+| Power supply | Dual feed + UPS + generator |
+| Fiber | Dual diverse paths |
+| Data center | N+1 or 2N |
+
+**Troubleshooting failover:**
+
+1. **Failover didn't happen:**
+   - Check heartbeat/keepalive
+   - Verify standby is truly ready
+   - Check failover conditions met
+
+2. **Failover too slow:**
+   - Reduce detection interval
+   - Pre-stage standby state
+   - Check sync mechanism
+
+3. **Failback caused outage:**
+   - Check preemption settings
+   - Verify primary fully recovered
+   - Consider manual failback
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Shared failure modes.** Two servers on the same rack, same switch, same power feed aren't truly redundant. Diverse failure domains matter.
+
+2. **Untested failover.** "We have redundancy" means nothing if failover has never been tested under realistic conditions.
+
+3. **State synchronization lag.** Hot standby that's 30 seconds behind loses 30 seconds of data on failover. Know your sync lag.
+
+4. **Split brain.** Both nodes think they're master. Without proper fencing, data corruption follows. Always have tiebreaker.
+
+5. **Failover loops.** Primary fails, standby takes over, primary recovers, takes back, fails again... Dampen failover/failback.
+
+6. **Cascade failure.** One failure causes load shift that overloads remaining systems. Size for N-1 capacity.
+
+7. **Manual intervention required.** "Automatic failover" that needs someone to click a button at 3 AM isn't automatic.
+
+8. **Forgot the management plane.** Production is redundant, but management/monitoring is single point of failure. Now you can't see the problem.
+
+9. **Redundant but not diverse.** Two paths through the same provider, same cable conduit. Backhoe takes both out.
+
+10. **Configuration drift.** Primary and standby configs diverge. Failover reveals standby is misconfigured.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU-T G.841, "Types and characteristics of SDH network protection architectures"
+- MEF 2.0, "Requirements and Framework for Ethernet Service Protection"
+- RFC 5798, "Virtual Router Redundancy Protocol (VRRP) Version 3"
+- IEEE 802.1AX, "Link Aggregation"
+- Marcus & Stern, *Blueprints for High Availability*, Wiley
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Five nines availability](/en/core-network/why-telcos-build-differently/five-nines-availability/) — achieving 99.999%
+- [Capacity planning basics](/en/core-network/carrier-grade-vocabulary/capacity-planning-basics/) — sizing for failure scenarios
+- [MPLS protection](/en/core-network/mpls-vlan-vrf/mpls-protection/) — network-layer redundancy
+
+</section>

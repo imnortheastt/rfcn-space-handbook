@@ -8,17 +8,174 @@ track: r2
 unit: arrays
 order: 2
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r2-arrays-01-linear-array"]
+spiralRevisits: []
 title: "Mảng phẳng"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Sắp xếp phần tử 2D cho chùm bút chì và quét 2D."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["planar-array", "2d-array", "rectangular-array", "pencil-beam", "2d-scanning"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Mảng phẳng
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao cần mảng phẳng?
+
+Mảng tuyến tính cho bạn chùm quạt — hẹp theo một chiều, rộng theo chiều kia. Để có chùm bút chì (hẹp cả hai chiều), bạn cần các phần tử sắp xếp theo lưới 2D: mảng phẳng.
+
+Mảng phẳng cho phép điều khiển chùm 2D, chùm bút chì cho radar, anten vệ tinh tăng ích cao, và panel 5G massive MIMO. Chúng là con ngựa thồ của hệ thống mảng pha hiện đại.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy nghĩ mảng phẳng như mảng tuyến tính của các mảng tuyến tính. Các phần tử sắp xếp theo hàng và cột, mỗi cái đóng góp vào pattern bức xạ 2D.
+
+Theo một hướng, khoảng cách hàng điều khiển chùm; theo hướng kia, khoảng cách cột làm điều đó. Kết quả là điều khiển độc lập hướng chùm phương vị và góc ngẩng.
+
+Chùm trở thành bút chì chỉ theo bất cứ nơi nào bạn điều khiển — không phải quạt chỉ di chuyển trong một mặt phẳng.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế
+
+### Mảng phẳng chữ nhật
+
+$M \times N$ phần tử sắp xếp trong lưới:
+- $M$ phần tử dọc trục x với khoảng cách $d_x$
+- $N$ phần tử dọc trục y với khoảng cách $d_y$
+
+### Hệ số mảng
+
+$$AF(\theta,\phi) = AF_x(\theta,\phi) \times AF_y(\theta,\phi)$$
+
+Với mảng chữ nhật đều:
+
+$$AF = \left[\frac{\sin\left(\frac{M\psi_x}{2}\right)}{\sin\left(\frac{\psi_x}{2}\right)}\right] \times \left[\frac{\sin\left(\frac{N\psi_y}{2}\right)}{\sin\left(\frac{\psi_y}{2}\right)}\right]$$
+
+trong đó:
+- $\psi_x = kd_x\sin\theta\cos\phi + \beta_x$
+- $\psi_y = kd_y\sin\theta\sin\phi + \beta_y$
+
+### Độ rộng chùm
+
+Trong các mặt phẳng chính:
+
+$$\theta_{x,HPBW} \approx 0.886 \frac{\lambda}{Md_x}$$
+
+$$\theta_{y,HPBW} \approx 0.886 \frac{\lambda}{Nd_y}$$
+
+Mảng vuông ($M = N$, $d_x = d_y$) tạo chùm bút chì đối xứng.
+
+### Độ định hướng
+
+Với mảng phẳng broadside:
+
+$$D \approx \frac{4\pi A_{eff}}{\lambda^2} \approx \frac{4\pi (Md_x)(Nd_y)}{\lambda^2}$$
+
+Với $d_x = d_y = \lambda/2$:
+
+$$D \approx \pi MN$$
+
+Mảng 10×10: $D \approx 314 = 25$ dBi.
+
+### Điều khiển chùm 2D
+
+Để điều khiển chùm đến $(\theta_0, \phi_0)$:
+
+$$\beta_x = -kd_x\sin\theta_0\cos\phi_0$$
+$$\beta_y = -kd_y\sin\theta_0\sin\phi_0$$
+
+Pha mỗi phần tử:
+$$\phi_{mn} = m\beta_x + n\beta_y$$
+
+### Thùy cách tử
+
+Trong 2D, thùy cách tử xuất hiện ở cả hai chiều. Cho quét toàn bán cầu (±90°):
+
+$$d_x, d_y \leq \frac{\lambda}{2}$$
+
+### Điều khiển thùy phụ
+
+Độ dốc biên độ tách được:
+$$w_{mn} = w_m^{(x)} \times w_n^{(y)}$$
+
+Áp dụng cửa sổ Taylor, Chebyshev, hoặc khác theo mỗi chiều độc lập.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Ví dụ: Radar thời tiết**
+
+Băng S (3 GHz), chùm bút chì 1° × 1°.
+
+Độ rộng chùm 1° cần khẩu độ: $D \approx 0.886 \times 10/1° \times (180/\pi) \approx 5$ m.
+
+Với khoảng cách $d = \lambda/2 = 5$ cm: cần 100 × 100 = 10,000 phần tử.
+
+Độ định hướng: $\pi \times 10000 = 31,400 = 45$ dBi.
+
+**Ví dụ: Panel 5G mmWave**
+
+28 GHz, $\lambda = 10.7$ mm, khoảng cách $d = 5$ mm.
+
+Mảng 8×8: 64 phần tử.
+
+Độ rộng chùm: $\theta \approx 0.886 \times 10.7/(8 \times 5) = 14°$.
+
+Độ định hướng: $\pi \times 64 = 201 = 23$ dBi.
+
+Với điều khiển chùm: có thể quét ±60° trước khi thùy cách tử xuất hiện.
+
+**Ví dụ: Anten vệ tinh GEO**
+
+Băng Ku (12 GHz), chùm 0.5° cho vùng phủ điểm.
+
+Khẩu độ ~2.5 m. Dùng mảng thưa hoặc mảng cấp nguồn gương phản xạ giảm số phần tử trong khi giữ khẩu độ.
+
+**Ví dụ: Lưới tam giác**
+
+Sắp xếp phần tử lục giác cho phép $d_{eff} = 0.577\lambda$ thay vì $0.5\lambda$ cho cùng hiệu suất thùy cách tử. Giảm số phần tử ~15% cho cùng khẩu độ.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Lỗi thường gặp
+
+1. **Số phần tử tỉ lệ $N^2$.** Khẩu độ lớn 2× cần nhiều hơn 4× phần tử. Chi phí và độ phức tạp tăng nhanh.
+
+2. **Giả định tách được.** $AF = AF_x \times AF_y$ giả định lưới chữ nhật. Lưới tam giác hoặc không đều cần phân tích 2D đầy đủ.
+
+3. **Tổn hao quét.** Ở góc quét lớn, khẩu độ hiệu dụng giảm bởi $\cos\theta$. Quét 60° mất 3 dB so với broadside.
+
+4. **Thùy cách tử trong 2D.** Phải kiểm tra cả hai mặt phẳng chính VÀ hướng chéo. Khoảng cách chéo là $\sqrt{d_x^2 + d_y^2}$.
+
+5. **Độ phức tạp mạng cấp nguồn.** Mỗi phần tử cần điều khiển biên độ và pha. Mạng cấp nguồn corporate có tổn hao; cấp nguồn không gian tránh điều này.
+
+6. **Quản lý nhiệt.** Mảng công suất cao ở mmWave có nhiệt đáng kể. Bộ khuếch đại công suất mức phần tử cần làm mát.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- Balanis, *Antenna Theory*, Chương 6 — lý thuyết mảng phẳng.
+- Mailloux, *Phased Array Antenna Handbook* — thiết kế và tối ưu hóa.
+- Hansen, *Phased Array Antennas* — chủ đề nâng cao.
+
+</section>

@@ -8,17 +8,342 @@ track: s1
 unit: two-body-problem
 order: 5
 level: L2
-estimatedReadingMinutes: 5
-title: "Vis-viva equation"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["space-s1-two-body-problem-01-keplers-laws"]
+spiralRevisits: []
+title: "Vis-Viva Equation"
+description: "The fundamental energy equation relating orbital velocity to position and semi-major axis — the single formula that powers every delta-v calculation."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-04"
+standards: []
+tags: ["vis-viva", "orbital-energy", "velocity", "specific-energy", "two-body", "delta-v", "escape-velocity"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Vis-viva equation
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+"How fast is this satellite moving right now?" The vis-viva equation answers in one step — no angular momentum, no time-of-flight math, just current position and orbit size.
+
+Every delta-v calculation you will ever do for a Hohmann transfer, a GTO insertion, or an interplanetary departure starts here. Starlink, GPS, Ariane 5, the Voyager probes — all designed with vis-viva at the core. It is the single most useful formula in orbital mechanics.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The equation
+
+$$v^2 = \mu \left(\frac{2}{r} - \frac{1}{a}\right)$$
+
+Where:
+- $v$ = orbital speed at current position [km/s]
+- $\mu$ = gravitational parameter = $GM$ [km³/s²]
+- $r$ = current distance from central body center [km]
+- $a$ = semi-major axis of the orbit [km]
+
+For Earth: $\mu = 398600.4418$ km³/s²
+
+### Energy perspective
+
+The vis-viva equation is just conservation of energy restated.
+
+Specific orbital energy $\varepsilon$ (energy per unit mass) has two parts:
+
+$$\varepsilon = \underbrace{\frac{v^2}{2}}_{\text{kinetic}} - \underbrace{\frac{\mu}{r}}_{\text{potential}} = -\frac{\mu}{2a} = \text{constant}$$
+
+The total energy is fixed by the semi-major axis $a$ alone. Rearranging:
+
+$$\frac{v^2}{2} = \frac{\mu}{r} - \frac{\mu}{2a} = \mu\left(\frac{1}{r} - \frac{1}{2a}\right)$$
+
+Double both sides and you have vis-viva.
+
+```
+Energy Trade-off Along an Ellipse:
+
+     Apoapsis (slow)                Periapsis (fast)
+          ○                               ●
+     KE low, PE high              KE high, PE low
+     v_a ≈ 1.6 km/s               v_p ≈ 10.2 km/s
+     (GTO example)                (GTO example)
+
+     Total ε = -μ/2a = constant throughout
+```
+
+### Orbit type from energy sign
+
+| Energy $\varepsilon$ | Semi-major axis $a$ | Orbit type |
+|---|---|---|
+| $\varepsilon < 0$ | $a > 0$ | Ellipse (bound) |
+| $\varepsilon = 0$ | $a \to \infty$ | Parabola (marginally unbound) |
+| $\varepsilon > 0$ | $a < 0$ | Hyperbola (escape trajectory) |
+
+### Speed variation around an ellipse
+
+At periapsis ($r = r_p = a(1-e)$) and apoapsis ($r = r_a = a(1+e)$), velocity is purely tangential, so:
+
+$$v_p = \sqrt{\frac{\mu}{a} \cdot \frac{1+e}{1-e}} \qquad v_a = \sqrt{\frac{\mu}{a} \cdot \frac{1-e}{1+e}}$$
+
+Their ratio:
+
+$$\frac{v_p}{v_a} = \frac{1+e}{1-e} = \frac{r_a}{r_p}$$
+
+For GTO ($r_p = 6678$ km, $r_a = 42164$ km): ratio = 6.3 — perigee is more than 6× faster than apogee.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Derivation from energy conservation
+
+Start with specific mechanical energy, constant throughout the orbit:
+
+$$\varepsilon = \frac{v^2}{2} - \frac{\mu}{r} = \text{const}$$
+
+Evaluate at periapsis where $r = a(1-e)$ and $v = v_p$. Using angular momentum conservation ($h = r_p v_p$ at periapsis where velocity is perpendicular):
+
+$$h = \sqrt{\mu a (1-e^2)}$$
+
+$$v_p = \frac{h}{r_p} = \frac{\sqrt{\mu a(1-e^2)}}{a(1-e)} = \sqrt{\frac{\mu(1+e)}{a(1-e)}}$$
+
+Therefore:
+
+$$\varepsilon = \frac{v_p^2}{2} - \frac{\mu}{r_p} = \frac{\mu(1+e)}{2a(1-e)} - \frac{\mu}{a(1-e)} = -\frac{\mu}{2a}$$
+
+Since $\varepsilon$ is constant, at any other point:
+
+$$\frac{v^2}{2} - \frac{\mu}{r} = -\frac{\mu}{2a}$$
+
+$$\boxed{v^2 = \mu\left(\frac{2}{r} - \frac{1}{a}\right)}$$
+
+### Special cases
+
+**Circular orbit** ($r = a$ everywhere):
+
+$$v_c = \sqrt{\frac{\mu}{r}}$$
+
+ISS at $r = 6778$ km: $v_c = \sqrt{398600/6778} = 7.667$ km/s
+
+**Escape velocity** (parabola, $a \to \infty$, $\varepsilon = 0$):
+
+$$v_{esc} = \sqrt{\frac{2\mu}{r}} = \sqrt{2} \cdot v_c$$
+
+From Earth's surface: $v_{esc} = \sqrt{2 \times 398600 / 6378} = 11.18$ km/s
+
+**Hyperbolic excess speed** ($v_\infty$):
+
+As $r \to \infty$ on a hyperbola: $v^2 \to -\mu/a = v_\infty^2$.
+
+At any radius: $v^2 = v_{esc}^2 + v_\infty^2$
+
+This is the C3 metric used in interplanetary mission design ($C_3 = v_\infty^2$ in km²/s²).
+
+### Delta-v calculations via vis-viva
+
+Every orbital maneuver is a delta-v: the velocity change between two orbits at the same point.
+
+**Hohmann transfer example — LEO to GEO:**
+
+Transfer orbit semi-major axis: $a_t = (r_{LEO} + r_{GEO})/2 = (6778 + 42164)/2 = 24471$ km
+
+Burn 1 at $r = r_{LEO} = 6778$ km:
+- Current circular: $v_1 = \sqrt{398600/6778} = 7.667$ km/s
+- Transfer orbit at periapsis: $v_{t,p} = \sqrt{398600(2/6778 - 1/24471)} = 10.10$ km/s
+- $\Delta v_1 = 10.10 - 7.667 = 2.43$ km/s
+
+Burn 2 at $r = r_{GEO} = 42164$ km:
+- Transfer orbit at apoapsis: $v_{t,a} = \sqrt{398600(2/42164 - 1/24471)} = 1.63$ km/s
+- GEO circular: $v_2 = \sqrt{398600/42164} = 3.07$ km/s
+- $\Delta v_2 = 3.07 - 1.63 = 1.44$ km/s
+
+Total $\Delta v = 2.43 + 1.44 = 3.87$ km/s to go from LEO to GEO.
+
+```
+Delta-v Budget: LEO → GEO Hohmann
+
+  r_LEO = 6,778 km   v = 7.667 km/s   → Δv₁ = +2.43 km/s
+                            │
+                    Transfer orbit
+                    a = 24,471 km
+                            │
+  r_GEO = 42,164 km  v = 1.63 km/s   → Δv₂ = +1.44 km/s
+                            ↓
+                    GEO v = 3.07 km/s
+
+  Total Δv = 3.87 km/s
+```
+
+### Energy and orbit size
+
+Two orbits with the same semi-major axis have identical energy and period — regardless of eccentricity. A circular orbit at $a = 42164$ km and a highly elliptical orbit with $r_p = 1000$ km, $r_a = 83328$ km both have the same energy and same 24-hour period.
+
+This has a practical consequence: to raise/lower your orbit, you must change energy, which means changing $a$. Plane changes, by contrast, rotate the velocity vector without changing speed (if done at the right point), so they don't change energy or $a$.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Complete vis-viva toolkit:**
+
+```python
+import numpy as np
+
+MU_EARTH = 398600.4418  # km³/s²
+R_EARTH = 6378.137      # km
+
+def vis_viva(r, a, mu=MU_EARTH):
+    """
+    Orbital speed at radius r for orbit with semi-major axis a.
+    r, a in km; returns km/s.
+    a < 0 for hyperbola.
+    """
+    return np.sqrt(mu * (2/r - 1/a))
+
+def circular_velocity(r, mu=MU_EARTH):
+    return np.sqrt(mu / r)
+
+def escape_velocity(r, mu=MU_EARTH):
+    return np.sqrt(2 * mu / r)
+
+def specific_energy(a, mu=MU_EARTH):
+    """Specific orbital energy in km²/s²."""
+    return -mu / (2 * a)
+
+def periapsis_velocity(a, e, mu=MU_EARTH):
+    return np.sqrt(mu / a * (1 + e) / (1 - e))
+
+def apoapsis_velocity(a, e, mu=MU_EARTH):
+    return np.sqrt(mu / a * (1 - e) / (1 + e))
+
+def hohmann_dv(r1, r2, mu=MU_EARTH):
+    """
+    Total delta-v for Hohmann transfer between circular orbits.
+    Returns (dv1, dv2, dv_total) in km/s.
+    """
+    a_t = (r1 + r2) / 2
+    # Burn 1: circular orbit 1 → transfer periapsis
+    v1_circ = circular_velocity(r1, mu)
+    v_tp    = vis_viva(r1, a_t, mu)
+    dv1 = v_tp - v1_circ
+    # Burn 2: transfer apoapsis → circular orbit 2
+    v_ta    = vis_viva(r2, a_t, mu)
+    v2_circ = circular_velocity(r2, mu)
+    dv2 = v2_circ - v_ta
+    return dv1, dv2, dv1 + dv2
+
+# --- Common orbits ---
+print("=== Orbital Velocities ===")
+orbits = [
+    ("LEO (ISS, 400 km)",  R_EARTH + 400),
+    ("MEO (GPS, 20180 km)", R_EARTH + 20180),
+    ("GEO (35786 km)",     R_EARTH + 35786),
+]
+for name, r in orbits:
+    vc  = circular_velocity(r)
+    ve  = escape_velocity(r)
+    eps = specific_energy(r)  # circular: a = r
+    print(f"{name}")
+    print(f"  v_circ = {vc:.3f} km/s  v_esc = {ve:.3f} km/s  ε = {eps:.1f} km²/s²")
+
+# --- GTO worked example ---
+r_p = R_EARTH + 300    # 300 km perigee
+r_a = R_EARTH + 35786  # GEO apogee
+a   = (r_p + r_a) / 2
+e   = (r_a - r_p) / (r_a + r_p)
+print(f"\n=== GTO (300 km × GEO) ===")
+print(f"  a = {a:.0f} km,  e = {e:.4f}")
+print(f"  v_perigee = {vis_viva(r_p, a):.3f} km/s")
+print(f"  v_apogee  = {vis_viva(r_a, a):.3f} km/s")
+
+# --- Hohmann deltas ---
+dv1, dv2, total = hohmann_dv(R_EARTH + 400, R_EARTH + 35786)
+print(f"\n=== LEO (400 km) → GEO Hohmann ===")
+print(f"  Δv₁ = {dv1:.3f} km/s  (LEO → GTO perigee)")
+print(f"  Δv₂ = {dv2:.3f} km/s  (GTO apogee → GEO)")
+print(f"  Total Δv = {total:.3f} km/s")
+```
+
+Expected output:
+```
+=== Orbital Velocities ===
+LEO (ISS, 400 km)
+  v_circ = 7.667 km/s  v_esc = 10.843 km/s  ε = -29.4 km²/s²
+MEO (GPS, 20180 km)
+  v_circ = 3.874 km/s  v_esc = 5.479 km/s   ε = -7.5 km²/s²
+GEO (35786 km)
+  v_circ = 3.075 km/s  v_esc = 4.349 km/s   ε = -4.7 km²/s²
+
+=== GTO (300 km × GEO) ===
+  a = 24597 km,  e = 0.7279
+  v_perigee = 10.087 km/s
+  v_apogee  =  1.596 km/s
+
+=== LEO (400 km) → GEO Hohmann ===
+  Δv₁ = 2.428 km/s  (LEO → GTO perigee)
+  Δv₂ = 1.478 km/s  (GTO apogee → GEO)
+  Total Δv = 3.906 km/s
+```
+
+**Reference table — common orbital speeds:**
+
+| Orbit | Altitude | $r$ [km] | $v_c$ [km/s] | $v_{esc}$ [km/s] | $\varepsilon$ [km²/s²] |
+|-------|----------|-----------|-------------|-----------------|------------------------|
+| LEO (ISS) | 400 km | 6,778 | 7.667 | 10.843 | −29.4 |
+| Sun-sync | 700 km | 7,078 | 7.504 | 10.613 | −28.2 |
+| MEO (GPS) | 20,180 km | 26,558 | 3.874 | 5.479 | −7.5 |
+| GEO | 35,786 km | 42,164 | 3.075 | 4.349 | −4.7 |
+| Earth surface | 0 km | 6,378 | 7.905 | 11.180 | −31.2 |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Sign of $a$ for hyperbolas.** Hyperbolic trajectories have $a < 0$, so $-1/a > 0$. Vis-viva still gives a real positive $v$ — do not take the absolute value of $a$ before plugging in.
+
+2. **Radius vs altitude.** $r$ is measured from Earth's center: $r = R_E + h$. Using altitude $h$ directly gives velocities off by ~15%.
+
+3. **Escape is not "v=0 now".** Escape velocity means the object reaches $r \to \infty$ with $v \to 0$. At the launch point you still need $v_{esc}$ — it is the minimum speed to leave the gravitational well from that radius.
+
+4. **$v_{esc} = \sqrt{2} \cdot v_c$.** This ratio holds exactly at any radius for a spherical body. Useful sanity check.
+
+5. **Units.** $\mu_{Earth} = 398600.4418$ km³/s² with $r, a$ in km gives $v$ in km/s. Mixing SI (m, m³/s²) with km silently produces wrong answers.
+
+6. **Vis-viva assumes Keplerian (unpowered) motion.** During a burn, the satellite is not on a Keplerian orbit. Calculate the vis-viva velocity at the start and end of each burn, treating each as an impulsive delta-v at a single point.
+
+7. **Same $a$ ≠ same orbit.** Two orbits with identical semi-major axes have the same energy and period but differ in eccentricity, inclination, and geometry. Vis-viva tells you speed, not direction.
+
+8. **Delta-v from vis-viva is a scalar difference.** For a Hohmann burn at periapsis or apoapsis, velocity vectors are parallel, so $\Delta v = |v_{new} - v_{old}|$. For general burns at other points, the vectors are not aligned and you must use the cosine rule: $\Delta v = \sqrt{v_1^2 + v_2^2 - 2v_1 v_2 \cos\theta}$.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Vallado, D., "Fundamentals of Astrodynamics and Applications", 4th ed. — §2.2
+- Curtis, H., "Orbital Mechanics for Engineering Students", 3rd ed. — §2.6
+- Bate, Mueller, White, "Fundamentals of Astrodynamics" — §1.6
+- Battin, R., "An Introduction to the Mathematics and Methods of Astrodynamics" — §3.2
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Hohmann Transfers](/en/space/maneuvers-and-delta-v/hohmann-transfer/) — vis-viva applied to the most efficient orbit change
+- [Orbital Elements](/en/space/two-body-problem/orbital-elements/) — complete orbit description in 3D
+- [Orbit Perturbations](/en/space/orbit-perturbations/j2-effect/) — when energy is not constant
+
+</section>

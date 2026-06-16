@@ -8,17 +8,415 @@ track: s7
 unit: link-budget-master-class
 order: 1
 level: L2
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
 title: "EIRP — Effective Isotropic Radiated Power"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Transmitter power combined with antenna gain for link budget analysis."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["EIRP", "transmitter", "antenna-gain", "link-budget"]
+widgets: ["LinkBudget"]
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# EIRP — Effective Isotropic Radiated Power
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+EIRP is the single number that characterizes your transmitter's capability—how much power it effectively puts into the link direction. It's the starting point of every link budget calculation. Whether you're designing a satellite transponder, a ground station uplink, or a mobile terminal, EIRP determines whether your signal reaches the receiver above the noise floor.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What is EIRP?
+
+```
+EIRP Concept:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  EIRP = "How much power would an isotropic antenna need to         │
+│          produce the same power density in the main beam?"         │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ISOTROPIC ANTENNA (theoretical reference):           │         │
+│  │                                                        │         │
+│  │           ↑ ↗                                         │         │
+│  │         ↖ ● → radiates equally in all directions     │         │
+│  │           ↓ ↘                                         │         │
+│  │                                                        │         │
+│  │  Power spreads over entire 4π steradians sphere       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  DIRECTIONAL ANTENNA (real antenna):                  │         │
+│  │                                                        │         │
+│  │           ════════●════════→ concentrates power       │         │
+│  │                               in one direction        │         │
+│  │                                                        │         │
+│  │  Same input power, but higher power density           │         │
+│  │  in the main beam direction                          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  EIRP = P_tx × G_ant                                               │
+│                                                                      │
+│  In dB: EIRP (dBW) = P_tx (dBW) + G_ant (dBi)                     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Why dBW and dBi?
+
+```
+Decibel Units in Link Budgets:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  POWER UNITS:                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  dBW = 10 log₁₀(P / 1 W)                             │         │
+│  │                                                        │         │
+│  │  Examples:                                            │         │
+│  │  • 1 W = 0 dBW                                        │         │
+│  │  • 10 W = 10 dBW                                      │         │
+│  │  • 100 W = 20 dBW                                     │         │
+│  │  • 1 kW = 30 dBW                                      │         │
+│  │  • 1 mW = -30 dBW = 0 dBm                            │         │
+│  │                                                        │         │
+│  │  dBm = 10 log₁₀(P / 1 mW) = dBW + 30                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  GAIN UNITS:                                                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  dBi = 10 log₁₀(G / G_isotropic)                     │         │
+│  │                                                        │         │
+│  │  "dBi" means gain relative to isotropic antenna      │         │
+│  │                                                        │         │
+│  │  Examples:                                            │         │
+│  │  • Isotropic antenna: 0 dBi                          │         │
+│  │  • Dipole: 2.15 dBi                                   │         │
+│  │  • 1m dish @ 12 GHz: ~38 dBi                         │         │
+│  │  • 10m dish @ 12 GHz: ~58 dBi                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WHY dB?                                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Multiplication → Addition (easier math)           │         │
+│  │  • Wide dynamic range (mW to kW in same scale)       │         │
+│  │  • Industry standard for RF engineering              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### EIRP calculation chain
+
+```
+From Amplifier to EIRP:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ┌───────┐    ┌───────┐    ┌───────┐    ┌───────────┐              │
+│  │  HPA  │───→│ Cable │───→│ Feed  │───→│  Antenna  │═══→ EIRP    │
+│  │       │    │ Loss  │    │ Loss  │    │   Gain    │              │
+│  └───────┘    └───────┘    └───────┘    └───────────┘              │
+│   P_hpa       L_cable      L_feed         G_ant                     │
+│                                                                      │
+│  EIRP = P_hpa - L_cable - L_feed + G_ant                           │
+│                                                                      │
+│  EXAMPLE:                                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  HPA output:        100 W = 20 dBW                   │         │
+│  │  Cable loss:        -1 dB                             │         │
+│  │  Feed/waveguide:    -0.5 dB                          │         │
+│  │  Antenna gain:      +45 dBi                          │         │
+│  │  ────────────────────────────                         │         │
+│  │  EIRP:              63.5 dBW                         │         │
+│  │                                                        │         │
+│  │  Equivalent to 2.2 MW from an isotropic antenna!     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Antenna gain formula
+
+```
+Parabolic Antenna Gain:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  G = η × (π D / λ)²                                                │
+│                                                                      │
+│  In dBi: G = 10 log₁₀(η) + 20 log₁₀(π D / λ)                      │
+│                                                                      │
+│  Where:                                                             │
+│  • η = aperture efficiency (typically 0.55-0.65)                   │
+│  • D = dish diameter (m)                                           │
+│  • λ = wavelength = c / f (m)                                      │
+│                                                                      │
+│  SIMPLIFIED (η ≈ 0.55):                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  G (dBi) ≈ 20 log₁₀(D) + 20 log₁₀(f_GHz) + 17.8     │         │
+│  │                                                        │         │
+│  │  Doubling diameter: +6 dB                            │         │
+│  │  Doubling frequency: +6 dB                           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  EXAMPLE GAINS:                                                     │
+│  ┌────────────────────────────────────────────────────┐            │
+│  │                                                     │            │
+│  │  Diameter │ 4 GHz │ 12 GHz │ 30 GHz              │            │
+│  │  ─────────┼───────┼────────┼────────              │            │
+│  │  0.6 m    │ 26 dBi│ 35 dBi │ 43 dBi              │            │
+│  │  1.2 m    │ 32 dBi│ 41 dBi │ 49 dBi              │            │
+│  │  3.0 m    │ 40 dBi│ 49 dBi │ 57 dBi              │            │
+│  │  10 m     │ 50 dBi│ 59 dBi │ 67 dBi              │            │
+│  │                                                     │            │
+│  └────────────────────────────────────────────────────┘            │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### EIRP in link budget context
+
+```
+Where EIRP Fits:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  COMPLETE LINK BUDGET:                                              │
+│                                                                      │
+│  ┌────────────┐    ┌────────────┐    ┌────────────┐                │
+│  │    EIRP    │ → │   Path     │ → │  Received  │                │
+│  │ (transmit) │    │   Loss     │    │   Power    │                │
+│  └────────────┘    └────────────┘    └────────────┘                │
+│                                                                      │
+│  P_rx = EIRP - L_path + G_rx - L_other                             │
+│                                                                      │
+│  Where:                                                             │
+│  • L_path = free space path loss                                   │
+│  • G_rx = receive antenna gain                                     │
+│  • L_other = atmospheric, pointing, polarization losses            │
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  EXAMPLE: Ku-band downlink                           │         │
+│  │                                                        │         │
+│  │  Satellite EIRP:      +52 dBW                        │         │
+│  │  Path loss (GEO):     -205 dB                        │         │
+│  │  Atmospheric:         -0.5 dB                        │         │
+│  │  Ground antenna:      +42 dBi                        │         │
+│  │  ───────────────────────────                          │         │
+│  │  Received power:      -111.5 dBW                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**EIRP calculations:**
+
+```python
+import numpy as np
+
+def power_to_dbw(watts):
+    """Convert watts to dBW."""
+    return 10 * np.log10(watts)
+
+def dbw_to_watts(dbw):
+    """Convert dBW to watts."""
+    return 10 ** (dbw / 10)
+
+def parabolic_gain_dbi(diameter_m, frequency_ghz, efficiency=0.55):
+    """
+    Calculate parabolic antenna gain in dBi.
+    
+    Args:
+        diameter_m: Dish diameter in meters
+        frequency_ghz: Operating frequency in GHz
+        efficiency: Aperture efficiency (typical 0.55-0.65)
+    
+    Returns:
+        Gain in dBi
+    """
+    wavelength_m = 0.3 / frequency_ghz  # c = 3e8 m/s
+    gain_linear = efficiency * (np.pi * diameter_m / wavelength_m) ** 2
+    return 10 * np.log10(gain_linear)
+
+def calculate_eirp(hpa_watts, cable_loss_db, feed_loss_db, antenna_gain_dbi):
+    """
+    Calculate EIRP in dBW.
+    
+    Args:
+        hpa_watts: HPA output power in watts
+        cable_loss_db: Cable/waveguide loss (positive number)
+        feed_loss_db: Feed/OMT loss (positive number)
+        antenna_gain_dbi: Antenna gain in dBi
+    
+    Returns:
+        EIRP in dBW
+    """
+    p_hpa_dbw = power_to_dbw(hpa_watts)
+    eirp = p_hpa_dbw - cable_loss_db - feed_loss_db + antenna_gain_dbi
+    return eirp
+
+# Example calculations
+print("EIRP Calculations")
+print("=" * 60)
+
+# Ground station uplink
+print("\n1. Ground Station Ku-band Uplink (14 GHz)")
+print("-" * 60)
+
+hpa_power = 400  # watts
+cable_loss = 1.5  # dB
+feed_loss = 0.5  # dB
+dish_diameter = 3.0  # meters
+frequency = 14.0  # GHz
+
+antenna_gain = parabolic_gain_dbi(dish_diameter, frequency, efficiency=0.55)
+eirp = calculate_eirp(hpa_power, cable_loss, feed_loss, antenna_gain)
+
+print(f"  HPA power:     {hpa_power} W = {power_to_dbw(hpa_power):.1f} dBW")
+print(f"  Cable loss:    -{cable_loss} dB")
+print(f"  Feed loss:     -{feed_loss} dB")
+print(f"  Dish diameter: {dish_diameter} m")
+print(f"  Antenna gain:  {antenna_gain:.1f} dBi")
+print(f"  ────────────────────────")
+print(f"  EIRP:          {eirp:.1f} dBW")
+print(f"  Equivalent:    {dbw_to_watts(eirp)/1e6:.1f} MW isotropic")
+
+# Satellite transponder
+print("\n2. Satellite C-band Transponder (4 GHz)")
+print("-" * 60)
+
+sat_power = 10  # watts (TWTA)
+sat_loss = 0.3  # dB
+sat_dish = 2.0  # meters
+sat_freq = 4.0  # GHz
+
+sat_gain = parabolic_gain_dbi(sat_dish, sat_freq, efficiency=0.6)
+sat_eirp = calculate_eirp(sat_power, 0, sat_loss, sat_gain)
+
+print(f"  TWTA power:    {sat_power} W = {power_to_dbw(sat_power):.1f} dBW")
+print(f"  Losses:        -{sat_loss} dB")
+print(f"  Antenna:       {sat_dish} m dish")
+print(f"  Antenna gain:  {sat_gain:.1f} dBi")
+print(f"  ────────────────────────")
+print(f"  EIRP:          {sat_eirp:.1f} dBW")
+
+# Mobile terminal
+print("\n3. VSAT Terminal Ka-band (30 GHz)")
+print("-" * 60)
+
+vsat_power = 2  # watts
+vsat_loss = 0.5  # dB
+vsat_dish = 0.75  # meters
+vsat_freq = 30.0  # GHz
+
+vsat_gain = parabolic_gain_dbi(vsat_dish, vsat_freq, efficiency=0.55)
+vsat_eirp = calculate_eirp(vsat_power, 0, vsat_loss, vsat_gain)
+
+print(f"  BUC power:     {vsat_power} W = {power_to_dbw(vsat_power):.1f} dBW")
+print(f"  Losses:        -{vsat_loss} dB")
+print(f"  Antenna:       {vsat_dish} m dish")
+print(f"  Antenna gain:  {vsat_gain:.1f} dBi")
+print(f"  ────────────────────────")
+print(f"  EIRP:          {vsat_eirp:.1f} dBW")
+
+# Gain vs diameter table
+print("\n4. Antenna Gain Reference Table (η=0.55)")
+print("-" * 60)
+print(f"  {'Diameter':<10} {'4 GHz':>10} {'12 GHz':>10} {'30 GHz':>10}")
+print("-" * 60)
+
+for d in [0.6, 1.2, 2.4, 5.0, 10.0]:
+    g4 = parabolic_gain_dbi(d, 4)
+    g12 = parabolic_gain_dbi(d, 12)
+    g30 = parabolic_gain_dbi(d, 30)
+    print(f"  {d:<10.1f} {g4:>8.1f} dBi {g12:>8.1f} dBi {g30:>8.1f} dBi")
+```
+
+**EIRP quick reference:**
+
+| System | Typical EIRP | Notes |
+|--------|--------------|-------|
+| GEO C-band transponder | 36-40 dBW | Regional beam |
+| GEO Ku-band spot | 52-56 dBW | Spot beam |
+| HTS Ka-band | 60-65 dBW | Multi-spot |
+| Ground station uplink | 70-85 dBW | Large dish |
+| VSAT terminal | 40-50 dBW | Small dish |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Forgetting losses.** Cable, connectors, feed—every dB between HPA and antenna reduces EIRP.
+
+2. **Wrong efficiency.** Parabolic dishes are 55-65% efficient, not 100%. Use realistic values.
+
+3. **Confusing dBW and dBm.** Off by 30 dB! Always check units in link budgets.
+
+4. **Ignoring backoff.** HPAs operate below saturation; account for input/output backoff.
+
+5. **Frequency mismatch.** Antenna gain changes with frequency; use the correct band.
+
+6. **Peak vs edge of coverage.** Satellite EIRP varies across coverage; use EOC value for margin.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU Radio Regulations (EIRP definitions)
+- Maral & Bousquet "Satellite Communications Systems"
+- Ippolito, L.J. "Satellite Communications Systems Engineering"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [G/T — Figure of Merit](/en/space/link-budget-master-class/g-over-t/) — receiver side
+- [Friis Equation](/en/space/link-budget-master-class/friis-revisited/) — path loss
+- [Atmospheric Losses](/en/space/link-budget-master-class/atmospheric-losses-itu-r-p618/) — rain fade
+
+</section>

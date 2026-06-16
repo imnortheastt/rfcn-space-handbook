@@ -9,16 +9,444 @@ unit: multiple-access-satellite
 order: 2
 level: L2
 estimatedReadingMinutes: 5
-title: "TDMA"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+prerequisites: []
+spiralRevisits: []
+title: "TDMA — Time Division Multiple Access"
+description: "How satellites share a single frequency by dividing time into slots, enabling efficient bursty traffic and full transponder utilization."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["tdma", "multiple-access", "satellite", "time-slots", "burst"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# TDMA
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+FDMA wastes bandwidth when traffic is bursty — each user occupies their frequency slice even when silent. TDMA fixes this: all users share the entire transponder bandwidth but take turns transmitting in assigned time slots. When you're not talking, someone else uses your slot. Result: near-100% transponder utilization instead of 10%. This is why TDMA dominates modern satellite communications, from Intelsat trunking to DVB-RCS2 broadband.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The conversation analogy
+
+```
+TDMA: Taking turns on a shared channel
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Think of a meeting where everyone shares one microphone:          │
+│                                                                      │
+│  FDMA: Everyone gets their own microphone (expensive, wasteful)    │
+│  TDMA: Everyone shares one mic, speak only during your turn        │
+│                                                                      │
+│                                                                      │
+│  Time ────────────────────────────────────────────────────────────→ │
+│                                                                      │
+│  ┌──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┬──────┐ │
+│  │  A   │  B   │  C   │  D   │  A   │  B   │  C   │  D   │  A   │ │
+│  │ burst│ burst│ burst│ burst│ burst│ burst│ burst│ burst│ burst│ │
+│  └──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┴──────┘ │
+│  │◄──── TDMA Frame (e.g., 2 ms) ────►│                             │
+│                                                                      │
+│  • All users share the FULL transponder bandwidth                  │
+│  • Each user transmits short, high-rate bursts                     │
+│  • Requires precise timing synchronization                         │
+│  • No intermodulation (single carrier at any instant)              │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Frequency vs time domain view
+
+```
+TDMA in Two Dimensions:
+
+         Frequency
+             ▲
+             │
+             │
+      full   │▓▓▓▓▒▒▒▒░░░░████▓▓▓▓▒▒▒▒░░░░████▓▓▓▓
+      BW ────┼─────────────────────────────────────
+             │  A    B    C    D    A    B    C    D
+             │
+             └────────────────────────────────────────→ Time
+                  │◄── Frame ──►│
+
+  COMPARE TO FDMA:
+  
+         Frequency                    Frequency
+             ▲                            ▲
+      f4 ────┼─────────────        full ──┼▓▒░█▓▒░█▓▒░█
+      f3 ────┼─────────────   vs    BW    │ A B C D A B
+      f2 ────┼─────────────               │
+      f1 ────┼─────────────               │
+             └────────→ Time              └────────→ Time
+               FDMA                         TDMA
+
+  FDMA: Divide frequency, continuous time
+  TDMA: Full frequency, divide time
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### TDMA frame structure
+
+```
+TDMA Frame Architecture:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ◄────────────────── TDMA Frame (2 ms) ────────────────────────►   │
+│                                                                      │
+│  ┌─────┬────────┬────────┬────────┬────────┬────────┬─────┐       │
+│  │ RB  │Burst 1 │Burst 2 │Burst 3 │Burst 4 │Burst 5 │ RB  │       │
+│  │     │Station │Station │Station │Station │Station │     │       │
+│  │     │   A    │   B    │   C    │   D    │   E    │     │       │
+│  └─────┴────────┴────────┴────────┴────────┴────────┴─────┘       │
+│    ↑                                                      ↑         │
+│    │                                                      │         │
+│    Reference burst (timing/sync)                 Guard time        │
+│                                                                      │
+│                                                                      │
+│  BURST STRUCTURE (zoomed in):                                      │
+│  ┌────────────────────────────────────────────────────────────┐   │
+│  │                                                              │   │
+│  │  ┌──────┬───────┬──────┬────────────────────────┬────────┐ │   │
+│  │  │Guard │Preamble│ UW  │       Traffic Data      │ Guard  │ │   │
+│  │  │Time  │(CR+BTR)│     │                         │ Time   │ │   │
+│  │  └──────┴───────┴──────┴────────────────────────┴────────┘ │   │
+│  │                                                              │   │
+│  │  Guard: Prevents burst overlap (timing uncertainty)        │   │
+│  │  CR: Carrier recovery (phase lock)                         │   │
+│  │  BTR: Bit timing recovery (symbol sync)                    │   │
+│  │  UW: Unique word (burst identification/alignment)          │   │
+│  │                                                              │   │
+│  └────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Timing synchronization
+
+```
+TDMA Synchronization Challenge:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  Problem: Round-trip delay to GEO satellite = ~240 ms              │
+│  Stations at different distances have different delays             │
+│                                                                      │
+│                        GEO Satellite                                │
+│                            ▲                                        │
+│                           /│\                                       │
+│                          / │ \                                      │
+│                         /  │  \                                     │
+│                        /   │   \                                    │
+│                       /    │    \                                   │
+│               238 ms/     240 ms  \242 ms                           │
+│                     /      │       \                                │
+│                    ▼       ▼        ▼                               │
+│               Station A  Station B  Station C                       │
+│               (under sat) (edge)   (far edge)                       │
+│                                                                      │
+│  WITHOUT CORRECTION:                                                │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  At satellite:  │ A │ A overlap B │ B │ B overlap C │ C │    │  │
+│  │                       ↑               ↑                      │  │
+│  │                   COLLISION!      COLLISION!                 │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  SOLUTION: Each station pre-advances its burst                     │
+│                                                                      │
+│  Station A: transmit at T - 238 ms                                 │
+│  Station B: transmit at T - 240 ms                                 │
+│  Station C: transmit at T - 242 ms                                 │
+│                                                                      │
+│  WITH CORRECTION:                                                   │
+│  ┌──────────────────────────────────────────────────────────────┐  │
+│  │  At satellite:  │ A │ guard │ B │ guard │ C │ guard │        │  │
+│  │                      ↑           ↑           ↑               │  │
+│  │                   No overlap! Properly aligned!              │  │
+│  └──────────────────────────────────────────────────────────────┘  │
+│                                                                      │
+│  Timing accuracy required: ~1 microsecond (300 m at light speed)  │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Efficiency advantage
+
+```
+TDMA vs FDMA Efficiency:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SCENARIO: 4 users, each active 25% of the time                    │
+│  Transponder: 36 MHz                                                │
+│                                                                      │
+│  FDMA APPROACH:                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                               │   │
+│  │  User A (9 MHz): ▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │   │
+│  │  User B (9 MHz): ░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░░░░░░░░░░ │   │
+│  │  User C (9 MHz): ░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░░░░░░░░░░ │   │
+│  │  User D (9 MHz): ░░░░░░░░░░░░░░░░░░░░░░░░░░░▓▓▓░░░░░░░░░░░ │   │
+│  │                                                               │   │
+│  │  Each user: 9 MHz × 25% active = 2.25 MHz effective          │   │
+│  │  Total: 4 × 2.25 = 9 MHz used out of 36 MHz                  │   │
+│  │  Efficiency: 25%                                              │   │
+│  │                                                               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  TDMA APPROACH:                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐   │
+│  │                                                               │   │
+│  │  Full 36 MHz: │A│B│C│D│ │A│B│C│D│ │A│B│C│D│ │A│B│C│D│       │   │
+│  │                                                               │   │
+│  │  Each user: Gets 25% of time at full 36 MHz                  │   │
+│  │            = 36 MHz × 25% = 9 MHz effective                  │   │
+│  │  Total: 36 MHz × 100% time = 36 MHz used                     │   │
+│  │  Efficiency: ~95% (5% overhead)                              │   │
+│  │                                                               │   │
+│  └─────────────────────────────────────────────────────────────┘   │
+│                                                                      │
+│  TDMA gives 4× more capacity for bursty traffic!                   │
+│                                                                      │
+│  BONUS: Single carrier = no intermodulation = no backoff           │
+│         → Full transponder saturation power available              │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**TDMA frame and capacity calculator:**
+
+```python
+import numpy as np
+
+def tdma_frame_efficiency(frame_duration_us, num_bursts, guard_time_us, 
+                          preamble_bits, symbol_rate_msps):
+    """
+    Calculate TDMA frame efficiency.
+    
+    Args:
+        frame_duration_us: Total frame duration (microseconds)
+        num_bursts: Number of traffic bursts per frame
+        guard_time_us: Guard time per burst (microseconds)
+        preamble_bits: Preamble + UW bits per burst
+        symbol_rate_msps: Symbol rate (Msps)
+    
+    Returns:
+        Dict with efficiency metrics
+    """
+    guard_overhead_us = num_bursts * guard_time_us
+    
+    preamble_duration_us = preamble_bits / symbol_rate_msps
+    preamble_overhead_us = num_bursts * preamble_duration_us
+    
+    total_overhead_us = guard_overhead_us + preamble_overhead_us
+    
+    traffic_time_us = frame_duration_us - total_overhead_us
+    efficiency = traffic_time_us / frame_duration_us
+    
+    return {
+        "frame_duration_us": frame_duration_us,
+        "guard_overhead_us": guard_overhead_us,
+        "preamble_overhead_us": preamble_overhead_us,
+        "traffic_time_us": traffic_time_us,
+        "efficiency": efficiency
+    }
+
+def tdma_capacity(transponder_bw_mhz, symbol_rate_msps, bits_per_symbol,
+                  code_rate, frame_efficiency):
+    """
+    Calculate TDMA system throughput.
+    """
+    gross_rate_mbps = symbol_rate_msps * bits_per_symbol
+    
+    coded_rate_mbps = gross_rate_mbps * code_rate
+    
+    net_rate_mbps = coded_rate_mbps * frame_efficiency
+    
+    return {
+        "gross_rate_mbps": gross_rate_mbps,
+        "coded_rate_mbps": coded_rate_mbps,
+        "net_rate_mbps": net_rate_mbps
+    }
+
+def timing_advance_calculation(station_distance_km, sat_altitude_km=35786):
+    """
+    Calculate required timing advance for TDMA synchronization.
+    """
+    c = 299792.458  # km/s
+    
+    round_trip_delay_ms = 2 * (sat_altitude_km + station_distance_km) / c * 1000
+    
+    reference_delay_ms = 2 * sat_altitude_km / c * 1000
+    
+    timing_advance_us = (round_trip_delay_ms - reference_delay_ms) * 1000
+    
+    return {
+        "round_trip_delay_ms": round_trip_delay_ms,
+        "timing_advance_us": timing_advance_us
+    }
+
+def compare_fdma_tdma(num_users, activity_factor, transponder_bw_mhz):
+    """
+    Compare FDMA vs TDMA capacity for bursty traffic.
+    """
+    fdma_bw_per_user = transponder_bw_mhz / num_users
+    fdma_effective_bw = fdma_bw_per_user * activity_factor
+    fdma_total_efficiency = activity_factor
+    
+    tdma_overhead = 0.05  # 5% typical
+    tdma_efficiency = 1 - tdma_overhead
+    
+    capacity_ratio = tdma_efficiency / fdma_total_efficiency
+    
+    return {
+        "fdma_efficiency": fdma_total_efficiency,
+        "tdma_efficiency": tdma_efficiency,
+        "tdma_advantage_ratio": capacity_ratio
+    }
+
+print("TDMA Analysis Tools")
+print("=" * 70)
+
+# Frame efficiency analysis
+print("\n1. TDMA Frame Efficiency Analysis")
+print("-" * 70)
+
+configs = [
+    ("Intelsat TDMA (high-rate)", 2000, 8, 2, 560, 120),
+    ("DVB-RCS2 (consumer)", 1000, 20, 5, 280, 27.5),
+    ("VSAT TDMA (business)", 1500, 16, 3, 400, 64),
+]
+
+print(f"\n  {'Configuration':<30} {'Frame':<10} {'Traffic':<10} {'Efficiency':<12}")
+print(f"  {'-'*62}")
+
+for name, frame_us, bursts, guard_us, preamble, rate in configs:
+    result = tdma_frame_efficiency(frame_us, bursts, guard_us, preamble, rate)
+    print(f"  {name:<30} {result['frame_duration_us']:<10.0f}us {result['traffic_time_us']:<10.0f}us {result['efficiency']:<12.1%}")
+
+# System capacity
+print("\n2. TDMA System Throughput")
+print("-" * 70)
+
+print(f"\n  36 MHz transponder, QPSK, FEC 3/4, 90% frame efficiency:")
+
+cap = tdma_capacity(36, 27.5, 2, 0.75, 0.90)
+print(f"    Gross rate: {cap['gross_rate_mbps']:.1f} Mbps")
+print(f"    Coded rate: {cap['coded_rate_mbps']:.1f} Mbps")
+print(f"    Net throughput: {cap['net_rate_mbps']:.1f} Mbps")
+
+# Timing synchronization
+print("\n3. Timing Advance Calculations")
+print("-" * 70)
+
+print(f"\n  {'Station Distance':<20} {'Round Trip':<15} {'Timing Advance':<15}")
+print(f"  {'-'*50}")
+
+for dist in [0, 500, 1000, 2000, 3000]:
+    timing = timing_advance_calculation(dist)
+    print(f"  {dist:<20} km {timing['round_trip_delay_ms']:<15.2f}ms {timing['timing_advance_us']:<15.1f}us")
+
+# FDMA vs TDMA comparison
+print("\n4. FDMA vs TDMA for Bursty Traffic")
+print("-" * 70)
+
+print(f"\n  Scenario: Variable activity factors, 10 users, 36 MHz transponder")
+print(f"\n  {'Activity Factor':<18} {'FDMA Eff':<12} {'TDMA Eff':<12} {'TDMA Advantage':<15}")
+print(f"  {'-'*57}")
+
+for activity in [1.0, 0.5, 0.25, 0.10, 0.05]:
+    comparison = compare_fdma_tdma(10, activity, 36)
+    advantage_str = f"{comparison['tdma_advantage_ratio']:.1f}×"
+    print(f"  {activity:<18.0%} {comparison['fdma_efficiency']:<12.0%} {comparison['tdma_efficiency']:<12.0%} {advantage_str:<15}")
+
+# Single carrier advantage
+print("\n5. Single Carrier Power Advantage")
+print("-" * 70)
+
+print("""
+  FDMA: Multiple carriers → Intermodulation → Backoff required
+  TDMA: Single carrier at any instant → No IM → Full saturation
+  
+  ┌────────────────────────────────────────────────────────────────┐
+  │                                                                 │
+  │  Configuration      │ Carriers │ Backoff │ Effective Power    │
+  │  ───────────────────┼──────────┼─────────┼───────────────────  │
+  │  FDMA (8 carriers)  │    8     │  6 dB   │  25% of Psat       │
+  │  FDMA (4 carriers)  │    4     │  4 dB   │  40% of Psat       │
+  │  TDMA (1 carrier)   │    1     │  0 dB   │  100% of Psat      │
+  │                                                                 │
+  │  TDMA delivers 4× to 6× more power per user!                  │
+  │                                                                 │
+  └────────────────────────────────────────────────────────────────┘
+""")
+```
+
+**Key formulas:**
+
+| Metric | Formula |
+|--------|---------|
+| Frame efficiency | (Frame - Guards - Preambles) / Frame |
+| Net throughput | Symbol_rate × Bits/symbol × Code_rate × Frame_eff |
+| Round-trip delay | 2 × Distance / c |
+| TDMA advantage | (1 - overhead) / Activity_factor |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring timing complexity.** TDMA requires microsecond-accurate synchronization. Each station needs unique timing advance based on distance. GPS helps enormously.
+
+2. **Underestimating preamble overhead.** Each burst needs carrier recovery, bit timing recovery, and unique word. For short bursts, this overhead dominates.
+
+3. **Forgetting rain fade effects.** Rain attenuates signal AND changes propagation delay. TDMA must dynamically adjust timing.
+
+4. **Assuming TDMA always wins.** For continuous traffic (video broadcast), FDMA's simplicity may be preferable. TDMA wins for bursty, interactive traffic.
+
+5. **Guard time too short.** Timing uncertainty, oscillator drift, and Doppler all add up. Guard times of 1-5 μs are typical for GEO.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ETSI EN 301 545 — DVB-RCS2 specifications
+- Intelsat TDMA/DSI System Description — historical reference
+- ITU-R S.1503 — Functional description of TDMA
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [FDMA](/en/space/multiple-access-satellite/fdma/) — compare with frequency division
+- [CDMA & SCPC](/en/space/multiple-access-satellite/cdma-scpc/) — spread spectrum alternatives
+- [MF-TDMA](/en/space/multiple-access-satellite/mf-tdma/) — hybrid approach combining best of both
+
+</section>

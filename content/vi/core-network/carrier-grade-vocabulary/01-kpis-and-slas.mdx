@@ -8,17 +8,407 @@ track: n0
 unit: carrier-grade-vocabulary
 order: 1
 level: L0
-estimatedReadingMinutes: 5
-title: "KPI va SLA"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: []
+spiralRevisits: ["core-network-n1-why-telcos-build-differently-02-five-nines-availability"]
+title: "KPI và SLA"
+description: "Key Performance Indicator và Service Level Agreement — các metric định nghĩa chất lượng telecom, bao gồm KPI đặc thù 5G như latency budget, PDR, và network slicing."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["ITU-T E.800", "3GPP TS 22.261", "ITU-T Y.1540"]
+tags: ["kpi", "sla", "telecom", "quality", "5g", "latency-budget", "pdr"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# KPI va SLA
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+"Mạng chậm" không phải là problem statement hữu ích. "Latency end-to-end là 28ms trong khi SLA budget là 20ms, trong đó RAN chiếm 18ms và core chiếm 10ms" mới có thể hành động được.
+
+KPI và SLA biến những lo ngại mơ hồ về chất lượng thành các cam kết đo lường được. Đây là cách telco định nghĩa, đo lường và đảm bảo chất lượng dịch vụ — và là cơ sở để thực thi hợp đồng, lập kế hoạch capacity, và ưu tiên xử lý sự cố.
+
+Với cloud engineer chuyển sang telecom: bạn đã quen với SLO, SLI, và error budget từ SRE practice. KPI và SLA của telecom là bộ từ vựng cũ hơn nhưng bao quát cùng một vùng kiến thức, với một số mở rộng quan trọng cho radio-specific metrics và multi-domain latency budgeting mà cloud SRE không đề cập.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+### KPI là gì?
+
+**KPI (Key Performance Indicator)** là giá trị đo lường được cho thấy hệ thống đang đạt được mục tiêu hiệu quả như thế nào.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    KPI trong Telecom                     │
+│                                                          │
+│  Availability ────── "Có hoạt động không?"              │
+│  Latency ─────────── "Nhanh bao nhiêu?"                 │
+│  Throughput ──────── "Truyền được bao nhiêu dữ liệu?"   │
+│  Packet loss ─────── "Mất bao nhiêu phần trăm?"         │
+│  Jitter ──────────── "Độ trễ biến động bao nhiêu?"      │
+│  Call setup time ─── "Kết nối mất bao lâu?"             │
+│  Drop rate ───────── "Bao nhiêu lần kết nối bị đứt?"    │
+│  PDR ─────────────── "Bao nhiêu % dữ liệu tới đích?"    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**KPI tốt phải:**
+- **Đo được:** Có thể gán con số cụ thể
+- **Liên quan:** Phản ánh điều người dùng hoặc dịch vụ thực sự quan tâm
+- **Có thể hành động:** Khi degraded thì có thể làm gì đó
+- **Có giới hạn thời gian:** Đo trong khoảng thời gian cụ thể (mỗi phút, mỗi giờ, mỗi tháng)
+
+### SLA là gì?
+
+**SLA (Service Level Agreement)** là hợp đồng định nghĩa chất lượng dịch vụ kỳ vọng và hậu quả khi không đạt.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Ví dụ SLA                             │
+│                                                          │
+│  Dịch vụ: Internet Access cho Enterprise               │
+│                                                          │
+│  Cam kết:                                               │
+│  ├── Availability: >= 99.95% mỗi tháng                  │
+│  ├── Latency: <= 20ms (trong region)                    │
+│  ├── Packet loss: <= 0.1%                               │
+│  └── MTTR: <= 4 giờ                                     │
+│                                                          │
+│  Penalty:                                               │
+│  ├── 99.9% - 99.95%: hoàn 10%                           │
+│  ├── 99.0% - 99.9%: hoàn 25%                            │
+│  └── < 99.0%: hoàn 50%                                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Các thành phần SLA:**
+- **Phạm vi dịch vụ:** Những gì được bao gồm
+- **Performance metric:** KPI với target value
+- **Phương pháp đo:** Cách tính KPI và vị trí đo
+- **Loại trừ:** Những gì không tính vào (maintenance window, force majeure, lỗi từ khách hàng)
+- **Remedy:** Điều gì xảy ra khi không đạt target
+
+### KPI vs SLA — và mapping sang SRE
+
+| Khía cạnh | KPI | SLA | Tương đương SRE |
+|-----------|-----|-----|-----------------|
+| Bản chất | Metric | Hợp đồng | SLI / SLO |
+| Mục đích | Đo hiệu năng | Đảm bảo hiệu năng | Error budget |
+| Hậu quả | Nhận thức vận hành | Phạt tài chính | Reliability target |
+| Đối tượng | Operations team | Khách hàng + pháp lý | Engineering team |
+
+**Khác biệt chính so với SRE:** SLO là target engineering nội bộ. SLA là cam kết hợp đồng với khách hàng. Practice chuẩn là đặt SLO tốt hơn SLA 0.5–1 nine (ví dụ SLO nội bộ 99.99% khi SLA khách hàng là 99.9%), tạo buffer trước khi vi phạm SLA.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cơ chế hoạt động
+
+### Các KPI telecom phổ biến
+
+**Availability:**
+```
+Availability = (Tổng thời gian - Thời gian downtime) / Tổng thời gian x 100%
+
+Ví dụ:
+Tháng = 30 ngày = 43,200 phút
+Downtime = 22 phút
+Availability = (43,200 - 22) / 43,200 = 99.949%
+```
+
+**Latency (one-way delay và RTT):**
+```
+One-way delay: Thời gian để packet đi từ A đến B
+Round-trip time (RTT): Thời gian để packet đi A đến B và quay về
+
+Đo bằng:
+- Ping (ICMP echo — đo RTT)
+- TWAMP (Two-Way Active Measurement Protocol — one-way delay chính xác)
+- Application-layer probe (đo end-to-end gồm cả processing time)
+```
+
+**Packet loss:**
+```
+Packet loss = (Packet gửi - Packet nhận) / Packet gửi x 100%
+
+Target thường gặp:
+- Voice (VoIP): < 1% (trên mức này MOS score giảm mạnh)
+- Video streaming: < 0.1%
+- Data tương tác: < 0.01%
+- Giao dịch tài chính: 0% (retransmit ở application layer)
+```
+
+**Jitter (biến động độ trễ):**
+```
+Jitter = Biến động trong thời gian đến của packet
+
+Jitter thấp: packet đến đều đặn (tốt cho voice/video)
+Jitter cao: packet đến thành từng cụm (gây buffer underrun)
+
+Target thường gặp:
+- VoIP: < 30ms jitter (ITU-T G.114)
+- Video conferencing: < 50ms jitter
+```
+
+**Throughput:**
+```
+Data rate thực tế được truyền (bps, Mbps, Gbps)
+
+Committed Information Rate (CIR): tốc độ tối thiểu được đảm bảo
+Peak Information Rate (PIR): tốc độ burst tối đa được phép
+Excess Information Rate (EIR): trên CIR, best-effort
+```
+
+### KPI đặc thù 5G (3GPP TS 22.261)
+
+5G đưa vào các lớp KPI mới không có trong telecom truyền thống hay cloud SRE:
+
+**Packet Data Rate (PDR) và Packet Delay Budget (PDB):**
+
+```
+KPI 5G QoS Flow theo 3GPP TS 23.501:
+
+QoS Class (5QI) | Loại Resource | PDB    | Tỷ lệ lỗi packet
+────────────────┼───────────────┼────────┼──────────────────
+5QI 1 (VoIP)   | GBR           | 100ms  | 10^-2
+5QI 2 (Video)  | GBR           | 150ms  | 10^-3
+5QI 3 (Gaming) | GBR           | 50ms   | 10^-3
+5QI 5 (IMS SIP)| Non-GBR       | 100ms  | 10^-6
+5QI 9 (Internet)| Non-GBR      | 300ms  | 10^-6
+5QI 69 (V2X)   | GBR           | 5ms    | 10^-2
+5QI 82 (URLLC) | GBR           | 10ms   | 10^-4
+
+PDB = Packet Delay Budget (latency one-way tối đa được phép)
+```
+
+**Phân bổ latency budget end-to-end:**
+
+5G latency budget E2E được chia cho từng domain. Với target E2E 20ms:
+
+```
+Tổng budget E2E: 20ms
+  ├── UE processing:          2ms
+  ├── Air interface (NR):     4ms  (OFDM symbol + HARQ round-trip)
+  ├── Fronthaul (DU-CU):      0.5ms
+  ├── Midhaul (CU-UPF):       1ms
+  ├── UPF processing:         1ms
+  ├── N6 (UPF đến DN):        2ms
+  ├── Application server:     5ms
+  └── Đường về:               4.5ms (đối xứng)
+```
+
+Bất kỳ component nào vượt budget của mình đều phá vỡ SLA E2E. Đây là lý do latency budgeting là một discipline trong thiết kế mạng 5G — mỗi domain owner có budget không được vượt quá.
+
+**KPI URLLC (Ultra-Reliable Low-Latency Communications):**
+
+```
+Yêu cầu URLLC theo 3GPP TS 22.261:
+- Latency user plane: 0.5ms (one-way, UE đến UPF)
+- Reliability: 1 - 10^-5 (99.999% packet delivery trong latency budget)
+- Availability: 99.9999% (cho ứng dụng công nghiệp quan trọng)
+
+Use case: tự động hóa nhà máy, phẫu thuật từ xa, xe tự lái
+```
+
+KPI URLLC nghiêm ngặt hơn bất kỳ SLA cloud nào. Để đáp ứng cần:
+- MEC (Multi-access Edge Computing) — UPF đặt cùng vị trí với gNB
+- Numerology 3 hoặc 4 (sub-carrier spacing 120kHz hoặc 240kHz cho slot ngắn hơn)
+- Không được phép retransmission — dùng FEC chủ động thay vì HARQ
+
+**KPI network slicing:**
+
+Mỗi network slice có thể có target KPI độc lập:
+
+```
+Slice 1 (eMBB — enhanced Mobile Broadband):
+- Peak downlink: 20 Gbps
+- Throughput người dùng trải nghiệm: 100 Mbps
+- Latency: 4ms (user plane)
+
+Slice 2 (URLLC — tự động hóa nhà máy):
+- Latency: 1ms
+- Reliability: 99.9999%
+
+Slice 3 (mMTC — IoT):
+- Mật độ kết nối: 1,000,000 thiết bị/km2
+- Tuổi thọ pin: 10 năm
+- Throughput: thấp (10-100 Kbps mỗi thiết bị)
+```
+
+**KPI Radio** (RAN-specific, không có trong cloud SRE):
+
+| KPI | Định nghĩa | Target |
+|-----|-----------|--------|
+| RSRP | Reference Signal Received Power (cường độ tín hiệu) | ≥ -100 dBm cho dịch vụ tốt |
+| RSRQ | Reference Signal Received Quality (chất lượng tín hiệu) | ≥ -10 dB |
+| SINR | Signal-to-Interference-plus-Noise Ratio | ≥ 10 dB cho throughput cao |
+| CQI | Channel Quality Indicator (UE báo cáo) | 0-15, cao hơn = tốt hơn |
+| BLER | Block Error Rate (sau FEC, trước HARQ) | ≤ 10% BLER ban đầu |
+| RRC Success Rate | Tỷ lệ thiết lập Radio Resource Control thành công | ≥ 99% |
+| Handover Success Rate | Tỷ lệ chuyển giao liên cell thành công | ≥ 98% |
+
+### Các tầng SLA
+
+Hầu hết provider cung cấp nhiều tầng SLA:
+
+| Tầng | Availability | Latency | Use case |
+|------|--------------|---------|----------|
+| Bronze | 99.5% | 100ms | Best effort |
+| Silver | 99.9% | 50ms | Business |
+| Gold | 99.95% | 20ms | Enterprise |
+| Platinum | 99.99% | 10ms | Dịch vụ quan trọng |
+| Carrier | 99.999% | 5ms | Telecom core, URLLC |
+
+### Đo lường và báo cáo
+
+**Điểm đo rất quan trọng:**
+
+```
+┌────────┐                                    ┌────────┐
+│Khách   │                                    │Khách   │
+│hàng A  │                                    │hàng B  │
+└───┬────┘                                    └───┬────┘
+    │                                             │
+    │◄─── Khách hàng đo tại đây ────────────────►│
+    │                                             │
+┌───┴────┐                                    ┌───┴────┐
+│   PE   │                                    │   PE   │
+│ Router │                                    │ Router │
+└───┬────┘                                    └───┬────┘
+    │                                             │
+    │◄─── Provider đo tại đây ──────────────────►│
+    │                                             │
+    └──────────── Mạng Provider ─────────────────┘
+```
+
+Số liệu provider-to-provider trông tốt hơn số liệu end-to-end của khách hàng. Luôn chỉ định điểm đo trong SLA — tranh chấp rất phổ biến khi điều này mơ hồ.
+
+**Chu kỳ báo cáo:**
+- Dashboard realtime (operations — dưới 1 phút)
+- Tóm tắt hàng ngày (NOC)
+- Báo cáo hàng tháng (tuân thủ SLA khách hàng)
+- Review hàng quý (management, capacity planning)
+
+### Loại trừ SLA
+
+SLA thường loại trừ:
+- **Bảo trì theo lịch:** Thông báo trước (thường 72 giờ)
+- **Sự cố do khách hàng gây ra:** Cấu hình sai, thiết bị khách hàng hỏng
+- **Bất khả kháng:** Thiên tai, chiến tranh, quyết định chính phủ
+- **Lỗi của bên thứ ba:** Internet peering, upstream provider
+- **Vượt capacity:** Sử dụng quá giới hạn hợp đồng
+
+**Cảnh báo:** Đọc kỹ phần loại trừ. SLA "99.99% availability" với điều khoản loại trừ bảo trì rộng rãi và loại trừ thiết bị khách hàng trên thực tế có thể chỉ là 99.5%.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+### Thiết kế SLA cho dịch vụ 5G
+
+| Nguyên tắc | Lý do |
+|-----------|-------|
+| Đo những gì người dùng trải nghiệm | Availability mạng không có nghĩa gì nếu UPF đang drop packet |
+| Đặt target có thể đạt được | SLA không thực tế làm mất lòng tin và tạo tranh chấp liên tục |
+| Xác định điểm đo chính xác | "20ms latency" đo ở đâu? UE đến DN? Hay chỉ RAN? |
+| Tách biệt KPI radio và KPI core | Giúp xác định lỗi ở RAN hay core |
+| Dùng metric percentile, không chỉ average | Latency p99 quan trọng hơn mean với dịch vụ tương tác |
+| Review định kỳ | Traffic pattern, topology và capability thay đổi theo thời gian |
+
+### Ví dụ: SLA enterprise 5G slice
+
+```
+Slice: URLLC slice dành riêng cho tự động hóa nhà máy
+
+KPI target:
+├── Latency user plane (UE đến application): <= 5ms (p99)
+├── Availability: >= 99.999% mỗi tháng
+├── Packet Delivery Ratio: >= 99.999%
+├── Throughput downlink (đảm bảo): >= 1 Gbps mỗi site
+├── Thời gian gián đoạn handover: <= 0ms (seamless handover)
+└── Slice isolation: đảm bảo — không cross-slice interference
+
+Đo lường:
+├── Latency: TWAMP probe từ UE giả lập đến application
+├── PDR: đo packet loss chủ động tại UPF
+├── Throughput: iperf3 từ test UE mỗi 5 phút
+└── Availability: tỷ lệ thành công của service probe
+
+Loại trừ:
+└── Bảo trì theo lịch với thông báo trước 7 ngày
+```
+
+### Xử lý vi phạm SLA
+
+1. **Kiểm tra phép đo trước.** Monitoring probe có hoạt động không? Có đang đo đúng path không? Lỗi đo lường gây vi phạm SLA giả.
+2. **Kiểm tra loại trừ.** Sự cố có được tính là vi phạm hay thuộc diện loại trừ (bảo trì, lỗi khách hàng)?
+3. **Xác định domain.** Vi phạm ở RAN (kiểm tra RSRP, SINR, BLER), core (kiểm tra NF health, UPF throughput), hay transport (kiểm tra latency từng hop)?
+4. **Định lượng tác động.** Bao nhiêu người dùng hay dịch vụ bị ảnh hưởng? Rủi ro tài chính là bao nhiêu?
+5. **Root cause, không phải triệu chứng.** Document nguyên nhân gốc rễ, không chỉ "latency cao".
+
+### Thực tiễn vận hành
+
+1. **Giám sát chủ động:** Không chờ khách hàng phàn nàn. Đặt cảnh báo SLO nội bộ ở mức 80% budget SLA đã dùng.
+2. **Phân tích xu hướng:** Phát hiện degradation trước khi vi phạm. Latency tăng 1ms mỗi tuần sẽ vi phạm sau một tháng.
+3. **Root cause analysis:** Sửa vấn đề, không sửa triệu chứng.
+4. **Capacity planning:** Đi trước nhu cầu — vi phạm SLA trong sự kiện peak là có thể phòng tránh.
+5. **Tài liệu hóa:** Chứng minh tuân thủ bằng số liệu lưu trữ. Tranh chấp cần bằng chứng.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Bẫy thường gặp
+
+1. **Vanity metric.** Đo những thứ trông đẹp nhưng không phản ánh trải nghiệm người dùng. "99.99% network availability" vô nghĩa nếu application server đang trả về lỗi 500. Đo những gì người dùng thực sự trải nghiệm.
+
+2. **Gian lận phép đo.** Đặt probe ở vị trí thuận lợi, loại trừ dữ liệu bất lợi, hoặc chỉ đo trong giờ thấp điểm. Điều này phá hủy lòng tin khi trải nghiệm của khách hàng mâu thuẫn với metric của bạn.
+
+3. **SLA vs thực tế.** SLA đảm bảo bồi thường, không đảm bảo dịch vụ. Hoàn 10% phí hàng tháng cho downtime khiến khách hàng mất hàng triệu đồng sản xuất không phải bồi thường thỏa đáng — đó chỉ là quản lý rủi ro hợp đồng.
+
+4. **Bỏ qua percentile.** Average latency 20ms vô nghĩa nếu p99 là 500ms. Người dùng thực — và ứng dụng realtime — trải nghiệm tail. Luôn chỉ định p95, p99, hoặc p99.9 cho SLA latency.
+
+5. **Không đọc kỹ loại trừ.** "99.99% availability" với điều khoản loại trừ rộng cho bảo trì và thiết bị khách hàng có thể chỉ là 99% trên thực tế. Tính SLA hiệu quả sau khi trừ các loại trừ.
+
+6. **Một điểm đo duy nhất.** Chỉ đo tại một điểm trong path bỏ qua vấn đề ở nơi khác. Core network với availability hoàn hảo không giúp ích gì nếu RAN đang drop 5% packet.
+
+7. **Quên dependencies.** SLA của bạn với khách hàng phụ thuộc vào SLA của supplier. Nếu nhà cung cấp fiber upstream có SLA 99.9%, mạng của bạn không thể vượt 99.9% end-to-end dù internal engineering tốt đến đâu.
+
+8. **SLA tĩnh cho dynamic slice.** Network slicing cho phép SLA khác nhau cho từng slice. Nếu hệ thống quản lý SLA của bạn đối xử với tất cả traffic như nhau, bạn không thể thực thi per-slice guarantee.
+
+</section>
+
+<section class="lesson-references">
+
+## Tài liệu tham khảo
+
+- ITU-T E.800, "Definitions of terms related to quality of service"
+- ITU-T Y.1540, "IP packet transfer performance parameters"
+- 3GPP TS 22.261, "Service requirements for the 5G system" (bảng KPI)
+- 3GPP TS 23.501, "System architecture for 5G System" (bảng 5QI, QoS framework)
+- MEF 10.3, "Ethernet Services Attributes Phase 3"
+- ITU-T G.114, "One-way transmission time" (target latency VoIP)
+- Beyer et al., *Site Reliability Engineering*, O'Reilly, 2016 (SLI/SLO/SLA framework)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Tiếp theo
+
+- [MTBF và MTTR](/vi/core-network/carrier-grade-vocabulary/mtbf-and-mttr/) — metric reliability đằng sau KPI availability
+- [Năm chín availability](/vi/core-network/why-telcos-build-differently/five-nines-availability/) — đạt 99.999%
+- [Redundancy patterns](/vi/core-network/carrier-grade-vocabulary/redundancy-patterns/) — cách đáp ứng SLA availability
+
+</section>

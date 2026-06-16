@@ -8,17 +8,407 @@ track: n0
 unit: carrier-grade-vocabulary
 order: 1
 level: L0
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 12
+prerequisites: []
+spiralRevisits: ["core-network-n1-why-telcos-build-differently-02-five-nines-availability"]
 title: "KPIs and SLAs"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Key Performance Indicators and Service Level Agreements — the metrics that define telecom quality, including 5G-specific KPIs for latency budgets, PDR, and network slicing."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-04"
+standards: ["ITU-T E.800", "3GPP TS 22.261", "ITU-T Y.1540"]
+tags: ["kpi", "sla", "telecom", "quality", "5g", "latency-budget", "pdr"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# KPIs and SLAs
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+"The network is slow" is not a useful problem statement. "End-to-end latency is 28ms against a 20ms SLA budget, with the RAN contributing 18ms and the core contributing 10ms" is actionable.
+
+KPIs and SLAs turn vague quality concerns into measurable commitments. They are how telcos define, measure, and guarantee service quality — and how contracts are enforced, capacity is planned, and faults are prioritized.
+
+For cloud engineers moving into telecom: you already know SLOs, SLIs, and error budgets from SRE practice. Telecom KPIs and SLAs are the older vocabulary covering the same terrain, with some critical extensions for radio-specific metrics and multi-domain latency budgeting that cloud SRE does not address.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What is a KPI?
+
+A **KPI (Key Performance Indicator)** is a measurable value that shows how effectively a system is achieving its objectives.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Telecom KPIs                          │
+│                                                          │
+│  Availability ────── "Is it up?"                        │
+│  Latency ─────────── "How fast?"                        │
+│  Throughput ──────── "How much data?"                   │
+│  Packet loss ─────── "What fraction is lost?"           │
+│  Jitter ──────────── "How variable is delay?"           │
+│  Call setup time ─── "How quick to connect?"            │
+│  Drop rate ───────── "How often does it fail?"          │
+│  PDR ─────────────── "What fraction of data delivered?" │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Good KPIs are:**
+- **Measurable:** You can put a number on it
+- **Relevant:** It reflects what users or services actually care about
+- **Actionable:** You can do something about it when it degrades
+- **Time-bound:** Measured over specific periods (per-minute, per-hour, monthly)
+
+### What is an SLA?
+
+An **SLA (Service Level Agreement)** is a contract that defines expected service quality and consequences for not meeting it.
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Example SLA                           │
+│                                                          │
+│  Service: Enterprise Internet Access                    │
+│                                                          │
+│  Commitments:                                           │
+│  ├── Availability: >= 99.95% monthly                    │
+│  ├── Latency: <= 20ms (within region)                   │
+│  ├── Packet loss: <= 0.1%                               │
+│  └── MTTR: <= 4 hours                                   │
+│                                                          │
+│  Penalties:                                             │
+│  ├── 99.9% - 99.95%: 10% credit                         │
+│  ├── 99.0% - 99.9%: 25% credit                          │
+│  └── < 99.0%: 50% credit                                │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**SLA components:**
+- **Service scope:** What is covered
+- **Performance metrics:** KPIs with target values
+- **Measurement method:** How KPIs are calculated and where they are measured
+- **Exclusions:** What does not count (maintenance windows, force majeure, customer-caused)
+- **Remedies:** What happens when targets are missed
+
+### KPI vs SLA — and the SRE mapping
+
+| Aspect | KPI | SLA | SRE equivalent |
+|--------|-----|-----|----------------|
+| What it is | Metric | Contract | SLI / SLO |
+| Purpose | Measure performance | Guarantee performance | Error budget |
+| Consequences | Operational awareness | Financial penalties | Reliability target |
+| Audience | Operations team | Customer + legal | Engineering team |
+
+**Key difference from SRE:** SLOs are internal engineering targets. SLAs are external contractual commitments. The standard practice is to set SLOs 0.5–1 nine better than the SLA (e.g., internal SLO of 99.99% when customer SLA is 99.9%), creating a buffer before the SLA is breached.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Common telecom KPIs
+
+**Availability:**
+```
+Availability = (Total time - Downtime) / Total time x 100%
+
+Example:
+Month = 30 days = 43,200 minutes
+Downtime = 22 minutes
+Availability = (43,200 - 22) / 43,200 = 99.949%
+```
+
+**Latency (one-way delay and RTT):**
+```
+One-way delay: Time for packet to travel A to B
+Round-trip time (RTT): Time for packet to go A to B and return
+
+Measured via:
+- Ping (ICMP echo — measures RTT)
+- TWAMP (Two-Way Active Measurement Protocol — precision one-way delay)
+- Application-layer probes (measures end-to-end including processing)
+```
+
+**Packet loss:**
+```
+Packet loss = (Packets sent - Packets received) / Packets sent x 100%
+
+Typical targets:
+- Voice (VoIP): < 1% (above this MOS score degrades sharply)
+- Video streaming: < 0.1%
+- Interactive data: < 0.01%
+- Financial transactions: 0% (retransmit at application layer)
+```
+
+**Jitter (delay variation):**
+```
+Jitter = Variation in packet arrival times
+
+Low jitter: packets arrive evenly spaced (good for voice/video)
+High jitter: packets arrive in bursts (causes buffer underruns)
+
+Typical targets:
+- VoIP: < 30ms jitter (ITU-T G.114)
+- Video conferencing: < 50ms jitter
+```
+
+**Throughput:**
+```
+Actual data rate delivered (bps, Mbps, Gbps)
+
+Committed Information Rate (CIR): guaranteed minimum rate
+Peak Information Rate (PIR): maximum burst rate allowed
+Excess Information Rate (EIR): above CIR, best-effort
+```
+
+### 5G-specific KPIs (3GPP TS 22.261)
+
+5G introduced new KPI classes that do not exist in traditional telecom or cloud SRE:
+
+**Packet Data Rate (PDR) and Packet Delay Budget (PDB):**
+
+```
+5G QoS Flow KPIs per 3GPP TS 23.501:
+
+QoS Class (5QI) | Resource Type | PDB    | Packet Error Rate
+────────────────┼───────────────┼────────┼──────────────────
+5QI 1 (VoIP)   | GBR           | 100ms  | 10^-2
+5QI 2 (Video)  | GBR           | 150ms  | 10^-3
+5QI 3 (Gaming) | GBR           | 50ms   | 10^-3
+5QI 5 (IMS SIP)| Non-GBR       | 100ms  | 10^-6
+5QI 9 (Internet)| Non-GBR      | 300ms  | 10^-6
+5QI 69 (V2X)   | GBR           | 5ms    | 10^-2
+5QI 82 (URLLC) | GBR           | 10ms   | 10^-4
+
+PDB = Packet Delay Budget (max one-way latency allowed)
+```
+
+**End-to-end latency budget decomposition:**
+
+The 5G end-to-end latency budget is split across domains. For a 20ms E2E target:
+
+```
+Total E2E budget: 20ms
+  ├── UE processing:          2ms
+  ├── Air interface (NR):     4ms  (OFDM symbol + HARQ round-trip)
+  ├── Fronthaul (DU-CU):      0.5ms
+  ├── Midhaul (CU-UPF):       1ms
+  ├── UPF processing:         1ms
+  ├── N6 (UPF to DN):         2ms
+  ├── Application server:     5ms
+  └── Return path:            4.5ms (symmetric)
+```
+
+Any component that exceeds its budget breaks the E2E SLA. This is why latency budgeting is a discipline in 5G network design — each domain owner has a budget they must not exceed.
+
+**URLLC KPIs (Ultra-Reliable Low-Latency Communications):**
+
+```
+URLLC requirements per 3GPP TS 22.261:
+- User plane latency: 0.5ms (one-way, UE to UPF)
+- Reliability: 1 - 10^-5 (99.999% packet delivery within latency budget)
+- Availability: 99.9999% (for critical industrial use)
+
+Use cases: factory automation, remote surgery, autonomous vehicles
+```
+
+URLLC KPIs are more stringent than any cloud SLA. Meeting them requires:
+- MEC (Multi-access Edge Computing) — UPF collocated with gNB
+- Numerology 3 or 4 (sub-carrier spacing 120kHz or 240kHz for shorter slots)
+- No retransmission allowed — proactive FEC instead of HARQ
+
+**Network slicing KPIs:**
+
+Each network slice can have independent KPI targets:
+
+```
+Slice 1 (eMBB — enhanced Mobile Broadband):
+- Peak downlink: 20 Gbps
+- User-experienced throughput: 100 Mbps
+- Latency: 4ms (user plane)
+
+Slice 2 (URLLC — factory automation):
+- Latency: 1ms
+- Reliability: 99.9999%
+
+Slice 3 (mMTC — IoT):
+- Connection density: 1,000,000 devices/km2
+- Battery life: 10 years
+- Throughput: low (10-100 Kbps per device)
+```
+
+**Radio KPIs** (RAN-specific, not found in cloud SRE):
+
+| KPI | Definition | Target |
+|-----|-----------|--------|
+| RSRP | Reference Signal Received Power (signal strength) | ≥ -100 dBm for good service |
+| RSRQ | Reference Signal Received Quality (signal quality) | ≥ -10 dB |
+| SINR | Signal-to-Interference-plus-Noise Ratio | ≥ 10 dB for high throughput |
+| CQI | Channel Quality Indicator (reported by UE) | 0-15, higher = better |
+| BLER | Block Error Rate (after FEC, before HARQ) | ≤ 10% target initial BLER |
+| RRC Success Rate | Radio Resource Control setup success | ≥ 99% |
+| Handover Success Rate | Inter-cell mobility success | ≥ 98% |
+
+### SLA tiers
+
+Most providers offer multiple SLA tiers:
+
+| Tier | Availability | Latency | Use case |
+|------|--------------|---------|----------|
+| Bronze | 99.5% | 100ms | Best effort |
+| Silver | 99.9% | 50ms | Business |
+| Gold | 99.95% | 20ms | Enterprise |
+| Platinum | 99.99% | 10ms | Critical services |
+| Carrier | 99.999% | 5ms | Telecom core, URLLC |
+
+### Measurement and reporting
+
+**Measurement point matters:**
+
+```
+┌────────┐                                    ┌────────┐
+│Customer│                                    │Customer│
+│ Site A │                                    │ Site B │
+└───┬────┘                                    └───┬────┘
+    │                                             │
+    │◄───── Customer measures here ─────────────►│
+    │                                             │
+┌───┴────┐                                    ┌───┴────┐
+│   PE   │                                    │   PE   │
+│ Router │                                    │ Router │
+└───┬────┘                                    └───┬────┘
+    │                                             │
+    │◄───── Provider measures here ─────────────►│
+    │                                             │
+    └──────────── Provider Network ──────────────┘
+```
+
+Provider-to-provider measurements look better than end-to-end customer measurements. Always specify the measurement point in the SLA — disputes are common when this is ambiguous.
+
+**Reporting cadence:**
+- Real-time dashboards (operations — sub-minute)
+- Daily summaries (NOC)
+- Monthly reports (customer SLA compliance)
+- Quarterly reviews (management, capacity planning)
+
+### SLA exclusions
+
+SLAs typically exclude:
+- **Scheduled maintenance:** Announced in advance (typically 72 hours notice)
+- **Customer-caused issues:** Misconfiguration, customer equipment failure
+- **Force majeure:** Natural disasters, war, government actions
+- **Third-party failures:** Internet peering, upstream providers
+- **Capacity exceeded:** Usage beyond contracted limits
+
+**Warning:** Read the exclusions carefully. A "99.99% availability" SLA with broad planned maintenance exclusions and customer-equipment exclusions might be effectively 99.5% in practice.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+### Designing SLAs for 5G services
+
+| Principle | Why |
+|-----------|-----|
+| Measure what users experience | Network availability means nothing if UPF is dropping packets |
+| Set achievable targets | Unrealistic SLAs erode trust and create constant disputes |
+| Define measurement point precisely | "20ms latency" measured where? UE to DN? Or RAN only? |
+| Separate radio KPIs from core KPIs | Helps isolate whether a fault is in RAN or core |
+| Include percentile metrics, not just averages | p99 latency matters more than mean for interactive services |
+| Review periodically | Traffic patterns, topology, and capabilities change |
+
+### Example: 5G enterprise slice SLA
+
+```
+Slice: Dedicated enterprise URLLC slice for factory automation
+
+KPI targets:
+├── User plane latency (UE to application): <= 5ms (p99)
+├── Availability: >= 99.999% monthly
+├── Packet Delivery Ratio: >= 99.999%
+├── Downlink throughput (guaranteed): >= 1 Gbps per site
+├── Handover interruption time: <= 0ms (seamless handover)
+└── Slice isolation: guaranteed — no cross-slice interference
+
+Measurement:
+├── Latency: TWAMP probes from simulated UE to application
+├── PDR: active packet loss measurement at UPF
+├── Throughput: iperf3 from test UE every 5 minutes
+└── Availability: service probe success rate
+
+Exclusions:
+└── Planned maintenance with 7-day advance notice
+```
+
+### Troubleshooting SLA breaches
+
+1. **Verify the measurement first.** Is the monitoring probe healthy? Is it measuring the right path? Measurement errors cause false SLA breaches.
+2. **Check exclusions.** Does the incident qualify as a breach or is it excluded (maintenance, customer fault)?
+3. **Identify the domain.** Is the breach in RAN (check RSRP, SINR, BLER), core (check NF health, UPF throughput), or transport (check latency per hop)?
+4. **Quantify impact.** How many users or services affected? What is the financial exposure?
+5. **Root cause, not symptom.** Document the root cause, not just "latency was high."
+
+### Operational practices
+
+1. **Proactive monitoring:** Do not wait for customer complaints. Set internal SLO alerts at 80% of SLA budget consumed.
+2. **Trend analysis:** Catch degradation before breach. A latency that grows 1ms per week will breach in a month.
+3. **Root cause analysis:** Fix problems, not symptoms.
+4. **Capacity planning:** Stay ahead of demand — SLA breaches during peak events are preventable.
+5. **Documentation:** Prove compliance with archived measurements. Disputes require evidence.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Vanity metrics.** Measuring things that look good but do not reflect user experience. "99.99% network availability" is meaningless if the application server is returning 500 errors. Measure what users actually experience.
+
+2. **Gaming the measurement.** Placing probes in favorable locations, excluding inconvenient data, or measuring only during low-traffic periods. This destroys trust when the customer's experience contradicts your metrics.
+
+3. **SLA vs reality.** An SLA guarantees compensation, not service. A 10% monthly credit for an outage that cost your customer millions in lost production is not adequate compensation — it is just contractual risk management.
+
+4. **Ignoring percentiles.** Average latency of 20ms is meaningless if p99 is 500ms. Real users — and real-time applications — experience the tail. Always specify p95, p99, or p99.9 for latency SLAs.
+
+5. **Not reading exclusions.** "99.99% availability" with broad exclusions for planned maintenance and customer equipment may be effectively 99% in practice. Calculate the effective SLA after exclusions.
+
+6. **Single point of measurement.** Measuring only at one point in the path misses problems elsewhere. A core network with perfect availability does not help if the RAN is dropping 5% of packets.
+
+7. **Forgetting dependencies.** Your SLA to your customer depends on your suppliers' SLAs. If your upstream fiber provider has a 99.9% SLA, your network cannot exceed 99.9% end-to-end regardless of your internal engineering.
+
+8. **Static SLAs for dynamic slices.** Network slicing allows different SLAs per slice. If your SLA management system treats all traffic the same, you cannot enforce per-slice guarantees.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- ITU-T E.800, "Definitions of terms related to quality of service"
+- ITU-T Y.1540, "IP packet transfer performance parameters"
+- 3GPP TS 22.261, "Service requirements for the 5G system" (KPI tables)
+- 3GPP TS 23.501, "System architecture for 5G System" (5QI table, QoS framework)
+- MEF 10.3, "Ethernet Services Attributes Phase 3"
+- ITU-T G.114, "One-way transmission time" (VoIP latency targets)
+- Beyer et al., *Site Reliability Engineering*, O'Reilly, 2016 (SLI/SLO/SLA framework)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [MTBF and MTTR](/en/core-network/carrier-grade-vocabulary/mtbf-and-mttr/) — reliability metrics behind availability KPIs
+- [Five nines availability](/en/core-network/why-telcos-build-differently/five-nines-availability/) — achieving 99.999%
+- [Redundancy patterns](/en/core-network/carrier-grade-vocabulary/redundancy-patterns/) — how to meet availability SLAs
+
+</section>

@@ -8,17 +8,467 @@ track: s1
 unit: rendezvous-and-proximity-operations
 order: 3
 level: L4
-estimatedReadingMinutes: 5
-title: "Docking and safety zones"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["rpod-operations"]
+spiralRevisits: []
+title: "Docking Safety Zones — Keep-Out and Approach Corridors"
+description: "Understanding safety zone definitions, approach ellipsoids, and operational constraints for proximity operations."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["safety-zones", "keep-out", "approach-corridor", "proximity-ops", "iss"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Docking and safety zones
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Before any spacecraft approaches a crewed station or high-value asset, mission planners define invisible boundaries in space—safety zones that govern where visiting vehicles can and cannot go. These zones protect against collision, thruster plume damage, and communication interference. Understanding zone geometry is essential for flight software development, mission planning, and real-time operations.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### The layered defense concept
+
+```
+ISS Safety Zone Architecture (not to scale):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TOP VIEW (looking down on ISS):                                    │
+│                                                                      │
+│                    ZONE 4: Entry Ellipsoid (~4 km)                  │
+│           ┌─────────────────────────────────────────────┐           │
+│           │                                              │           │
+│           │        ZONE 3: Approach Ellipsoid (~2 km)   │           │
+│           │    ┌───────────────────────────────────┐    │           │
+│           │    │                                    │    │           │
+│           │    │     ZONE 2: Keep-Out Sphere       │    │           │
+│           │    │   ┌─────────────────────────┐     │    │           │
+│           │    │   │                          │     │    │           │
+│           │    │   │  ZONE 1: Approach       │     │    │           │
+│           │    │   │  Corridor               │     │    │           │
+│           │    │   │  ┌─────────────┐        │     │    │           │
+│           │    │   │  │             │        │     │    │           │
+│           │    │   │  │    ISS      │        │     │    │           │
+│           │    │   │  │    ████     │        │     │    │           │
+│           │    │   │  │             │        │     │    │           │
+│           │    │   │  └─────────────┘        │     │    │           │
+│           │    │   │                          │     │    │           │
+│           │    │   └─────────────────────────┘     │    │           │
+│           │    │         200m radius               │    │           │
+│           │    │                                    │    │           │
+│           │    └───────────────────────────────────┘    │           │
+│           │                                              │           │
+│           └─────────────────────────────────────────────┘           │
+│                                                                      │
+│  ZONE DEFINITIONS:                                                  │
+│  ┌────────────────────────────────────────────────────────────────┐ │
+│  │                                                                 │ │
+│  │  Zone │ Boundary      │ Entry Requires        │ Abort Mode     │ │
+│  │  ─────┼───────────────┼──────────────────────┼────────────────│ │
+│  │  4    │ 4 km ellipsoid│ Mission approval     │ Free departure │ │
+│  │  3    │ 2 km ellipsoid│ Range/rate gate      │ Retreat burn   │ │
+│  │  2    │ 200 m sphere  │ Go/no-go poll        │ CAM available  │ │
+│  │  1    │ Corridor only │ Final approach auth  │ CAM mandatory  │ │
+│  │                                                                 │ │
+│  └────────────────────────────────────────────────────────────────┘ │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Approach corridor geometry
+
+```
+V-bar Approach Corridor (side view):
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  R-bar (+nadir)                                                     │
+│     ↑                                                               │
+│     │                                                               │
+│     │          Corridor boundaries (±10° typical)                   │
+│     │              ╲                     ╱                          │
+│     │               ╲                   ╱                           │
+│     │                ╲                 ╱                            │
+│     │                 ╲               ╱                             │
+│     │                  ╲             ╱                              │
+│     │                   ╲           ╱                               │
+│     │                    ╲         ╱                                │
+│     │  ● Chaser           ╲       ╱      ┌─────┐                    │
+│     │    HP2 (200m)        ╲     ╱       │ ISS │                    │
+│     │                       ╲   ╱        │Dock │                    │
+│     ├────────────────────────●─●─────────┴─────┴──────→ V-bar      │
+│     │                       ╱   ╲        (+velocity)                │
+│     │                      ╱     ╲                                  │
+│     │                     ╱       ╲                                 │
+│     │                    ╱         ╲                                │
+│     │                   ╱           ╲                               │
+│     │                  ╱             ╲                              │
+│     │                 ╱               ╲                             │
+│     │                ╱                 ╲                            │
+│     │               ╱                   ╲                           │
+│     │              ╱                     ╲                          │
+│     │                                                               │
+│     │  Outside corridor = KEEP-OUT ZONE                            │
+│     │  Any penetration triggers CAM                                │
+│     │                                                               │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Zone entry criteria
+
+```
+Zone Transition Gates:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ZONE 4 → ZONE 3 TRANSITION (4 km → 2 km):                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Gate criteria:                                        │         │
+│  │  • Range rate ≤ 10 m/s (closing)                      │         │
+│  │  • Lateral rate ≤ 2 m/s                               │         │
+│  │  • Nav solution converged                             │         │
+│  │  • Comm link verified                                 │         │
+│  │  • Ground tracking available                          │         │
+│  │                                                        │         │
+│  │  If ANY criterion fails → hold at Zone 4 boundary    │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ZONE 3 → ZONE 2 TRANSITION (2 km → 200 m):                        │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Gate criteria:                                        │         │
+│  │  • Range rate ≤ 2 m/s                                 │         │
+│  │  • On approach corridor centerline ±50 m             │         │
+│  │  • Relative navigation active                        │         │
+│  │  • Go/no-go poll passed                              │         │
+│  │  • CAM fuel verified (>10 m/s reserve)               │         │
+│  │                                                        │         │
+│  │  If ANY criterion fails → retreat to Zone 3          │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ZONE 2 → ZONE 1 TRANSITION (200 m → corridor entry):              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  Gate criteria:                                        │         │
+│  │  • Range rate ≤ 0.5 m/s                               │         │
+│  │  • Corridor alignment ≤ ±3°                          │         │
+│  │  • Lidar tracking locked                             │         │
+│  │  • Station crew visual confirmation                  │         │
+│  │  • All systems nominal                               │         │
+│  │                                                        │         │
+│  │  If ANY criterion fails → hold at 200 m              │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Plume impingement zones
+
+```
+Thruster Plume Exclusion Zones:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ISS sensitive structures require plume protection:                 │
+│                                                                      │
+│                    ┌──────────────────────┐                         │
+│                    │   Solar Array Wing   │                         │
+│                    │   (fragile cells)    │                         │
+│                    └──────────────────────┘                         │
+│                           ╲    │    ╱                               │
+│                            ╲   │   ╱  Plume                         │
+│                             ╲  │  ╱   exclusion                     │
+│                              ╲ │ ╱    cone                          │
+│                               ╲│╱     (±30°)                        │
+│  ┌─────────┐                   │                    ┌─────────┐     │
+│  │Radiator │───────────────────●────────────────────│Radiator │     │
+│  │ Panel   │               ISS Module               │ Panel   │     │
+│  └─────────┘                                        └─────────┘     │
+│                                                                      │
+│  THRUSTER FIRING CONSTRAINTS:                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • No aft-facing thrusters within 50 m of arrays     │         │
+│  │  • Plume cone must not intersect radiators           │         │
+│  │  • Attitude thruster firings coordinated with ISS    │         │
+│  │  • Translation burns use only approved directions    │         │
+│  │                                                        │         │
+│  │  Violation consequence: thermal damage, array        │         │
+│  │  degradation, contamination of optical surfaces      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Communication and RF zones
+
+```
+RF Exclusion and Coordination:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ISS RF ENVIRONMENT:                                                │
+│                                                                      │
+│        S-band antenna                    Ku-band TDRSS              │
+│             │                                 │                     │
+│             ▼                                 ▼                     │
+│         ┌───────┐                         ┌───────┐                 │
+│         │  ◉───────────────────────────────◉  │                 │
+│         └───────┘        ISS              └───────┘                 │
+│                                                                      │
+│  VISITING VEHICLE CONSTRAINTS:                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • No high-power transmit within 100 m of antennas   │         │
+│  │  • Frequency coordination required before approach   │         │
+│  │  • GPS/GNSS receivers may experience interference    │         │
+│  │  • Inter-vehicle link uses assigned frequencies      │         │
+│  │                                                        │         │
+│  │  ISS RF KEEP-OUT ZONES:                               │         │
+│  │  • ±15° cone around S-band antennas (50 m min)       │         │
+│  │  • ±10° cone around Ku-band antennas (100 m min)     │         │
+│  │  • No radar/lidar in ISS camera FOV during ops       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Safety zone geometry calculations:**
+
+```python
+import numpy as np
+
+def ellipsoid_boundary(semi_axes, num_points=100):
+    """Generate points on an ellipsoid surface."""
+    # Semi-axes: (a, b, c) for x, y, z
+    a, b, c = semi_axes
+    
+    theta = np.linspace(0, 2*np.pi, num_points)
+    phi = np.linspace(0, np.pi, num_points//2)
+    
+    theta, phi = np.meshgrid(theta, phi)
+    
+    x = a * np.sin(phi) * np.cos(theta)
+    y = b * np.sin(phi) * np.sin(theta)
+    z = c * np.cos(phi)
+    
+    return x, y, z
+
+def point_in_ellipsoid(point, semi_axes):
+    """Check if point is inside ellipsoid."""
+    x, y, z = point
+    a, b, c = semi_axes
+    return (x/a)**2 + (y/b)**2 + (z/c)**2 <= 1
+
+def point_in_corridor(point, half_angle_deg, corridor_axis='x'):
+    """Check if point is within approach corridor."""
+    x, y, z = point
+    half_angle = np.radians(half_angle_deg)
+    
+    if corridor_axis == 'x':  # V-bar approach
+        if x >= 0:  # Must be approaching (positive x toward target)
+            return False
+        lateral_dist = np.sqrt(y**2 + z**2)
+        axial_dist = abs(x)
+        return lateral_dist <= axial_dist * np.tan(half_angle)
+    return False
+
+def check_zone(position_m, zones):
+    """Determine which zone a position is in."""
+    for zone_name, zone_def in sorted(zones.items(), 
+                                       key=lambda x: x[1].get('priority', 0)):
+        if zone_def['type'] == 'ellipsoid':
+            if point_in_ellipsoid(position_m, zone_def['semi_axes']):
+                return zone_name
+        elif zone_def['type'] == 'sphere':
+            if np.linalg.norm(position_m) <= zone_def['radius']:
+                return zone_name
+        elif zone_def['type'] == 'corridor':
+            if point_in_corridor(position_m, zone_def['half_angle']):
+                return zone_name
+    return 'outside'
+
+def gate_criteria(from_zone, to_zone, state):
+    """Check if gate criteria are met for zone transition."""
+    range_m = state['range_m']
+    range_rate = state['range_rate_m_s']
+    lateral_rate = state['lateral_rate_m_s']
+    
+    criteria = {
+        ('zone4', 'zone3'): {
+            'range_rate_max': 10.0,
+            'lateral_rate_max': 2.0,
+            'nav_converged': True,
+            'comm_verified': True,
+        },
+        ('zone3', 'zone2'): {
+            'range_rate_max': 2.0,
+            'lateral_rate_max': 0.5,
+            'corridor_offset_max': 50.0,
+            'cam_fuel_min': 10.0,
+        },
+        ('zone2', 'zone1'): {
+            'range_rate_max': 0.5,
+            'lateral_rate_max': 0.1,
+            'alignment_max_deg': 3.0,
+            'lidar_locked': True,
+        },
+    }
+    
+    key = (from_zone, to_zone)
+    if key not in criteria:
+        return True, []
+    
+    c = criteria[key]
+    failures = []
+    
+    if range_rate > c.get('range_rate_max', float('inf')):
+        failures.append(f"range_rate {range_rate:.1f} > {c['range_rate_max']}")
+    if lateral_rate > c.get('lateral_rate_max', float('inf')):
+        failures.append(f"lateral_rate {lateral_rate:.2f} > {c['lateral_rate_max']}")
+    
+    return len(failures) == 0, failures
+
+# ISS zone definitions
+ISS_ZONES = {
+    'zone1': {'type': 'corridor', 'half_angle': 10, 'priority': 1},
+    'zone2': {'type': 'sphere', 'radius': 200, 'priority': 2},
+    'zone3': {'type': 'ellipsoid', 'semi_axes': (2000, 1500, 1500), 'priority': 3},
+    'zone4': {'type': 'ellipsoid', 'semi_axes': (4000, 3000, 3000), 'priority': 4},
+}
+
+# Analysis
+print("Safety Zone Analysis")
+print("=" * 60)
+
+# Test positions
+test_positions = [
+    ([-5000, 0, 0], "5 km on V-bar"),
+    ([-3000, 500, 0], "3 km, 500m lateral offset"),
+    ([-1500, 0, 0], "1.5 km on V-bar"),
+    ([-150, 0, 0], "150 m on V-bar"),
+    ([-100, 50, 0], "100 m, 50m offset"),
+]
+
+print("\nPosition Zone Classification:")
+print("-" * 60)
+for pos, desc in test_positions:
+    zone = check_zone(pos, ISS_ZONES)
+    print(f"  {desc:30} → {zone}")
+
+# Gate transition check
+print("\n" + "-" * 60)
+print("Gate Transition Analysis:")
+
+states = [
+    {'range_m': 4000, 'range_rate_m_s': 8.0, 'lateral_rate_m_s': 1.0},
+    {'range_m': 4000, 'range_rate_m_s': 15.0, 'lateral_rate_m_s': 1.0},
+    {'range_m': 2000, 'range_rate_m_s': 1.5, 'lateral_rate_m_s': 0.3},
+    {'range_m': 200, 'range_rate_m_s': 0.3, 'lateral_rate_m_s': 0.05},
+]
+
+transitions = [
+    ('zone4', 'zone3'),
+    ('zone4', 'zone3'),
+    ('zone3', 'zone2'),
+    ('zone2', 'zone1'),
+]
+
+print(f"\n  {'Transition':20} {'Range':>8} {'Rng Rate':>10} {'Result':>10}")
+print(f"  {'-'*20} {'-'*8} {'-'*10} {'-'*10}")
+for (from_z, to_z), state in zip(transitions, states):
+    passed, failures = gate_criteria(from_z, to_z, state)
+    result = "PASS" if passed else "FAIL"
+    print(f"  {from_z}→{to_z:12} {state['range_m']:>7}m "
+          f"{state['range_rate_m_s']:>8.1f}m/s {result:>10}")
+    if failures:
+        for f in failures:
+            print(f"    ⚠ {f}")
+
+# Plume exclusion
+print("\n" + "-" * 60)
+print("Plume Exclusion Zones:")
+exclusion_cones = [
+    {'name': 'Solar Array', 'half_angle': 30, 'min_range': 50},
+    {'name': 'Radiator', 'half_angle': 20, 'min_range': 30},
+    {'name': 'Antenna', 'half_angle': 15, 'min_range': 100},
+]
+
+for cone in exclusion_cones:
+    solid_angle = 2 * np.pi * (1 - np.cos(np.radians(cone['half_angle'])))
+    fraction = solid_angle / (4 * np.pi) * 100
+    print(f"  {cone['name']:15} ±{cone['half_angle']}° "
+          f"({fraction:.1f}% of sphere), min {cone['min_range']}m")
+```
+
+**Zone summary table:**
+
+| Zone | Boundary | Entry Gate | Abort Response |
+|------|----------|------------|----------------|
+| 4 (Outer) | 4 km ellipsoid | Mission start | Free maneuver |
+| 3 (Approach) | 2 km ellipsoid | ≤10 m/s range rate | Controlled retreat |
+| 2 (Keep-Out) | 200 m sphere | Go/no-go + ≤2 m/s | CAM available |
+| 1 (Corridor) | ±10° cone | Final auth + ≤0.5 m/s | CAM mandatory |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ellipsoid vs sphere confusion.** Far-field zones are often ellipsoids aligned with velocity vector, not spheres.
+
+2. **Corridor half-angle varies.** Different docking ports may have different corridor geometries.
+
+3. **Gate criteria are AND conditions.** All criteria must pass; one failure blocks transition.
+
+4. **Zone boundaries are dynamic.** During ISS reboost or attitude changes, zones may temporarily expand.
+
+5. **Plume zones depend on thruster selection.** Which thrusters fire determines which exclusions apply.
+
+6. **RF zones are bidirectional.** Both visiting vehicle and station transmitters create exclusion zones.
+
+7. **Lighting affects zone ops.** Some optical sensors require daylight; zone transitions may be lighting-constrained.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- NASA SSP 50808 ISS Visiting Vehicle Requirements
+- ISS Flight Rules (Volume B, Section 2)
+- ESA Columbus Attached Pressurized Module Safety Requirements
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [RPOD Operations](/en/space/rendezvous-and-proximity-operations/rpod-operations/) — operational phases
+- [CW Equations](/en/space/rendezvous-and-proximity-operations/clohessy-wiltshire-equations/) — relative motion
+- [LEO Constellations](/en/space/leo-constellation-architecture/mega-constellation-design/) — multi-vehicle coordination
+
+</section>

@@ -8,17 +8,530 @@ track: s1
 unit: maneuvers-and-delta-v
 order: 5
 level: L4
-estimatedReadingMinutes: 5
-title: "Delta-v budget"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 7
+prerequisites: []
+spiralRevisits: []
+title: "Delta-V Budget — Mission Planning Fundamentals"
+description: "Building complete propellant budgets from launch to end-of-life."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["delta-v", "mission-planning", "propellant", "budget"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Delta-v budget
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+A delta-v budget is the financial statement of spaceflight—it tells you whether your mission is feasible and how long it will last. Every maneuver, from orbit raising to collision avoidance, draws from this finite account. Miss a line item, and you strand your satellite. Overestimate margins, and you waste payload capacity. Accurate budgeting separates successful missions from expensive failures.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Delta-v budget structure
+
+```
+Complete Delta-V Budget Structure:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  PHASE               │ MANEUVERS                    │ TYPICAL Δv   │
+│  ════════════════════╪══════════════════════════════╪══════════════│
+│                                                                      │
+│  ORBIT ACQUISITION   │                              │              │
+│  ────────────────────┼──────────────────────────────┼──────────────│
+│  Launch injection    │ Provided by launcher         │ (included)   │
+│  Perigee burns       │ Raise apogee                 │ 2.4 km/s     │
+│  Apogee burns        │ Circularize + plane change   │ 1.8 km/s     │
+│  Drift orbit         │ Reach operational slot       │ 0.05 km/s    │
+│                                                                      │
+│  OPERATIONAL LIFE    │                              │              │
+│  ────────────────────┼──────────────────────────────┼──────────────│
+│  E-W station keeping │ Longitude control            │ 2 m/s/yr     │
+│  N-S station keeping │ Inclination control          │ 50 m/s/yr    │
+│  Momentum dumping    │ Reaction wheel desaturation  │ 1 m/s/yr     │
+│  Collision avoidance │ Debris/constellation maneuv. │ 5 m/s/yr     │
+│  Relocation          │ Move to new slot             │ varies       │
+│                                                                      │
+│  END OF LIFE         │                              │              │
+│  ────────────────────┼──────────────────────────────┼──────────────│
+│  Graveyard orbit     │ GEO + 300 km (IADC guideline)│ 11 m/s       │
+│  Or de-orbit         │ LEO: lower perigee           │ varies       │
+│                                                                      │
+│  MARGINS             │                              │              │
+│  ────────────────────┼──────────────────────────────┼──────────────│
+│  Navigation errors   │ Uncertainties in maneuvers   │ 3%           │
+│  Propulsion margin   │ Isp variation, loading error │ 2%           │
+│  Contingency         │ Unexpected maneuvers         │ 5%           │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### The Tsiolkovsky equation
+
+```
+Converting Delta-V to Propellant Mass:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TSIOLKOVSKY ROCKET EQUATION:                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │              Δv = v_e × ln(m_initial / m_final)       │         │
+│  │                                                        │         │
+│  │  Where:                                               │         │
+│  │  • Δv = velocity change required                     │         │
+│  │  • v_e = exhaust velocity = Isp × g₀                 │         │
+│  │  • m_initial = mass before burn (wet mass)           │         │
+│  │  • m_final = mass after burn (dry mass)              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  REARRANGED FOR PROPELLANT:                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Mass ratio: MR = exp(Δv / v_e)                       │         │
+│  │                                                        │         │
+│  │  Propellant fraction: 1 - 1/MR                        │         │
+│  │                                                        │         │
+│  │  Propellant mass: m_prop = m_dry × (MR - 1)          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  THE TYRANNY OF THE ROCKET EQUATION:                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  • Exponential growth with Δv                        │         │
+│  │  • Doubling Δv MORE than doubles propellant          │         │
+│  │  • High Isp is critical for high-Δv missions         │         │
+│  │                                                        │         │
+│  │  Example (Isp = 320s):                               │         │
+│  │  Δv = 3 km/s → 61% propellant                        │         │
+│  │  Δv = 6 km/s → 85% propellant                        │         │
+│  │  Δv = 9 km/s → 95% propellant                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### GEO communications satellite budget
+
+```
+Example: GEO Comms Satellite (15-year mission)
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MISSION PROFILE:                                                   │
+│  • Launch from Cape Canaveral (28.5° latitude)                     │
+│  • Target: GEO at 100°W longitude                                  │
+│  • Design life: 15 years                                           │
+│  • Propulsion: Bipropellant (Isp = 320s)                           │
+│                                                                      │
+│  DELTA-V BUDGET:                                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Phase                   │ Δv (m/s) │ Cumulative     │         │
+│  │  ────────────────────────┼──────────┼────────────────│         │
+│  │  GTO → GEO (combined)    │ 1800     │ 1800           │         │
+│  │  Drift to operational    │ 50       │ 1850           │         │
+│  │                                                        │         │
+│  │  E-W SK (15 yr × 2)      │ 30       │ 1880           │         │
+│  │  N-S SK (15 yr × 50)     │ 750      │ 2630           │         │
+│  │  Momentum mgmt (15×1)    │ 15       │ 2645           │         │
+│  │  Collision avoid (15×2)  │ 30       │ 2675           │         │
+│  │  Relocation (1 move)     │ 30       │ 2705           │         │
+│  │                                                        │         │
+│  │  De-orbit to graveyard   │ 11       │ 2716           │         │
+│  │                                                        │         │
+│  │  Subtotal                │ 2716     │                │         │
+│  │  + 10% margin            │ 272      │                │         │
+│  │  ────────────────────────┼──────────┼────────────────│         │
+│  │  TOTAL BUDGET            │ 2988     │ ~3.0 km/s      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PROPELLANT CALCULATION:                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Dry mass: 2000 kg                                    │         │
+│  │  Isp: 320 s → v_e = 3.14 km/s                        │         │
+│  │  Δv: 3.0 km/s                                        │         │
+│  │                                                        │         │
+│  │  Mass ratio = exp(3.0 / 3.14) = 2.60                 │         │
+│  │  Propellant = 2000 × (2.60 - 1) = 3200 kg            │         │
+│  │  Wet mass = 2000 + 3200 = 5200 kg                    │         │
+│  │                                                        │         │
+│  │  Propellant is 62% of total spacecraft mass!         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### LEO constellation satellite budget
+
+```
+Example: LEO Constellation Satellite (5-year mission)
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MISSION PROFILE:                                                   │
+│  • Direct injection to 550 km circular orbit                       │
+│  • Propulsion: Hall thruster (Isp = 1500s)                         │
+│  • Design life: 5 years                                            │
+│                                                                      │
+│  DELTA-V BUDGET:                                                    │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Phase                   │ Δv (m/s) │ Notes          │         │
+│  │  ────────────────────────┼──────────┼────────────────│         │
+│  │  Orbit raising           │ 0        │ Direct inject  │         │
+│  │  Phasing (reach slot)    │ 50       │                │         │
+│  │                                                        │         │
+│  │  Drag makeup (5×2)       │ 10       │ 550 km, low A/m│         │
+│  │  Collision avoid (5×3)   │ 15       │ Constellation  │         │
+│  │  Plane maintenance       │ 25       │ J2 drift       │         │
+│  │                                                        │         │
+│  │  De-orbit                │ 100      │ ← Dominates!   │         │
+│  │                                                        │         │
+│  │  Subtotal                │ 200      │                │         │
+│  │  + 15% margin            │ 30       │                │         │
+│  │  ────────────────────────┼──────────┼────────────────│         │
+│  │  TOTAL BUDGET            │ 230      │                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  PROPELLANT CALCULATION:                                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Dry mass: 250 kg                                     │         │
+│  │  Isp: 1500 s → v_e = 14.7 km/s                       │         │
+│  │  Δv: 0.23 km/s                                       │         │
+│  │                                                        │         │
+│  │  Mass ratio = exp(0.23 / 14.7) = 1.016               │         │
+│  │  Propellant = 250 × (1.016 - 1) = 4 kg               │         │
+│  │  Wet mass = 254 kg                                    │         │
+│  │                                                        │         │
+│  │  High Isp makes LEO constellation feasible!          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Budget margin philosophy
+
+```
+Margin Allocation Strategy:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MARGIN TYPES:                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Type           │ Purpose              │ Typical     │         │
+│  │  ───────────────┼──────────────────────┼────────────  │         │
+│  │  Navigation     │ Maneuver errors      │ 2-5%        │         │
+│  │  Propulsion     │ Isp uncertainty      │ 1-3%        │         │
+│  │  Contingency    │ Unknown unknowns     │ 5-10%       │         │
+│  │  Extended life  │ Beyond design life   │ 0-20%       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  MARGIN STACKING METHODS:                                           │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Method 1: Additive (conservative)                   │         │
+│  │    Total margin = nav + prop + contingency = 10%     │         │
+│  │                                                        │         │
+│  │  Method 2: RSS (root sum square)                     │         │
+│  │    Total margin = √(3² + 2² + 5²) = 6%              │         │
+│  │    (assumes independent errors)                      │         │
+│  │                                                        │         │
+│  │  Method 3: Per-phase margins                         │         │
+│  │    Different margins for different phases            │         │
+│  │    Orbit acquisition: 5%                             │         │
+│  │    Operations: 10%                                   │         │
+│  │    EOL: 3%                                           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  GOLDEN RULE: Never use all your margin early!                     │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Delta-v budget calculator:**
+
+```python
+import numpy as np
+
+def tsiolkovsky(delta_v_m_s, isp_s, dry_mass_kg):
+    """
+    Calculate propellant mass using Tsiolkovsky equation.
+    
+    Returns:
+        Dictionary with mass ratio, propellant mass, wet mass
+    """
+    g0 = 9.81  # m/s²
+    v_exhaust = isp_s * g0  # m/s
+    
+    mass_ratio = np.exp(delta_v_m_s / v_exhaust)
+    propellant = dry_mass_kg * (mass_ratio - 1)
+    wet_mass = dry_mass_kg + propellant
+    prop_fraction = propellant / wet_mass
+    
+    return {
+        "mass_ratio": mass_ratio,
+        "propellant_kg": propellant,
+        "wet_mass_kg": wet_mass,
+        "prop_fraction": prop_fraction,
+    }
+
+def inverse_tsiolkovsky(propellant_kg, isp_s, dry_mass_kg):
+    """Calculate available delta-v from propellant mass."""
+    g0 = 9.81
+    v_exhaust = isp_s * g0
+    
+    wet_mass = dry_mass_kg + propellant_kg
+    mass_ratio = wet_mass / dry_mass_kg
+    delta_v = v_exhaust * np.log(mass_ratio)
+    
+    return delta_v
+
+def build_budget(items, margin_percent=10):
+    """
+    Build a delta-v budget from line items.
+    
+    Args:
+        items: List of (name, delta_v) tuples
+        margin_percent: Overall margin to add
+    
+    Returns:
+        Budget dictionary
+    """
+    subtotal = sum(dv for _, dv in items)
+    margin = subtotal * margin_percent / 100
+    total = subtotal + margin
+    
+    return {
+        "items": items,
+        "subtotal": subtotal,
+        "margin_percent": margin_percent,
+        "margin": margin,
+        "total": total,
+    }
+
+# Example calculations
+print("Delta-V Budget Analysis")
+print("=" * 60)
+
+# GEO communications satellite
+print("\n1. GEO Communications Satellite (15-year)")
+print("-" * 60)
+
+geo_items = [
+    ("GTO → GEO (combined burn)", 1800),
+    ("Drift to operational slot", 50),
+    ("E-W station keeping (15 yr)", 30),
+    ("N-S station keeping (15 yr)", 750),
+    ("Momentum management", 15),
+    ("Collision avoidance", 30),
+    ("Relocation (1 move)", 30),
+    ("De-orbit to graveyard", 11),
+]
+
+geo_budget = build_budget(geo_items, margin_percent=10)
+
+print(f"  {'Item':<35} {'Δv (m/s)':>10}")
+print("-" * 60)
+for name, dv in geo_budget["items"]:
+    print(f"  {name:<35} {dv:>10}")
+print("-" * 60)
+print(f"  {'Subtotal':<35} {geo_budget['subtotal']:>10}")
+print(f"  {f'+ {geo_budget[\"margin_percent\"]}% margin':<35} {geo_budget['margin']:>10.0f}")
+print(f"  {'TOTAL':<35} {geo_budget['total']:>10.0f}")
+
+# Propellant calculation
+print(f"\n  Propellant Calculation (Chemical, Isp=320s):")
+dry_mass = 2000
+result = tsiolkovsky(geo_budget['total'], 320, dry_mass)
+print(f"    Dry mass: {dry_mass} kg")
+print(f"    Mass ratio: {result['mass_ratio']:.2f}")
+print(f"    Propellant: {result['propellant_kg']:.0f} kg")
+print(f"    Wet mass: {result['wet_mass_kg']:.0f} kg")
+print(f"    Propellant fraction: {result['prop_fraction']*100:.1f}%")
+
+# With electric propulsion
+print(f"\n  With Electric Propulsion (Hall, Isp=1500s):")
+result_ep = tsiolkovsky(geo_budget['total'], 1500, dry_mass)
+print(f"    Propellant: {result_ep['propellant_kg']:.0f} kg")
+print(f"    Savings: {result['propellant_kg'] - result_ep['propellant_kg']:.0f} kg")
+
+# LEO constellation satellite
+print("\n2. LEO Constellation Satellite (5-year)")
+print("-" * 60)
+
+leo_items = [
+    ("Phasing to slot", 50),
+    ("Drag makeup (5 yr)", 10),
+    ("Collision avoidance", 15),
+    ("Plane maintenance", 25),
+    ("De-orbit", 100),
+]
+
+leo_budget = build_budget(leo_items, margin_percent=15)
+
+print(f"  {'Item':<35} {'Δv (m/s)':>10}")
+print("-" * 60)
+for name, dv in leo_budget["items"]:
+    print(f"  {name:<35} {dv:>10}")
+print("-" * 60)
+print(f"  {'Subtotal':<35} {leo_budget['subtotal']:>10}")
+print(f"  {f'+ {leo_budget[\"margin_percent\"]}% margin':<35} {leo_budget['margin']:>10.0f}")
+print(f"  {'TOTAL':<35} {leo_budget['total']:>10.0f}")
+
+leo_dry = 250
+result_leo = tsiolkovsky(leo_budget['total'], 1500, leo_dry)
+print(f"\n  Propellant (Hall, Isp=1500s):")
+print(f"    Dry mass: {leo_dry} kg")
+print(f"    Propellant: {result_leo['propellant_kg']:.1f} kg")
+
+# Compare propulsion systems
+print("\n3. Propulsion System Comparison")
+print("-" * 60)
+
+systems = [
+    ("Monoprop (N2H4)", 220),
+    ("Biprop (MMH/NTO)", 320),
+    ("Hall thruster", 1500),
+    ("Ion (gridded)", 3000),
+    ("Arcjet", 600),
+]
+
+delta_v = 3000  # m/s
+dry = 1000  # kg
+
+print(f"  For Δv = {delta_v} m/s, dry mass = {dry} kg:")
+print(f"")
+print(f"  {'System':<20} {'Isp':>8} {'Propellant':>12} {'Wet mass':>12}")
+print("-" * 60)
+
+for name, isp in systems:
+    result = tsiolkovsky(delta_v, isp, dry)
+    print(f"  {name:<20} {isp:>6} s {result['propellant_kg']:>10.0f} kg {result['wet_mass_kg']:>10.0f} kg")
+
+# Lifetime sensitivity
+print("\n4. Mission Lifetime vs Propellant (GEO)")
+print("-" * 60)
+
+base_orbit_dv = 1850  # m/s (orbit acquisition)
+annual_sk = 52  # m/s/year (E-W + N-S)
+eol_dv = 11  # m/s
+margin_pct = 10
+
+print(f"  Base (orbit acquisition): {base_orbit_dv} m/s")
+print(f"  Annual station keeping: {annual_sk} m/s/yr")
+print(f"")
+print(f"  {'Lifetime':>10} {'Total Δv':>12} {'Propellant':>12} {'Prop/year':>12}")
+print(f"  {'(years)':>10} {'(m/s)':>12} {'(kg)':>12} {'(kg/yr)':>12}")
+print("-" * 60)
+
+for years in [5, 10, 15, 20, 25]:
+    total_dv = base_orbit_dv + annual_sk * years + eol_dv
+    total_dv *= (1 + margin_pct/100)
+    result = tsiolkovsky(total_dv, 320, 2000)
+    prop_per_year = result['propellant_kg'] / years
+    print(f"  {years:>10} {total_dv:>12.0f} {result['propellant_kg']:>12.0f} {prop_per_year:>12.0f}")
+
+# Quick reference table
+print("\n5. Quick Reference: Common Mission Δv")
+print("-" * 60)
+
+missions = [
+    ("LEO insertion (from ground)", 9400),
+    ("LEO → GTO", 2440),
+    ("GTO → GEO", 1800),
+    ("LEO → GEO direct", 4200),
+    ("LEO → Moon", 3800),
+    ("Earth → Mars", 5500),
+    ("GEO → graveyard", 11),
+    ("550 km de-orbit", 100),
+]
+
+print(f"  {'Mission':<35} {'Δv (m/s)':>12}")
+print("-" * 60)
+for name, dv in missions:
+    print(f"  {name:<35} {dv:>12}")
+```
+
+**Key budget values:**
+
+| Mission type | Typical total Δv | Life | Dominant cost |
+|--------------|------------------|------|---------------|
+| GEO comms | 2.5-3.5 km/s | 15 yr | N-S SK (50%) |
+| LEO constellation | 200-400 m/s | 5 yr | De-orbit (50%) |
+| GPS/MEO | 500-1000 m/s | 12 yr | Orbit maint. |
+| Science LEO | 100-300 m/s | 5 yr | Drag makeup |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Forgetting de-orbit.** Regulatory requirement; must reserve fuel or use passive methods.
+
+2. **Underestimating N-S SK.** 50 m/s/year dominates GEO budget; consider inclined-orbit operation.
+
+3. **Ignoring collision avoidance.** Debris environment worsening; budget 1-5 m/s/year.
+
+4. **Using all margin early.** Unexpected maneuvers happen; preserve margin throughout mission.
+
+5. **Wrong Isp for operations.** EP Isp varies with power; use realistic operational values.
+
+6. **Forgetting momentum dumping.** Reaction wheels saturate; thrusters needed for desaturation.
+
+7. **Launch vehicle dispersion.** GTO delivery varies; budget for worst-case injection.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Wertz, J.R. & Larson, W.J. "Space Mission Analysis and Design"
+- Vallado, D.A. "Fundamentals of Astrodynamics and Applications"
+- IADC Space Debris Mitigation Guidelines
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Station Keeping](/en/space/maneuvers-and-delta-v/station-keeping/) — operational costs
+- [Hohmann Transfer](/en/space/maneuvers-and-delta-v/hohmann-transfer/) — orbit acquisition
+- [Link Budget](/en/space/link-budget-master-class/) — mission design integration
+
+</section>

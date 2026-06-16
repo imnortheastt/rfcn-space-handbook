@@ -8,17 +8,358 @@ track: n3
 unit: session-management-deep-dive
 order: 4
 level: L4
-estimatedReadingMinutes: 5
-title: "UPF selection"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-session-management-deep-dive-01-pdu-session-establishment"]
+spiralRevisits: ["core-network-n5-edge-computing-01-mec"]
+title: "UPF Selection"
+description: "How SMF picks the right UPF — location, DNN, slicing, and SSC modes."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 23.502"]
+tags: ["upf", "5g", "smf", "ssc-mode", "edge-computing"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# UPF selection
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+When a UE requests a PDU session, the SMF must pick which UPF handles the traffic. Wrong choice = bad latency, suboptimal routing, or inability to apply policy.
+
+In edge computing and 5G slicing, UPF selection becomes critical — the UPF determines where traffic enters the data network.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What influences UPF selection
+
+```
+UPF Selection Factors:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Location-based:                                        │
+│  ├── UE location (TAI, cell ID)                        │
+│  ├── User location info from AMF                       │
+│  └── Geographic proximity to DN                         │
+│                                                          │
+│  Service-based:                                         │
+│  ├── DNN (Data Network Name)                           │
+│  ├── Network slice (S-NSSAI)                           │
+│  └── SSC mode requirements                              │
+│                                                          │
+│  Capability-based:                                      │
+│  ├── UPF features (LADN, UL classifier)                │
+│  ├── Interface to specific DN                          │
+│  └── UPF capacity/load                                  │
+│                                                          │
+│  Policy-based:                                          │
+│  ├── SM policy from PCF                                │
+│  ├── Subscription data from UDM                        │
+│  └── Local configuration                               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### UPF deployment patterns
+
+```
+UPF Deployment Scenarios:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Centralized:                                           │
+│  ┌────────────────────────────────────────────────┐     │
+│  │                                                 │     │
+│  │   gNB ─────────────────► Central UPF ─► DN    │     │
+│  │   gNB ─────────────────►             │         │     │
+│  │   gNB ─────────────────►             │         │     │
+│  │                                                 │     │
+│  │   + Simple, fewer UPFs to manage               │     │
+│  │   - Higher latency for edge traffic            │     │
+│  │                                                 │     │
+│  └────────────────────────────────────────────────┘     │
+│                                                          │
+│  Distributed (Edge):                                    │
+│  ┌────────────────────────────────────────────────┐     │
+│  │                                                 │     │
+│  │   gNB ──► Edge UPF ──► Local DN (MEC)         │     │
+│  │           │                                    │     │
+│  │           └──► Central UPF ──► Internet       │     │
+│  │                                                 │     │
+│  │   + Low latency for edge apps                  │     │
+│  │   - More UPFs, complex selection               │     │
+│  │                                                 │     │
+│  └────────────────────────────────────────────────┘     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Basic selection algorithm
+
+```
+SMF UPF Selection:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Get UE location from AMF                            │
+│     - TAI (Tracking Area Identity)                      │
+│     - Cell ID (if available)                            │
+│                                                          │
+│  2. Match DNN requirements                              │
+│     - Which UPFs serve this DNN?                        │
+│     - Filter to compatible UPFs                         │
+│                                                          │
+│  3. Match S-NSSAI (slice)                               │
+│     - UPF must belong to the slice                      │
+│     - Filter further                                    │
+│                                                          │
+│  4. Apply SSC mode                                      │
+│     - SSC 1: anchor UPF, no change during mobility      │
+│     - SSC 2: UPF changes with location                  │
+│     - SSC 3: old + new UPF during transition           │
+│                                                          │
+│  5. Consider locality                                   │
+│     - For SSC 2/3, prefer local UPF                     │
+│     - For edge apps, select closest UPF                │
+│                                                          │
+│  6. Check capacity/load                                 │
+│     - Avoid overloaded UPFs                            │
+│     - Load balancing among eligible UPFs               │
+│                                                          │
+│  7. Final selection                                     │
+│     - SMF creates N4 session with chosen UPF           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### SSC modes explained
+
+```
+Session and Service Continuity Modes:
+
+SSC Mode 1 (Anchor):
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  IP address preserved, same UPF throughout session      │
+│                                                          │
+│  Move 1:    gNB-A ──► UPF ──► DN                       │
+│  Move 2:    gNB-B ──► UPF ──► DN  (same UPF)           │
+│                                                          │
+│  Use case: Long-lived connections (SSH, VPN)            │
+│  Downside: Suboptimal path if UE moves far              │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+SSC Mode 2 (Break-before-make):
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Session released, new session with new UPF             │
+│                                                          │
+│  Move 1:    gNB-A ──► UPF-A ──► DN                     │
+│  Trigger:   UE moves to new area                        │
+│  Release:   Session to UPF-A deleted                    │
+│  Establish: gNB-B ──► UPF-B ──► DN (new IP)            │
+│                                                          │
+│  Use case: Web browsing, short-lived connections        │
+│  Downside: Brief service interruption                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+SSC Mode 3 (Make-before-break):
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  New UPF established before old one released            │
+│                                                          │
+│  Move 1:    gNB-A ──► UPF-A ──► DN                     │
+│  Trigger:   UE moves to new area                        │
+│  Parallel:  UPF-B created, multi-homed briefly         │
+│  Release:   UPF-A deleted after transition              │
+│  Result:    gNB-B ──► UPF-B ──► DN (new IP)            │
+│                                                          │
+│  Use case: Seamless edge transition                     │
+│  Downside: Complex, both UPFs active briefly            │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Edge computing and LADN
+
+```
+Local Area Data Network (LADN):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  LADN = DNN available only in specific area             │
+│                                                          │
+│  Example: Factory floor MEC application                 │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ LADN Service Area (TA 1, TA 2, TA 3)            │    │
+│  │                                                  │    │
+│  │   gNB-1 ──┐                                     │    │
+│  │   gNB-2 ──┼──► Edge UPF ──► Factory MEC        │    │
+│  │   gNB-3 ──┘                                     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Outside LADN area:                                     │
+│  - UE cannot establish session to this DNN              │
+│  - Or existing session is released                      │
+│                                                          │
+│  SMF knows LADN service areas and enforces:             │
+│  - Rejects PDU session if UE outside area               │
+│  - Triggers release when UE leaves area                 │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### UL classifier and branching
+
+```
+Uplink Classifier (UL CL):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Split traffic to different DNs based on packet filter  │
+│                                                          │
+│                    ┌──► Edge UPF ──► Local DN           │
+│                    │    (match: dest = 10.0.0.0/8)      │
+│  UE ──► gNB ──► UPF (UL CL)                             │
+│                    │                                     │
+│                    └──► Central UPF ──► Internet        │
+│                         (default route)                  │
+│                                                          │
+│  Use case:                                              │
+│  - Gaming traffic → local edge server                   │
+│  - Web traffic → central internet breakout              │
+│                                                          │
+│  Single PDU session, single IP, multiple paths          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### NRF-based UPF discovery
+
+```
+UPF Discovery via NRF:
+
+SMF                    NRF
+│                       │
+│ Nnrf_NFDiscovery     │
+│ Query:               │
+│ - NF type: UPF       │
+│ - S-NSSAI: eMBB      │
+│ - DNN: internet      │
+│ - TAI: TA1           │
+│────────────────────►│
+│                       │
+│ Discovery Response   │
+│ - UPF-1: capacity 80%│
+│ - UPF-2: capacity 40%│
+│ - UPF-3: capacity 60%│
+│◄────────────────────│
+│                       │
+│ [SMF selects UPF-2   │
+│  based on load]      │
+│                       │
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Selection criteria by scenario:**
+
+| Scenario | Key Criteria | SSC Mode |
+|----------|--------------|----------|
+| Basic internet | DNN, slice, load | SSC 1 |
+| Edge gaming | Location, latency | SSC 2 or 3 |
+| Enterprise VPN | DNN, anchor required | SSC 1 |
+| Factory LADN | Service area, local UPF | SSC 2 |
+| Video streaming | Capacity, DNN | SSC 1 or 2 |
+
+**Debugging UPF selection:**
+
+```bash
+# Check NRF for registered UPFs
+curl -X GET "http://nrf:8080/nnrf-disc/v1/nf-instances?target-nf-type=UPF"
+
+# SMF logs for selection decision
+grep "UPF selection" /var/log/smf/*.log
+
+# Verify N4 session to correct UPF
+tcpdump -i any port 8805 -w pfcp.pcap
+
+# PFCP association status
+pfcp_client status
+```
+
+**Configuration considerations:**
+
+| Config | Impact |
+|--------|--------|
+| UPF service area | Limits where UPF can be selected |
+| DNN-to-UPF mapping | Which UPFs serve which DNNs |
+| S-NSSAI-to-UPF | Slice-specific UPF pools |
+| LADN configuration | Geographic service boundaries |
+| Load thresholds | When to avoid overloaded UPFs |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **No UPF for the slice.** If the requested S-NSSAI has no UPF registered, session establishment fails. Verify slice configuration.
+
+2. **DNN not served.** UPF must have interface to requested DNN. Missing N6 interface = session rejected.
+
+3. **SSC mode mismatch.** UE requests SSC 2 but subscription only allows SSC 1 → negotiation or rejection.
+
+4. **LADN outside area.** UE requests LADN DNN but is outside service area → establishment rejected.
+
+5. **Overloaded UPF selected.** Without proper load balancing, SMF may pick congested UPF. Use NRF load info.
+
+6. **Edge UPF unreachable.** If edge UPF goes down, need fallback to central UPF. Plan redundancy.
+
+7. **UL classifier misconfig.** Wrong packet filters send traffic to wrong UPF. Test routing rules.
+
+8. **Stale NRF data.** NRF cache may have outdated UPF info. Ensure heartbeat/subscription works.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System Architecture for 5GS"
+- 3GPP TS 23.502, "Procedures for 5GS"
+- 3GPP TS 23.548, "5GS Enhancements for Edge Computing"
+- 3GPP TS 29.510, "NRF Services"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [QoS flows](/en/core-network/session-management-deep-dive/qos-flows/) — traffic differentiation after UPF selection
+- [Edge computing](/en/core-network/edge-computing/mec-overview/) — why edge UPF matters
+- [Network slicing](/en/core-network/network-slicing/slice-architecture/) — slice-specific UPFs
+
+</section>

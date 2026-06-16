@@ -8,17 +8,332 @@ track: n3
 unit: session-management-deep-dive
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "PDU session modification"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 11
+prerequisites: ["core-network-n3-session-management-deep-dive-01-pdu-session-establishment"]
+spiralRevisits: ["core-network-n4-qos-01-5qi"]
+title: "PDU Session Modification"
+description: "Changing active sessions — adding QoS flows, updating AMBR, and network-triggered modifications."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.502", "3GPP TS 24.501"]
+tags: ["pdu-session", "5g", "modification", "qos-flow"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# PDU session modification
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Once a PDU session is established, it doesn't stay static. You start a video call — network adds a QoS flow. You hit a data cap — network throttles your AMBR. You move to an edge cell — UPF changes.
+
+**Session modification** handles all these runtime changes without tearing down and rebuilding the session.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What can be modified
+
+```
+Modifiable Session Parameters:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  QoS Flows:                                             │
+│  ├── Add new QoS flow (e.g., for video call)           │
+│  ├── Delete QoS flow (call ended)                       │
+│  └── Modify QoS parameters (5QI, MBR, GBR)             │
+│                                                          │
+│  Session AMBR:                                          │
+│  ├── Increase (upgraded plan, off-peak hours)          │
+│  └── Decrease (data cap reached, congestion)           │
+│                                                          │
+│  UPF/Data Path:                                         │
+│  ├── Change UPF (SSC mode 2/3, mobility)               │
+│  └── Add/remove UL classifier (edge breakout)          │
+│                                                          │
+│  QoS Rules:                                             │
+│  ├── Add packet filter rule                            │
+│  └── Modify/delete existing rules                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Who triggers modification
+
+| Initiator | Trigger Example |
+|-----------|-----------------|
+| **UE** | Start video call, request higher QoS |
+| **SMF** | Policy change from PCF |
+| **AMF** | Handover requires path update |
+| **AF** | External app requests QoS via NEF |
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### UE-initiated modification
+
+```
+UE-Initiated Modification (e.g., request higher QoS):
+
+UE           gNB          AMF          SMF          PCF
+│             │            │            │            │
+│ PDU Session │            │            │            │
+│ Modification│            │            │            │
+│ Request     │            │            │            │
+│ - New QoS   │            │            │            │
+│   rules req │            │            │            │
+│────────────►│───────────►│            │            │
+│             │            │            │            │
+│             │            │ Nsmf_PDU   │            │
+│             │            │ Session    │            │
+│             │            │ UpdateSM   │            │
+│             │            │ Context    │            │
+│             │            │───────────►│            │
+│             │            │            │            │
+│             │            │            │ Policy     │
+│             │            │            │ update     │
+│             │            │            │───────────►│
+│             │            │            │            │
+│             │            │            │ Authorized │
+│             │            │            │ QoS        │
+│             │            │            │◄───────────│
+│             │            │            │            │
+│             │            │ N2 SM Info │            │
+│             │ N2 PDU Sess│ (if RAN    │            │
+│             │ Res Modify │ update     │            │
+│             │ Request    │ needed)    │            │
+│             │◄───────────│◄───────────│            │
+│             │            │            │            │
+│ RRC Reconfig│            │            │            │
+│ (DRB modify)│            │            │            │
+│◄────────────│            │            │            │
+│             │            │            │            │
+│ RRC Reconfig│            │            │            │
+│ Complete    │            │            │            │
+│────────────►│            │            │            │
+│             │            │            │            │
+│ PDU Session │            │            │            │
+│ Modification│            │            │            │
+│ Command     │            │            │            │
+│◄────────────│◄───────────│◄───────────│            │
+│             │            │            │            │
+```
+
+### Network-initiated modification
+
+```
+Network-Initiated Modification (e.g., policy change):
+
+PCF          SMF          AMF          gNB          UE
+│             │            │            │            │
+│ Policy      │            │            │            │
+│ Update      │            │            │            │
+│ Notify      │            │            │            │
+│────────────►│            │            │            │
+│             │            │            │            │
+│             │ Namf_Comm  │            │            │
+│             │ N1N2       │            │            │
+│             │ Message    │            │            │
+│             │ Transfer   │            │            │
+│             │───────────►│            │            │
+│             │            │            │            │
+│             │            │ N2 PDU Sess│            │
+│             │            │ Res Modify │            │
+│             │            │ Request    │            │
+│             │            │───────────►│            │
+│             │            │            │            │
+│             │            │            │ RRC Reconfig
+│             │            │            │ (new DRB)  │
+│             │            │            │───────────►│
+│             │            │            │            │
+│             │            │            │ RRC Reconfig
+│             │            │            │ Complete   │
+│             │            │            │◄───────────│
+│             │            │            │            │
+│             │            │ N2 PDU Sess│            │
+│             │            │ Res Modify │            │
+│             │            │ Response   │            │
+│             │            │◄───────────│            │
+│             │            │            │            │
+│             │            │ PDU Session│            │
+│             │            │ Modification            │
+│             │            │ Command    │            │
+│             │            │───────────────────────►│
+│             │            │            │            │
+```
+
+### Adding a QoS flow
+
+```
+Adding QoS Flow (video call starts):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Before: Default QoS only                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PDU Session 1                                    │    │
+│  │ └── QoS Flow 1 (QFI=1, 5QI=9, best effort)     │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  AF/IMS triggers video call via PCF/NEF                 │
+│                           │                              │
+│                           ▼                              │
+│                                                          │
+│  After: Additional GBR flow                             │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PDU Session 1                                    │    │
+│  │ ├── QoS Flow 1 (QFI=1, 5QI=9, best effort)     │    │
+│  │ └── QoS Flow 2 (QFI=2, 5QI=2, GBR video)       │    │
+│  │          │                                       │    │
+│  │          └── Packet filter: RTP to/from IMS    │    │
+│  │          └── MBR: 10 Mbps, GBR: 5 Mbps         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Modification during handover
+
+```
+PDU Session Update During Xn Handover:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. UE hands over from gNB-A to gNB-B                   │
+│                                                          │
+│  2. Target gNB sends Path Switch Request to AMF         │
+│     - New gNB tunnel endpoint                           │
+│                                                          │
+│  3. AMF notifies SMF (Nsmf_PDUSession_UpdateSMContext)  │
+│     - N3 tunnel needs update                            │
+│                                                          │
+│  4. SMF updates UPF via PFCP (N4)                       │
+│     - New FAR with target gNB address                   │
+│                                                          │
+│  5. Data path switches to new gNB                       │
+│                                                          │
+│  Before:                      After:                    │
+│  UE ◄─► gNB-A ◄─► UPF        UE ◄─► gNB-B ◄─► UPF     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### AMBR modification
+
+```
+Session AMBR Update (data cap reached):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  CHF/OCS reports: User exceeded 10 GB limit             │
+│                   │                                      │
+│                   ▼                                      │
+│  PCF decides: Reduce session AMBR to 1 Mbps             │
+│                   │                                      │
+│                   ▼                                      │
+│  SMF receives policy update                             │
+│                   │                                      │
+│                   ▼                                      │
+│  SMF updates UPF QER (rate limiting)                    │
+│  SMF sends modification command to UE                   │
+│                                                          │
+│  Before:                                                │
+│  Session AMBR: 100 Mbps DL / 50 Mbps UL                │
+│                                                          │
+│  After:                                                 │
+│  Session AMBR: 1 Mbps DL / 1 Mbps UL                   │
+│                                                          │
+│  Note: IP address unchanged, session stays active       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Common modification triggers:**
+
+| Trigger | What Changes |
+|---------|--------------|
+| Video call start | Add GBR QoS flow (5QI=2) |
+| Video call end | Remove GBR QoS flow |
+| Data cap reached | Reduce session AMBR |
+| Handover | Update N3 tunnel endpoint |
+| Edge breakout | Add UL classifier rule |
+| Gaming mode | Adjust QoS parameters |
+
+**Debugging modification:**
+
+```bash
+# Wireshark filter for modification messages
+nas-5gs.sm.message_type == 0xc5 || nas-5gs.sm.message_type == 0xca || nas-5gs.sm.message_type == 0xcb
+
+# N4 session modification
+pfcp.message_type == 3 || pfcp.message_type == 4
+```
+
+**Key message types:**
+
+| Message | Direction | Purpose |
+|---------|-----------|---------|
+| PDU Session Modification Request | UE→Network | UE wants change |
+| PDU Session Modification Command | Network→UE | Network changes session |
+| PDU Session Modification Complete | UE→Network | UE confirms command |
+| PDU Session Modification Reject | Network→UE | Change denied |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Ignoring modification command.** When network sends modification command, UE must apply it. Ignoring can cause session release.
+
+2. **QoS flow without packet filter.** Adding a QoS flow requires packet filter to classify traffic. Missing filter means traffic uses default flow.
+
+3. **GBR request without resources.** Requesting guaranteed bitrate when network is congested → modification rejected.
+
+4. **N4 update failure.** If SMF can't update UPF, modification fails. Check N4 connectivity.
+
+5. **Forgetting RAN update.** Some modifications require gNB reconfiguration (new DRB). AMF must send N2 message.
+
+6. **Policy timing issues.** PCF policy change may not reach SMF instantly. Stale policy can conflict with modification.
+
+7. **Multi-access inconsistency.** UE on both 3GPP and non-3GPP must have consistent QoS rules across both accesses.
+
+8. **Session AMBR vs UE AMBR.** Don't confuse session AMBR (per PDU session) with UE AMBR (across all sessions).
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.502, "Procedures for 5GS"
+- 3GPP TS 24.501, "NAS protocol for 5GS"
+- 3GPP TS 29.502, "SMF Services"
+- 3GPP TS 29.244, "PFCP Protocol"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [PDU session release](/en/core-network/session-management-deep-dive/pdu-session-release/) — ending sessions
+- [QoS flows](/en/core-network/session-management-deep-dive/qos-flows/) — flow management details
+- [Policy and charging](/en/core-network/policy-and-charging/pcf-overview/) — what triggers modifications
+
+</section>

@@ -8,17 +8,174 @@ track: r2
 unit: arrays
 order: 2
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["rf-r2-arrays-01-linear-array"]
+spiralRevisits: []
 title: "Planar array"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "2D element arrangement for pencil beams and 2D scanning."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: []
+tags: ["planar-array", "2d-array", "rectangular-array", "pencil-beam", "2d-scanning"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Planar array
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why planar arrays?
+
+A linear array gives you a fan beam — narrow in one dimension, wide in the other. To get a pencil beam (narrow in both dimensions), you need elements arranged in a 2D grid: a planar array.
+
+Planar arrays enable 2D beam steering, pencil beams for radar, high-gain satellite antennas, and 5G massive MIMO panels. They're the workhorse of modern phased array systems.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+Think of a planar array as a linear array of linear arrays. Elements arranged in rows and columns, each contributing to a 2D radiation pattern.
+
+In one direction, the row spacing controls the beam; in the other, the column spacing does. The result is independent control of azimuth and elevation beam directions.
+
+The beam becomes a pencil pointing wherever you steer it — not a fan that only moves in one plane.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Mechanism
+
+### Rectangular planar array
+
+$M \times N$ elements arranged in a grid:
+- $M$ elements along x-axis with spacing $d_x$
+- $N$ elements along y-axis with spacing $d_y$
+
+### Array factor
+
+$$AF(\theta,\phi) = AF_x(\theta,\phi) \times AF_y(\theta,\phi)$$
+
+For uniform rectangular array:
+
+$$AF = \left[\frac{\sin\left(\frac{M\psi_x}{2}\right)}{\sin\left(\frac{\psi_x}{2}\right)}\right] \times \left[\frac{\sin\left(\frac{N\psi_y}{2}\right)}{\sin\left(\frac{\psi_y}{2}\right)}\right]$$
+
+where:
+- $\psi_x = kd_x\sin\theta\cos\phi + \beta_x$
+- $\psi_y = kd_y\sin\theta\sin\phi + \beta_y$
+
+### Beamwidth
+
+In principal planes:
+
+$$\theta_{x,HPBW} \approx 0.886 \frac{\lambda}{Md_x}$$
+
+$$\theta_{y,HPBW} \approx 0.886 \frac{\lambda}{Nd_y}$$
+
+A square array ($M = N$, $d_x = d_y$) produces a symmetric pencil beam.
+
+### Directivity
+
+For broadside planar array:
+
+$$D \approx \frac{4\pi A_{eff}}{\lambda^2} \approx \frac{4\pi (Md_x)(Nd_y)}{\lambda^2}$$
+
+With $d_x = d_y = \lambda/2$:
+
+$$D \approx \pi MN$$
+
+A 10×10 array: $D \approx 314 = 25$ dBi.
+
+### 2D beam steering
+
+To steer beam to $(\theta_0, \phi_0)$:
+
+$$\beta_x = -kd_x\sin\theta_0\cos\phi_0$$
+$$\beta_y = -kd_y\sin\theta_0\sin\phi_0$$
+
+Each element phase:
+$$\phi_{mn} = m\beta_x + n\beta_y$$
+
+### Grating lobes
+
+In 2D, grating lobes appear in both dimensions. For full hemisphere scan (±90°):
+
+$$d_x, d_y \leq \frac{\lambda}{2}$$
+
+### Sidelobe control
+
+Separable amplitude taper:
+$$w_{mn} = w_m^{(x)} \times w_n^{(y)}$$
+
+Apply Taylor, Chebyshev, or other window in each dimension independently.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Example: Weather radar**
+
+S-band (3 GHz), 1° × 1° pencil beam.
+
+Beamwidth 1° requires aperture: $D \approx 0.886 \times 10/1° \times (180/\pi) \approx 5$ m.
+
+With $d = \lambda/2 = 5$ cm spacing: need 100 × 100 = 10,000 elements.
+
+Directivity: $\pi \times 10000 = 31,400 = 45$ dBi.
+
+**Example: 5G mmWave panel**
+
+28 GHz, $\lambda = 10.7$ mm, $d = 5$ mm spacing.
+
+8×8 array: 64 elements.
+
+Beamwidth: $\theta \approx 0.886 \times 10.7/(8 \times 5) = 14°$.
+
+Directivity: $\pi \times 64 = 201 = 23$ dBi.
+
+With beam steering: can scan ±60° before grating lobes appear.
+
+**Example: GEO satellite antenna**
+
+Ku-band (12 GHz), 0.5° beam for spot coverage.
+
+Aperture ~2.5 m. Using sparse array or reflector-fed array reduces element count while maintaining aperture.
+
+**Example: Triangular lattice**
+
+Hexagonal element arrangement allows $d_{eff} = 0.577\lambda$ instead of $0.5\lambda$ for same grating lobe performance. Reduces element count by ~15% for same aperture.
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Element count scales as $N^2$.** A 2× larger aperture needs 4× more elements. Cost and complexity grow fast.
+
+2. **Separability assumption.** $AF = AF_x \times AF_y$ assumes rectangular grid. Triangular or irregular grids need full 2D analysis.
+
+3. **Scan loss.** At large scan angles, effective aperture reduces by $\cos\theta$. A 60° scan loses 3 dB from broadside.
+
+4. **Grating lobes in 2D.** Must check both principal planes AND diagonal directions. Diagonal spacing is $\sqrt{d_x^2 + d_y^2}$.
+
+5. **Feed network complexity.** Every element needs amplitude and phase control. Corporate feed networks have loss; spatial feeding avoids this.
+
+6. **Thermal management.** High-power arrays at mmWave have significant heat. Element-level power amplifiers need cooling.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Balanis, *Antenna Theory*, Chapter 6 — planar array theory.
+- Mailloux, *Phased Array Antenna Handbook* — design and optimization.
+- Hansen, *Phased Array Antennas* — advanced topics.
+
+</section>

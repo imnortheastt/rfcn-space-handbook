@@ -8,17 +8,389 @@ track: n0
 unit: osi-tcpip-backend-perspective
 order: 4
 level: L1
-estimatedReadingMinutes: 5
-title: "Luong goi tin dau cuoi"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 15
+prerequisites: ["core-network-n0-osi-tcpip-backend-perspective-03-sockets-and-apis"]
+spiralRevisits: ["core-network-n2-5g-core-sba-02-service-communication"]
+title: "Luồng gói tin đầu cuối"
+description: "Theo dõi một HTTP request từ browser đến server — mọi hop, mọi header, mọi quyết định."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["RFC 791", "RFC 793", "RFC 7230"]
+tags: ["packet-flow", "networking", "debugging", "tracing"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Luong goi tin dau cuoi
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+Khi request của bạn timeout, nó fail ở đâu? Client? Load balancer? Backend? Database?
+
+Tracing packet end-to-end dạy bạn nơi cần nhìn. Bằng cách hiểu mọi hop, bạn có thể cô lập vấn đề nhanh hơn. Đây là kỹ năng phân biệt "tôi không biết tại sao nó chậm" với "hop thứ ba có 50ms latency thêm do asymmetric routing."
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+Hãy trace điều gì xảy ra khi bạn gõ `curl https://api.example.com/users` và nhấn Enter.
+
+**Hành trình trong 10 bước:**
+
+1. **DNS resolution** — Hostname → địa chỉ IP
+2. **TCP handshake** — SYN → SYN-ACK → ACK
+3. **TLS handshake** — Certificate, trao đổi key
+4. **HTTP request** — Application data được gửi
+5. **Routing đến server** — Hop qua Internet
+6. **Server xử lý** — Application logic chạy
+7. **HTTP response** — Data chảy ngược
+8. **Routing về** — Có thể đường khác
+9. **TLS decryption** — Client đọc response
+10. **TCP teardown** — FIN → ACK → FIN → ACK
+
+Mỗi bước có thể fail. Mỗi bước thêm latency. Hãy trace chi tiết.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### Bước 1: DNS Resolution
+
+Trước hết, chúng ta cần địa chỉ IP.
+
+```
+Máy bạn → Recursive resolver → Root → TLD → Authoritative
+     ←────────────── Địa chỉ IP ───────────────────────
+```
+
+**Điều gì xảy ra:**
+1. Kiểm tra cache local (`/etc/hosts`, nscd, systemd-resolved)
+2. Query resolver đã cấu hình (thường ISP hoặc 8.8.8.8)
+3. Resolver lặp: root → .com → example.com → api.example.com
+4. A/AAAA record được trả với TTL
+
+**Timing:** 0-100ms (cached) đến 200-500ms (cold)
+
+**Debug:**
+```bash
+dig +trace api.example.com
+time dig api.example.com
+cat /etc/resolv.conf
+```
+
+### Bước 2: TCP Handshake
+
+Ba packet để thiết lập kết nối.
+
+```
+Client                          Server
+  │                              │
+  │──── SYN (seq=1000) ─────────►│
+  │                              │
+  │◄─── SYN-ACK (seq=2000, ack=1001) ───│
+  │                              │
+  │──── ACK (ack=2001) ─────────►│
+  │                              │
+  │      Kết nối đã thiết lập    │
+```
+
+**Điều gì xảy ra:**
+1. Client gửi SYN với initial sequence number
+2. Server phản hồi SYN-ACK, sequence của nó, acknowledge của client
+3. Client acknowledge sequence của server
+
+**Timing:** 1 RTT (round-trip time) — thường 10-100ms
+
+**Debug:**
+```bash
+tcpdump -i any 'tcp[tcpflags] & (tcp-syn|tcp-ack) != 0' and host api.example.com
+ss -ti dst api.example.com  # Hiển thị RTT
+```
+
+### Bước 3: TLS Handshake
+
+Bảo mật kết nối trước khi gửi data.
+
+```
+Client                          Server
+  │                              │
+  │──── ClientHello ────────────►│  (cipher hỗ trợ, SNI)
+  │                              │
+  │◄─── ServerHello + Cert ─────│  (cipher chọn, certificate)
+  │                              │
+  │──── Key Exchange ───────────►│  (ECDHE params)
+  │                              │
+  │◄─── Finished ───────────────│
+  │                              │
+  │──── Finished ───────────────►│
+  │                              │
+  │      Kênh mã hóa sẵn sàng    │
+```
+
+**TLS 1.2:** 2 RTT cho full handshake
+**TLS 1.3:** 1 RTT (0-RTT với resumption)
+
+**Điều gì xảy ra:**
+1. Client gửi cipher hỗ trợ, TLS version, SNI (Server Name Indication)
+2. Server gửi cipher chọn, certificate chain
+3. Client verify cert với trust store, generate session key
+4. Cả hai derive symmetric key từ shared secret
+
+**Debug:**
+```bash
+openssl s_client -connect api.example.com:443 -servername api.example.com
+curl -v --trace-time https://api.example.com
+```
+
+### Bước 4: HTTP Request
+
+Bây giờ chúng ta có thể gửi application data.
+
+```
+POST /users HTTP/1.1
+Host: api.example.com
+Content-Type: application/json
+Content-Length: 42
+Authorization: Bearer eyJhbG...
+
+{"name": "Alice", "email": "a@example.com"}
+```
+
+**Điều gì xảy ra:**
+1. Application gọi `send()` với HTTP request
+2. TLS mã hóa data
+3. TCP segment nó (nếu cần) và thêm header
+4. IP thêm địa chỉ source/destination
+5. Link layer thêm địa chỉ MAC
+6. NIC truyền frame
+
+**Packet bây giờ trông như:**
+```
+┌──────────────────────────────────────────────────┐
+│ Ethernet │ IP │ TCP │ TLS Record │ HTTP Request │
+│  14 B    │20 B│20 B │   ~50 B    │  Variable    │
+└──────────────────────────────────────────────────┘
+```
+
+### Bước 5: Routing đến Server
+
+Packet đi qua nhiều mạng.
+
+```
+PC → Home router → ISP → IX → Cloud provider → Load balancer → Server
+```
+
+**Tại mỗi hop:**
+1. Link layer header bị bóc
+2. IP TTL giảm 1 (packet bị drop nếu TTL=0)
+3. Routing table được tra cứu cho next hop
+4. Link layer header mới được thêm
+5. Forward đến interface tiếp
+
+**Path điển hình:**
+- 1-2 hop: Mạng local
+- 3-5 hop: ISP backbone
+- 6-10 hop: Internet exchange, transit provider
+- 11-15 hop: Mạng đích, load balancer
+
+**Debug:**
+```bash
+traceroute -T -p 443 api.example.com  # TCP traceroute
+mtr api.example.com                   # Traceroute liên tục
+```
+
+### Bước 6: Server Xử Lý
+
+Packet đến server.
+
+```
+NIC → Kernel → Socket buffer → Application → Business logic → Database
+```
+
+**Điều gì xảy ra:**
+1. NIC nhận frame, DMA vào ring buffer
+2. Kernel interrupt, packet di chuyển vào socket receive buffer
+3. `accept()` trả về connected socket
+4. `recv()` copy data vào application buffer
+5. TLS decrypt, HTTP parse
+6. Application xử lý request (auth, validation, DB query)
+7. Response được tạo
+
+**Phân tích timing:**
+- Network receive: &lt;1ms
+- TLS decrypt: &lt;1ms
+- Application logic: Variable (thường là bottleneck)
+- Database query: 1-100ms điển hình
+
+**Debug:**
+```bash
+# Trên server
+tcpdump -i any port 443 -w capture.pcap
+ss -tlnp  # Đang listen gì
+strace -e recv,send -p <pid>  # Syscall
+```
+
+### Bước 7-8: Response Trở Về
+
+Response đi theo quy trình tương tự ngược lại.
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json
+Content-Length: 89
+
+{"id": 12345, "name": "Alice", "email": "a@example.com", "created_at": "2024-01-15T10:30:00Z"}
+```
+
+**Khác biệt chính:** Đường về có thể khác (asymmetric routing). BGP route packet dựa trên destination, không phải origin.
+
+### Bước 9: Client Nhận
+
+```
+NIC → Kernel → Socket buffer → recv() → TLS decrypt → HTTP parse → Application
+```
+
+**Điều gì xảy ra:**
+1. Kernel reassemble TCP segment (nếu bị chia)
+2. `recv()` trả data cho application
+3. TLS decrypt
+4. HTTP response parse
+5. Application xử lý kết quả
+
+### Bước 10: TCP Teardown
+
+Bốn packet để đóng gracefully.
+
+```
+Client                          Server
+  │                              │
+  │──── FIN ────────────────────►│  (Client gửi xong)
+  │                              │
+  │◄─── ACK ────────────────────│
+  │                              │
+  │◄─── FIN ────────────────────│  (Server gửi xong)
+  │                              │
+  │──── ACK ────────────────────►│
+  │                              │
+  │      Kết nối đã đóng         │
+```
+
+**TIME_WAIT:** Client ở TIME_WAIT trong 2×MSL (~60 giây) để xử lý delayed packet. Đây là lý do bạn thấy nhiều TIME_WAIT socket trên client bận.
+
+## Tổng Ngân Sách Latency
+
+Cho một HTTPS request điển hình:
+
+| Phase | Thời gian |
+|-------|-----------|
+| DNS lookup | 0-50ms (cached) |
+| TCP handshake | 1 RTT (~30ms) |
+| TLS handshake | 1-2 RTT (~60ms) |
+| HTTP request flight | 0.5 RTT (~15ms) |
+| Server processing | 10-100ms |
+| HTTP response flight | 0.5 RTT (~15ms) |
+| **Tổng** | **~130-270ms** |
+
+Connection reuse (HTTP keep-alive) loại bỏ TCP và TLS handshake cho request tiếp theo.
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Workflow capture packet đầy đủ:**
+
+```bash
+# Capture toàn bộ exchange
+tcpdump -i any -w trace.pcap host api.example.com
+
+# Trong terminal khác
+curl -v https://api.example.com/users
+
+# Phân tích
+wireshark trace.pcap
+# Hoặc phân tích CLI:
+tcpdump -r trace.pcap -n -tttt
+```
+
+**Xác định latency được thêm ở đâu:**
+
+```bash
+# DNS timing
+time dig api.example.com
+
+# TCP + TLS timing
+curl -o /dev/null -w "DNS: %{time_namelookup}s
+Connect: %{time_connect}s
+TLS: %{time_appconnect}s
+TTFB: %{time_starttransfer}s
+Total: %{time_total}s
+" https://api.example.com/users
+
+# Latency theo từng hop
+mtr -r -c 10 api.example.com
+```
+
+**Output ví dụ:**
+```
+DNS: 0.012s
+Connect: 0.045s      # TCP handshake xong
+TLS: 0.112s          # TLS handshake xong
+TTFB: 0.178s         # Byte đầu tiên nhận
+Total: 0.195s
+```
+
+Diễn giải:
+- DNS: 12ms (cached)
+- TCP: 45-12 = 33ms
+- TLS: 112-45 = 67ms (2 RTT, TLS 1.2)
+- Server processing: 178-112 = 66ms
+- Download: 195-178 = 17ms
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Quên DNS.** Nhiều "connection timeout" thực ra là DNS failure. Luôn kiểm tra DNS trước.
+
+2. **Bỏ qua asymmetric routing.** Đường về có thể khác. `traceroute` chỉ hiển thị đường đi. Vấn đề trên đường về cần capture phía server.
+
+3. **Nhầm TTFB với server time.** TTFB bao gồm network latency cả hai chiều. TTFB 100ms với RTT 40ms nghĩa là chỉ 20ms server processing.
+
+4. **Không tính connection reuse.** Request đầu trả chi phí TCP+TLS. Request tiếp theo trên cùng connection nhanh hơn nhiều. Benchmark warm connection, không phải cold.
+
+5. **Bỏ lỡ TCP retransmit.** Một retransmit thêm 200ms+ (RTO). Kiểm tra với `ss -ti` hoặc `netstat -s | grep retrans`.
+
+6. **Đổ lỗi mạng khi là application.** Nếu server processing chậm, packet trace hiển thị gap dài giữa request arrival và response start. Đó không phải network latency.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- Stevens, *TCP/IP Illustrated, Vol. 1*, Addison-Wesley, 2011
+- RFC 7230, "HTTP/1.1 Message Syntax and Routing"
+- RFC 8446, "The Transport Layer Security (TLS) Protocol Version 1.3"
+- Gregg, *Systems Performance*, Addison-Wesley, 2020
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [DNS resolution](/vi/core-network/dns-tls-certificates/dns-resolution/) — deep dive vào bước 1
+- [TLS handshake](/vi/core-network/dns-tls-certificates/tls-handshake/) — deep dive vào bước 3
+- [HTTP versions](/vi/core-network/http-grpc-websocket/http-versions/) — HTTP/2 và HTTP/3 thay đổi flow này thế nào
+
+</section>

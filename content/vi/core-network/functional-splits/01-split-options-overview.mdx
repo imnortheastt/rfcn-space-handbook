@@ -8,17 +8,334 @@ track: n6
 unit: functional-splits
 order: 1
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n6-o-ran-architecture-01-o-cu"]
+spiralRevisits: []
 title: "Tong quan cac tuy chon phan tach"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Cac tuy chon phan tach 3GPP va O-RAN — tu Option 1 den Option 8, va tai sao Option 7-2x thang."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TR 38.801", "O-RAN.WG4.CUS"]
+tags: ["o-ran", "5g", "split", "cu-du", "fronthaul"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tong quan cac tuy chon phan tach
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Tram goc truyen thong dong goi moi thu: RF, baseband, dieu khien, va backhaul. Phan tach cho phep linh hoat — chay mot so phan tap trung, mot so tai edge, ket hop cac vendor.
+
+Nhung phan tach o dau? Moi tuy chon danh doi giua bang thong fronthaul, dung sai do tre, va loi gop chung. Nganh cong nghiep hoi tu vao Option 7-2x cho O-RAN, nhung de hieu tai sao can biet cac lua chon khac.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Toan bo stack
+
+```
+Ngan xep Giao thuc RAN 5G:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Lop Cao:                                               │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ RRC (Radio Resource Control)                    │    │
+│  │ - Quan ly ket noi                                │    │
+│  │ - Di dong (handover)                             │    │
+│  │ - Thong tin he thong                             │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ PDCP (Packet Data Convergence Protocol)         │    │
+│  │ - Ma hoa / giai ma                               │    │
+│  │ - Nen header                                     │    │
+│  │ - Danh so thu tu                                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ RLC (Radio Link Control)                        │    │
+│  │ - Phan doan / lap ghep                           │    │
+│  │ - Truyen lai ARQ                                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ MAC (Medium Access Control)                     │    │
+│  │ - Lap lich                                       │    │
+│  │ - HARQ                                           │    │
+│  │ - Ghep kenh                                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Lop Vat ly:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ High-PHY                                        │    │
+│  │ - Scrambling, dieu che                           │    │
+│  │ - Anh xa layer, precoding                        │    │
+│  │ - Anh xa phan tu tai nguyen                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Low-PHY                                         │    │
+│  │ - IFFT / FFT                                    │    │
+│  │ - Cyclic prefix                                  │    │
+│  │ - Beamforming                                    │    │
+│  └─────────────────────────────────────────────────┘    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ RF                                              │    │
+│  │ - DAC / ADC                                     │    │
+│  │ - Khuech dai cong suat                           │    │
+│  │ - Antenna                                        │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac tuy chon phan tach
+
+```
+Cac Tuy chon Phan tach 3GPP (TR 38.801):
+
+Split    │ Ranh gioi                   │ Tap trung hoa
+─────────┼─────────────────────────────┼─────────────────────
+Option 1 │ Tren RRC                    │ Khong (tat ca tai site)
+Option 2 │ RRC / PDCP                  │ RRC
+Option 3 │ PDCP / RLC                  │ RRC, PDCP
+Option 4 │ RLC-cao / RLC-thap          │ RRC, PDCP, RLC-cao
+Option 5 │ RLC / MAC                   │ RRC, PDCP, RLC
+Option 6 │ MAC-cao / MAC-thap          │ + MAC-cao
+Option 7 │ MAC / PHY (cac sub-opt)     │ + MAC (tat ca)
+Option 8 │ PHY / RF                    │ + Toan bo PHY
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Option 8 ◄─────────── BW Fronthaul ───────────► Option 1
+│  (nhieu nhat)                                 (it nhat)
+│                                                          │
+│  Option 8 ◄─────────── Do tre nghiem ngat ─────► Option 1
+│  (nghiem ngat nhat)                            (thoai mai)
+│                                                          │
+│  Option 8 ◄─────────── Loi gop chung ──────────► Option 1
+│  (nhieu nhat)                                  (khong loi)
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### So sanh tuy chon
+
+```
+Chi tiet Tuy chon Phan tach:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Option 2 (phan tach RRC-PDCP):                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ CU: RRC                                         │    │
+│  │ DU: PDCP, RLC, MAC, PHY                         │    │
+│  │                                                  │    │
+│  │ Fronthaul: Goi IP (sau PDCP)                    │    │
+│  │ BW: Thap (toc do du lieu user)                  │    │
+│  │ Do tre: Thoai mai (10+ ms OK)                   │    │
+│  │                                                  │    │
+│  │ Su dung: Phan tach CU-DU chuan 3GPP             │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Option 6 (MAC-cao / MAC-thap):                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Trung tam: RRC, PDCP, RLC, MAC scheduler        │    │
+│  │ Xa: MAC HARQ, PHY                               │    │
+│  │                                                  │    │
+│  │ Fronthaul: Transport blocks                     │    │
+│  │ BW: Trung binh                                  │    │
+│  │ Do tre: Chat (< 1 ms cho HARQ)                 │    │
+│  │                                                  │    │
+│  │ Thach thuc: Scheduler tap trung nhung RTT HARQ  │    │
+│  │             can fronthaul nhanh                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Option 7 (phan tach trong PHY):                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Trung tam: RRC, PDCP, RLC, MAC, High-PHY        │    │
+│  │ Xa: Low-PHY, RF                                 │    │
+│  │                                                  │    │
+│  │ Fronthaul: Mau IQ (mien tan so)                 │    │
+│  │ BW: Cao (nhung < Option 8)                      │    │
+│  │ Do tre: Nghiem ngat (< 250 µs)                  │    │
+│  │                                                  │    │
+│  │ Lua chon O-RAN: 7-2x (phan tach trong Low-PHY)  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Option 8 (phan tach PHY-RF):                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Trung tam: Toan bo xu ly so                     │    │
+│  │ Xa: Chi RF                                      │    │
+│  │                                                  │    │
+│  │ Fronthaul: Mau IQ mien thoi gian                │    │
+│  │ BW: Rat cao (CPRI: 24 Gbps cho 100 MHz)        │    │
+│  │ Do tre: Rat nghiem ngat (< 100 µs)             │    │
+│  │                                                  │    │
+│  │ Cu: Fronthaul CPRI truyen thong                 │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### So sanh bang thong
+
+```
+Yeu cau Bang thong Fronthaul (100 MHz, 64T64R):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Tuy chon Split  │ BW Fronthaul    │ Nen                 │
+│  ────────────────┼─────────────────┼────────────────────│
+│                  │                 │                    │
+│  Option 2        │ ~10 Gbps        │ N/A (du lieu user) │
+│  (PDCP-RLC)      │ (dinh user)     │                    │
+│                  │                 │                    │
+│  Option 6        │ ~15 Gbps        │ N/A                │
+│  (MAC split)     │                 │                    │
+│                  │                 │                    │
+│  Option 7-2x     │ ~25 Gbps        │ BFP, mod-comp      │
+│  (O-RAN)         │ (nen)           │ (~giam 50%)        │
+│                  │                 │                    │
+│  Option 8        │ ~157 Gbps       │ CPRI truyen thong  │
+│  (PHY-RF)        │ (khong nen)     │                    │
+│                  │                 │                    │
+│  Ghi chu: 64T64R can 64x toc do don antenna            │
+│           Option 7-2x nen trong mien tan so            │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Tai sao Option 7-2x
+
+```
+Ly do Option 7-2x:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Yeu cau:                                               │
+│  1. Tuong thich da vendor (can ranh gioi sach)         │
+│  2. Lap lich tap trung (gop chung, CoMP)               │
+│  3. Bang thong fronthaul quan ly duoc                   │
+│  4. RU don gian (chi phi, cong suat)                   │
+│                                                          │
+│  Option 7-2x dat duoc:                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ✓ Interface sach: mau IQ + dieu khien          │    │
+│  │  ✓ Scheduler tai DU: phoi hop, gop chung        │    │
+│  │  ✓ ~25 Gbps fronthaul: 25G Ethernet du          │    │
+│  │  ✓ RU don gian: chi IFFT + RF                   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Cac sub-option 7-2x:                                   │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Category A: Precoding tai DU                   │    │
+│  │  - DU gui IQ tung layer                         │    │
+│  │  - RU chi lam IFFT                              │    │
+│  │  - BW fronthaul cao hon                         │    │
+│  │                                                  │    │
+│  │  Category B: Precoding tai RU                   │    │
+│  │  - DU gui IQ beamformed + trong so              │    │
+│  │  - RU lam beamforming + IFFT                    │    │
+│  │  - BW fronthaul thap hon                        │    │
+│  │  - RU phuc tap hon                              │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Lua chon tuy chon phan tach:**
+
+| Truong hop | Split Khuyen nghi | Ly do |
+|------------|-------------------|-------|
+| Macro cell | Option 2 + 7-2x | Gop CU + O-RAN |
+| Small cell | Option 2 + 7-2x | Cung he sinh thai |
+| Massive MIMO | 7-2x Cat-B | Hieu qua fronthaul |
+| Nong thon (transport han che) | Chi Option 2 | Giam BW FH |
+| Cloud RAN | 7-2x | Gop chung toi da |
+
+**Tinh kich co fronthaul:**
+
+```bash
+# Tinh fronthaul cho 100 MHz TDD, 64T64R, Cat-B
+# Bit IQ: 2 (I+Q) × 9 bits × 12 subcarriers × 273 PRBs × 14 symbols
+# Moi ms: ~7.5 Gbps moi huong (truoc nen)
+# Voi BFP: ~4 Gbps moi huong
+# Hai huong: ~8-10 Gbps dien hinh, 25 Gbps dinh
+
+# Transport khuyen nghi:
+# - 25G Ethernet cho don sector
+# - 100G Ethernet cho site gop chung
+```
+
+**Tom tat interface:**
+
+| Interface | Giao thuc | Vi tri |
+|-----------|-----------|--------|
+| F1 | GTP-U/SCTP | CU ↔ DU |
+| Open Fronthaul | eCPRI | DU ↔ RU |
+| E1 | SCTP | CU-CP ↔ CU-UP |
+| E2 | SCTP | Near-RT RIC ↔ CU/DU |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Danh gia thap fronthaul.** 64T64R can 25G+ ngay ca khi nen. Lap ke hoach dung luong transport.
+
+2. **Qua ngan sach do tre.** Option 7-2x can RTT < 250 µs. Do dai cap quang va hop switch cong lai.
+
+3. **Tron cac split.** Cac vendor khac co the trien khai 7-2x hoi khac. Xac minh tuong thich.
+
+4. **Bo qua timing.** Tat ca split can dong bo chinh xac. Option 7-2x can pha ±1.5 µs cho TDD.
+
+5. **Khong khop Cat-A/B.** DU phai khop loai RU. Ghep sai pha vo beamforming.
+
+6. **Loi nen.** Nen IQ manh lam giam EVM. Can bang bang thong vs chat luong.
+
+7. **Khoa CPRI.** Option 8 (CPRI) rieng moi vendor. O-RAN 7-2x la lua chon mo.
+
+8. **Do phuc tap nang cap.** Doi split can phan cung moi ca hai dau. Lap ke hoach cho vong doi.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TR 38.801, "Study on new radio access technology: Radio access architecture and interfaces"
+- O-RAN Alliance WG4, "Control, User and Synchronization Plane Specification"
+- Small Cell Forum, "Functional Splits and Use Cases"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Option 7-2x](/vi/core-network/functional-splits/option-7-2x/) — lua chon cua O-RAN
+- [Yeu cau fronthaul](/vi/core-network/functional-splits/fronthaul-requirements/) — nhu cau transport
+- [O-DU](/vi/core-network/o-ran-architecture/o-du/) — Don vi Phan tan
+
+</section>

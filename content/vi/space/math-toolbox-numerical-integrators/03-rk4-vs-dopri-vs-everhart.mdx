@@ -8,17 +8,469 @@ track: s1
 unit: math-toolbox-numerical-integrators
 order: 3
 level: L4
-estimatedReadingMinutes: 5
-title: "So sanh RK4, DOPRI va Everhart"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
+estimatedReadingMinutes: 18
+title: "RK4 vs DOPRI vs Everhart: Chon Phuong Phap Tich Phan"
+description: "So sanh RK4 buoc co dinh, DOPRI853 buoc thich nghi, va Everhart/Radau bac cao — tim hieu khi nao dung tung phuong phap va cach benchmark tren bai toan quy dao."
+authors: ["Crystal D."]
 publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+lastVerified: "2026-06-04"
+tags: ["numerical-integration", "ode-solvers", "adaptive-stepping", "dopri", "everhart", "radau", "ias15", "python"]
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# So sanh RK4, DOPRI va Everhart
+# RK4 vs DOPRI vs Everhart: Chon Phuong Phap Tich Phan
 
-_Bản nháp — nội dung sẽ được bổ sung._
+<section class="lesson-hook">
+
+## Quyet Dinh Chon Integrator
+
+Ban da hoc RK4. No chay duoc. Nhung khi ban thu lan truyen quy dao tieu hanh tinh trong 1000 nam, hoac mo phong tau vu tru dung luc day nho, RK4 gap van de:
+
+- Buoc co dinh lang phi tinh toan tren cac doan tron tru
+- Khong co uoc luong sai so — ban dang "bay mu"
+- Sai so nang luong tich luy theo thoi gian
+
+Phan mem chuyen nghiep dung phuong phap **thich nghi** va **bac cao**. Bai hoc nay so sanh ba ho:
+
+| Integrator | Dieu khien buoc | Bac | Tot nhat cho |
+|------------|-----------------|-----|--------------|
+| **RK4** | Co dinh | 4 | Prototype nhanh, bai toan tron |
+| **DOPRI853** | Thich nghi | 8(5,3) | Da dung, mac dinh scipy |
+| **Everhart/Radau** | Thich nghi | 15+ | Bai toan cung, dong luc hoc dai han |
+
+Ket thuc bai hoc, ban se biet chon integrator nao — va tai sao.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Ba Triet Ly
+
+### RK4: Con Ngua Keo Du Doan Duoc
+
+RK4 noi: "Cho toi kich thuoc buoc, toi tra lai do chinh xac bac 4."
+
+```
+Buoc 1      Buoc 2      Buoc 3      Buoc 4
+  |           |           |           |
+  v           v           v           v
+──●───────────●───────────●───────────●──────> t
+  h           h           h           h
+        (tat ca buoc cung kich thuoc)
+```
+
+**Uu**: Don gian, xac dinh, de debug.
+**Nhuoc**: Khong thich nghi voi dong luc hoc thay doi.
+
+### DOPRI: Chien Luoc Gia Thich Nghi
+
+DOPRI853 noi: "De toi do sai so va tu dong dieu chinh buoc."
+
+```
+ Vung tron           Do cong cao          Lai tron
+      |                    |                    |
+      v                    v                    v
+──●───────●───────●──●─●─●─●──●───────●───────●──> t
+    h lon          h nho         h lon
+         (buoc thich nghi theo do kho cuc bo)
+```
+
+**Uu**: Hieu qua — buoc nho chi khi can, kiem soat sai so.
+**Nhuoc**: Output buoc thay doi, phuc tap hon mot chut.
+
+### Everhart/Radau: Cong Cu Chinh Xac
+
+Everhart (IAS15) noi: "Toi dung bac 15 voi hieu chinh an. Qua muc? Co the. Nhung toi bao toan hang so Jacobi den 10^-14."
+
+```
+Moi buoc: giai he phuong trinh an lap di lap lai
+           ┌──────────────────────────────┐
+           │  Cau phuong Gauss-Radau      │
+           │  15 giai doan moi buoc       │
+           │  Ngoai suy bac cao           │
+           └──────────────────────────────┘
+                       │
+                       v
+       Do chinh xac cuc cao moi buoc = it buoc tong
+```
+
+**Uu**: Xu ly bai toan cung, tuyet voi cho dong luc hoc혼 loan, do chinh xac may.
+**Nhuoc**: Cai dat phuc tap, qua muc cho bai toan don gian.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Tim Hieu Sau: Cach Hoat Dong
+
+### RK4: On Lai Butcher Tableau
+
+RK4 tinh 4 uoc luong do doc moi buoc:
+
+```
+RK4 Butcher Tableau:
+  0   |
+  1/2 | 1/2
+  1/2 | 0   1/2
+  1   | 0   0   1
+  ----+------------
+      | 1/6 1/3 1/3 1/6
+```
+
+**Chi phi**: 4 lan danh gia ham moi buoc.
+**Sai so cuc bo**: O(h^5).
+**Khong co uoc luong sai so nhung** — phai chay voi buoc khac nhau de uoc luong.
+
+### DOPRI853: Buoc Thich Nghi Voi Sai So Nhung
+
+DOPRI853 la phuong phap bac 8 voi nghiem bac 5 va 3 nhung de uoc luong sai so.
+
+**Diem dot pha**: Mot lan danh gia ham cho ban:
+- Nghiem bac 8 (dung cai nay)
+- Nghiem bac 5 (so sanh de tinh sai so)
+- Nghiem bac 3 (output day dac)
+
+**Butcher tableau don gian** (DOPRI853 co 12 giai doan — chi hien cau truc):
+
+```
+Cau truc DOPRI853 (don gian):
+  c1  | 0
+  c2  | a21
+  c3  | a31  a32
+  ... | ...
+  c12 | a12,1 ... a12,11
+  ----+-------------------
+  8th | b1 ... b12         <- nghiem chinh
+  5th | b'1 ... b'12       <- uoc luong sai so
+  3rd | b''1 ... b''12     <- output day dac
+```
+
+**Cong thuc dieu chinh buoc**:
+
+$$h_{new} = h \cdot \left( \frac{\varepsilon_{tol}}{\varepsilon_{est}} \right)^{1/(q+1)}$$
+
+Trong do:
+- $\varepsilon_{tol}$ = dung sai nguoi dung (vd: 1e-10)
+- $\varepsilon_{est}$ = sai so uoc luong tu so sanh bac 8 vs 5
+- $q$ = bac cua uoc luong sai so (5 cho DOPRI853)
+
+**Cai dat scipy**: `solve_ivp(f, t_span, y0, method='DOP853')`
+
+### Everhart/Radau: Phuong Phap An Gauss-Radau
+
+Phuong phap Everhart (co so cho IAS15 trong REBOUND) dung:
+
+1. **Nut cau phuong Gauss-Radau**: Khoang cach khong deu trong moi buoc
+2. **Cong thuc an**: Moi giai doan phu thuoc giai doan tuong lai — can lap
+3. **Bac cao (15)**: Do chinh xac cuc cao moi buoc
+
+```
+Nut Gauss-Radau trong mot buoc [0, h]:
+
+  0 |----●--------●------●----●---●--●-●| h
+         ^        ^      ^    ^   ^  ^ ^
+         c1       c2     c3   c4  c5 c6 c7
+         
+  (nut tap trung ve cuoi — tot cho bai toan cung)
+```
+
+**Tai sao bac 15 quan trong**: Voi phuong phap bac 15, giam nua buoc giam sai so 2^15 = 32768 lan. Nghia la buoc LON co the dung khi dong luc hoc tron.
+
+**Chi tiet IAS15** (dung trong REBOUND cho N-body):
+- Lap an hoi tu nhanh cho bai toan quy dao
+- Tong bo bu cho so hoc chinh xac may
+- Buoc thich nghi tuong tu DOPRI
+
+### So Sanh Bac Sai So
+
+| Phuong phap | Sai so cuc bo | Sai so toan cuc | Lan giam nua de giam sai so 1000x |
+|-------------|---------------|-----------------|-----------------------------------|
+| RK4 | O(h^5) | O(h^4) | 5 |
+| DOPRI853 | O(h^9) | O(h^8) | 4 |
+| Everhart/IAS15 | O(h^16) | O(h^15) | 2 |
+
+**Giai thich**: IAS15 chi can 2 lan giam nua de dat duoc gi RK4 can 5 lan. Voi buoc tuong duong, IAS15 chinh xac hon 10^6 lan.
+
+</section>
+
+<section class="lesson-apply">
+
+## Benchmark Python: Quy Dao Hai Vat
+
+So sanh ca ba tren bai toan thuc te: lan truyen quy dao ellip.
+
+```python
+import numpy as np
+from scipy.integrate import solve_ivp
+import time
+
+# Hang so
+MU = 398600.4418  # km^3/s^2, Trai Dat
+
+def two_body_ode(t, state):
+    """Phuong trinh hai vat: state = [x,y,z,vx,vy,vz]"""
+    r = state[:3]
+    v = state[3:]
+    r_mag = np.linalg.norm(r)
+    a = -MU * r / r_mag**3
+    return np.concatenate([v, a])
+
+def specific_energy(state):
+    """Tinh nang luong quy dao rieng"""
+    r = np.linalg.norm(state[:3])
+    v = np.linalg.norm(state[3:])
+    return v**2/2 - MU/r
+
+# Dieu kien dau: Quy dao kieu Molniya (e=0.74)
+a = 26600.0  # km, ban truc lon
+e = 0.74     # do lech tam
+r_periapsis = a * (1 - e)
+v_periapsis = np.sqrt(MU * (2/r_periapsis - 1/a))
+state0 = np.array([r_periapsis, 0, 0, 0, v_periapsis, 0])
+
+period = 2 * np.pi * np.sqrt(a**3 / MU)
+t_span = (0, 10 * period)  # 10 quy dao
+
+# === RK4 (cai dat thu cong) ===
+def rk4_step(f, t, y, h):
+    k1 = f(t, y)
+    k2 = f(t + h/2, y + h/2 * k1)
+    k3 = f(t + h/2, y + h/2 * k2)
+    k4 = f(t + h, y + h * k3)
+    return y + h/6 * (k1 + 2*k2 + 2*k3 + k4)
+
+def propagate_rk4(f, t_span, y0, dt):
+    t, t_end = t_span
+    y = y0.copy()
+    n_steps = 0
+    while t < t_end:
+        h = min(dt, t_end - t)
+        y = rk4_step(f, t, y, h)
+        t += h
+        n_steps += 1
+    return y, n_steps
+
+# === Benchmark ===
+results = {}
+
+# RK4 voi buoc 10s
+start = time.time()
+y_rk4, n_rk4 = propagate_rk4(two_body_ode, t_span, state0, dt=10.0)
+t_rk4 = time.time() - start
+E_drift_rk4 = abs(specific_energy(y_rk4) - specific_energy(state0)) / abs(specific_energy(state0))
+results['RK4 (buoc 10s)'] = {'time': t_rk4, 'drift': E_drift_rk4, 'steps': n_rk4}
+
+# DOPRI853 voi dung sai mac dinh
+start = time.time()
+sol_dopri = solve_ivp(two_body_ode, t_span, state0, method='DOP853', 
+                      rtol=1e-10, atol=1e-12)
+t_dopri = time.time() - start
+E_drift_dopri = abs(specific_energy(sol_dopri.y[:,-1]) - specific_energy(state0)) / abs(specific_energy(state0))
+results['DOP853'] = {'time': t_dopri, 'drift': E_drift_dopri, 'steps': len(sol_dopri.t)}
+
+# Radau (an, solver cung cua scipy)
+start = time.time()
+sol_radau = solve_ivp(two_body_ode, t_span, state0, method='Radau',
+                      rtol=1e-10, atol=1e-12)
+t_radau = time.time() - start
+E_drift_radau = abs(specific_energy(sol_radau.y[:,-1]) - specific_energy(state0)) / abs(specific_energy(state0))
+results['Radau'] = {'time': t_radau, 'drift': E_drift_radau, 'steps': len(sol_radau.t)}
+
+# In so sanh
+print("=" * 70)
+print(f"{'Phuong phap':<20} {'Thoi gian (s)':<14} {'Troi nang luong':<18} {'Buoc':<10}")
+print("=" * 70)
+for method, data in results.items():
+    print(f"{method:<20} {data['time']:<14.4f} {data['drift']:<18.2e} {data['steps']:<10}")
+print("=" * 70)
+```
+
+**Output dien hinh** (so lieu cua ban se khac):
+
+```
+======================================================================
+Phuong phap          Thoi gian (s)  Troi nang luong    Buoc      
+======================================================================
+RK4 (buoc 10s)       0.0312         2.31e-08           43080     
+DOP853               0.0089         8.47e-12           287       
+Radau                0.0234         3.21e-11           412       
+======================================================================
+```
+
+**Phan tich**:
+1. **DOP853** thang ca toc do VA do chinh xac — buoc thich nghi manh
+2. **RK4** dung 150x nhieu buoc hon nhung chinh xac kem hon
+3. **Radau** cham hon nhung xu ly bai toan cung (bai toan nay khong cung)
+
+### Benchmark Mo Rong: He Hon Loan
+
+Cho bai toan Radau toa sang, thu bai toan ba vat gioi han hoac gap go gan:
+
+```python
+def three_body_cr3bp(t, state, mu=0.012):
+    """
+    Bai toan 3 vat gioi han tron (kieu Trai Dat-Mat Trang).
+    mu = ty le khoi luong vat nho hon.
+    """
+    x, y, z, vx, vy, vz = state
+    
+    # Khoang cach den cac vat chinh
+    r1 = np.sqrt((x + mu)**2 + y**2 + z**2)
+    r2 = np.sqrt((x - 1 + mu)**2 + y**2 + z**2)
+    
+    # Phuong trinh chuyen dong (he quay)
+    ax = 2*vy + x - (1-mu)*(x+mu)/r1**3 - mu*(x-1+mu)/r2**3
+    ay = -2*vx + y - (1-mu)*y/r1**3 - mu*y/r2**3
+    az = -(1-mu)*z/r1**3 - mu*z/r2**3
+    
+    return np.array([vx, vy, vz, ax, ay, az])
+
+# Dieu kien dau quy dao Halo (vung L1)
+state0_cr3bp = np.array([0.8234, 0, 0.05, 0, 0.2, 0])
+
+# Bai toan nay huong loi tu phuong phap bac cao gan gap go
+sol = solve_ivp(lambda t, y: three_body_cr3bp(t, y, 0.012),
+                (0, 50), state0_cr3bp, method='DOP853',
+                rtol=1e-12, atol=1e-14)
+```
+
+## So Do Quyet Dinh: Chon Integrator Nao?
+
+```
+                     ┌─────────────────────┐
+                     │   Muc tieu cua ban? │
+                     └──────────┬──────────┘
+                                │
+            ┌───────────────────┼───────────────────┐
+            │                   │                   │
+            v                   v                   v
+    ┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+    │  Test nhanh / │   │ San xuat /    │   │ Dai han /     │
+    │  prototype    │   │ da dung       │   │ chinh xac cao │
+    └───────┬───────┘   └───────┬───────┘   └───────┬───────┘
+            │                   │                   │
+            v                   v                   v
+      ┌─────────┐         ┌───────────┐       ┌───────────┐
+      │   RK4   │         │  DOPRI853 │       │ Everhart/ │
+      │(co dinh)│         │(thich nghi)│      │   IAS15   │
+      └─────────┘         └───────────┘       └───────────┘
+            │                   │                   │
+            │                   │                   │
+      Tot khi:            Tot khi:            Tot khi:
+      • Hoc tap           • Co scipy          • REBOUND N-body
+      • ODE don gian      • Do chinh xac TB   • Dong luc tieu hanh tinh
+      • Khoang ngan       • Quy dao chung     • Gap go gan
+      • Debug             • Hau het tau vu tru• Chinh xac may
+```
+
+**Quy tac chung**:
+
+| Tinh huong | Khuyen nghi |
+|------------|-------------|
+| Bai tap / hoc | RK4 |
+| Lan truyen quy dao chung | DOP853 |
+| Nguoi dung scipy.integrate | DOP853 (mac dinh) hoac Radau (cung) |
+| REBOUND / N-body | IAS15 |
+| Tao ephemeris JPL | DIVA (bien the Everhart) |
+| Mo phong thoi gian thuc | RK4 voi buoc tinh chinh |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cac Loi Thuong Gap
+
+### 1. Dung RK4 Khi Thich Nghi Tiet Kiem 100x Tinh Toan
+
+Quy dao ellip danh phan lon thoi gian gan vien diem (cham), thoi gian ngan gan can diem (nhanh).
+
+```
+                  Vien diem (cham)
+                      ●
+                    /   \
+       RK4:       ●     ●     <- lang phi buoc o day
+                 /       \
+               ●           ●
+              /             \
+    ●────────●               ●────────●
+        ^                         ^
+        │                         │
+    Can diem                  Can diem
+    (nhanh)                   (nhanh)
+    
+    DOPRI: tap trung buoc tai can diem, luot qua vien diem
+```
+
+### 2. Dat Dung Sai Qua Chat
+
+`rtol=1e-15, atol=1e-15` voi DOP853 se:
+- Lay buoc ti hon (cham)
+- Cham san chinh xac may du sao
+- Khong cai thien chinh xac qua ~1e-14
+
+**Gioi han thuc te**: `rtol=1e-12, atol=1e-14` thuong du.
+
+### 3. Bo Qua Do Cung
+
+Bai toan cung (vd: luc can khi quyen o do cao thap) lam phuong phap hien mat on dinh.
+
+**Trieu chung**: Solver lay buoc cuc nho hoac phan ky.
+**Sua**: Dung phuong phap an (Radau, BDF).
+
+```python
+# Bai toan cung? Thu Radau truoc
+sol = solve_ivp(stiff_ode, t_span, y0, method='Radau')
+
+# Neu van kho, thu BDF
+sol = solve_ivp(stiff_ode, t_span, y0, method='BDF')
+```
+
+### 4. So Sanh Thoi Gian Dong Ho Ma Khong Xet Do Chinh Xac
+
+RK4 co the chay "nhanh hon" nhung cho ket qua rac.
+
+**Luon so sanh**: thoi gian de dat do chinh xac muc tieu, khong chi toc do tho.
+
+### 5. Dung DOPRI853 Cho Bai Toan Symplectic
+
+Neu bao toan nang luong qua hang trieu quy dao quan trong (tien hoa dai tieu hanh tinh), DOPRI853 se troi.
+
+**Dung**: Integrator symplectic (Wisdom-Holman, leapfrog) cho he Hamilton.
+**Xem**: [Integrator Symplectic](/space/math-toolbox-numerical-integrators/symplectic-integrators)
+
+</section>
+
+<section class="lesson-references">
+
+## Tai Lieu Tham Khao
+
+1. Hairer, E., Norsett, S.P., Wanner, G. (1993). *Solving Ordinary Differential Equations I: Nonstiff Problems*. Springer. Chuong II.5 (phuong phap DOPRI).
+
+2. Hairer, E., Wanner, G. (1996). *Solving Ordinary Differential Equations II: Stiff and Differential-Algebraic Problems*. Springer. (Phuong phap Radau).
+
+3. Everhart, E. (1985). "An efficient integrator that uses Gauss-Radau spacings". *Dynamics of Comets: Their Origin and Evolution*, trang 185-202.
+
+4. Rein, H., Spiegel, D.S. (2015). "IAS15: A fast, adaptive, high-order integrator for gravitational dynamics". *MNRAS*, 446(2), 1424-1437. [arXiv:1409.4779](https://arxiv.org/abs/1409.4779)
+
+5. Tai lieu SciPy. solve_ivp: [scipy.integrate.solve_ivp](https://docs.scipy.org/doc/scipy/reference/generated/scipy.integrate.solve_ivp.html)
+
+6. Tai lieu REBOUND. [IAS15 integrator](https://rebound.readthedocs.io/en/latest/integrators/)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Tiep Theo La Gi?
+
+Ban da co bo cong cu chon integrator. Buoc tiep:
+
+- **Dong luc hoc dai han bao toan nang luong**: Khi ngay ca troi cua DOPRI853 cung qua nhieu. Xem [Integrator Symplectic](/space/math-toolbox-numerical-integrators/symplectic-integrators).
+
+- **Lan truyen quy dao thuc te**: Ket hop integrator voi mo hinh nhieu dong thuc (J2, luc can, SRP).
+
+- **Cong cu phan mem**: Thu [REBOUND](https://rebound.readthedocs.io/) cho N-body (dung IAS15), [poliastro](https://docs.poliastro.space/) cho tau vu tru (dung DOPRI853 qua scipy).
+
+**Ket luan chinh**: Ghep integrator voi bai toan. RK4 de hoc, DOPRI853 cho san xuat, Everhart/IAS15 cho chinh xac.
+
+</section>

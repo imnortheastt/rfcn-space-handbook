@@ -8,16 +8,16 @@ track: r2
 unit: fundamental-parameters
 order: 1
 level: L2
-estimatedReadingMinutes: 10
+estimatedReadingMinutes: 13
 prerequisites: ["rf-r0-decibels-and-units-01-decibels"]
 spiralRevisits: []
 title: "Antenna gain"
 description: "How much an antenna focuses power compared to an isotropic radiator."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
-tags: ["antenna-gain", "dBi", "dBd", "isotropic", "directional"]
+tags: ["antenna-gain", "dBi", "dBd", "isotropic", "directional", "eirp", "link-budget"]
 widgets: []
 license: CC-BY-SA-4.0
 status: published
@@ -27,9 +27,11 @@ status: published
 
 ## Why antenna gain?
 
-A flashlight focuses light in one direction instead of scattering it everywhere. Similarly, an antenna can focus radio waves, concentrating power where you want it instead of radiating equally in all directions.
+A flashlight concentrates light into a beam, delivering far more intensity in one direction than a bare bulb. A candle radiates light equally in all directions — what you might call "isotropic" illumination. The flashlight does not create more energy; it redirects energy that would have spread in all directions into a focused cone.
 
-**Gain** quantifies this focusing ability. A higher-gain antenna doesn't create more power — it redirects power from unneeded directions into the desired direction. Understanding gain is essential for link budgets, coverage planning, and antenna selection.
+Antenna gain works identically. A high-gain antenna does not amplify the transmitter output — it redistributes radiated power into a narrower region of space. A dish antenna pointed at a satellite delivers 10,000× more power density at the satellite than a bare isotropic radiator with the same transmit power.
+
+For a cloud engineer, gain is the single most important number in a wireless link budget. It directly sets the received signal level, the maximum communication range, and the coverage footprint of a base station. Every dB of gain is a dB of link margin — and in wireless systems, link margin is availability.
 
 </section>
 
@@ -37,76 +39,105 @@ A flashlight focuses light in one direction instead of scattering it everywhere.
 
 ## Intuition
 
-An isotropic antenna radiates equally in all directions — a perfect sphere of radiation. It's a theoretical reference; no real antenna is truly isotropic.
+Imagine a sphere surrounding the transmitting antenna. The total radiated power spreads over the surface of that sphere. An isotropic antenna spreads power uniformly — the power density at any point is:
 
-Gain measures how much more power your antenna delivers in its preferred direction compared to an isotropic radiator with the same input power. A 10 dBi antenna delivers 10× the power density of an isotropic antenna in that direction.
+$$S_{iso} = \frac{P_{rad}}{4\pi r^2}$$
 
-The catch: energy is conserved. If you increase power in one direction, you must decrease it somewhere else. High-gain antennas have narrow beams — good for point-to-point links, problematic for mobile coverage.
+A directive antenna concentrates power: in its preferred direction, the power density is $G$ times higher:
+
+$$S_{directive} = G \cdot \frac{P_{rad}}{4\pi r^2}$$
+
+The gain $G$ is a dimensionless multiplier — how much more power density you get compared to an isotropic source radiating the same total power.
+
+Energy conservation still holds: where the gain is $G$ in one direction, it must be less than $G$ somewhere else. A 20 dBi dish that concentrates power into a 2° beam has nearly zero gain outside that beam. High gain and wide coverage are mutually exclusive.
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How it works
 
-### Definition
+### Formal definition
 
-Gain $G(\theta, \phi)$ in direction $(\theta, \phi)$:
+Gain $G(\theta, \phi)$ at direction $(\theta, \phi)$:
 
 $$G(\theta, \phi) = \frac{4\pi U(\theta, \phi)}{P_{in}}$$
 
 where:
-- $U(\theta, \phi)$ = radiation intensity (W/sr) in direction $(\theta, \phi)$
-- $P_{in}$ = total power accepted by the antenna
+- $U(\theta, \phi)$ = radiation intensity in direction $(\theta, \phi)$, in W/sr
+- $P_{in}$ = total power accepted by the antenna (not just radiated — $P_{in}$ includes ohmic losses)
 
-### Peak gain
+The ratio $4\pi / P_{in}$ normalizes to what an isotropic radiator would produce if the same power were distributed uniformly over $4\pi$ steradians.
 
-The maximum gain over all directions:
+**Peak gain** $G_0$ is the maximum over all directions and is what antenna datasheets report unless otherwise stated.
 
-$$G_0 = \max_{\theta, \phi} G(\theta, \phi)$$
+### Gain vs. directivity
 
-Datasheet "gain" usually means peak gain unless stated otherwise.
+$$G = \eta_{rad} \cdot D$$
 
-### Relationship to directivity
+where $\eta_{rad}$ is radiation efficiency (0 to 1) and $D$ is directivity. Directivity measures the focusing ability of the radiation pattern alone. Gain also accounts for losses: a highly directive antenna that dissipates half its input power as heat has gain 3 dB below its directivity.
 
-$$G = \eta \cdot D$$
+For the link budget, always use gain, not directivity.
 
-where:
-- $D$ = directivity (ideal focusing, ignoring losses)
-- $\eta$ = radiation efficiency (accounts for ohmic and mismatch losses)
+### Reference antennas and units
 
-A lossless antenna has $G = D$. Real antennas have $G < D$.
-
-### Reference antennas
-
-**dBi:** Gain relative to isotropic radiator.
+**dBi** — gain relative to an isotropic radiator:
 $$G_{dBi} = 10\log_{10}(G)$$
 
-**dBd:** Gain relative to half-wave dipole (2.15 dBi gain).
+**dBd** — gain relative to a half-wave dipole (which has 2.15 dBi gain):
 $$G_{dBd} = G_{dBi} - 2.15$$
 
-Always check the reference when reading specs.
+The conversion: a 10 dBd antenna is 12.15 dBi. Always verify the reference when reading a specification. Marketing often uses dBd because the number is smaller and sounds more conservative.
 
 ### Common antenna gains
 
-| Antenna | Typical gain (dBi) |
-|---------|-------------------|
-| Isotropic | 0 |
-| Half-wave dipole | 2.15 |
-| Quarter-wave monopole | 2–3 |
-| Yagi (5 elements) | 10–12 |
-| Parabolic dish (1 m, 10 GHz) | 38–42 |
-| Patch antenna | 6–9 |
-| Horn antenna | 10–25 |
-| Phased array (massive MIMO) | 25–35 |
+| Antenna type | Typical gain |
+|---|---|
+| Isotropic (theoretical) | 0 dBi |
+| Half-wave dipole | 2.15 dBi |
+| Quarter-wave monopole | 2–3 dBi |
+| Rubber duck (helical whip) | 1–3 dBi |
+| Patch (single element) | 6–9 dBi |
+| Yagi (5 elements) | 10–12 dBi |
+| Horn antenna | 10–25 dBi |
+| Cellular sector (65° beam) | 15–18 dBi |
+| Parabolic dish (1 m, 10 GHz) | 38–42 dBi |
+| Massive MIMO panel (64 elements) | 25–35 dBi |
+| Large dish (10 m, 30 GHz) | 60+ dBi |
 
-### Effective aperture
+### Effective aperture relation
 
-Gain relates to effective aperture $A_e$:
+A larger physical aperture captures more of an incoming wavefront, producing higher gain. The relationship:
 
 $$G = \frac{4\pi A_e}{\lambda^2}$$
 
-Larger aperture (in wavelengths) = higher gain. A 1 m dish has higher gain at 10 GHz than at 1 GHz.
+where $A_e$ is the effective aperture. For a parabolic dish:
+
+$$A_e = \eta_{ap} \cdot A_{physical} = \eta_{ap} \cdot \frac{\pi D^2}{4}$$
+
+where $\eta_{ap}$ is aperture efficiency (typically 0.55–0.75). The gain scales as $D^2/\lambda^2$: doubling the dish diameter quadruples the gain. Halving the wavelength (doubling frequency) also quadruples the gain for the same dish.
+
+**Worked example — dish sizing:**
+
+Need $G = 40$ dBi at $f = 12$ GHz ($\lambda = 25$ mm), with $\eta_{ap} = 0.6$.
+
+$$G = 10^{40/10} = 10{,}000$$
+
+$$A_e = \frac{G\lambda^2}{4\pi} = \frac{10{,}000 \times (0.025)^2}{4\pi} = \frac{6.25}{12.57} = 0.497\ \text{m}^2$$
+
+$$A_{physical} = A_e / \eta_{ap} = 0.497/0.6 = 0.828\ \text{m}^2 \Rightarrow D = \sqrt{4 \times 0.828 / \pi} = 1.03\ \text{m}$$
+
+A 1 m dish provides ~40 dBi at 12 GHz.
+
+### EIRP: Gain in the transmit link budget
+
+Effective Isotropic Radiated Power (EIRP) combines transmit power and antenna gain into a single metric:
+
+$$\text{EIRP} = P_t \cdot G_t \quad \text{or in dB:} \quad \text{EIRP}_{dBm} = P_{t,dBm} + G_{t,dBi}$$
+
+A 1 W (30 dBm) transmitter into a 20 dBi dish antenna produces EIRP = 50 dBm = 100 W equivalent. The satellite does not know whether that signal came from a 100 W isotropic radiator or a 1 W directional one — it sees the same power density in that direction.
+
+EIRP is regulated: FCC and ITU set EIRP limits to prevent interference, regardless of how you achieve it (more power vs. more gain).
 
 </section>
 
@@ -114,32 +145,36 @@ Larger aperture (in wavelengths) = higher gain. A 1 m dish has higher gain at 10
 
 ## Apply
 
-**Example: Link budget calculation**
+**Link budget example — Wi-Fi**
 
-Transmitter: 1 W (30 dBm), antenna gain 12 dBi
-Receiver: antenna gain 6 dBi
+Transmitter: 20 dBm into a 3 dBi omnidirectional antenna. EIRP = 23 dBm.
 
-EIRP = $P_t + G_t$ = 30 + 12 = 42 dBm
+Free space path loss at 2.4 GHz, distance 50 m:
+$$L_{fs} = 20\log_{10}(50) + 20\log_{10}(2.4 \times 10^9) + 20\log_{10}\!\left(\frac{4\pi}{c}\right) = 34 + 187.6 - 147.6 = 74\ \text{dB}$$
 
-Received power = EIRP − path loss + $G_r$ = 42 − FSPL + 6
+Receiver antenna gain: 3 dBi.
 
-Both gains contribute directly to the link budget.
+Received power: $23 - 74 + 3 = -48\ \text{dBm}$.
 
-**Example: Coverage vs. capacity tradeoff**
+Receiver sensitivity: −90 dBm. Link margin: 42 dB. The link easily closes.
 
-A cell tower can use:
-- 3 dBi omnidirectional: 360° coverage, low gain
-- 17 dBi sector antenna: 65° beam, high gain
+**Coverage vs. gain tradeoff**
 
-The sector antenna reaches farther in its direction but requires three sectors to cover 360°.
+A cellular base station must cover a 120° sector. It can use:
+- Option A: 3 dBi omni — covers 360° but weak signal
+- Option B: 17 dBi sector antenna — 65° beam, 14 dB more gain in that sector
 
-**Example: Satellite dish sizing**
+Option B delivers 14 dB better signal per UE within the 65° sector. Three sectors cover 360°. This is why every modern base station uses sector antennas.
 
-Need 40 dBi gain at 12 GHz. Using $G = \eta \cdot (\pi D / \lambda)^2$ with $\eta = 0.6$:
+**Gain degradation with frequency**
 
-$D = \frac{\lambda}{\pi} \sqrt{\frac{G}{\eta}} = \frac{0.025}{3.14} \sqrt{\frac{10000}{0.6}} = 1.03$ m
+A patch antenna designed for 2.4 GHz peak gain of 8 dBi.
 
-A 1 m dish provides approximately 40 dBi at 12 GHz.
+At 2.45 GHz (edge of ISM band): gain may drop to 6 dBi as the patch drifts off resonance.
+
+At 5.8 GHz: same physical patch has completely different resonance — gain could be near 0 dBi.
+
+Always check gain vs. frequency plots, not just the peak spec.
 
 </section>
 
@@ -147,17 +182,17 @@ A 1 m dish provides approximately 40 dBi at 12 GHz.
 
 ## Pitfalls
 
-1. **dBi vs. dBd.** A 10 dBd antenna is 12.15 dBi. Confusing the two causes 2 dB errors in link budgets.
+1. **dBi vs. dBd.** A 10 dBd antenna is 12.15 dBi. Using dBd as dBi overstates link budget by 2.15 dB — enough to cause a link to fail at range that was calculated to close.
 
-2. **Gain doesn't create power.** A 20 dBi antenna with 1 W input delivers 1 W total — just concentrated in a narrow beam. The peak is 100× an isotropic, but the total is the same.
+2. **Gain does not create power.** A 20 dBi antenna fed with 1 W radiates 1 W total — just concentrated in a narrow beam. The peak power density is 100× an isotropic radiator, but the total radiated power is unchanged.
 
-3. **Frequency dependence.** Gain varies with frequency. An antenna rated 8 dBi at 2.4 GHz may have different gain at 2.5 GHz.
+3. **Realized gain includes mismatch.** IEEE defines two gain variants: *gain* (ignores feedline mismatch) and *realized gain* (includes mismatch). Datasheets often report the higher "gain" value. For link budgets, use realized gain or add mismatch loss separately.
 
-4. **Pattern vs. peak.** Peak gain tells you one number. The radiation pattern tells you how gain varies with angle — essential for coverage analysis.
+4. **Pattern vs. peak.** Peak gain is one number. The radiation pattern shows how gain varies with angle — essential for interference analysis, sidelobe management, and coverage planning. Never substitute peak gain for a directional analysis.
 
-5. **Realized gain.** Some specs include mismatch loss; others don't. "Realized gain" includes mismatch; "gain" may not.
+5. **Near-field invalidates gain.** Gain is a far-field quantity. If the link is shorter than the far-field boundary $2D^2/\lambda$, gain cannot be applied directly.
 
-6. **Near-field invalid.** Gain is a far-field concept. Close to the antenna, the field doesn't follow simple $1/r$ spreading.
+6. **Frequency variation.** Gain varies with frequency. A 15 dBi antenna at 900 MHz may be 12 dBi at 850 MHz and 10 dBi at 800 MHz. Always check gain over the full operating band.
 
 </section>
 
@@ -165,8 +200,8 @@ A 1 m dish provides approximately 40 dBi at 12 GHz.
 
 ## References
 
-- Balanis, *Antenna Theory*, Chapter 2 — gain definitions and formulas.
-- IEEE Std 145 — standard antenna terminology.
-- Stutzman & Thiele, *Antenna Theory and Design*, Chapter 2 — gain and directivity.
+- Balanis, *Antenna Theory: Analysis and Design*, 4th ed., Chapter 2 — gain definitions and effective aperture.
+- IEEE Standard 145-2013 — standard antenna terminology, gain definition.
+- Stutzman & Thiele, *Antenna Theory and Design*, 3rd ed., Chapter 2 — gain and directivity.
 
 </section>

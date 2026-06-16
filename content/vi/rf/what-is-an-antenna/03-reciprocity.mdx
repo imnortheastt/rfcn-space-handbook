@@ -8,12 +8,12 @@ track: r2
 unit: what-is-an-antenna
 order: 3
 level: L1
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 11
 prerequisites: ["rf-r2-what-is-an-antenna-01-radiation"]
 spiralRevisits: []
 title: "Nguyên lý tương hỗ"
 description: "Tại sao pattern phát và thu giống nhau."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
@@ -27,9 +27,11 @@ status: published
 
 ## Tại sao tương hỗ quan trọng
 
-Bạn đo pattern anten bằng cách phát. Nhưng nó sẽ được dùng để thu. Chúng có giống nhau không?
+Phòng thí nghiệm đo anten gần như luôn đặc tả anten ở chế độ phát: cấp nguồn cho anten, xoay sừng tham chiếu xung quanh nó, ghi lại pattern. Nhưng anten thường sẽ được dùng để thu. Pattern phát có giống pattern thu không?
 
-Định lý tương hỗ đảm bảo: có. Pattern phát của anten bằng pattern thu. Kết quả cơ bản này cho phép kỹ sư đặc tả anten ở bất kỳ chế độ nào tiện hơn.
+Câu trả lời là có — và nó xuất phát từ một tính đối xứng sâu trong phương trình Maxwell gọi là định lý tương hỗ (reciprocity theorem). Định lý này có hậu quả thực tế khắp kỹ thuật RF: nó biện hộ cho việc dùng phép đo phát để đặc tả hành vi thu, giải thích tại sao tổn hao đường uplink và downlink bằng nhau, và xác định khi nào hệ thống anten sẽ *không* tương hỗ (anten tích cực, circulator, thiết bị ferrite).
+
+Với kỹ sư đến từ phần mềm, tương hỗ là tương đương RF của API đối xứng: nếu A có thể gọi B, B có thể gọi A với cùng chi phí.
 
 </section>
 
@@ -37,67 +39,85 @@ Bạn đo pattern anten bằng cách phát. Nhưng nó sẽ được dùng để
 
 ## Trực giác
 
-Phương trình Maxwell đối xứng đối với nguồn và trường. Nếu bạn có thể gửi tín hiệu từ A đến B, bạn có thể gửi từ B đến A với cùng hiệu suất.
+Phương trình Maxwell không có hướng thời gian ưu tiên. Nếu bạn chạy đồng hồ ngược trên một nghiệm EM hợp lệ, bạn nhận được một nghiệm EM hợp lệ khác. Về mặt vật lý: nếu sóng có thể truyền từ điểm A đến điểm B qua một môi trường nào đó, nó cũng có thể truyền từ B đến A theo cùng con đường, với cùng biên độ.
 
-Cho anten: bất cứ nơi nào anten bức xạ mạnh khi phát, nó thu mạnh từ hướng đó khi thu. Pattern độ lợi giống nhau.
+Cho một liên kết hai anten:
+- Nếu anten A phát và anten B thu tín hiệu $V$, thì
+- Nếu anten B phát cùng dòng điện, anten A thu chính xác tín hiệu $V$.
+
+Vì vậy pattern tăng ích — mức độ anten tương tác mạnh với sóng từ một hướng nhất định — giống nhau dù anten đang phát hay thu. Đây là tương hỗ.
+
+Nó có hiệu lực miễn là môi trường và anten là **tuyến tính** (không bão hòa), **bất biến thời gian** (không có công tắc hay điều chế trong đường tín hiệu), và làm từ **vật liệu tương hỗ** (không có ferrite với bias từ một chiều).
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Cơ chế
+## Cơ chế hoạt động
 
 ### Định lý tương hỗ Lorentz
 
-Cho môi trường tuyến tính, bất biến thời gian, tương hỗ:
+Cho bất kỳ hai tập hợp nguồn $(J_1, M_1)$ và $(J_2, M_2)$ tạo ra trường $(E_1, H_1)$ và $(E_2, H_2)$ trong cùng môi trường tuyến tính, đẳng hướng, định lý Lorentz phát biểu:
 
-$$\oint_S (\mathbf{E}_1 \times \mathbf{H}_2 - \mathbf{E}_2 \times \mathbf{H}_1) \cdot d\mathbf{S} = 0$$
+$$\oint_S \left(\mathbf{E}_1 \times \mathbf{H}_2 - \mathbf{E}_2 \times \mathbf{H}_1\right) \cdot d\mathbf{S} = 0$$
 
-Điều này liên hệ trường từ hai nguồn khác nhau trong cùng môi trường.
+cho mặt đóng $S$ không chứa nguồn. Đây không phải là xấp xỉ — đây là hậu quả chính xác của phương trình Maxwell trong môi trường tương hỗ.
 
-### Tương hỗ anten
+Diễn giải vật lý: công suất "truyền" thuần từ tập hợp nguồn 1 đến tập hợp nguồn 2 bằng công suất truyền từ tập hợp 2 đến tập hợp 1. Không có hướng ghép cặp ưu tiên.
 
-Xét hai anten A và B:
+### Đối xứng trở kháng truyền
 
-$$\frac{V_{AB}}{I_A} = \frac{V_{BA}}{I_B}$$
+Xét hai anten A và B. Kích thích anten A bằng dòng điện $I_A$; nó cảm ứng điện áp hở mạch $V_{AB}$ ở B. Kích thích anten B bằng dòng điện $I_B$; nó cảm ứng điện áp hở mạch $V_{BA}$ ở A.
 
-trong đó:
-- $V_{AB}$ = điện áp ở B do dòng điện $I_A$ ở A
-- $V_{BA}$ = điện áp ở A do dòng điện $I_B$ ở B
+Định lý Lorentz ngụ ý:
 
-**Kết quả:** Trở kháng truyền đối xứng.
+$$\frac{V_{AB}}{I_A} = \frac{V_{BA}}{I_B} \equiv Z_{AB}$$
+
+Trở kháng truyền $Z_{AB}$ đối xứng. Đây là nền tảng của mô tả S-parameter hai cổng của các liên kết anten: $S_{21} = S_{12}$ trong môi trường tương hỗ.
 
 ### Tương đương pattern
 
-Pattern bức xạ chuẩn hóa trong chế độ phát bằng pattern thu:
+Pattern bức xạ chuẩn hóa $F(\theta, \phi)$ — mô tả tăng ích theo góc — giống hệt nhau trong chế độ phát và thu:
 
 $$F_{TX}(\theta, \phi) = F_{RX}(\theta, \phi)$$
 
-Độ lợi, directivity, và beamwidth giống hệt.
+Điều này có nghĩa:
+- **Tăng ích** giống nhau trong TX và RX.
+- **Độ rộng chùm tia** giống nhau.
+- **Mức búp sóng phụ** giống nhau.
+- **Vị trí điểm không** giống nhau.
 
-### Quan hệ khẩu độ hiệu dụng
+Điểm không trong pattern phát có nghĩa hướng đó cũng là điểm không trong thu — anten từ chối nhiễu từ hướng đó hiệu quả như nhau.
 
-Cho bất kỳ anten nào:
+### Khẩu độ hiệu dụng và tăng ích — cùng công thức
+
+Khi thu, anten nắm bắt công suất từ sóng phẳng tới. Công suất nắm bắt là:
+
+$$P_{rx} = S \cdot A_e$$
+
+trong đó $S$ là mật độ công suất tới (W/m²) và $A_e$ là **khẩu độ hiệu dụng** (effective aperture, m²). Định lý tương hỗ buộc cùng một mối quan hệ phải đúng cho cả TX và RX:
 
 $$G = \frac{4\pi A_e}{\lambda^2}$$
 
-Áp dụng trong cả chế độ TX và RX. Độ lợi phát và khẩu độ hiệu dụng thu liên kết bởi cùng công thức.
+Vì vậy nếu bạn biết tăng ích phát, bạn ngay lập tức biết anten trình bày bao nhiêu khẩu độ cho sóng tới — không cần đặc tả RX riêng biệt.
 
-### Trở kháng
+**Ví dụ tính toán:** Anten patch có $G = 7$ dBi $= 5{,}0$ ở 2,4 GHz ($\lambda = 125$ mm).
 
-Trở kháng anten $Z_A = R + jX$ giống nhau dù phát hay thu.
+$$A_e = \frac{G \lambda^2}{4\pi} = \frac{5{,}0 \times (0{,}125)^2}{4\pi} = 6{,}2 \times 10^{-3}\ \text{m}^2 = 62\ \text{cm}^2$$
 
-### Điều kiện tương hỗ
+Patch nắm bắt 62 cm² của mặt sóng tới — dù diện tích vật lý của nó chỉ khoảng 30 cm².
 
-Định lý áp dụng cho:
-- Vật liệu tuyến tính
-- Hệ thống bất biến thời gian
-- Môi trường đẳng hướng hoặc dị hướng (tương hỗ)
+### Khi nào tương hỗ thất bại
 
-Định lý thất bại cho:
-- Thiết bị phi tuyến (bộ khuếch đại, bộ trộn)
-- Vật liệu không tương hỗ (ferrite với bias)
-- Anten tích cực với khuếch đại bất đối xứng
+Tương hỗ yêu cầu tất cả các phần tử trong chuỗi RF phải tuyến tính và thụ động. Nó phá vỡ với:
+
+| Phần tử không tương hỗ | Tại sao phá vỡ tương hỗ | Ví dụ thực tế |
+|------------------------|------------------------|---------------|
+| Bộ khuếch đại (LNA, PA) | Cung cấp tăng ích chỉ một chiều | Mảng anten tích cực |
+| Circulator / isolator | Ferrite với bias từ một chiều | Duplexer, công tắc T/R radar |
+| Công tắc PIN diode | Phi tuyến khi chuyển mạch | Mảng chùm tia chuyển đổi |
+
+Khi tương hỗ bị phá vỡ có chủ đích, pattern TX và RX khác nhau. Một mảng pha tích cực với các module T/R có công suất phát và hệ số tạp nhiễu thu khác nhau trên mỗi phần tử — hành vi hệ thống tổng thể trong TX và RX được thiết kế độc lập, không được giả định bằng nhau.
 
 </section>
 
@@ -105,27 +125,25 @@ Trở kháng anten $Z_A = R + jX$ giống nhau dù phát hay thu.
 
 ## Áp dụng
 
-**Ví dụ: Đo pattern**
+**Đơn giản hóa đo pattern anten**
 
-Để đo pattern anten thu, phát từ nó thay thế. Xoay anten kiểm tra quanh nó và ghi công suất. Pattern bằng pattern thu.
+Một anten chỉ thu (ví dụ: patch GPS trên vệ tinh) khó đặc tả ở chế độ thu vì bạn cần nguồn tín hiệu hiệu chỉnh ở mọi góc trên bầu trời. Thay vào đó, kết nối máy phát tín hiệu vào cổng anten, xoay sừng thu quanh nó trong buồng cách âm, và ghi lại pattern. Tương hỗ đảm bảo pattern khớp với hành vi thu.
 
-Điều này dễ hơn nhiều so với xây máy phát di động.
+Thủ thuật này giảm một nửa chi phí của các dải kiểm tra anten: chỉ một đầu cần xoay. Anten đang kiểm tra luôn là máy phát.
 
-**Ví dụ: Tiết diện radar**
+**Ngân sách liên kết: tại sao tổn hao đường uplink và downlink bằng nhau**
 
-Đo RCS monostatic dùng cùng anten cho TX và RX. Tương hỗ đảm bảo RCS đo áp dụng cho cả hai hướng.
+Tổn hao không gian tự do từ A đến B bằng tổn hao từ B đến A. Cả hai dùng cùng công thức:
 
-**Ví dụ: Đối xứng ngân sách liên kết**
+$$L_{fs} = \left(\frac{4\pi r}{\lambda}\right)^2$$
 
-Suy hao đường từ A đến B bằng suy hao đường từ B đến A (trong môi trường tương hỗ). Uplink và downlink có cùng suy hao đường, dù hệ số tạp nhiễu hệ thống khác nhau.
+Tổn hao đường là tương hỗ dù ngân sách liên kết thì không. Ngân sách uplink và downlink khác nhau vì công suất phát, tăng ích anten, và hệ số tạp nhiễu khác nhau ở mỗi đầu — không phải vì lan truyền bất đối xứng.
 
-**Ví dụ: Hiệu chuẩn mảng**
+**Hiệu chuẩn mảng qua thăm dò phát**
 
-Hiệu chuẩn mảng thu bằng cách phát từ mỗi phần tử và đo ở anten tham chiếu. Tương hỗ đảm bảo điều này đặc tả hiệu suất thu.
+Để hiệu chuẩn biên độ và pha thu của mỗi phần tử trong mảng pha lớn, kích thích mỗi phần tử như máy phát và đo trường ở anten tham chiếu. Tương hỗ ánh xạ trực tiếp các phép đo phát đó thành các hệ số hiệu chuẩn thu.
 
-**Ví dụ: Thiết bị không tương hỗ**
-
-Circulator định tuyến tín hiệu khác nhau tùy port. Nó cố ý không tương hỗ. Hệ thống anten dùng circulator có thể có đặc tính TX và RX khác nhau ở mức hệ thống.
+Kỹ thuật này được dùng trong trạm gốc Massive MIMO (64–256 phần tử) để tránh giải pháp thay thế không thực tế là thăm dò từng phần tử với sóng tới từ đúng hướng.
 
 </section>
 
@@ -133,15 +151,15 @@ Circulator định tuyến tín hiệu khác nhau tùy port. Nó cố ý không 
 
 ## Lỗi thường gặp
 
-1. **Áp dụng cho anten tích cực.** Anten với LNA tích hợp có hành vi TX và RX khác nhau. Tương hỗ áp dụng cho phần tử anten thụ động, không phải hệ thống khuếch đại.
+1. **Áp dụng cho hệ thống anten tích cực.** Phần tử anten là thụ động và tương hỗ. Phần tử anten cộng với LNA thì không: LNA chỉ khuếch đại tín hiệu đến từ không gian, không theo đường phát. Thiết kế chuỗi thu và phát anten tích cực độc lập.
 
-2. **Nhầm với duplexing.** TX và RX dùng cùng pattern, nhưng hệ thống thực tế có thể dùng anten, tần số, hoặc đường khác nhau cho uplink vs. downlink.
+2. **Nhầm tương hỗ kênh với tương hỗ hệ thống.** Trong hệ thống TDD (phân chia thời gian theo tần số — Time Division Duplex) như 5G NR, kênh được giả định tương hỗ. Nhưng toàn bộ hệ thống — bao gồm tăng ích PA, tạp nhiễu LNA, và đường lọc — không đối xứng. Hiệu chuẩn beamforming dựa trên tương hỗ sẽ sửa cho sự bất đối xứng phần cứng.
 
-3. **Môi trường không tương hỗ.** Gần ferrite từ hóa (isolator, circulator), tương hỗ thất bại. Thiết kế phải tính đến hành vi có hướng.
+3. **Phân cực chéo.** Tương hỗ áp dụng theo phân cực. Đường co-pol đến co-pol là tương hỗ; đường cross-pol cũng vậy. Cách ly chéo phân cực là đối xứng giữa các cổng.
 
-4. **Hiệu ứng phi tuyến.** TX công suất cao có thể gây bão hòa hoặc hiệu ứng phi tuyến không có trong RX công suất thấp. Pattern có thể khác hiệu dụng.
+4. **Méo phát công suất cao.** Nếu anten hoặc cổng cấp điện của nó có hành vi phi tuyến ở công suất TX cao (ví dụ: hồ quang tiếp xúc connector, bão hòa ferrite), pattern phát có thể khác pattern thu được đo ở công suất thấp. Anten tạm thời không tương hỗ trong điều kiện công suất cao.
 
-5. **Phân cực.** Tương hỗ áp dụng theo phân cực. Anten với bộ lọc phân cực TX và RX khác nhau sẽ hành xử bất đối xứng ở mức hệ thống.
+5. **Thiết bị duplexing.** TX và RX dùng cùng pattern anten, nhưng hệ thống thực tế có thể dùng anten, tần số, hoặc đường khác nhau cho uplink vs. downlink. Tương hỗ không ngụ ý ngân sách liên kết đối xứng.
 
 </section>
 
@@ -149,8 +167,8 @@ Circulator định tuyến tín hiệu khác nhau tùy port. Nó cố ý không 
 
 ## Tài liệu tham khảo
 
-- Balanis, *Antenna Theory: Analysis and Design*, Chapter 2.
-- Collin, *Foundations for Microwave Engineering*, Chapter 1.
-- IEEE Standard 145 — Definitions of Terms for Antennas.
+- Balanis, *Antenna Theory: Analysis and Design*, 4th ed., Chapter 2 — tương hỗ Lorentz và trở kháng truyền anten.
+- Collin, *Foundations for Microwave Engineering*, 2nd ed., Chapter 1 — dẫn xuất chính thức của định lý tương hỗ.
+- IEEE Standard 145-2013 — Definitions of Terms for Antennas, định nghĩa tương hỗ.
 
 </section>

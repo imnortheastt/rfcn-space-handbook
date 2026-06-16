@@ -8,16 +8,16 @@ track: r2
 unit: propagation-in-real-environments
 order: 3
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 15
 prerequisites: ["rf-r2-propagation-in-real-environments-02-two-ray-model"]
 spiralRevisits: []
 title: "Multipath"
-description: "Multiple signal paths create time dispersion and frequency selectivity."
-authors: ["tindang"]
+description: "Multiple signal paths create time dispersion, frequency selectivity, and ISI."
+authors: ["Crystal D."]
 publishedAt: "2026-06-02"
 lastVerified: "2026-06-02"
 standards: []
-tags: ["multipath", "delay-spread", "frequency-selectivity", "channel"]
+tags: ["multipath", "delay-spread", "frequency-selectivity", "channel", "ofdm", "coherence-bandwidth"]
 widgets: []
 license: CC-BY-SA-4.0
 status: published
@@ -25,9 +25,13 @@ status: published
 
 <section class="lesson-hook">
 
-## Why multipath matters?
+## Why multipath matters
 
-In real environments, signals arrive via multiple paths — direct, reflected, scattered, diffracted. These paths have different delays, creating copies of your signal that arrive at different times. This causes inter-symbol interference, frequency-selective fading, and determines whether your system needs equalization or OFDM.
+In real environments, signals arrive via multiple paths — direct, reflected from buildings, scattered from vehicles, diffracted around corners. These paths have different lengths, so they arrive with different delays. The receiver sees not one clean copy of the signal, but dozens of superimposed copies shifted in time.
+
+This time dispersion is the reason Wi-Fi uses OFDM, LTE uses a cyclic prefix, and 5G NR has multiple subcarrier spacing options. Without understanding multipath, you cannot understand why these architectural choices were made — or why a single-carrier system that works perfectly in an open field fails catastrophically in a city.
+
+For cloud engineers building systems over radio: multipath determines the coherence bandwidth of the channel. If your signal bandwidth exceeds the coherence bandwidth, different frequency components of your signal fade independently — a fundamentally different failure mode from AWGN.
 
 </section>
 
@@ -35,80 +39,128 @@ In real environments, signals arrive via multiple paths — direct, reflected, s
 
 ## Intuition
 
-Imagine shouting in a canyon. You hear echoes arriving at different times. Radio signals do the same in cities — bouncing off buildings, arriving as ghosts of the original. If echoes arrive within one symbol period, they blur the symbol. If they span multiple symbols, they cause inter-symbol interference (ISI).
+### Echoes in a canyon
+
+Imagine shouting in a canyon. You hear your voice arrive directly, then echoes returning from the canyon walls at different delays — 50 ms, 100 ms, 200 ms after the original. If you shout a word every 80 ms (125 words per second), the 100 ms echo of word 1 overlaps with word 2 — you can no longer distinguish them. This is **inter-symbol interference (ISI)**.
+
+Radio signals in cities behave identically. A building 150 m away creates an echo arriving 1 μs after the direct path (300 m extra / 3×10⁸ m/s). If your symbol period is 0.5 μs (2 Msps), that echo lands on the next symbol — ISI occurs.
+
+### Frequency selectivity — the colored noise view
+
+Multipath also creates a frequency-selective channel. Different frequencies in your signal experience different amounts of constructive and destructive interference from the echo paths. A channel with 1 μs delay spread has constructive interference at some frequencies and destructive at others, with the pattern repeating approximately every $1/\tau_{rms} \approx 1$ MHz. If your signal bandwidth is 10 MHz, some sub-bands are strong while others are weak — your channel looks like a comb filter, not a flat attenuator.
+
+OFDM handles this by dividing the signal into narrow subcarriers, each narrow enough that the channel appears flat within that subcarrier. Each subcarrier then needs only a simple one-tap equalizer (a single complex multiply) rather than a multi-tap time-domain equalizer.
+
+```
+Frequency-selective channel (delay spread = 1 μs):
+
+Signal power (dB)
+    0  |---\    /---\    /---
+  -10  |    \  /     \  /
+  -20  |     \/       \/
+       +---+---+---+---+----> Frequency
+           1   2   3   4  MHz
+
+Coherence bandwidth Bc ≈ 1/(5 × 1μs) = 200 kHz
+Signal bandwidth (10 MHz) >> Bc → frequency selective
+Each 200 kHz chunk fades independently
+```
 
 </section>
 
 <section class="lesson-mechanism">
 
-## Mechanism
+## How it works
 
 ### Channel impulse response
 
-The multipath channel is characterized by:
+The multipath channel is characterized as a linear time-varying filter. Its impulse response is a sum of delayed, scaled, phase-shifted copies of the input:
 
-$$h(\tau) = \sum_{i=0}^{N-1} a_i \delta(\tau - \tau_i) e^{j\phi_i}$$
+$$h(\tau, t) = \sum_{i=0}^{N-1} a_i(t) \, \delta(\tau - \tau_i) \, e^{j\phi_i(t)}$$
 
-- $a_i$ = amplitude of path i
-- $\tau_i$ = delay of path i
-- $\phi_i$ = phase of path i (from path length and carrier)
+where:
+- $a_i$ = amplitude of path $i$ (fading over time)
+- $\tau_i$ = propagation delay of path $i$
+- $\phi_i$ = phase of path $i$ (includes carrier phase from path length)
+- $N$ = number of significant multipath components
+
+The received signal is the convolution of the transmitted signal with $h(\tau, t)$.
 
 ### Power delay profile (PDP)
 
-Average power vs. delay:
+The power delay profile averages the squared magnitude of the channel impulse response over small-scale fading:
 
 $$P(\tau) = E[|h(\tau)|^2]$$
 
-Often modeled as exponentially decaying:
+Commonly modeled as exponentially decaying:
+$$P(\tau) = \frac{1}{\bar{\tau}} e^{-\tau/\bar{\tau}}, \quad \tau \geq 0$$
 
-$$P(\tau) = \frac{1}{\tau_{rms}} e^{-\tau/\tau_{rms}}$$
+where $\bar{\tau}$ is related to the RMS delay spread.
 
 ### Delay spread metrics
 
-**Mean excess delay:**
-$$\bar{\tau} = \frac{\sum_k P(\tau_k) \tau_k}{\sum_k P(\tau_k)}$$
+**Mean excess delay** — power-weighted mean arrival time (relative to first significant path):
+$$\bar{\tau} = \frac{\sum_k P(\tau_k)\, \tau_k}{\sum_k P(\tau_k)}$$
 
-**RMS delay spread:**
-$$\tau_{rms} = \sqrt{\overline{\tau^2} - (\bar{\tau})^2}$$
+**RMS delay spread** — the standard deviation of arrival times weighted by power:
+$$\tau_{rms} = \sqrt{\frac{\sum_k P(\tau_k)\, \tau_k^2}{\sum_k P(\tau_k)} - \bar{\tau}^2}$$
 
-where $\overline{\tau^2} = \frac{\sum_k P(\tau_k) \tau_k^2}{\sum_k P(\tau_k)}$
-
-### Coherence bandwidth
-
-Frequency range over which channel is approximately flat:
-
-$$B_c \approx \frac{1}{5\tau_{rms}} \quad \text{(0.9 correlation)}$$
-
-$$B_c \approx \frac{1}{2\pi\tau_{rms}} \quad \text{(0.5 correlation)}$$
-
-### Frequency-selective vs. flat fading
-
-| Condition | Type | Effect |
-|-----------|------|--------|
-| $B_s << B_c$ | Flat fading | All frequencies fade together |
-| $B_s >> B_c$ | Frequency-selective | Different frequencies fade differently |
-
-where $B_s$ = signal bandwidth.
+RMS delay spread is the single most important channel parameter for waveform design. It tells you whether your signal will suffer ISI and how complex your equalizer needs to be.
 
 ### Typical delay spreads
 
-| Environment | τ_rms |
-|-------------|-------|
-| Indoor (small office) | 10-50 ns |
-| Indoor (large building) | 50-200 ns |
-| Urban cellular | 1-5 μs |
-| Suburban | 200 ns - 2 μs |
-| Hilly terrain | up to 20 μs |
+| Environment | $\tau_{rms}$ typical | Notes |
+|-------------|----------------------|-------|
+| Indoor (small office) | 10–50 ns | Short path lengths |
+| Indoor (large building, open plan) | 50–200 ns | Longer reflections |
+| Urban microcell | 100–500 ns | Street-level reflections |
+| Urban macrocell | 1–5 μs | Distant building reflections |
+| Suburban | 200 ns–2 μs | Varies with clutter |
+| Hilly terrain | 5–20 μs | Distant ridges |
+| LEO satellite (near-LOS) | 5–20 ns | Almost no multipath |
 
-### ISI condition
+### Coherence bandwidth
 
-ISI occurs when delay spread exceeds symbol time:
+The coherence bandwidth $B_c$ is the frequency range over which the channel transfer function is approximately constant (correlated). It is inversely related to delay spread:
+
+$$B_c \approx \frac{1}{5\tau_{rms}} \quad \text{(0.9 correlation definition)}$$
+
+$$B_c \approx \frac{1}{2\pi\tau_{rms}} \quad \text{(0.5 correlation definition)}$$
+
+The 0.5-correlation definition is more commonly used in system design. The 0.9 definition gives a more conservative (smaller) $B_c$.
+
+### Flat vs. frequency-selective fading
+
+| Signal bandwidth $B_s$ vs. $B_c$ | Fading type | Effect on signal |
+|----------------------------------|-------------|------------------|
+| $B_s \ll B_c$ | Flat (non-selective) | All frequencies fade together; no ISI |
+| $B_s \gg B_c$ | Frequency-selective | Different frequencies fade differently; ISI occurs |
+
+Flat fading means the entire signal bandwidth sees the same channel coefficient — simple to handle. Frequency-selective fading means the channel acts as a filter with a complex frequency response — requires equalization or OFDM.
+
+### ISI threshold
+
+ISI occurs when the delay spread exceeds the symbol duration $T_s = 1/R_s$:
 
 $$\tau_{rms} > T_s$$
 
-Maximum ISI-free symbol rate:
-
+Maximum ISI-free symbol rate for a single-carrier system:
 $$R_s < \frac{1}{\tau_{rms}}$$
+
+For urban macro ($\tau_{rms} = 3$ μs): maximum ISI-free rate = 333 ksps. LTE uses 7.68 Mcps physical layer — 23× above this threshold — which is why LTE needs a cyclic prefix of 4.7–16.7 μs.
+
+### OFDM and the cyclic prefix
+
+OFDM solves the multipath problem by:
+
+1. **Dividing** the wideband signal into $N$ narrow subcarriers, each with bandwidth $B_s/N \ll B_c$. Each subcarrier sees flat fading.
+2. **Adding** a cyclic prefix (CP) of duration $T_{cp} \geq \tau_{max}$ (maximum excess delay). The CP absorbs the ISI at the cost of overhead.
+3. **Using** a single complex coefficient per subcarrier for equalization (divide received subcarrier by channel estimate — one multiplication).
+
+CP overhead fraction: $T_{cp} / (T_{cp} + T_{symbol})$.
+
+LTE normal CP: $T_{cp} = 4.7$ μs, $T_{symbol} = 66.7$ μs → overhead = 6.6%.
+LTE extended CP: $T_{cp} = 16.7$ μs → overhead = 20% (for high-delay-spread environments).
 
 </section>
 
@@ -116,44 +168,72 @@ $$R_s < \frac{1}{\tau_{rms}}$$
 
 ## Apply
 
-**Example: Wi-Fi indoors**
+### Example 1: Why Wi-Fi uses OFDM
 
-τ_rms = 50 ns (typical office).
+Indoor office, $\tau_{rms} = 50$ ns.
 
 Coherence bandwidth:
-$$B_c = \frac{1}{5 \times 50 \times 10^{-9}} = 4 \text{ MHz}$$
+$$B_c = \frac{1}{2\pi \times 50 \times 10^{-9}} = 3.2 \text{ MHz}$$
 
-Wi-Fi uses 20 MHz bandwidth — frequency-selective.
+Wi-Fi 802.11n uses 20 MHz bandwidth — frequency selective ($20 \gg 3.2$ MHz).
 
-This is why Wi-Fi uses OFDM with 312.5 kHz subcarriers (< 4 MHz).
+OFDM subcarrier spacing: 312.5 kHz (each subcarrier bandwidth $\ll$ 3.2 MHz, so each sees flat fading).
 
-**Example: LTE design**
+CP duration: 800 ns (covers the 50 ns RMS spread with margin for 200–300 ns max excess delay).
 
-Urban τ_rms = 3 μs.
+Single-carrier alternative: would need a 7-tap equalizer ($T_s = 1/20\text{ MHz} = 50$ ns ≈ $\tau_{rms}$, so ISI spans ~6–7 symbol periods). OFDM is simpler.
 
-$$B_c = \frac{1}{5 \times 3 \times 10^{-6}} = 67 \text{ kHz}$$
+### Example 2: LTE design parameters driven by urban multipath
 
-LTE uses 15 kHz subcarriers (< 67 kHz) — each subcarrier sees flat fading.
+Urban macro, $\tau_{rms} = 3$ μs, $\tau_{max} = 10$ μs.
 
-Cyclic prefix: 4.7 μs (normal) — covers 3 μs delay spread with margin.
+Coherence bandwidth (0.5 correlation):
+$$B_c = \frac{1}{2\pi \times 3 \times 10^{-6}} = 53 \text{ kHz}$$
 
-**Example: Single-carrier limit**
+LTE subcarrier spacing: 15 kHz $\ll$ 53 kHz → each subcarrier is flat-fading. ✓
 
-τ_rms = 1 μs.
+LTE normal CP: 4.7 μs > typical $\tau_{rms}$, but $< \tau_{max}$ in hilly terrain. For rural/hilly deployments with $\tau_{max}$ up to 16 μs, the extended CP (16.7 μs) is used — at the cost of 20% overhead reduction in throughput.
 
-Maximum ISI-free symbol rate: 1 Msps.
+### Example 3: Max symbol rate in a subway tunnel
 
-For higher rates without OFDM: need equalization.
+Subway tunnel, $\tau_{rms} = 500$ ns (hard reflections from tunnel walls).
 
-10 Msps with 1 μs spread: equalizer needs ~10 taps.
+Maximum ISI-free single-carrier rate:
+$$R_s < \frac{1}{500 \times 10^{-9}} = 2 \text{ Msps}$$
 
-**Example: Satellite link**
+At 16-QAM (4 bits/symbol): max data rate without equalizer = 8 Mbps.
 
-LEO satellite, τ_rms ≈ 10 ns (near-LOS).
+For LTE/5G: use OFDM with 15 kHz subcarriers and CP. No ISI concern because OFDM absorbs the delay spread.
 
-$$B_c = \frac{1}{5 \times 10 \times 10^{-9}} = 20 \text{ MHz}$$
+### Example 4: Satellite channel — almost flat
 
-Satellite channels are essentially flat-fading up to ~20 MHz bandwidth.
+LEO satellite at 30° elevation, $\tau_{rms} \approx 15$ ns (near-LOS, very little scattering).
+
+Coherence bandwidth:
+$$B_c = \frac{1}{2\pi \times 15 \times 10^{-9}} = 10.6 \text{ MHz}$$
+
+A 5G NTN NB-IoT channel with 200 kHz bandwidth: $200 \text{ kHz} \ll 10.6 \text{ MHz}$ → flat fading. The satellite channel for narrowband IoT is essentially AWGN — delay spread is not the design driver (Doppler and propagation delay are).
+
+### Example 5: Computing delay spread from a measured PDP
+
+Measured PDP with three dominant paths:
+
+| Path | Delay (ns) | Relative power (dB) | Linear power |
+|------|------------|---------------------|--------------|
+| 0 | 0 | 0 | 1.0 |
+| 1 | 100 | -3 | 0.5 |
+| 2 | 400 | -10 | 0.1 |
+
+Mean excess delay:
+$$\bar{\tau} = \frac{1.0 \times 0 + 0.5 \times 100 + 0.1 \times 400}{1.0 + 0.5 + 0.1} = \frac{90}{1.6} = 56.25 \text{ ns}$$
+
+Second moment:
+$$\overline{\tau^2} = \frac{1.0 \times 0 + 0.5 \times 10000 + 0.1 \times 160000}{1.6} = \frac{21000}{1.6} = 13125 \text{ ns}^2$$
+
+RMS delay spread:
+$$\tau_{rms} = \sqrt{13125 - 56.25^2} = \sqrt{13125 - 3164} = \sqrt{9961} = 99.8 \text{ ns}$$
+
+Coherence bandwidth: $1/(2\pi \times 100\text{ ns}) = 1.6$ MHz.
 
 </section>
 
@@ -161,15 +241,17 @@ Satellite channels are essentially flat-fading up to ~20 MHz bandwidth.
 
 ## Pitfalls
 
-1. **Ignoring delay spread.** A system designed for AWGN fails in multipath. Always characterize the channel.
+1. **Confusing $\tau_{rms}$ with $\tau_{max}$.** RMS delay spread is a power-weighted statistic. Maximum excess delay $\tau_{max}$ (the delay of the last significant path) is what determines the required CP length. $\tau_{max}$ can be 3–5× larger than $\tau_{rms}$ for exponential PDPs.
 
-2. **Confusing coherence bandwidth and signal bandwidth.** Bc is channel property; Bs is system design choice.
+2. **Assuming flat fading because the channel is narrowband.** "Narrowband" relative to signal bandwidth is not the same as narrowband relative to coherence bandwidth. A 200 kHz IoT signal in an urban macro channel ($B_c = 53$ kHz) is frequency-selective even though 200 kHz seems narrow.
 
-3. **Single τ_rms value.** Delay spread varies with environment and link geometry. Use appropriate model.
+3. **Forgetting power weighting in delay spread calculation.** Weak late paths contribute little to $\tau_{rms}$. A path arriving at 10 μs with -40 dB power barely affects the delay spread calculation. Noise paths included in the sum corrupt the result — threshold the PDP before computing.
 
-4. **Forgetting power weighting.** Delay spread uses power-weighted delays. Weak late paths contribute less.
+4. **OFDM solves ISI but not fading.** OFDM converts frequency-selective fading into flat fading per subcarrier — it does not eliminate fading. Each subcarrier still fades as Rayleigh or Rician. OFDM simply makes equalization tractable; you still need coding, diversity, or MIMO to combat the remaining flat fading.
 
-5. **OFDM solves everything.** OFDM converts frequency-selective to flat per subcarrier — but you still need CP > τ_max.
+5. **Single $\tau_{rms}$ value for a complex environment.** Delay spread is highly location-dependent. A model giving $\tau_{rms} = 3$ μs for "urban" is a median — individual locations may range from 0.5 to 15 μs. Design for the worst-case deployment scenario, not the median.
+
+6. **Ignoring inter-carrier interference (ICI) from Doppler.** OFDM orthogonality depends on channel being static over one OFDM symbol period. Fast mobility (high Doppler) causes the channel to vary within a symbol, breaking orthogonality and introducing ICI. This is the main challenge for OFDM in high-speed vehicular and satellite scenarios.
 
 </section>
 
@@ -177,8 +259,9 @@ Satellite channels are essentially flat-fading up to ~20 MHz bandwidth.
 
 ## References
 
-- Rappaport, *Wireless Communications*, Chapter 5.
-- Goldsmith, *Wireless Communications*, Chapter 3.
-- 3GPP TR 38.901, "Channel model for frequencies from 0.5 to 100 GHz."
+- Rappaport, T.S., *Wireless Communications*, 2nd ed., Chapter 5 — PDP, delay spread, coherence bandwidth.
+- Goldsmith, A., *Wireless Communications*, Chapter 3 — flat vs. frequency-selective fading, OFDM motivation.
+- 3GPP TR 38.901 v17.0 — channel models with PDP parameters for all 5G NR environments (Tables 7.7.2-1 through 7.7.2-4).
+- Proakis, J.G. and Salehi, M., *Digital Communications*, 5th ed., Chapter 14 — equalization for frequency-selective channels.
 
 </section>

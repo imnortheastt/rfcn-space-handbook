@@ -8,17 +8,353 @@ track: n3
 unit: identifiers
 order: 3
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-identifiers-02-guti-and-5g-tmsi"]
+spiralRevisits: ["core-network-n4-security-04-equipment-identity"]
 title: "GPSI va IMEI"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Generic Public Subscription Identifier va International Mobile Equipment Identity — identifier cong khai va thiet bi."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["3GPP TS 23.003", "3GPP TS 22.016"]
+tags: ["gpsi", "imei", "pei", "identity", "5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# GPSI va IMEI
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+SUPI xac dinh thue bao cua ban. Nhung con so dien thoai thi sao? Va ban than thiet bi thi sao?
+
+**GPSI** la danh tinh cong khai cua ban — so dien thoai hoac email ma dich vu ben ngoai dung de lien lac voi ban. **IMEI** xac dinh thiet bi vat ly. Cung voi SUPI, chung tao thanh buc tranh danh tinh hoan chinh trong 5G.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Bo ba danh tinh
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                   Mo hinh danh tinh 5G                   │
+│                                                          │
+│  ┌─────────────────┐                                    │
+│  │      SUPI       │  Danh tinh thue bao (rieng tu)     │
+│  │ (chi noi bo)    │  "Ban la ai voi chung toi?"        │
+│  └────────┬────────┘                                    │
+│           │                                              │
+│  ┌────────┴────────┐                                    │
+│  │      GPSI       │  Danh tinh cong khai (ben ngoai)   │
+│  │ (so dien thoai) │  "Nguoi khac lien lac ban the nao?"│
+│  └────────┬────────┘                                    │
+│           │                                              │
+│  ┌────────┴────────┐                                    │
+│  │   PEI (IMEI)    │  Danh tinh thiet bi                │
+│  │ (serial thiet bi)│  "Ban dang dung thiet bi gi?"     │
+│  └─────────────────┘                                    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### GPSI la gi?
+
+**GPSI (Generic Public Subscription Identifier)** la danh tinh huong ben ngoai cho thue bao. Do la cai the gioi ben ngoai dung de lien lac voi ban.
+
+```
+Dinh dang GPSI:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Dinh dang MSISDN:                                      │
+│  ┌─────────────────────────────────────────────┐        │
+│  │ +84 (90) 123-4567                           │        │
+│  │  │   └───────────────┘                      │        │
+│  │  │         │                                │        │
+│  │  CC       NDC + SN (So quoc gia)            │        │
+│  └─────────────────────────────────────────────┘        │
+│                                                          │
+│  Dinh dang External Identifier (kieu NAI):              │
+│  ┌─────────────────────────────────────────────┐        │
+│  │ user@example.com                            │        │
+│  │ device123@iot.operator.net                  │        │
+│  └─────────────────────────────────────────────┘        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Su dung GPSI:**
+- Cuoc goi thoai den
+- Gui SMS
+- Dia chi dich vu ben ngoai
+- Dang ky IMS
+
+### PEI/IMEI la gi?
+
+**PEI (Permanent Equipment Identifier)** trong 5G thong thuong la **IMEI (International Mobile Equipment Identity)** — identifier duy nhat cho thiet bi vat ly.
+
+```
+Cau truc IMEI (15 so):
+
+┌────────────────────────────────────────────────────────┐
+│                                                         │
+│   TAC (8 so)        │  SNR (6 so)      │  CD (1 so)   │
+│   Type Allocation   │  Serial Number   │  Check Digit │
+│   Code              │  (duy nhat)      │  (Luhn)      │
+│                     │                  │              │
+│   35  -  123456     │   789012         │      3       │
+│   │       │         │     │            │      │       │
+│   │       │         │     │            │      └── Kiem tra Luhn
+│   │       │         │     └── Duy nhat cho thiet bi
+│   │       │         │
+│   │       └── Ma model (vendor gan)
+│   └── Reporting Body ID (GSMA gan)
+│                                                         │
+└────────────────────────────────────────────────────────┘
+```
+
+**IMEI-SV (Software Version):** 16 so, them phien ban phan mem thay vi check digit.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Anh xa GPSI-SUPI
+
+UDM duy tri lien ket giua GPSI va SUPI:
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                        UDM                               │
+│                                                          │
+│  Du lieu thue bao:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ SUPI: 452021123456789                           │    │
+│  │                                                  │    │
+│  │ GPSI:                                           │    │
+│  │   - msisdn-84901234567 (chinh)                  │    │
+│  │   - msisdn-84907654321 (phu)                    │    │
+│  │   - extid-user@example.com                      │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Huong tra cuu:                                         │
+│  GPSI → SUPI (cho cuoc goi/SMS den)                     │
+│  SUPI → GPSI (cho caller ID, goi dich vu)               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Nhieu GPSI:** Mot thue bao co the co nhieu so dien thoai (MSISDN) va external identifier, tat ca anh xa den mot SUPI.
+
+### Kiem tra danh tinh thiet bi
+
+Khi UE dang ky, mang co the kiem tra danh tinh thiet bi:
+
+```
+UE                      AMF                      EIR
+│                        │                        │
+│   Registration         │                        │
+│   (bao gom PEI/IMEI)   │                        │
+│───────────────────────►│                        │
+│                        │                        │
+│                        │   Identity Check Req   │
+│                        │   (PEI)                │
+│                        │───────────────────────►│
+│                        │                        │
+│                        │        ┌───────────────┤
+│                        │        │ Kiem tra:     │
+│                        │        │ - White list  │
+│                        │        │ - Black list  │
+│                        │        │ - Gray list   │
+│                        │        └───────────────┤
+│                        │                        │
+│                        │   Identity Check Resp  │
+│                        │   (Ket qua: allowed/   │
+│                        │    barred/unknown)     │
+│                        │◄───────────────────────│
+│                        │                        │
+```
+
+**Danh sach EIR:**
+- **White list:** Thiet bi da biet, duoc phe duyet
+- **Black list:** Thiet bi bi danh cap, bi chan, gia mao
+- **Gray list:** Dang theo doi
+
+### GPSI trong yeu cau dich vu
+
+Dich vu ben ngoai dung GPSI de dia chi thue bao:
+
+```
+Dich vu                  IMS/AS                  AMF/SMF                UDM
+ben ngoai
+   │                       │                        │                     │
+   │  Goi den MSISDN       │                        │                     │
+   │───────────────────────►                        │                     │
+   │                       │                        │                     │
+   │                       │   Tim GPSI→SUPI        │                     │
+   │                       │────────────────────────────────────────────►│
+   │                       │                        │                     │
+   │                       │         SUPI           │                     │
+   │                       │◄────────────────────────────────────────────│
+   │                       │                        │                     │
+   │                       │   Page/Connect (SUPI)  │                     │
+   │                       │───────────────────────►│                     │
+   │                       │                        │                     │
+```
+
+### Lay PEI
+
+AMF co the yeu cau danh tinh thiet bi khi can:
+
+```
+AMF                           UE
+ │                             │
+ │   Identity Request          │
+ │   (Identity type: PEI)      │
+ │────────────────────────────►│
+ │                             │
+ │   Identity Response         │
+ │   (PEI: IMEI hoac IMEISV)   │
+ │◄────────────────────────────│
+ │                             │
+```
+
+**Khi nao PEI duoc yeu cau:**
+- Dang ky ban dau (tuy chon)
+- Service request (tuy chon)
+- Yeu cau phap ly (nghe lén hop phap)
+- Dieu tra gian lan/bao mat
+
+### Dinh dang IMEI trong signaling
+
+```
+Trong ban tin NAS:
+
+Identity Response:
+  Mobile identity
+    Type: PEI
+    PEI type: IMEI
+    IMEI: 35 12 34 56 78 90 12 3
+
+Hoac voi phien ban phan mem:
+  Mobile identity
+    Type: PEI
+    PEI type: IMEISV
+    IMEISV: 35 12 34 56 78 90 12 34
+                               └── SVN (2 so)
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cau hinh GPSI:**
+
+```yaml
+# Vi du cung cap thue bao UDM
+supi: "imsi-452021123456789"
+gpsi:
+  - type: msisdn
+    value: "+84901234567"
+    primary: true
+  - type: msisdn
+    value: "+84907654321"
+    primary: false
+  - type: external-id
+    value: "user@example.com"
+```
+
+**Xac thuc IMEI:**
+
+```python
+# Kiem tra Luhn cho IMEI
+def validate_imei(imei):
+    # Bo check digit
+    digits = [int(d) for d in imei[:14]]
+    
+    # Nhan doi moi so thu hai tu phai
+    for i in range(len(digits) - 2, -1, -2):
+        digits[i] *= 2
+        if digits[i] > 9:
+            digits[i] -= 9
+    
+    # Tinh tong va kiem tra
+    total = sum(digits)
+    check = (10 - (total % 10)) % 10
+    
+    return check == int(imei[14])
+```
+
+**Troubleshooting:**
+
+| Trieu chung | Nguyen nhan co the | Kiem tra |
+|-------------|--------------------| ---------|
+| Cuoc goi den fail | GPSI chua cung cap | Xac nhan thue bao UDM |
+| Thiet bi bi chan | IMEI trong blacklist | Kiem tra trang thai EIR |
+| Khong co GPSI trong CDR | Thieu du lieu thue bao | Xac nhan lien ket GPSI-SUPI |
+| Caller ID sai | GPSI cau hinh sai | Kiem tra cai dat GPSI chinh |
+
+**So sanh use case:**
+
+| Identifier | Khi nao dung | Vi du |
+|------------|--------------|-------|
+| SUPI | Routing noi bo, authentication | Tim thue bao |
+| GPSI | Dia chi ben ngoai, tinh cuoc | Caller ID, SMS |
+| PEI | Theo doi thiet bi, phat hien gian lan | Kiem tra dien thoai bi danh cap |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **GPSI khong phai SUPI.** Chung phuc vu muc dich khac nhau. GPSI co the thay doi (chuyen so), SUPI giu nguyen.
+
+2. **Nhieu MSISDN.** Mot SUPI co the co nhieu GPSI. Dam bao dich vu xu ly dung.
+
+3. **Gia mao IMEI.** Ke tan cong co the sua doi IMEI trong software-defined radio. Khong chi dua vao IMEI cho bao mat.
+
+4. **IMEISV vs IMEI.** Chung co do dai khac nhau (16 vs 15 so). Xu ly ca hai dinh dang.
+
+5. **Dong bo EIR.** Cap nhat blacklist phai lan truyen den tat ca node mang. Du lieu cu cho phep thiet bi bi chan.
+
+6. **Quyen rieng tu cua GPSI.** GPSI (so dien thoai) thuong duoc coi la cong khai, nhung lien ket voi SUPI can uy quyen.
+
+7. **eSIM va IMEI.** Thiet bi eSIM van co IMEI (do la ID phan cung), nhung SUPI thay doi theo profile.
+
+8. **Co so du lieu TAC.** Type Allocation Code xac dinh nha san xuat/model. Giu co so du lieu TAC cap nhat cho phan tich thiet bi.
+
+9. **Dinh dang IMEI theo vung.** Mot so vung yeu cau identifier bo sung (v.d., MEID cho CDMA). Xu ly dinh dang cu.
+
+10. **Chuyen so.** GPSI (MSISDN) co the chuyen giua cac nha mang trong khi SUPI o lai voi mang goc. Routing phai xu ly dieu nay.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.003, "Numbering, addressing and identification"
+- 3GPP TS 22.016, "International Mobile Equipment Identities (IMEI)"
+- 3GPP TS 23.502, "Procedures for 5G System"
+- GSMA TS.06, "IMEI Allocation and Approval Guidelines"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Equipment identity register](/vi/core-network/5g-core-functions/eir/) — quan ly blacklist thiet bi
+- [Chuyen so](/vi/core-network/interconnect/number-portability/) — phuc tap routing GPSI
+- [Mo hinh du lieu UDM](/vi/core-network/5g-core-functions/udm-data-model/) — cau truc du lieu thue bao
+
+</section>

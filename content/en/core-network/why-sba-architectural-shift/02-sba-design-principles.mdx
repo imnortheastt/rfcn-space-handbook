@@ -8,17 +8,440 @@ track: n3
 unit: why-sba-architectural-shift
 order: 2
 level: L3
-estimatedReadingMinutes: 5
-title: "SBA design principles"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 15
+prerequisites: ["core-network-n3-why-sba-architectural-shift-01-limitations-of-4g-epc"]
+spiralRevisits: ["core-network-n4-5g-core-functions-01-amf"]
+title: "SBA Design Principles"
+description: "Service-Based Architecture — how 5G core NFs communicate via HTTP/2, NRF discovery, OAuth 2.0 access tokens, SCP indirect communication, and overload control."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-04"
+standards: ["3GPP TS 23.501", "3GPP TS 29.500", "3GPP TS 29.510", "RFC 6749"]
+tags: ["sba", "5g", "architecture", "nrf", "http2", "scp", "oauth", "overload"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# SBA design principles
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+In 4G, network functions communicated through dedicated point-to-point interfaces with different protocols for each pair. Adding a new function meant designing new interfaces everywhere — S6a for HSS-MME, S11 for MME-SGW, Gx for PGW-PCRF. The protocol zoo made the 4G core complex and expensive to extend.
+
+**Service-Based Architecture (SBA)** changes the model. Every 5G core Network Function exposes its capabilities as HTTP/2 services on a common interface. Any NF can discover and call any other NF's service through the NRF. The result looks familiar to anyone who has built microservices — except that telecom reliability, security, and overload control requirements make the details significantly more demanding than a typical web service deployment.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### From point-to-point to service-based
+
+```
+4G EPC (Point-to-Point):
+
+     S6a         S11          S5/S8
+HSS ◄───► MME ◄───► SGW ◄───────► PGW
+              ▲
+              │ S1-AP (SCTP)
+          eNodeB
+
+Each pair: custom protocol, custom interface spec
+
+
+5G SBA (Service-Based):
+
+┌─────────────────────────────────────────────────────────┐
+│                   Service Bus (SBI)                      │
+│                                                          │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  │
+│  │ AMF │  │ SMF │  │ UDM │  │AUSF │  │ PCF │  │ NRF │  │
+│  └──┬──┘  └──┬──┘  └──┬──┘  └──┬──┘  └──┬──┘  └──┬──┘  │
+│     └────────┴────────┴────────┴────────┴────────┘      │
+│              HTTP/2 + JSON + OAuth 2.0                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+
+All functions: one protocol, one interface pattern
+```
+
+**Key shift:** From N² dedicated interfaces to one common protocol on a shared bus.
+
+### Core SBA concepts
+
+| Concept | Meaning |
+|---------|---------|
+| **Network Function (NF)** | A 5G core component (AMF, SMF, UDM, etc.) |
+| **Service** | A capability exposed by an NF via HTTP/2 API |
+| **Service consumer** | NF calling another NF's service |
+| **Service producer** | NF providing a service |
+| **NRF** | Network Repository Function — service registry and token authority |
+| **SCP** | Service Communication Proxy — optional routing and load balancing layer |
+| **SEPP** | Security Edge Protection Proxy — cross-PLMN SBI gateway for roaming |
+| **SBI** | Service-Based Interface — the HTTP/2 + JSON transport |
+
+### How SBA relates to microservices
+
+SBA is 3GPP's application of microservices principles to telecom. The parallels are real — but the differences matter:
+
+| Aspect | Microservices (cloud) | SBA (5G) |
+|--------|----------------------|----------|
+| Service registry | Consul, etcd, Eureka | NRF (standardized API) |
+| Inter-service calls | gRPC, REST | HTTP/2 + JSON (SBI) |
+| Load balancing | Client-side (Ribbon) or sidecar (Envoy) | NRF profile or SCP |
+| Auth between services | mTLS, service account JWT | OAuth 2.0 access token from NRF |
+| Observability | Distributed tracing (Jaeger) | 3gpp-Sbi-Correlation-Id header |
+| Overload control | Circuit breaker (Hystrix, Resilience4j) | 503 + Retry-After (TS 29.500) |
+
+**Where the analogy breaks:** NRF is not just a service registry — it also issues OAuth 2.0 access tokens (like Keycloak or Auth0 combined with Consul). SCP is not a sidecar proxy — it is an optional network-layer intermediary that consumers explicitly route through. SEPP has no equivalent in cloud — it handles inter-operator SBI security at PLMN boundaries.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Principle 1: Service exposure
+
+Every NF exposes capabilities as **services** with well-defined API paths.
+
+```
+AMF exposes:
+├── Namf_Communication    (N1/N2 message handling, UE context)
+├── Namf_EventExposure    (event subscription)
+└── Namf_Location         (location services for NEF/LMF)
+
+SMF exposes:
+├── Nsmf_PDUSession       (session creation, modification, release)
+└── Nsmf_EventExposure    (session event subscription)
+
+UDM exposes:
+├── Nudm_SubscriberDataManagement  (subscription data)
+├── Nudm_UEContextManagement       (UE context in AMF/SMF)
+└── Nudm_UEAuthentication          (5G-AKA, EAP-AKA')
+```
+
+**Service naming convention:** `N{nf}_{ServiceName}` — for example, `Namf_Communication` (AMF's Communication service), `Nudm_SDM` (UDM's Subscriber Data Management).
+
+### Principle 2: Service discovery via NRF
+
+The **NRF** is the central service registry. NFs register on startup and discover peers at runtime.
+
+```
+NF Registration (NFRegister):
+
+  AMF → NRF: POST /nnrf-nfm/v1/nf-instances/{amf-id}
+  Body:
+  {
+    "nfInstanceId": "amf-001-uuid",
+    "nfType": "AMF",
+    "nfStatus": "REGISTERED",
+    "ipv4Addresses": ["10.100.0.10"],
+    "amfInfo": {
+      "amfSetId": "2A1",
+      "amfRegionId": "01",
+      "guamiList": [{"plmnId": {"mcc":"310","mnc":"260"}, ...}],
+      "taiList": [...]
+    },
+    "nfServices": [
+      {"serviceName": "namf-comm", "versions": [{"apiVersionInUri": "v1"}]}
+    ]
+  }
+
+NF Discovery (NFDiscover):
+
+  SMF → NRF: GET /nnrf-disc/v1/nf-instances?target-nf-type=UDM
+                              &requester-nf-type=SMF
+                              &service-names=nudm-sdm
+  Response: list of UDM profiles with IP, port, API version
+```
+
+**Discovery query filters:**
+- NF type (AMF, SMF, UDM, etc.)
+- Service name
+- PLMN ID
+- Slice info (S-NSSAI)
+- TAI / geographic area
+- Supported features
+
+NFs cache discovery results locally and refresh periodically. The NRF heartbeat keeps registrations alive — an NF that stops sending heartbeats is marked SUSPENDED and removed from discovery responses.
+
+### Principle 3: HTTP/2 as transport
+
+SBI uses **HTTP/2** with **JSON** payloads and **mTLS** for transport security.
+
+```
+HTTP/2 advantages over HTTP/1.1:
+
+  Multiplexing: Multiple SBI calls on one TCP connection
+  ┌──────────────────────────────────────────────────┐
+  │ Stream 1: GET  /nudm-sdm/v2/imsi-310260.../am-data │
+  │ Stream 3: GET  /nudm-sdm/v2/imsi-310260.../sm-data │
+  │ Stream 5: POST /nsmf-pdusession/v1/sm-contexts     │
+  └──────────────────────────────────────────────────┘
+  All in-flight on a single TCP connection to UDM
+
+  Header compression (HPACK): repeated headers (Content-Type,
+    3gpp-Sbi-*) compressed — important for high-volume NF calls
+  Binary framing: more efficient than HTTP/1.1 ASCII text
+```
+
+**RESTful HTTP methods:**
+```
+GET    /nudm-sdm/v2/{supi}/am-data          Read AM subscription
+POST   /nsmf-pdusession/v1/sm-contexts      Create PDU session
+PATCH  /namf-comm/v1/ue-contexts/{id}       Update UE context
+DELETE /nsmf-pdusession/v1/sm-contexts/{id} Release session
+PUT    /nnrf-nfm/v1/nf-instances/{id}       Register/update NF
+```
+
+### Principle 4: OAuth 2.0 access tokens
+
+Every SBI call from a consumer to a producer carries an **OAuth 2.0 access token** issued by the NRF (per 3GPP TS 33.501 and TS 29.500 Rel-15+).
+
+```
+Token flow:
+
+1. Consumer requests token
+   AMF → NRF: POST /oauth2/token
+              grant_type=client_credentials
+              client_id=amf-001
+              client_secret=...
+              scope=nudm-sdm
+
+   NRF → AMF: {"access_token": "eyJhbGc...", "expires_in": 3600}
+
+2. Consumer uses token in SBI call
+   AMF → UDM: GET /nudm-sdm/v2/{supi}/am-data
+              Authorization: Bearer eyJhbGc...
+
+3. Producer validates token
+   UDM verifies: signature valid? scope matches endpoint?
+                 token not expired? issuer is NRF?
+```
+
+The token is a JWT. The producer NF validates it locally against the NRF's public key — no round-trip to NRF per call. Scope in the token specifies which service the consumer is authorized to call.
+
+This is identical to how OAuth 2.0 client_credentials flow works in cloud (e.g., AWS Cognito machine-to-machine tokens), with the NRF playing the role of the authorization server.
+
+### Principle 5: Stateless NF design
+
+NF instances store session state externally, not in local memory. This enables horizontal scaling and seamless failover.
+
+```
+Stateless NF pattern:
+
+Request arrives → load balancer → any AMF instance handles it
+                                  (no session affinity needed)
+
+┌─────┐  ┌─────┐  ┌─────┐
+│AMF-1│  │AMF-2│  │AMF-3│   Any instance handles any UE
+└──┬──┘  └──┬──┘  └──┬──┘
+   └─────────┼─────────┘
+             │
+      ┌──────┴──────┐
+      │  UE Context │   External state store
+      │    Store    │   (UDSF, Redis, or UDR for persistent data)
+      └─────────────┘
+```
+
+**3GPP TS 23.501 clause 4.2 principle:** "NF services shall be designed to be stateless... UE-related data that needs to persist beyond the lifetime of NF service procedures shall be stored in a Unified Data Repository (UDR)."
+
+Without stateless design, a pod restart kills all active UE sessions on that pod. With stateless design, sessions survive pod restarts because state lives in UDR/UDSF.
+
+### Principle 6: Subscribe/Notify for events
+
+NFs subscribe to events produced by other NFs. The producer pushes notifications to the subscriber's callback URI.
+
+```
+Event subscription (Namf_EventExposure example):
+
+1. Subscribe
+   NEF → AMF: POST /namf-evts/v1/subscriptions
+   Body: {"eventList": ["LOCATION_REPORT"], "notifUri": "https://nef/cb/loc"}
+   Response: {"subscriptionId": "sub-789", ...}
+
+2. Event fires
+   (UE moves to new TAI)
+   AMF → NEF: POST https://nef/cb/loc
+   Body: {"subscriptionId": "sub-789", "eventNotifs": [{"type": "LOCATION_REPORT", "tai": {...}}]}
+
+3. Unsubscribe
+   NEF → AMF: DELETE /namf-evts/v1/subscriptions/sub-789
+```
+
+Subscribe/notify is used for location events, session state changes, policy updates, and charging triggers. It avoids polling — consumers receive notifications only when events occur.
+
+### Principle 7: Overload control (TS 29.500)
+
+When an NF is overloaded, it responds with **503 Service Unavailable** plus a **Retry-After** header specifying when to retry.
+
+```
+Overload response:
+  HTTP/2 503 Service Unavailable
+  Retry-After: 30
+  Content-Type: application/problem+json
+
+  {
+    "status": 503,
+    "cause": "SYSTEM_FAILURE",
+    "detail": "AMF overloaded, retry after 30 seconds"
+  }
+
+Consumer behavior:
+  - Back off for at least Retry-After seconds
+  - Do NOT retry immediately (would amplify the overload)
+  - If SCP is used, SCP handles retry routing to alternate instances
+```
+
+This is the 5G equivalent of a circuit breaker. Without it, a cascade of retries during an overload event turns a temporary spike into a sustained outage across all consumers.
+
+### Principle 8: Indirect communication via SCP
+
+For large deployments, NFs route SBI calls through a **Service Communication Proxy (SCP)** instead of calling producers directly.
+
+```
+Direct communication (Rel-15/16 default):
+  AMF ──────────────────────────────────────────► UDM
+      (AMF resolves UDM via NRF, calls directly)
+
+Indirect via SCP (Rel-16+ operator option):
+  AMF ──────────► SCP ──────────────────────────► UDM
+                  │
+                  ├── Load balances across UDM instances
+                  ├── Enforces Retry-After on 503
+                  ├── Hides NF topology from consumers
+                  ├── Centralized tracing and logging
+                  └── Applies operator routing policy
+```
+
+With SCP, the AMF sends the request to SCP with a `3gpp-Sbi-Target-apiRoot` header indicating the target NF type/service. SCP handles NRF discovery, load balancing, and retry — the AMF does not need to implement these.
+
+SCP is optional. Operators choose direct or indirect communication based on deployment scale. Large operators with hundreds of NF instances typically deploy SCP.
+
+### Principle 9: SEPP for inter-PLMN roaming
+
+When a roaming subscriber's home PLMN (hPLMN) and visited PLMN (vPLMN) exchange 5G core signaling, the SBI traffic crosses PLMN boundaries through a **Security Edge Protection Proxy (SEPP)**.
+
+```
+Home PLMN                          Visited PLMN
+(e.g., Viettel)                    (e.g., Mobifone)
+
+UDM ──► hSEPP ──── N32 link ────► vSEPP ──► AMF
+                (encrypted, signed)
+
+SEPP functions:
+- Topology hiding (hide internal NF addresses)
+- Message filtering (only allowed APIs cross boundary)
+- Application-layer security (JOSE encryption/signing on N32)
+- Rate limiting on inter-PLMN traffic
+```
+
+SEPP has no direct cloud equivalent — it is a telecom-specific boundary proxy that enforces inter-operator security agreements at the application layer, not just at the transport layer.
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+### SBI API URL structure
+
+```
+Base: https://{nf-fqdn}/{api-name}/{version}/
+
+Examples:
+https://udm.5gc.mnc001.mcc310.3gppnetwork.org/nudm-sdm/v2/
+https://smf.5gc.mnc001.mcc310.3gppnetwork.org/nsmf-pdusession/v1/
+https://nrf.5gc.mnc001.mcc310.3gppnetwork.org/nnrf-nfm/v1/
+
+API versioning:
+  /nudm-sdm/v1/ → Release 15
+  /nudm-sdm/v2/ → Release 16 (adds group subscriptions)
+```
+
+### Key SBI headers
+
+| Header | Purpose |
+|--------|---------|
+| `Authorization: Bearer {jwt}` | OAuth 2.0 access token |
+| `3gpp-Sbi-Target-apiRoot` | Target NF for SCP routing |
+| `3gpp-Sbi-Callback` | Callback URI for async notify |
+| `3gpp-Sbi-Correlation-Id` | Distributed tracing ID |
+| `3gpp-Sbi-Binding` | Binding to specific NF instance |
+
+### Error response format (RFC 7807 + 3GPP extensions)
+
+```json
+{
+  "status": 403,
+  "cause": "SUBSCRIPTION_NOT_FOUND",
+  "detail": "No active subscription for SUPI 310260123456789",
+  "instance": "/nudm-sdm/v2/imsi-310260123456789/am-data",
+  "invalidParams": [
+    {"param": "supi", "reason": "Subscriber not provisioned"}
+  ]
+}
+```
+
+The `cause` field is a 3GPP-defined string that identifies the specific error type. It is machine-readable and allows consumers to distinguish recoverable from non-recoverable errors.
+
+### Troubleshooting SBI
+
+| Issue | Check |
+|-------|-------|
+| NF not discovered | NRF registration active? NF heartbeat running? Discovery filters match? |
+| 401 Unauthorized | OAuth token expired? Scope correct? NRF public key synchronized? |
+| 403 Forbidden | Consumer authorized for this service? Token `aud` field correct? |
+| 404 Not Found | API path correct? SUPI/IMSI format correct? API version match? |
+| 503 + Retry-After | NF overloaded — back off and retry. Check NF CPU/memory. |
+| Connection refused | TLS certificate valid? mTLS configured? Firewall blocking 443? |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Treating SBI like traditional telecom signaling.** SBI is HTTP/2 + REST. Apply web service patterns — idempotent GETs, meaningful HTTP status codes, proper error bodies. The only "telecom-specific" parts are the 3GPP-defined API paths, header names, and cause strings.
+
+2. **Skipping OAuth 2.0 tokens in lab deployments.** Many lab setups bypass token validation for convenience. This creates a false sense of what a production deployment looks like. In production, every SBI call must carry a valid token scoped to the target service.
+
+3. **Ignoring Retry-After on 503.** Retrying immediately after a 503 amplifies the overload. The 503 + Retry-After mechanism in TS 29.500 is mandatory to implement correctly. SCP handles this automatically when deployed.
+
+4. **Stateful NF design.** Storing UE context in NF instance memory prevents horizontal scaling and causes session loss on pod restart. Per TS 23.501 clause 4.2, persistent state belongs in UDR or UDSF.
+
+5. **Hardcoding NF addresses.** Bypasses NRF discovery, which breaks load balancing, failover, and slice-aware routing. Always use NRF discovery or delegate to SCP.
+
+6. **Ignoring API version negotiation.** An AMF running Release 15 calling a UDM with a Release 16 API path gets a 404. Include `nfServices` version lists in NRF registration and check versions during discovery.
+
+7. **Assuming SCP is a sidecar proxy.** SCP is an explicit network intermediary, not a sidecar injected per pod. Consumers route to it via `3gpp-Sbi-Target-apiRoot`. It is optional — mixing direct and indirect communication in one deployment requires careful configuration.
+
+8. **Forgetting SEPP for roaming.** Testing intra-PLMN flows with direct NF-to-NF calls does not test the roaming path. When subscriber home and visited PLMNs are different operators, all N10/N13 calls (UDM, AUSF) cross SEPP with N32 application-layer security — a different failure mode from intra-PLMN.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System architecture for 5G System" (SBA overview, stateless NF)
+- 3GPP TS 29.500, "Technical Realization of Service Based Architecture" (HTTP/2, overload control)
+- 3GPP TS 29.510, "Network Function Repository Services" (NRF registration, discovery)
+- 3GPP TS 33.501, "Security architecture for 5G System" (OAuth 2.0 for SBI, SEPP/N32)
+- RFC 6749, "The OAuth 2.0 Authorization Framework" (client_credentials flow)
+- RFC 7807, "Problem Details for HTTP APIs" (error response format)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [SBI overview](/en/core-network/service-based-interface-http2/sbi-overview/) — HTTP/2 mechanics on the SBI
+- [AMF](/en/core-network/5g-core-functions/amf/) — first major NF to explore in depth
+- [NRF deep dive](/en/core-network/5g-core-functions/nrf/) — service registry and token authority details
+
+</section>

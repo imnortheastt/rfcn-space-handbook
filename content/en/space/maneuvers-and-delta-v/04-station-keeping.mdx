@@ -8,17 +8,508 @@ track: s1
 unit: maneuvers-and-delta-v
 order: 4
 level: L3
-estimatedReadingMinutes: 5
-title: "Station-keeping"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
+title: "Station Keeping — Maintaining Orbital Position"
+description: "Understanding the ongoing fuel costs to maintain satellite position against perturbations."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["station-keeping", "perturbations", "delta-v", "gso"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Station-keeping
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Getting to orbit is half the battle—staying there is the other half. Satellites face continuous perturbations from gravitational anomalies, solar radiation pressure, and atmospheric drag. Station keeping consumes 10-50 m/s of delta-v per year, and this directly determines mission lifetime. Understanding these forces is essential for fuel budgeting and constellation management.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Perturbation sources
+
+```
+Forces Acting on Satellites:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │  PERTURBATION SOURCES                                 │         │
+│  │                                                        │         │
+│  │   ☀ Sun ─────────────► Solar radiation pressure      │         │
+│  │                         (pushes satellite away)       │         │
+│  │                                                        │         │
+│  │   ☽ Moon ────────────► Third-body gravity            │         │
+│  │                         (pulls on orbit plane)        │         │
+│  │                                                        │         │
+│  │   ◐ Earth J2 ────────► Oblateness (equatorial bulge) │         │
+│  │                         (causes node precession)      │         │
+│  │                                                        │         │
+│  │   ☆ GEO longitude ───► Triaxiality (E-W drift)       │         │
+│  │                         (pulls toward stable points)  │         │
+│  │                                                        │         │
+│  │   ≋ Atmosphere ──────► Drag (LEO only)               │         │
+│  │                         (decays orbit altitude)       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  IMPACT BY ORBIT:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Orbit    │ Dominant perturbations                   │         │
+│  │  ─────────┼─────────────────────────────────────────  │         │
+│  │  LEO      │ Drag, J2, atmospheric variations         │         │
+│  │  MEO      │ J2, Sun/Moon gravity, SRP                │         │
+│  │  GEO      │ Triaxiality (E-W), Sun/Moon (N-S)       │         │
+│  │  HEO      │ Sun/Moon gravity, SRP                   │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### GEO station keeping box
+
+```
+GEO Longitude/Latitude Control:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ITU GEO "BOX" REQUIREMENT:                                         │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │     Latitude                                          │         │
+│  │        ▲                                              │         │
+│  │        │     ±0.05° to ±0.1° typical                 │         │
+│  │   +0.1°├─────────────────────────────────────┐       │         │
+│  │        │                                      │       │         │
+│  │        │     ┌─────────────────────┐         │       │         │
+│  │        │     │                     │         │       │         │
+│  │      0°├─────│─────────●───────────│─────────┼────► Long │
+│  │        │     │    (nominal        │         │       │         │
+│  │        │     │     position)      │         │       │         │
+│  │   -0.1°├─────└─────────────────────┘         │       │         │
+│  │        │                                      │       │         │
+│  │        └─────────────────────────────────────┘       │         │
+│  │              -0.1°                +0.1°               │         │
+│  │                                                        │         │
+│  │  Satellite must stay inside this box                 │         │
+│  │  E-W (longitude): controlled by semi-major axis      │         │
+│  │  N-S (latitude): controlled by inclination           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  DRIFT CAUSES:                                                      │
+│  E-W: Earth's triaxiality → drift toward 75°E or 105°W            │
+│  N-S: Sun/Moon gravity → inclination grows ~0.8°/year              │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### East-West station keeping
+
+```
+GEO East-West (Longitude) Control:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  EARTH'S TRIAXIALITY:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Earth is not perfectly round—it's slightly elliptical│         │
+│  │  in the equatorial plane                              │         │
+│  │                                                        │         │
+│  │            105°W                                       │         │
+│  │              ●  Unstable equilibrium                  │         │
+│  │             ╱ ╲                                       │         │
+│  │            ╱   ╲                                      │         │
+│  │    ──────●─────●────── Equator                       │         │
+│  │         75°E  255°E                                   │         │
+│  │          ●                                            │         │
+│  │      Stable equilibrium                               │         │
+│  │                                                        │         │
+│  │  Satellites drift toward 75°E or 255°E (105°W)       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CORRECTION STRATEGY:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Let satellite drift in longitude                 │         │
+│  │  2. When approaching box edge, adjust semi-major axis│         │
+│  │                                                        │         │
+│  │  • Raise orbit → satellite drifts West               │         │
+│  │  • Lower orbit → satellite drifts East               │         │
+│  │                                                        │         │
+│  │  Typical: 1-2 m/s per year for E-W control           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### North-South station keeping
+
+```
+GEO North-South (Inclination) Control:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  SUN/MOON GRAVITATIONAL PULL:                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Sun and Moon pull the orbital plane out of          │         │
+│  │  the equatorial plane                                 │         │
+│  │                                                        │         │
+│  │           ☀ Sun                                       │         │
+│  │            ╲                                          │         │
+│  │             ╲  pull                                   │         │
+│  │              ╲                                        │         │
+│  │     ═════════●══════════ Equatorial plane            │         │
+│  │             ╱                                         │         │
+│  │            ╱  pull                                    │         │
+│  │           ╱                                           │         │
+│  │          ☽ Moon                                       │         │
+│  │                                                        │         │
+│  │  Result: Inclination grows ~0.75-0.95°/year          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  CORRECTION STRATEGY:                                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Burn perpendicular to orbit plane at nodes          │         │
+│  │  (where orbit crosses equator)                       │         │
+│  │                                                        │         │
+│  │  • Burn South at ascending node → reduce inclination │         │
+│  │  • Burn North at descending node → reduce inclination│         │
+│  │                                                        │         │
+│  │  This is EXPENSIVE: ~45-50 m/s per year              │         │
+│  │  (Most of GEO station-keeping budget!)               │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  ALTERNATIVE: "Inclined GEO" (no N-S control)                      │
+│  • Let inclination grow (up to 15° over mission)                   │
+│  • Ground antennas must track N-S motion                           │
+│  • Saves ~50 m/s/year but requires tracking antennas               │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### LEO station keeping
+
+```
+LEO Orbit Maintenance:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  ATMOSPHERIC DRAG:                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Drag force: F_drag = ½ρv²C_D A                       │         │
+│  │                                                        │         │
+│  │  • ρ = atmospheric density (varies with altitude,    │         │
+│  │        solar activity)                                │         │
+│  │  • v = orbital velocity (~7.5 km/s)                  │         │
+│  │  • C_D = drag coefficient (~2.2)                     │         │
+│  │  • A = cross-sectional area                          │         │
+│  │                                                        │         │
+│  │  Effect: Orbit decays (altitude drops)               │         │
+│  │                                                        │         │
+│  │  Altitude    │ Decay rate │ Re-boost needed          │         │
+│  │  ────────────┼────────────┼────────────────────────  │         │
+│  │  200 km      │ Days-weeks │ Not practical            │         │
+│  │  400 km (ISS)│ ~2 km/month│ ~1-2 m/s/year           │         │
+│  │  600 km      │ ~10 m/month│ ~0.5 m/s/year           │         │
+│  │  800 km      │ ~1 m/month │ Minimal                  │         │
+│  │  1000+ km    │ Negligible │ None needed              │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  SOLAR ACTIVITY EFFECT:                                             │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  High solar activity → atmosphere expands            │         │
+│  │  → Higher drag at same altitude                      │         │
+│  │  → ISS needs more frequent re-boosts                 │         │
+│  │                                                        │         │
+│  │  Solar max drag can be 10× solar minimum drag!       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Station keeping calculations:**
+
+```python
+import numpy as np
+
+def geo_ew_drift_rate(longitude_deg):
+    """
+    Estimate E-W drift acceleration due to Earth's triaxiality.
+    
+    Stable points: ~75°E and ~255°E (105°W)
+    Max drift at ~15°E and ~165°E
+    """
+    # Simplified model
+    # Drift toward nearest stable point
+    stable_east = 75
+    stable_west = 255
+    
+    # Distance to nearest stable point
+    dist_east = abs(longitude_deg - stable_east)
+    dist_west = abs(longitude_deg - stable_west)
+    
+    # Max drift rate ~0.002 deg/day² at worst locations
+    max_accel = 0.002  # deg/day²
+    
+    if dist_east < dist_west:
+        # Drifts toward 75°E
+        accel = max_accel * np.sin(np.radians(2 * (longitude_deg - stable_east)))
+    else:
+        # Drifts toward 255°E
+        accel = max_accel * np.sin(np.radians(2 * (longitude_deg - stable_west)))
+    
+    return accel
+
+def geo_ns_delta_v_per_year(target_inclination_deg=0.05):
+    """
+    Annual delta-v for N-S station keeping.
+    
+    Inclination growth: ~0.85 deg/year
+    Must counteract with plane change burns
+    """
+    inclination_growth_per_year = 0.85  # degrees
+    v_geo = 3.07  # km/s
+    
+    # Required plane change per year
+    delta_i_rad = np.radians(inclination_growth_per_year)
+    
+    # Delta-v for plane change
+    delta_v = 2 * v_geo * np.sin(delta_i_rad / 2)
+    
+    return delta_v * 1000  # m/s
+
+def leo_drag_delta_v(altitude_km, area_to_mass_ratio, years=1):
+    """
+    Estimate delta-v needed to counteract drag.
+    
+    Args:
+        altitude_km: Orbital altitude
+        area_to_mass_ratio: A/m in m²/kg
+        years: Duration
+    
+    Returns:
+        Delta-v in m/s
+    """
+    # Simplified drag model
+    # Density varies exponentially with altitude
+    rho_400 = 3e-12  # kg/m³ at 400 km (average solar activity)
+    scale_height = 60  # km
+    
+    rho = rho_400 * np.exp(-(altitude_km - 400) / scale_height)
+    
+    # Orbital velocity
+    v = 7.7  # km/s approximate for LEO
+    
+    # Drag acceleration (m/s²)
+    C_D = 2.2
+    a_drag = 0.5 * rho * (v * 1000)**2 * C_D * area_to_mass_ratio
+    
+    # Delta-v per year
+    seconds_per_year = 365.25 * 24 * 3600
+    delta_v = a_drag * seconds_per_year * years
+    
+    return delta_v
+
+# Example calculations
+print("Station Keeping Analysis")
+print("=" * 60)
+
+# GEO E-W drift
+print("\n1. GEO East-West Drift by Longitude")
+print("-" * 60)
+
+print(f"  {'Longitude':>12} {'Drift':>15} {'Annual Δv':>12}")
+print(f"  {'(°E)':>12} {'(deg/day²)':>15} {'(m/s)':>12}")
+print("-" * 60)
+
+longitudes = [0, 30, 60, 75, 90, 120, 150, 180]
+for lon in longitudes:
+    drift = geo_ew_drift_rate(lon)
+    # Approximate delta-v (very simplified)
+    annual_dv = abs(drift) * 50  # rough conversion
+    stable = "← stable" if abs(drift) < 0.0001 else ""
+    print(f"  {lon:>12} {drift:>15.6f} {annual_dv:>12.1f} {stable}")
+
+# GEO N-S station keeping
+print("\n2. GEO North-South Station Keeping")
+print("-" * 60)
+
+annual_ns = geo_ns_delta_v_per_year()
+print(f"  Inclination growth rate: ~0.85°/year")
+print(f"  Annual N-S Δv required: {annual_ns:.1f} m/s")
+print(f"")
+print(f"  15-year GEO mission N-S budget: {annual_ns * 15:.0f} m/s")
+print(f"  This is typically 90% of station-keeping budget!")
+
+# Total GEO station keeping
+print("\n3. Total GEO Station Keeping Budget")
+print("-" * 60)
+
+ew_annual = 2  # m/s typical
+ns_annual = annual_ns
+
+print(f"  E-W control: ~{ew_annual} m/s/year")
+print(f"  N-S control: ~{ns_annual:.0f} m/s/year")
+print(f"  Total: ~{ew_annual + ns_annual:.0f} m/s/year")
+print(f"")
+print(f"  Mission lifetime budgets:")
+print(f"  {'Years':>8} {'Total Δv':>12} {'Note':>30}")
+
+for years in [10, 15, 20]:
+    total = (ew_annual + ns_annual) * years
+    note = "(typical comms sat)" if years == 15 else ""
+    print(f"  {years:>8} {total:>10.0f} m/s {note:>30}")
+
+# LEO drag
+print("\n4. LEO Drag and Re-boost Requirements")
+print("-" * 60)
+
+# ISS-like parameters
+area_to_mass = 0.01  # m²/kg
+
+print(f"  Area/mass ratio: {area_to_mass} m²/kg")
+print(f"")
+print(f"  {'Altitude':>10} {'Density':>15} {'Annual Δv':>12}")
+print(f"  {'(km)':>10} {'(kg/m³)':>15} {'(m/s)':>12}")
+print("-" * 60)
+
+for alt in [300, 400, 500, 600, 800, 1000]:
+    dv = leo_drag_delta_v(alt, area_to_mass)
+    rho = 3e-12 * np.exp(-(alt - 400) / 60)
+    print(f"  {alt:>10} {rho:>15.2e} {dv:>12.1f}")
+
+# Constellation station keeping
+print("\n5. Constellation Station Keeping Examples")
+print("-" * 60)
+
+constellations = [
+    ("Starlink (550 km)", 550, 0.005, 25),
+    ("OneWeb (1200 km)", 1200, 0.008, 20),
+    ("GPS (20200 km)", 20200, 0.001, 0),
+    ("GEO comms", 35786, 0.001, 50),
+]
+
+print(f"  {'Constellation':<20} {'Altitude':>10} {'Annual Δv':>12} {'Type':>15}")
+print("-" * 60)
+
+for name, alt, am, annual in constellations:
+    if alt < 2000:
+        annual = leo_drag_delta_v(alt, am)
+        sk_type = "drag makeup"
+    else:
+        sk_type = "SK maneuvers"
+    print(f"  {name:<20} {alt:>10} km {annual:>10.1f} m/s {sk_type:>15}")
+
+# Electric propulsion advantage
+print("\n6. Chemical vs Electric Propulsion for SK")
+print("-" * 60)
+
+annual_dv = 50  # m/s for GEO
+mission_years = 15
+total_dv = annual_dv * mission_years
+
+print(f"  Total station-keeping Δv: {total_dv} m/s over {mission_years} years")
+print(f"")
+
+def propellant_mass(delta_v_m_s, isp_s, dry_mass_kg):
+    g0 = 9.81
+    mass_ratio = np.exp(delta_v_m_s / (isp_s * g0))
+    wet_mass = dry_mass_kg * mass_ratio
+    propellant = wet_mass - dry_mass_kg
+    return propellant
+
+dry_mass = 2000  # kg
+
+print(f"  {'Propulsion':>20} {'Isp':>8} {'Propellant':>12} {'Savings':>10}")
+print("-" * 60)
+
+chemical_prop = propellant_mass(total_dv, 320, dry_mass)
+for name, isp in [("Chemical (biprop)", 320), ("Hall thruster", 1500), ("Ion (gridded)", 3000)]:
+    prop = propellant_mass(total_dv, isp, dry_mass)
+    savings = (1 - prop/chemical_prop) * 100 if name != "Chemical (biprop)" else 0
+    print(f"  {name:>20} {isp:>6} s {prop:>10.0f} kg {savings:>9.0f}%")
+```
+
+**Annual station keeping budgets:**
+
+| Orbit | E-W | N-S | Drag | Total |
+|-------|-----|-----|------|-------|
+| GEO | 1-2 m/s | 45-50 m/s | 0 | ~50 m/s |
+| LEO 400 km | - | - | 1-5 m/s | 1-5 m/s |
+| LEO 550 km | - | - | 0.5-2 m/s | 0.5-2 m/s |
+| MEO (GPS) | - | - | ~0 | &lt;1 m/s |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Underestimating N-S costs.** N-S control dominates GEO budget; E-W is almost free by comparison.
+
+2. **Solar cycle ignorance.** Solar max can 10× LEO drag; budget for worst case.
+
+3. **Electric propulsion duty cycle.** EP thrusters run hours per day—plan power and thermal accordingly.
+
+4. **Inclined GEO savings.** If ground antennas can track, skip N-S control and save 90% of SK budget.
+
+5. **Collision avoidance.** Maneuvers for debris avoidance come from the same fuel budget.
+
+6. **End-of-life reserve.** Must save fuel for graveyard orbit or de-orbit—don't deplete station-keeping budget.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- Vallado, D.A. "Fundamentals of Astrodynamics and Applications"
+- Soop, E.M. "Handbook of Geostationary Orbits"
+- NOAA Space Weather Prediction Center
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Delta-V Budget](/en/space/maneuvers-and-delta-v/delta-v-budget/) — total mission planning
+- [Plane Change](/en/space/maneuvers-and-delta-v/plane-change/) — inclination control
+- [Hohmann Transfer](/en/space/maneuvers-and-delta-v/hohmann-transfer/) — orbit raising
+
+</section>

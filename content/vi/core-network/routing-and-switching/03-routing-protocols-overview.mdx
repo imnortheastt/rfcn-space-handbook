@@ -8,17 +8,326 @@ track: n0
 unit: routing-and-switching
 order: 3
 level: L1
-estimatedReadingMinutes: 5
-title: "Tong quan giao thuc dinh tuyen"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 14
+prerequisites: ["core-network-n0-routing-and-switching-02-routing-fundamentals"]
+spiralRevisits: ["core-network-n2-standards-map-ts23-01-bgp-in-telecom"]
+title: "Tổng quan giao thức định tuyến"
+description: "OSPF, IS-IS, và BGP — khi nào dùng cái nào và cách chúng hoạt động ở mức cao."
+authors: ["Crystal D."]
+publishedAt: "2026-06-02"
+lastVerified: "2026-06-02"
+standards: ["RFC 2328", "RFC 4271", "ISO 10589"]
+tags: ["routing", "ospf", "bgp", "is-is", "networking"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tong quan giao thuc dinh tuyen
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tại sao điều này quan trọng
+
+Static route không scale. Khi bạn có hàng nghìn router và hàng trăm link, bạn cần routing tự động. Khi link fail, route phải reconverge trong vài giây, không phải sau khi con người nhận ra.
+
+Đây là việc **dynamic routing protocol** làm. Hiểu các protocol chính — OSPF, IS-IS, và BGP — là thiết yếu cho bất kỳ ai làm việc với mạng viễn thông.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Trực giác
+
+### Hai loại routing protocol
+
+**Interior Gateway Protocol (IGP):** Route bên trong mạng của tổ chức (autonomous system).
+- OSPF, IS-IS, EIGRP, RIP
+
+**Exterior Gateway Protocol (EGP):** Route giữa các tổ chức.
+- BGP (cái duy nhất quan trọng)
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                     Internet                             │
+│                                                          │
+│  ┌─────────────┐       BGP        ┌─────────────┐       │
+│  │   AS 100    │◄────────────────►│   AS 200    │       │
+│  │  (Telco A)  │                  │  (Telco B)  │       │
+│  │             │                  │             │       │
+│  │ OSPF/IS-IS  │                  │ OSPF/IS-IS  │       │
+│  │  (bên trong)│                  │  (bên trong)│       │
+│  └─────────────┘                  └─────────────┘       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Quy tắc:**
+- Trong mạng của bạn → IGP (OSPF hoặc IS-IS)
+- Giữa các mạng → BGP
+
+### Link-state vs distance-vector
+
+**Distance-vector (RIP, EIGRP):**
+- Mỗi router nói với neighbor: "Tôi reach được X với cost Y"
+- Router chỉ biết next hop, không biết full topology
+- Convergence chậm, vấn đề đếm đến vô cực
+- Hầu hết obsolete cho mạng lớn
+
+**Link-state (OSPF, IS-IS):**
+- Mỗi router flood link của nó đến tất cả router
+- Mọi router có cùng topology database
+- Mỗi router độc lập tính shortest path
+- Convergence nhanh
+
+```
+Distance-vector:               Link-state:
+"Tôi nghe X cách 3 hop"        "Đây là bản đồ link đầy đủ"
+     │                              │
+     ▼                              ▼
+  Tin đồn                        Sự thật
+```
+
+### Path-vector (BGP)
+
+BGP không phải link-state hay distance-vector. Nó là **path-vector**.
+
+- Route bao gồm full AS path: "Để reach 8.8.8.0/24, đi qua AS 100 → AS 200 → AS 15169"
+- Dựa trên policy: bạn có thể accept, reject, hoặc modify route dựa trên business rule
+- Thiết kế cho scale (hàng triệu route) và policy (quan hệ kinh doanh)
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cách hoạt động
+
+### OSPF (Open Shortest Path First)
+
+**RFC 2328** | IGP phổ biến nhất trong enterprise và mạng viễn thông nhỏ hơn.
+
+**Cách hoạt động:**
+1. Router discover neighbor qua Hello packet
+2. Adjacent router trao đổi Link State Advertisement (LSA)
+3. Tất cả router build Link State Database (LSDB) giống nhau
+4. Mỗi router chạy thuật toán Dijkstra để tính shortest path
+
+**Khái niệm chính:**
+
+| Khái niệm | Mô tả |
+|-----------|-------|
+| Area | Subdivision của OSPF domain. Area 0 là backbone. |
+| Router ID | Identifier duy nhất (thường IP cao nhất hoặc configured) |
+| Cost | Metric dựa trên bandwidth interface |
+| LSA | Link State Advertisement — mô tả link của router |
+| SPF | Shortest Path First algorithm (Dijkstra) |
+
+**Hierarchy area:**
+
+```
+                    ┌───────────────┐
+                    │   Area 0      │
+                    │  (backbone)   │
+                    └───────┬───────┘
+                            │
+           ┌────────────────┼────────────────┐
+           │                │                │
+    ┌──────┴──────┐  ┌──────┴──────┐  ┌──────┴──────┐
+    │   Area 1    │  │   Area 2    │  │   Area 3    │
+    │             │  │             │  │             │
+    └─────────────┘  └─────────────┘  └─────────────┘
+```
+
+**Tại sao area?**
+- Giới hạn flooding scope (LSA ở trong area)
+- Giảm LSDB size và SPF computation
+- Scale lên mạng lớn hơn
+
+**Convergence:** Sub-second với tuning. Timer mặc định conservative (10s hello, 40s dead).
+
+### IS-IS (Intermediate System to Intermediate System)
+
+**ISO 10589** | IGP ưa thích cho mạng service provider lớn.
+
+**Khác biệt chính so với OSPF:**
+
+| Khía cạnh | OSPF | IS-IS |
+|-----------|------|-------|
+| Xuất xứ | IETF (IP-native) | ISO (CLNP, adapt cho IP) |
+| Chạy trên | IP (protocol 89) | Trực tiếp trên L2 (không cần IP) |
+| Hierarchy | Area kết nối đến backbone | Hai level (L1/L2) |
+| Extensibility | LSA type mới | Dựa trên TLV (dễ extend) |
+| Adoption | Enterprise, một số SP | SP lớn, telecom |
+
+**Tại sao telco thích IS-IS:**
+- Protocol-agnostic (hoạt động trước khi IP được configure)
+- Dễ extend hơn (MPLS, segment routing thêm qua TLV)
+- Đã chứng minh ở scale khổng lồ (tier-1 provider)
+
+**Hierarchy hai level:**
+
+```
+                    Level 2 (backbone)
+         ┌──────────────────────────────────┐
+         │    L1/L2      L1/L2      L1/L2   │
+         │      │          │          │     │
+         └──────┼──────────┼──────────┼─────┘
+                │          │          │
+         ┌──────┴───┐ ┌────┴────┐ ┌───┴─────┐
+         │  L1 area │ │ L1 area │ │ L1 area │
+         └──────────┘ └─────────┘ └─────────┘
+```
+
+**Level 1:** Intra-area routing (như OSPF non-backbone area)
+**Level 2:** Inter-area routing (như OSPF backbone)
+**L1/L2 router:** Kết nối cả hai level
+
+### BGP (Border Gateway Protocol)
+
+**RFC 4271** | Protocol chạy Internet.
+
+**Hai loại:**
+- **eBGP (external):** Giữa autonomous system. Đây là BGP "thực".
+- **iBGP (internal):** Trong autonomous system. Carry external route nội bộ.
+
+**Cách hoạt động:**
+1. BGP router thiết lập kết nối TCP (port 179)
+2. Trao đổi full routing table (sync ban đầu có thể mất vài phút)
+3. Sau sync, chỉ gửi incremental update
+4. Route bao gồm AS path, next hop, và nhiều attribute
+
+**Attribute chính:**
+
+| Attribute | Mô tả |
+|-----------|-------|
+| AS_PATH | Danh sách AS route đã đi qua |
+| NEXT_HOP | Gửi packet đến đâu |
+| LOCAL_PREF | Ưu tiên route với giá trị cao hơn (inbound) |
+| MED | Ưu tiên route với giá trị thấp hơn (outbound hint) |
+| COMMUNITY | Tag cho policy (no_export, blackhole, v.v.) |
+
+**Path selection (đơn giản hóa):**
+1. LOCAL_PREF cao nhất
+2. AS_PATH ngắn nhất
+3. Origin type thấp nhất (IGP < EGP < incomplete)
+4. MED thấp nhất (nếu từ cùng neighbor AS)
+5. Ưu tiên eBGP hơn iBGP
+6. IGP next hop gần nhất
+7. Router ID thấp nhất
+
+**Vấn đề iBGP full mesh:**
+
+iBGP router không re-advertise route học từ iBGP peer khác. Điều này đòi hỏi full mesh.
+
+```
+N router = N(N-1)/2 session
+
+10 router = 45 session
+100 router = 4,950 session  ← không scale
+```
+
+**Giải pháp:**
+- **Route reflector:** Router được chỉ định re-advertise iBGP route
+- **Confederation:** Chia AS thành sub-AS
+
+</section>
+
+<section class="lesson-apply">
+
+## Áp dụng
+
+**Chọn protocol:**
+
+| Use case | Protocol |
+|----------|----------|
+| Enterprise network | OSPF |
+| Service provider lớn | IS-IS |
+| Internet peering | eBGP |
+| Internal route distribution | iBGP |
+| Segment routing underlay | IS-IS (ưa thích) hoặc OSPF |
+| MPLS VPN backbone | iBGP + IGP |
+
+**Kiến trúc telecom điển hình:**
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Mạng Telco                            │
+│                                                          │
+│  Customer ◄──── eBGP ────► PE ◄── iBGP ──► PE ◄── eBGP ──► Customer
+│                            │                │            │
+│                            └── IS-IS/OSPF ──┘            │
+│                               (underlay)                 │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**So sánh convergence:**
+
+| Protocol | Convergence điển hình |
+|----------|----------------------|
+| OSPF/IS-IS (tuned) | 50ms - 1s |
+| OSPF/IS-IS (default) | 5-40s |
+| eBGP | 30s - 3min |
+| iBGP | Phụ thuộc IGP + BGP timer |
+
+**Troubleshooting:**
+
+1. **Neighbor không form:**
+   - Kiểm tra IP connectivity (ping được không?)
+   - Kiểm tra authentication (password khớp?)
+   - Kiểm tra timer (compatible?)
+   - Với BGP: kiểm tra TCP port 179 không bị block
+
+2. **Route không xuất hiện:**
+   - Nó có trong bảng của neighbor không?
+   - Có bị filter bởi policy không?
+   - Có route cụ thể hơn không?
+
+3. **Path suboptimal:**
+   - Kiểm tra metric/cost
+   - Kiểm tra policy (LOCAL_PREF, AS_PATH prepending)
+   - Kiểm tra asymmetric routing
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cạm bẫy
+
+1. **Dùng RIP trong production.** RIP có giới hạn 15 hop và convergence chậm. Nó obsolete cho mọi thứ ngoài lab.
+
+2. **OSPF Area 0 fragmented.** Tất cả OSPF area phải kết nối đến Area 0. Nếu backbone bị phân mảnh, dùng virtual link (nhưng sửa thiết kế).
+
+3. **iBGP không có route reflector ở scale.** Full mesh không scale. Plan cho route reflector sớm.
+
+4. **Bỏ qua BGP session limit.** BGP chạy trên TCP. Mỗi session tiêu tốn memory. Hàng nghìn session = resource usage đáng kể.
+
+5. **Mix IGP.** Chạy OSPF và IS-IS đồng thời thêm complexity. Chọn một và stick với nó.
+
+6. **Không tune timer.** Timer mặc định conservative. Cho fast failover, tune hello/dead interval (với hiểu biết về tradeoff).
+
+7. **Quên redistribution.** Route học qua một protocol không tự động xuất hiện trong protocol khác. Redistribution đòi hỏi config explicit và filtering cẩn thận.
+
+8. **BGP route leak.** Vô tình announce route bạn không own có thể black-hole traffic hoặc gây outage. Luôn dùng strict filter.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khảo
+
+- RFC 2328, "OSPF Version 2"
+- RFC 4271, "Border Gateway Protocol 4"
+- ISO 10589, "Intermediate System to Intermediate System"
+- RFC 5765, "BGP/MPLS IP VPNs"
+- Doyle & Carroll, *Routing TCP/IP, Volume 1 & 2*, Cisco Press
+
+</section>
+
+<section class="lesson-bridge">
+
+## Đi tiếp
+
+- [MPLS basics](/vi/core-network/mpls-vlan-vrf/mpls-basics/) — label-based forwarding
+- [Segment routing](/vi/core-network/mpls-vlan-vrf/segment-routing/) — MPLS alternative hiện đại
+- [BGP in telecom](/vi/core-network/standards-map-ts23/bgp-in-telecom/) — BGP usage đặc thù telecom
+
+</section>

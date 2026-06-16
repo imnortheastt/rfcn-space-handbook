@@ -8,17 +8,419 @@ track: n3
 unit: network-functions-overview
 order: 4
 level: L3
-estimatedReadingMinutes: 5
-title: "AUSF and UDM — Authentication and data management"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 12
+prerequisites: ["core-network-n3-network-functions-overview-01-amf"]
+spiralRevisits: ["core-network-n4-security-01-5g-aka"]
+title: "AUSF and UDM — Authentication and Subscriber Data"
+description: "The security and data backbone — how 5G authenticates users and manages subscriptions."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501", "3GPP TS 33.501"]
+tags: ["ausf", "udm", "5g", "authentication", "subscriber-data"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# AUSF and UDM — Authentication and data management
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+When you insert your SIM and connect to a 5G network, two things happen: the network verifies you're a real subscriber (**authentication**), and it retrieves your subscription data (**who you are and what you're allowed to do**).
+
+**AUSF** handles authentication. **UDM** manages subscriber data. Together, they are the trust foundation of 5G.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### AUSF and UDM in the architecture
+
+```
+Authentication and Data Flow:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ┌─────────┐                          │
+│                    │   UDR   │ (database)               │
+│                    └────▲────┘                          │
+│                         │ Nudr                          │
+│                         │                                │
+│  ┌─────────┐      ┌─────┴─────┐      ┌─────────┐       │
+│  │   AMF   │◄────►│    UDM    │◄────►│  AUSF   │       │
+│  └─────────┘ Nudm │           │ Nausf└────▲────┘       │
+│       │           │ Subscriber │           │            │
+│       │           │ Data Mgmt  │           │            │
+│       │           └───────────┘           │            │
+│       │                                    │            │
+│       └────────────────────────────────────┘            │
+│              Authentication request                     │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Flow:** AMF asks AUSF to authenticate → AUSF asks UDM for credentials → UDM gets from UDR → authentication completes.
+
+### What each function does
+
+| Function | Responsibility |
+|----------|----------------|
+| **AUSF** | Execute 5G-AKA/EAP-AKA', validate UE identity |
+| **UDM** | Subscriber data, authentication credential generation, registration management |
+| **UDR** | Database storage (stateless data repository) |
+
+### From 4G HSS to 5G UDM/AUSF
+
+```
+4G HSS:
+┌─────────────────────────────────────────────────────────┐
+│                         HSS                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Authentication │ Subscriber │ Location │ EPC   │    │
+│  │ Vector Gen     │ Data       │ Updates  │ Specific│   │
+│  └─────────────────────────────────────────────────┘    │
+│  Monolithic, combined functions                         │
+└─────────────────────────────────────────────────────────┘
+
+5G UDM/AUSF:
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────┐      ┌─────────┐      ┌─────────┐         │
+│  │  AUSF   │      │   UDM   │      │   UDR   │         │
+│  │         │      │         │      │         │         │
+│  │  Auth   │◄────►│ Sub Data│◄────►│ Storage │         │
+│  │  Only   │      │ Mgmt    │      │ Only    │         │
+│  └─────────┘      └─────────┘      └─────────┘         │
+│                                                          │
+│  Separated, scalable, cloud-native                      │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Benefit:** Scale authentication independently from data management.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### AUSF services
+
+```
+AUSF Services:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nausf_UEAuthentication                                 │
+│  ├── Authenticate              (start authentication)  │
+│  └── 5G-AKA Confirmation      (confirm auth result)    │
+│                                                          │
+│  Nausf_SoRProtection                                    │
+│  └── Protect                   (steering of roaming)   │
+│                                                          │
+│  Nausf_UPUProtection                                    │
+│  └── Protect                   (UE parameter update)   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### UDM services
+
+```
+UDM Services:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Nudm_UEAuthentication                                  │
+│  ├── GenerateAuthData          (create auth vectors)   │
+│  ├── ConfirmAuth               (confirm result)        │
+│  └── GetAuthData               (retrieve credentials)  │
+│                                                          │
+│  Nudm_SubscriberDataManagement (SDM)                    │
+│  ├── Get                       (read subscription)     │
+│  ├── Subscribe                 (change notifications)  │
+│  ├── Unsubscribe                                        │
+│  └── Modify                    (update data)           │
+│                                                          │
+│  Nudm_UEContextManagement (UECM)                        │
+│  ├── Registration              (UE registered at AMF)  │
+│  ├── Deregistration            (UE left)               │
+│  └── Update                    (context change)        │
+│                                                          │
+│  Nudm_ParameterProvision (PP)                           │
+│  └── Update                    (provision parameters)  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### 5G-AKA authentication flow
+
+```
+5G-AKA Authentication:
+
+UE            AMF           AUSF           UDM            UDR
+│              │              │              │              │
+│ Reg Request  │              │              │              │
+│─────────────►│              │              │              │
+│              │              │              │              │
+│              │ Nausf_Auth   │              │              │
+│              │ Authenticate │              │              │
+│              │─────────────►│              │              │
+│              │              │              │              │
+│              │              │ Nudm_UEAuth  │              │
+│              │              │ GetAuthData  │              │
+│              │              │─────────────►│              │
+│              │              │              │              │
+│              │              │              │ Get creds    │
+│              │              │              │─────────────►│
+│              │              │              │              │
+│              │              │              │ K, OPc, SQN  │
+│              │              │              │◄─────────────│
+│              │              │              │              │
+│              │              │ Auth Vector  │              │
+│              │              │ (RAND, AUTN, │              │
+│              │              │  XRES*, KAUSF)              │
+│              │              │◄─────────────│              │
+│              │              │              │              │
+│              │ Auth Vector  │              │              │
+│              │◄─────────────│              │              │
+│              │              │              │              │
+│ Auth Request │              │              │              │
+│ (RAND, AUTN) │              │              │              │
+│◄─────────────│              │              │              │
+│              │              │              │              │
+│   ┌──────────┴──────────┐   │              │              │
+│   │ UE validates AUTN    │   │              │              │
+│   │ UE computes RES*     │   │              │              │
+│   └──────────┬──────────┘   │              │              │
+│              │              │              │              │
+│ Auth Response│              │              │              │
+│ (RES*)       │              │              │              │
+│─────────────►│              │              │              │
+│              │              │              │              │
+│              │ Confirmation │              │              │
+│              │ (RES*)       │              │              │
+│              │─────────────►│              │              │
+│              │              │              │              │
+│              │     ┌────────┴────────┐     │              │
+│              │     │ Compare RES*    │     │              │
+│              │     │ with XRES*      │     │              │
+│              │     └────────┬────────┘     │              │
+│              │              │              │              │
+│              │ Auth Success │              │              │
+│              │ (KSEAF)      │              │              │
+│              │◄─────────────│              │              │
+│              │              │              │              │
+```
+
+**Keys generated:**
+- KAUSF: Authentication Server Function key
+- KSEAF: Security Anchor Function key (used by AMF)
+- KAMF: Access and Mobility Management Function key
+
+### Subscriber data structure
+
+```
+UDM Subscriber Data:
+
+┌─────────────────────────────────────────────────────────┐
+│  Subscriber Record (per SUPI)                            │
+│                                                          │
+│  Identity:                                              │
+│  ├── SUPI: imsi-310260123456789                        │
+│  ├── GPSI: msisdn-+14155551234                         │
+│  └── PEI: imeisv-35123456789012                        │
+│                                                          │
+│  Authentication:                                        │
+│  ├── K: permanent key (128-bit)                        │
+│  ├── OPc: operator key (derived from K)                │
+│  ├── SQN: sequence number (anti-replay)                │
+│  └── AMF field: authentication mgmt field              │
+│                                                          │
+│  Access & Mobility Subscription:                        │
+│  ├── Default NSSAI: [SST=1, SST=2]                     │
+│  ├── Allowed NSSAI per PLMN                            │
+│  ├── RAT restrictions: NR only / 4G+5G                 │
+│  └── Area restrictions: allowed TAIs                    │
+│                                                          │
+│  Session Management Subscription:                       │
+│  ├── DNN configurations                                 │
+│  │   └── "internet": IPv4, QoS 9, no static IP         │
+│  ├── Session AMBR: 100 Mbps DL / 50 Mbps UL           │
+│  └── Default 5QI per DNN                               │
+│                                                          │
+│  Roaming:                                               │
+│  ├── Roaming allowed: yes/no                           │
+│  └── Steering of Roaming data                          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### UDR — the data repository
+
+```
+UDR Architecture:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  UDR = Stateless Data Repository                        │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                    UDR                           │    │
+│  │  ┌───────────────────────────────────────────┐  │    │
+│  │  │ Subscription Data        (from UDM)       │  │    │
+│  │  │ Policy Data              (from PCF)       │  │    │
+│  │  │ Structured Data          (from NEF)       │  │    │
+│  │  │ Application Data         (from AF)        │  │    │
+│  │  └───────────────────────────────────────────┘  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                          │                               │
+│                    ┌─────▼─────┐                        │
+│                    │ Database  │                        │
+│                    │ (SQL/NoSQL)│                       │
+│                    └───────────┘                        │
+│                                                          │
+│  Nudr interface: standardized CRUD operations           │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Why UDR?** Separates storage from logic. UDM/PCF/NEF share the same data repository.
+
+### Registration management
+
+```
+UDM Registration Tracking:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  When UE registers at AMF:                              │
+│                                                          │
+│  AMF ─── Nudm_UECM_Registration ───► UDM               │
+│                                                          │
+│  UDM stores:                                            │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ SUPI: 310260123456789                           │    │
+│  │ Serving AMF: amf-region1.5gc.operator.com       │    │
+│  │ Access Type: 3GPP (NR)                          │    │
+│  │ Registration time: 2026-06-03T10:15:00Z         │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Purpose:                                               │
+│  - Route MT calls/SMS to correct AMF                   │
+│  - Prevent dual registration                            │
+│  - Deregister from old AMF on mobility                 │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**AUSF configuration:**
+
+| Parameter | Purpose |
+|-----------|---------|
+| PLMN ID | Served network |
+| UDM peer | UDM endpoint |
+| SUPI ranges | Subscribers to serve |
+| Key derivation | Algorithm selection |
+
+**UDM configuration:**
+
+| Parameter | Purpose |
+|-----------|---------|
+| PLMN ID | Home network |
+| UDR endpoint | Data repository |
+| SUPI ranges | Managed subscribers |
+| Default NSSAI | Default slice config |
+
+**Subscriber provisioning:**
+
+```yaml
+# Example UDM subscriber data
+supi: "imsi-310260123456789"
+gpsi:
+  - "msisdn-+14155551234"
+authentication:
+  authMethod: "5G_AKA"
+  encPermanentKey: "base64-encoded-K"
+  encOpcKey: "base64-encoded-OPc"
+accessAndMobilitySubscription:
+  nssai:
+    defaultSingleNssais:
+      - sst: 1
+      - sst: 2
+        sd: "000001"
+  ratRestrictions: []
+  subscribedUeAmbr:
+    uplink: "100 Mbps"
+    downlink: "500 Mbps"
+sessionManagement:
+  - dnn: "internet"
+    sscModes:
+      defaultSscMode: "SSC_MODE_1"
+    pduSessionTypes:
+      defaultSessionType: "IPV4"
+```
+
+**Troubleshooting:**
+
+| Issue | Check |
+|-------|-------|
+| Auth fails | K/OPc match between UE and UDR |
+| SQN sync | Resync procedure, SQN in UDR |
+| Subscription not found | SUPI provisioned, UDR reachable |
+| Wrong slice | Default NSSAI configured |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **AUSF stores subscriber data (wrong).** AUSF only executes authentication. UDM/UDR stores data.
+
+2. **SQN synchronization issues.** If UE and network SQN diverge, auth fails. Implement resync procedure.
+
+3. **K/OPc mismatch.** The permanent key must match exactly between USIM and UDR. Any mismatch = auth failure.
+
+4. **Ignoring roaming.** UDM needs steering of roaming (SoR) configuration for visited networks.
+
+5. **UDR as single point of failure.** UDR holds all subscription data. Plan for redundancy and backup.
+
+6. **Hardcoding NSSAI.** Default/allowed NSSAI should come from subscription, not hardcoded in AMF/SMF.
+
+7. **Missing UECM registration.** If UDM doesn't know where UE is registered, MT services fail.
+
+8. **Authentication timeout.** AUSF/UDM latency affects registration time. Monitor SBI response times.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System architecture for 5G System"
+- 3GPP TS 33.501, "Security architecture and procedures"
+- 3GPP TS 29.509, "AUSF Services"
+- 3GPP TS 29.503, "UDM Services"
+- 3GPP TS 29.504, "UDR Services"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [NRF, NSSF, PCF, NEF](/en/core-network/network-functions-overview/nrf-nssf-pcf-nef/) — supporting functions
+- [5G-AKA deep dive](/en/core-network/security/5g-aka/) — authentication protocol
+- [SUPI and SUCI](/en/core-network/identifiers/supi-and-suci/) — identity protection
+
+</section>

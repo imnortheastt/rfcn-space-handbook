@@ -8,17 +8,338 @@ track: n3
 unit: why-sba-architectural-shift
 order: 1
 level: L2
-estimatedReadingMinutes: 5
-title: "Han che cua 4G EPC"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n1-4g-5g-not-like-aws-vpc-02-user-plane-control-plane-separation"]
+spiralRevisits: ["core-network-n3-why-sba-architectural-shift-02-sba-design-principles"]
+title: "Han Che Cua 4G EPC"
+description: "Tai sao Evolved Packet Core khong the mo rong de dap ung nhu cau 5G."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.401", "3GPP TS 23.501"]
+tags: ["4g", "epc", "architecture", "limitations", "5g"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Han che cua 4G EPC
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+4G EPC la cuoc cach mang khi ra mat. Nhung khi luu luong bung no va use case da dang hoa, cac lua chon kien truc cua no tro thanh rang buoc.
+
+Hieu cac han che cua EPC giai thich tai sao 5G can mot suy nghi lai kien truc hoan toan — khong chi radio nhanh hon, ma thiet ke mang loi khac nhau co ban.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Kien truc 4G EPC
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Kien truc 4G EPC                      │
+│                                                          │
+│                    ┌─────────┐                          │
+│                    │   HSS   │  Du lieu thue bao        │
+│                    └────┬────┘                          │
+│                         │                                │
+│  ┌─────────┐      ┌────┴────┐      ┌─────────┐         │
+│  │  PCRF   │◄────►│   MME   │◄────►│   SGW   │         │
+│  │ Policy  │      │ Mobility│      │Serving GW│         │
+│  └─────────┘      └────┬────┘      └────┬────┘         │
+│                        │                 │               │
+│                        │           ┌────┴────┐          │
+│                   ┌────┴────┐      │   PGW   │          │
+│                   │  eNodeB │      │PDN GW   │──► Internet
+│                   └─────────┘      └─────────┘          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Cac node chinh:**
+- **MME:** Mobility Management Entity (control plane)
+- **SGW:** Serving Gateway (neo user plane)
+- **PGW:** PDN Gateway (ket noi ben ngoai)
+- **HSS:** Home Subscriber Server (du lieu thue bao)
+- **PCRF:** Policy and Charging Rules Function
+
+### Van de monolithic
+
+Moi node EPC la mot **appliance monolithic** — tat ca chuc nang dong goi cung nhau, scale nhu mot don vi.
+
+```
+Node EPC truyen thong:
+
+┌─────────────────────────────────────────────────────────┐
+│                         MME                              │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │  NAS Signaling  │  S1-AP  │  Diameter  │  GTPv2  │   │
+│  ├──────────────────────────────────────────────────┤   │
+│  │  Mobility Mgmt  │  Paging │  Auth  │  Security   │   │
+│  ├──────────────────────────────────────────────────┤   │
+│  │  Session Mgmt  │  Bearer Mgmt  │  Handover       │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                          │
+│  Tat ca chuc nang scale cung nhau, bat ke nhu cau       │
+└─────────────────────────────────────────────────────────┘
+```
+
+**Van de:** Ban khong the scale authentication doc lap voi paging. De xu ly nhieu auth request hon, ban mua them capacity MME — ngay ca khi paging chua dung het.
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong (va khong hoat dong)
+
+### Han che 1: Scaling monolithic
+
+**Van de:** Moi network function la mot thuc the phan mem don.
+
+```
+Kich ban scaling:
+
+Truoc:  MME xu ly 100K thue bao
+Sau:    Can xu ly 500K thue bao
+
+Option 1: Scale up (may lon hon)
+┌──────────────┐        ┌──────────────────────┐
+│     MME      │   →    │        MME           │
+│   (nho)      │        │      (lon)           │
+└──────────────┘        └──────────────────────┘
+Dat, gioi han tran
+
+Option 2: Scale out (MME pool)
+┌──────────────┐        ┌─────┐ ┌─────┐ ┌─────┐
+│     MME      │   →    │MME 1│ │MME 2│ │MME 3│
+└──────────────┘        └─────┘ └─────┘ └─────┘
+Van scale toan bo monolith, chia se state phuc tap
+```
+
+**Giai phap 5G:** Phan tach thanh microservice. Scale moi chuc nang doc lap.
+
+### Han che 2: Giao dien point-to-point
+
+**Van de:** Moi cap node co giao thuc giao dien rieng.
+
+```
+Bung no giao dien 4G:
+
+        S6a
+HSS ◄────────► MME
+        │
+        │ S11        S1-MME
+        ▼      ┌────────────► eNodeB
+       SGW ◄───┤
+        │      └────────────► eNodeB
+        │ S5/S8
+        ▼
+       PGW ◄────► PCRF
+        │   Gx
+        │ SGi
+        ▼
+    Internet
+
+Moi giao dien: giao thuc khac, dinh dang message khac
+S1-AP, GTPv2-C, Diameter, GTP-U...
+```
+
+**Van de:**
+- Them chuc nang moi doi hoi giao dien moi den moi node hien co
+- Ma tran test tang theo cap so nhan
+- Overhead dich giao thuc
+
+**Giai phap 5G:** Kien truc dua tren dich vu voi HTTP/2 API. Bat ky chuc nang nao noi chuyen voi chuc nang khac qua REST/JSON chuan.
+
+### Han che 3: Lien ket chat
+
+**Van de:** Cac chuc nang phu thuoc lan nhau; thay doi mot anh huong nhieu.
+
+```
+Vi du: Them tinh nang mobility moi
+
+Cach tiep can 4G:
+1. Sua code MME
+2. Sua code SGW
+3. Sua code PGW
+4. Cap nhat giao dien S11
+5. Cap nhat giao dien S5/S8
+6. Test hoi quy tat ca
+7. Phoi hop cap nhat vendor
+
+Timeline: 12-18 thang
+```
+
+**Giai phap 5G:** Lien ket long leo qua service discovery. Dich vu moi tu dang ky; dich vu hien co phat hien dong.
+
+### Han che 4: Dieu khien luu luong han che
+
+**Van de:** Tat ca luu luong nguoi dung di qua PGW trung tam.
+
+```
+Duong luu luong 4G (luon tap trung):
+
+UE ──► eNodeB ──► SGW ──► PGW ──► Internet
+                          │
+                    (vi tri trung tam)
+
+Ngay ca cho:
+- Kich ban local breakout
+- Edge computing
+- App do tre sieu thap
+```
+
+**Van de:**
+- Routing khong toi uu (luu luong quay lai vi tri trung tam)
+- Phat do tre
+- Lang phi bang thong backhaul
+
+**Giai phap 5G:** UPF (User Plane Function) co the dat bat cu dau. Nhieu UPF moi session. Local breakout o edge.
+
+### Han che 5: Quan ly session cung nhac
+
+**Van de:** Mot ket noi PDN = mot PGW, co dinh cho toan bo thoi gian session.
+
+```
+Session 4G:
+
+UE ──────────────────────────────► PGW ──► APN
+     (toan bo thoi gian session)     │
+                                     └── Cung PGW, khong thay doi
+
+Neu:
+- Nguoi dung di chuyen den vung khac?
+- Dich vu can QoS khac?
+- Can xu ly edge?
+
+Tra loi: Tuy chon han che, workaround phuc tap
+```
+
+**Giai phap 5G:** Cac che do Session and Service Continuity (SSC). Session co the di chuyen, ngat, hoac tao lai dua tren nhu cau ung dung.
+
+### Han che 6: Khoa vendor
+
+**Van de:** Implementation doc quyen, kha nang tuong tac han che.
+
+```
+Trien khai 4G dien hinh:
+
+┌────────────────────────────────────────────────┐
+│            Vendor A (giai phap day du)          │
+│  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  ┌─────┐  │
+│  │ MME │  │ SGW │  │ PGW │  │ HSS │  │PCRF │  │
+│  └─────┘  └─────┘  └─────┘  └─────┘  └─────┘  │
+└────────────────────────────────────────────────┘
+
+Ket hop vendor? Chuc may man voi:
+- Tuong thich giao dien
+- Tuong dang tinh nang
+- Phoi hop nang cap
+- Ranh gioi ho tro
+```
+
+**Giai phap 5G:** API chuan hoa (SBI), thiet ke cloud-native, trien khai dua tren container. Multi-vendor theo thiet ke.
+
+### Han che 7: Phu thuoc phan cung
+
+**Van de:** Phan cung telecom chuyen dung (ATCA, blade doc quyen).
+
+```
+Mo hinh phan cung 4G:
+
+┌─────────────────────────────────────────────────────────┐
+│           Chassis Telecom chuyen dung                    │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │  Blade doc quyen │ Blade doc quyen │ ...        │    │
+│  │  (Chi Vendor A)  │ (Chi Vendor A)  │            │    │
+│  └─────────────────────────────────────────────────┘    │
+│  Backplane tuy chinh, quan ly tuy chinh, license tuy chinh│
+└─────────────────────────────────────────────────────────┘
+
+Van de:
+- Thoi gian giao hang dai
+- Hop dong bao tri dat
+- Tuy chon trien khai cloud han che
+```
+
+**Giai phap 5G:** Phan cung COTS (Commercial Off-The-Shelf), VM, container, Kubernetes. Chay tren bat ky cloud hoac data center nao.
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Checklist han che EPC:**
+
+| Han che | 4G EPC | 5G SBA |
+|---------|--------|--------|
+| Scaling | Monolithic | Microservice |
+| Giao dien | Point-to-point | Dua tren dich vu |
+| Lien ket | Chat | Long leo |
+| User plane | Tap trung | Phan tan |
+| Session | Cung nhac | Linh hoat (SSC) |
+| Vendor | Khoa | Multi-vendor |
+| Phan cung | Doc quyen | COTS/Cloud |
+
+**Khi han che EPC quan trong:**
+
+| Kich ban | EPC kho khan | Loi the 5G |
+|----------|--------------|------------|
+| IoT scale (hang trieu thiet bi) | MME qua tai | Scale NF doc lap |
+| Edge computing | Luu luong quay | UPF cuc bo |
+| Network slicing | Khong ho tro | Kha nang native |
+| Cap nhat tinh nang nhanh | Chu ky 12+ thang | Trien khai CI/CD |
+| Multi-cloud | Khong thiet ke cho | Cloud-native |
+
+**Xem xet migration:**
+
+1. **Giai doan interworking:** 4G va 5G cung ton tai (NSA, roi SA)
+2. **Chuyen doi dan:** Di chuyen luu luong sang 5G core theo thoi gian
+3. **Chuyen doi ky nang:** Team van hanh hoc cloud-native
+4. **Bao ve dau tu:** Mot so chuc nang 4G tien hoa thanh tuong duong 5G
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **"Chi can nang cap phan cung."** MME manh hon khong sua duoc gioi han kien truc. Scaling monolithic co tran.
+
+2. **Danh gia thap phuc tap giao dien.** Them tinh nang 4G doi hoi phoi hop nhieu vendor qua nhieu giao dien. Dieu nay lam cham innovation.
+
+3. **Bo qua chi phi van hanh.** Phan cung doc quyen nghia la linh kien du phong dat, dao tao rieng vendor, va chu ky mua sam dai.
+
+4. **Tap trung = don gian hon (sai).** PGW trung tam don gian hoa mot so routing nhung tao bottleneck va phat do tre gay hai cho use case moi.
+
+5. **"5G chi la 4G nhanh hon."** Su thay doi kien truc quan trong hon cai tien radio. Chuyen doi mang loi cho phep kha nang moi.
+
+6. **Quen tuong thich nguoc.** 5G core van can lam viec voi 4G. Hieu EPC la can thiet cho thiet ke interworking.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 23.401, "GPRS enhancements for E-UTRAN access"
+- 3GPP TS 23.501, "System architecture for 5G System"
+- GSMA, "Road to 5G: Introduction and Migration"
+- Huawei, "5G Network Architecture: A High-Level Perspective"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Nguyen tac thiet ke SBA](/vi/core-network/why-sba-architectural-shift/sba-design-principles/) — cach 5G giai quyet cac han che nay
+- [Microservice trong telecom](/vi/core-network/why-sba-architectural-shift/microservices-in-telecom/) — mang loi cloud-native
+- [Tong quan chuc nang 5G core](/vi/core-network/5g-core-functions/overview/) — kien truc moi
+
+</section>

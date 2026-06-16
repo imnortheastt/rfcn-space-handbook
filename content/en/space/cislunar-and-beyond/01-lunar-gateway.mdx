@@ -8,17 +8,467 @@ track: s11
 unit: cislunar-and-beyond
 order: 1
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 6
+prerequisites: []
+spiralRevisits: []
 title: "Lunar Gateway"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Artemis Gateway architecture, NRHO orbit, and communications systems."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: []
+tags: ["Artemis", "Gateway", "NRHO", "lunar", "cislunar"]
+widgets: ["OrbitVisualizer"]
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Lunar Gateway
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+Lunar Gateway is humanity's first space station beyond low Earth orbit—a permanent outpost orbiting the Moon that will serve as a staging point for lunar surface missions and eventually Mars. For RF engineers, Gateway presents unique challenges: a Near Rectilinear Halo Orbit that changes Earth visibility constantly, link budgets spanning 400,000 km, and a communications architecture that must support crewed operations, robotics, and science payloads. Understanding Gateway's design reveals how cislunar communications differs from familiar GEO/LEO systems.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### What is Gateway?
+
+```
+Lunar Gateway Overview:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  NASA + ESA + JAXA + CSA collaboration                              │
+│                                                                      │
+│  PURPOSE:                                                           │
+│  • Staging point for Artemis lunar surface missions                │
+│  • Science platform (lunar, heliophysics, deep space)              │
+│  • Technology testbed for Mars transit                             │
+│  • International crew habitat (30-90 day stays)                    │
+│                                                                      │
+│  KEY MODULES:                                                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  PPE (Power & Propulsion Element)                     │         │
+│  │  ├── Solar Electric Propulsion (50 kW)               │         │
+│  │  ├── HALO communications system                       │         │
+│  │  └── Station-keeping + orbit transfers               │         │
+│  │                                                        │         │
+│  │  HALO (Habitation and Logistics Outpost)              │         │
+│  │  ├── Crew living/working volume                       │         │
+│  │  ├── Docking ports (Orion, HLS, logistics)           │         │
+│  │  └── Life support, command & data handling           │         │
+│  │                                                        │         │
+│  │  I-HAB (International Habitat) — ESA/JAXA            │         │
+│  │  ├── Additional crew volume                           │         │
+│  │  └── Science racks                                    │         │
+│  │                                                        │         │
+│  │  ESPRIT (European System Providing Refueling) — ESA  │         │
+│  │  └── Fuel storage + external science payloads        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  First launch: PPE + HALO together (planned ~2027)                 │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Near Rectilinear Halo Orbit (NRHO)
+
+```
+Gateway's Unique Orbit:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  NRHO is a halo orbit around the Earth-Moon L2 Lagrange point.     │
+│                                                                      │
+│                    To Earth (384,400 km)                            │
+│                          ◄────────────────                          │
+│                                                                      │
+│                         ┌───┐                                       │
+│                        /     \                                      │
+│             ┌─────────┤ MOON ├─────────┐                           │
+│            /           \     /          \                           │
+│           │             └───┘            │                          │
+│           │               │              │                          │
+│           │               │ ~3,000 km    │                          │
+│           │               │ (perilune)   │                          │
+│           │               │              │                          │
+│           │               ▼              │                          │
+│           │           Gateway ●          │ ~70,000 km              │
+│           │                              │ (apolune)                │
+│           │                              │                          │
+│            \                            /                           │
+│             └──────────────────────────┘                            │
+│                                                                      │
+│  NRHO CHARACTERISTICS:                                              │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Orbital period:     ~6.5 days                        │         │
+│  │  Perilune:           ~3,000 km (closest to Moon)     │         │
+│  │  Apolune:            ~70,000 km (farthest from Moon) │         │
+│  │  Earth visibility:   Nearly continuous               │         │
+│  │  Lunar south pole access: Excellent                  │         │
+│  │  Station-keeping:    ~10 m/s per year (very low)    │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  WHY NRHO?                                                          │
+│  • Near-constant Earth line-of-sight for comms                     │
+│  • Low delta-v to reach lunar south pole                           │
+│  • Stable orbit requires minimal propellant                        │
+│  • Good balance between crew radiation exposure and access         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Gateway communications architecture
+
+```
+Communications System Overview:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│                           GATEWAY                                   │
+│  ┌─────────────────────────────────────────────────────────┐       │
+│  │                                                          │       │
+│  │  ┌──────────────┐        ┌──────────────┐               │       │
+│  │  │  Ka-band     │        │  S-band      │               │       │
+│  │  │  High Rate   │        │  TT&C        │               │       │
+│  │  │  (to DSN)    │        │  (backup)    │               │       │
+│  │  └──────┬───────┘        └──────┬───────┘               │       │
+│  │         │                        │                       │       │
+│  │         ▼                        ▼                       │       │
+│  │  ┌────────────────────────────────────────┐             │       │
+│  │  │         Integrated Comm System         │             │       │
+│  │  │  • Command & data handling             │             │       │
+│  │  │  • Store & forward capability         │             │       │
+│  │  │  • Multi-user scheduling              │             │       │
+│  │  └────────────────────────────────────────┘             │       │
+│  │         │                        │                       │       │
+│  │         ▼                        ▼                       │       │
+│  │  ┌──────────────┐        ┌──────────────┐               │       │
+│  │  │  Proximity   │        │  UHF/S-band  │               │       │
+│  │  │  Link        │        │  to HLS      │               │       │
+│  │  │  (to Orion)  │        │  (lunar sfc) │               │       │
+│  │  └──────────────┘        └──────────────┘               │       │
+│  │                                                          │       │
+│  └─────────────────────────────────────────────────────────┘       │
+│                                                                      │
+│  ═══════════════════════════════════════════════════════════       │
+│  ~400,000 km to Earth                                               │
+│  ═══════════════════════════════════════════════════════════       │
+│                                                                      │
+│                           EARTH                                     │
+│  ┌─────────────────────────────────────────────────────────┐       │
+│  │                                                          │       │
+│  │  ┌──────────┐   ┌──────────┐   ┌──────────┐            │       │
+│  │  │Goldstone │   │ Madrid   │   │ Canberra │            │       │
+│  │  │   DSN    │   │   DSN    │   │   DSN    │            │       │
+│  │  └──────────┘   └──────────┘   └──────────┘            │       │
+│  │        \            │            /                      │       │
+│  │         └───────────┼───────────┘                       │       │
+│  │                     ▼                                    │       │
+│  │              Mission Control                             │       │
+│  │              (JSC Houston)                               │       │
+│  │                                                          │       │
+│  └─────────────────────────────────────────────────────────┘       │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Link budget challenges
+
+```
+Cislunar Link Budget Reality:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  DISTANCE COMPARISON:                                               │
+│                                                                      │
+│  ISS (LEO):        ~400 km                                         │
+│  GEO satellite:    ~36,000 km                                      │
+│  Gateway (NRHO):   ~400,000 km (1000× ISS, 10× GEO)               │
+│                                                                      │
+│  PATH LOSS IMPACT:                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Link        │ Distance │ FSPL @ Ka (32 GHz)         │         │
+│  │  ────────────┼──────────┼────────────────────         │         │
+│  │  ISS         │ 400 km   │ 185 dB                      │         │
+│  │  GEO         │ 36,000 km│ 213 dB                      │         │
+│  │  Gateway avg │ 400,000km│ 234 dB                      │         │
+│  │                                                        │         │
+│  │  Gateway has 21 dB more path loss than GEO!          │         │
+│  │  That's 100× less signal power at the receiver.      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  HOW IT'S SOLVED:                                                   │
+│                                                                      │
+│  1. DSN's massive antennas (34m, 70m dishes)                       │
+│     • 70m dish at Ka: ~74 dBi gain                                 │
+│     • 34m BWG antenna: ~68 dBi gain                                │
+│                                                                      │
+│  2. Gateway's high-gain antenna                                     │
+│     • ~2m Ka-band dish: ~45 dBi gain                               │
+│     • Tracking/pointing system                                      │
+│                                                                      │
+│  3. Lower data rates than GEO broadcast                            │
+│     • Up to ~100 Mbps forward (Earth→Gateway)                     │
+│     • Up to ~250 Mbps return (Gateway→Earth)                      │
+│     • Vs GEO broadcast: ~1 Gbps per transponder                   │
+│                                                                      │
+│  4. Advanced modulation/coding (DVB-S2X like)                      │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Orbit dynamics and visibility
+
+```
+NRHO Visibility and Operations:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  6.5-DAY ORBITAL CYCLE:                                             │
+│                                                                      │
+│  Day 0: Perilune                                                    │
+│  │      • Closest to Moon (~3,000 km)                              │
+│  │      • Fastest orbital velocity                                 │
+│  │      • Brief lunar occultation possible                         │
+│  │      • Best time for HLS rendezvous                             │
+│  │                                                                  │
+│  Day 1-2: Outbound                                                  │
+│  │      • Increasing Earth distance (Moon + orbit radius)         │
+│  │      • Good Earth visibility                                    │
+│  │                                                                  │
+│  Day 3-4: Apolune region                                           │
+│  │      • Farthest from Moon (~70,000 km)                         │
+│  │      • Slowest velocity, longest time here                     │
+│  │      • Maximum Earth visibility window                         │
+│  │      • Best for Earth comms, crew off-duty                     │
+│  │                                                                  │
+│  Day 5-6: Inbound                                                   │
+│  │      • Approaching Moon                                         │
+│  │      • Prepare for perilune operations                         │
+│  │                                                                  │
+│  └──► Repeat                                                        │
+│                                                                      │
+│  EARTH VISIBILITY:                                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  ~86% of orbit: Direct Earth line-of-sight           │         │
+│  │  ~14% of orbit: Lunar occultation (at perilune)      │         │
+│  │                                                        │         │
+│  │  Occultation duration: ~30-60 minutes per orbit      │         │
+│  │  This is MUCH better than low lunar orbit (~50% occ) │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Gateway link budget estimation:**
+
+```python
+import numpy as np
+
+def fspl_db(distance_km, freq_ghz):
+    """Free Space Path Loss in dB."""
+    return 20 * np.log10(distance_km) + 20 * np.log10(freq_ghz) + 92.45
+
+def parabolic_gain_dbi(diameter_m, freq_ghz, efficiency=0.55):
+    """Parabolic antenna gain in dBi."""
+    wavelength_m = 0.3 / freq_ghz
+    gain_linear = efficiency * (np.pi * diameter_m / wavelength_m) ** 2
+    return 10 * np.log10(gain_linear)
+
+def link_budget_cn0(eirp_dbw, distance_km, freq_ghz, g_over_t_dbk, other_losses_db=0):
+    """Calculate C/N0 for a space link."""
+    k_dbw = -228.6  # Boltzmann constant
+    path_loss = fspl_db(distance_km, freq_ghz)
+    cn0 = eirp_dbw - path_loss - other_losses_db + g_over_t_dbk - k_dbw
+    return cn0, path_loss
+
+# Gateway parameters
+print("Lunar Gateway Link Budget Analysis")
+print("=" * 60)
+
+# Distances
+earth_moon_avg = 384400  # km
+nrho_perilune = 3000  # km from Moon
+nrho_apolune = 70000  # km from Moon
+
+# Gateway distances from Earth (approximate)
+gateway_min = earth_moon_avg - nrho_apolune  # ~314,000 km (Moon between Earth and Gateway)
+gateway_max = earth_moon_avg + nrho_apolune  # ~454,000 km (Gateway beyond Moon)
+gateway_avg = earth_moon_avg  # ~384,000 km
+
+# Frequency bands
+ka_band = 32  # GHz (return link)
+ka_fwd = 26   # GHz (forward link)
+
+# DSN parameters
+dsn_34m_gain = parabolic_gain_dbi(34, ka_band, 0.60)
+dsn_70m_gain = parabolic_gain_dbi(70, ka_band, 0.55)
+dsn_g_over_t = 52  # dB/K (typical Ka-band 34m BWG)
+
+# Gateway parameters
+gateway_dish = 2.0  # m (approximate)
+gateway_gain = parabolic_gain_dbi(gateway_dish, ka_band)
+gateway_tx_power = 20  # W
+gateway_tx_power_dbw = 10 * np.log10(gateway_tx_power)
+gateway_eirp = gateway_tx_power_dbw + gateway_gain
+
+print("\n1. Distance Comparison")
+print("-" * 60)
+
+distances = [
+    ("ISS (LEO)", 400),
+    ("GEO satellite", 36000),
+    ("Gateway (min)", gateway_min),
+    ("Gateway (avg)", gateway_avg),
+    ("Gateway (max)", gateway_max),
+]
+
+print(f"  {'Link':<20} {'Distance (km)':<15} {'FSPL @ 32 GHz':<15}")
+print("-" * 60)
+
+for name, dist in distances:
+    fspl = fspl_db(dist, ka_band)
+    print(f"  {name:<20} {dist:<15,} {fspl:.1f} dB")
+
+# Gateway transmit parameters
+print("\n2. Gateway Transmit System")
+print("-" * 60)
+
+print(f"  Dish diameter:     {gateway_dish} m")
+print(f"  Frequency:         {ka_band} GHz")
+print(f"  Antenna gain:      {gateway_gain:.1f} dBi")
+print(f"  TX power:          {gateway_tx_power} W ({gateway_tx_power_dbw:.1f} dBW)")
+print(f"  EIRP:              {gateway_eirp:.1f} dBW")
+
+# DSN receive parameters
+print("\n3. DSN Ground Station")
+print("-" * 60)
+
+print(f"  34m BWG antenna:")
+print(f"    Gain @ {ka_band} GHz: {dsn_34m_gain:.1f} dBi")
+print(f"    G/T:            {dsn_g_over_t} dB/K")
+print(f"")
+print(f"  70m antenna:")
+print(f"    Gain @ {ka_band} GHz: {dsn_70m_gain:.1f} dBi")
+
+# Return link budget (Gateway → Earth)
+print("\n4. Return Link Budget (Gateway → DSN)")
+print("-" * 60)
+
+other_losses = 2.0  # dB (pointing, atmospheric, etc.)
+
+for name, dist in [("Min distance", gateway_min), ("Avg distance", gateway_avg), ("Max distance", gateway_max)]:
+    cn0, fspl = link_budget_cn0(gateway_eirp, dist, ka_band, dsn_g_over_t, other_losses)
+    print(f"  {name}: C/N₀ = {cn0:.1f} dBHz (FSPL = {fspl:.1f} dB)")
+
+# Data rate capability
+print("\n5. Achievable Data Rates")
+print("-" * 60)
+
+# Assume QPSK with rate 1/2 coding: Eb/N0 ≈ 3 dB required
+# C/N0 = Eb/N0 + 10 log(Rb)
+# Rb = 10^((C/N0 - Eb/N0)/10)
+
+ebn0_required = 3.0  # dB (QPSK rate 1/2)
+
+for name, dist in [("Min distance", gateway_min), ("Max distance", gateway_max)]:
+    cn0, _ = link_budget_cn0(gateway_eirp, dist, ka_band, dsn_g_over_t, other_losses)
+    rb_bps = 10 ** ((cn0 - ebn0_required) / 10)
+    rb_mbps = rb_bps / 1e6
+    print(f"  {name}: Up to {rb_mbps:.0f} Mbps")
+
+# Comparison with GEO
+print("\n6. Comparison with GEO Commercial")
+print("-" * 60)
+
+geo_dist = 36000
+geo_eirp = 52  # dBW (typical satellite)
+geo_gt = 27  # dB/K (typical ground station)
+
+cn0_gateway, _ = link_budget_cn0(gateway_eirp, gateway_avg, ka_band, dsn_g_over_t, other_losses)
+cn0_geo, _ = link_budget_cn0(geo_eirp, geo_dist, ka_band, geo_gt, 1.0)
+
+print(f"  GEO commercial: C/N₀ = {cn0_geo:.1f} dBHz")
+print(f"  Gateway:        C/N₀ = {cn0_gateway:.1f} dBHz")
+print(f"  Difference:     {cn0_gateway - cn0_geo:.1f} dB")
+print(f"")
+print(f"  Gateway works because DSN G/T ({dsn_g_over_t} dB/K) is")
+print(f"  much higher than commercial ({geo_gt} dB/K).")
+```
+
+**Key Gateway communications parameters:**
+
+| Parameter | Value |
+|-----------|-------|
+| Earth-Gateway distance | 314,000-454,000 km |
+| Ka-band path loss | 232-236 dB |
+| Gateway EIRP | ~58 dBW |
+| DSN 34m G/T | ~52 dB/K |
+| Return data rate | Up to 250 Mbps |
+| Forward data rate | Up to 100 Mbps |
+| Light-time delay | 1.0-1.5 seconds |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Assuming constant distance.** NRHO varies from 314,000 to 454,000 km from Earth. Budget for worst case.
+
+2. **Ignoring lunar occultation.** ~14% of orbit has no Earth line-of-sight. Plan for store-and-forward.
+
+3. **Expecting GEO data rates.** 21 dB more path loss means much lower throughput without DSN.
+
+4. **Forgetting light-time delay.** 1.0-1.5 second round-trip means no real-time control.
+
+5. **Single-string thinking.** Gateway needs S-band backup; Ka-band can fail.
+
+6. **Orbital period confusion.** 6.5-day orbit means scheduling is different from GEO or LEO.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- NASA Gateway Program documentation
+- "NRHO characteristics and selection" (Whitley & Martinez, 2016)
+- DSN Telecommunications Link Design Handbook (810-005)
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [Lunar Comms Architectures](/en/space/cislunar-and-beyond/lunar-comms-architectures/) — relay networks
+- [Time-Delayed Comms](/en/space/cislunar-and-beyond/time-delayed-comms/) — latency challenges
+- [DTN](/en/space/cislunar-and-beyond/dtn/) — delay-tolerant networking
+
+</section>

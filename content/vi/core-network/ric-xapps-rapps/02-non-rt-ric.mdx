@@ -8,17 +8,455 @@ track: n6
 unit: ric-xapps-rapps
 order: 2
 level: L4
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n6-ric-xapps-rapps-01-near-rt-ric"]
+spiralRevisits: []
 title: "Non-RT RIC"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "Non-Real-Time RAN Intelligent Controller: chinh sach A1, vong doi mo hinh ML, va framework rApp cho toi uu RAN chien luoc."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["O-RAN.WG2.A1AP", "O-RAN.WG2.Non-RT-RIC-Arch"]
+tags: ["o-ran", "ric", "non-rt-ric", "a1", "rapps", "smo"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Non-RT RIC
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Near-RT RIC xu ly quyet dinh nhanh. Non-RT RIC xu ly lop chien luoc — huan luyen mo hinh ML, tao chinh sach, va quan ly vong doi RAN.
+
+Non-RT RIC la mot phan cua SMO va cung cap tri tue huong dan hanh vi Near-RT RIC. Hieu ca hai la can thiet cho trien khai O-RAN hoan chinh.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Vi tri Non-RT RIC
+
+```
+Non-RT RIC trong SMO:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │           Quan ly va Dieu phoi Dich vu            │  │
+│  │                       (SMO)                       │  │
+│  │                                                    │  │
+│  │  ┌─────────────────────────────────────────────┐  │  │
+│  │  │              Non-RT RIC                     │  │  │
+│  │  │              (vong dieu khien >1s)          │  │  │
+│  │  │                                              │  │  │
+│  │  │  ┌─────────┐ ┌─────────┐ ┌─────────┐        │  │  │
+│  │  │  │ rApp 1  │ │ rApp 2  │ │ rApp 3  │  ...   │  │  │
+│  │  │  │ (Policy)│ │ (ML)    │ │ (Enrich)│        │  │  │
+│  │  │  └─────────┘ └─────────┘ └─────────┘        │  │  │
+│  │  │                                              │  │  │
+│  │  │  ┌─────────────────────────────────────┐    │  │  │
+│  │  │  │ Framework Non-RT RIC                │    │  │  │
+│  │  │  │ - Quan ly Chinh sach A1             │    │  │  │
+│  │  │  │ - Quan ly Mo hinh ML                │    │  │  │
+│  │  │  │ - Lam giau Du lieu                  │    │  │  │
+│  │  │  │ - Giao dien R1 (rApps)              │    │  │  │
+│  │  │  └─────────────────────────────────────┘    │  │  │
+│  │  │                                              │  │  │
+│  │  └─────────────────────────────────────────────┘  │  │
+│  │                                                    │  │
+│  │  ┌─────────────┐  ┌─────────────┐  ┌──────────┐   │  │
+│  │  │ Chuc nang   │  │ Chuc nang   │  │ Danh muc │   │  │
+│  │  │ OAM         │  │ Mang        │  │ Dich vu  │   │  │
+│  │  └─────────────┘  └─────────────┘  └──────────┘   │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                        │ A1                             │
+│                        ▼                                │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │              Near-RT RIC                          │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### So sanh vong dieu khien
+
+```
+Vong Dieu khien Non-RT vs Near-RT:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Non-RT RIC (>1 giay):                                  │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐          │    │
+│  │  │ Thu thap│→ │ Phan    │→ │ Tao     │          │    │
+│  │  │ Lich su │  │ tich Xu │  │ Chinh   │          │    │
+│  │  │         │  │ huong   │  │ sach    │          │    │
+│  │  └─────────┘  └─────────┘  └─────────┘          │    │
+│  │       │                           │              │    │
+│  │       │     ┌─────────┐          │              │    │
+│  │       └────►│ Huan    ├──────────┘              │    │
+│  │             │ luyen ML│                          │    │
+│  │             └─────────┘                          │    │
+│  │                                                  │    │
+│  │  Thang thoi gian: Phut den gio                  │    │
+│  │  Hanh dong: Cap nhat chinh sach, trien khai MH  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                     │                                   │
+│                     │ A1 (Chinh sach/Mo hinh ML)        │
+│                     ▼                                   │
+│  Near-RT RIC (10ms-1s):                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐          │    │
+│  │  │ Nhan    │→ │ Ap dung │→ │ Thuc    │          │    │
+│  │  │ Du lieu │  │ Mo hinh │  │ thi     │          │    │
+│  │  │ E2      │  │         │  │ Hanh    │          │    │
+│  │  │         │  │         │  │ dong    │          │    │
+│  │  └─────────┘  └─────────┘  └─────────┘          │    │
+│  │                                                  │    │
+│  │  Thang thoi gian: Mili giay den giay            │    │
+│  │  Hanh dong: Quyet dinh dieu khien, toi uu TG thuc│   │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Giao dien A1
+
+```
+Giao dien A1 (Non-RT RIC den Near-RT RIC):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Cac Dich vu A1:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ A1-P (Quan ly Chinh sach):                      │    │
+│  │ ┌─────────────────────────────────────────┐     │    │
+│  │ │ PUT /A1-P/v2/policytypes/{policyTypeId}/ │     │    │
+│  │ │     policies/{policyId}                   │     │    │
+│  │ │                                           │     │    │
+│  │ │ {                                         │     │    │
+│  │ │   "policyId": "qos-policy-001",           │     │    │
+│  │ │   "policyTypeId": "ORAN_QoS_1.0",         │     │    │
+│  │ │   "scope": {                              │     │    │
+│  │ │     "cellId": "cell-001",                 │     │    │
+│  │ │     "sliceId": {"sst": 1}                 │     │    │
+│  │ │   },                                      │     │    │
+│  │ │   "qosObjectives": {                      │     │    │
+│  │ │     "minThroughput": 100000000            │     │    │
+│  │ │   }                                       │     │    │
+│  │ │ }                                         │     │    │
+│  │ └─────────────────────────────────────────┘     │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ A1-EI (Thong tin Lam giau):                     │    │
+│  │ - Du lieu ngu canh UE                           │    │
+│  │ - Du lieu ben ngoai (du doan luu luong)         │    │
+│  │ - Lam giau vi tri                               │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │ A1-ML (Quan ly Mo hinh ML):                     │    │
+│  │ - Trien khai mo hinh da huan luyen den Near-RT  │    │
+│  │ - Quan ly phien ban mo hinh                     │    │
+│  │ - Phan hoi hieu nang mo hinh                    │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Cac chuc nang Non-RT RIC
+
+```
+Cac Thanh phan Chuc nang Non-RT RIC:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Chuc nang Quan ly Chinh sach A1                │    │
+│  │  - Tao/cap nhat/xoa chinh sach A1               │    │
+│  │  - Dang ky loai chinh sach                      │    │
+│  │  - Theo doi trang thai chinh sach               │    │
+│  │  - Phat hien xung dot chinh sach                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Chuc nang Quan ly Mo hinh ML                   │    │
+│  │  - Danh muc mo hinh (mo hinh da huan luyen)     │    │
+│  │  - Tich hop pipeline huan luyen mo hinh         │    │
+│  │  - Trien khai mo hinh den Near-RT RIC           │    │
+│  │  - Ho tro kiem tra A/B                          │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Thu thap Du lieu va Phan tich                  │    │
+│  │  - Thu thap du lieu PM lich su                  │    │
+│  │  - Tich hop data lake                           │    │
+│  │  - Phan tich cho rApps                          │    │
+│  │  - Phan tich xu huong                           │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Nha cung cap Thong tin Lam giau                │    │
+│  │  - Tich hop nguon du lieu ben ngoai             │    │
+│  │  - Ho so UE                                     │    │
+│  │  - Dich vu vi tri dia ly                        │    │
+│  │  - Du bao luu luong                             │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Framework rApp
+
+```
+Framework rApp (Giao dien R1):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Kien truc rApp:                                        │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐          │    │
+│  │  │ rApp 1  │  │ rApp 2  │  │ rApp 3  │          │    │
+│  │  │ Chinh   │  │ HL ML   │  │ Lam giau│          │    │
+│  │  │ sach    │  │         │  │         │          │    │
+│  │  └────┬────┘  └────┬────┘  └────┬────┘          │    │
+│  │       │            │            │               │    │
+│  │       └────────────┼────────────┘               │    │
+│  │                    │                            │    │
+│  │                    ▼                            │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │           Giao dien R1 (APIs)           │   │    │
+│  │  │  - Dich vu Du lieu                      │   │    │
+│  │  │  - Dich vu Chinh sach A1                │   │    │
+│  │  │  - Dich vu Mo hinh ML                   │   │    │
+│  │  │  - Dich vu Thong bao                    │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                    │                            │    │
+│  │                    ▼                            │    │
+│  │  ┌─────────────────────────────────────────┐   │    │
+│  │  │         Framework Non-RT RIC            │   │    │
+│  │  └─────────────────────────────────────────┘   │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Vi du Dich vu R1:                                      │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  GET /r1/data/pm-history?cell={cellId}&hours=24 │    │
+│  │  POST /r1/a1/policies                           │    │
+│  │  PUT /r1/ml/models/{modelId}/deploy             │    │
+│  │  POST /r1/enrichment/subscribe                  │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Vong doi mo hinh ML
+
+```
+Vong doi Mo hinh ML trong Non-RT RIC:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  ┌──────┐    ┌──────┐    ┌──────┐    ┌──────┐          │
+│  │Thu   │ → │ Huan │ → │Xac   │ → │Trien │            │
+│  │thap  │    │ luyen│    │nhan  │    │khai  │            │
+│  │Du lieu│    │ MH   │    │ MH   │    │ MH   │            │
+│  └──────┘    └──────┘    └──────┘    └──────┘          │
+│      │           │           │           │              │
+│      ▼           ▼           ▼           ▼              │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │                                                   │   │
+│  │  1. Thu thap Du lieu:                            │   │
+│  │     - Thu thap du lieu PM tu Near-RT RIC         │   │
+│  │     - Luu tru trong data lake                    │   │
+│  │     - Ky thuat dac trung                         │   │
+│  │                                                   │   │
+│  │  2. Huan luyen Mo hinh:                          │   │
+│  │     - rApp kich hoat pipeline huan luyen         │   │
+│  │     - Su dung du lieu lich su                    │   │
+│  │     - Dieu chinh sieu tham so                    │   │
+│  │                                                   │   │
+│  │  3. Xac nhan Mo hinh:                            │   │
+│  │     - Kiem tra tren du lieu giu lai              │   │
+│  │     - So sanh voi baseline                       │   │
+│  │     - Kiem tra A/B o che do shadow               │   │
+│  │                                                   │   │
+│  │  4. Trien khai Mo hinh:                          │   │
+│  │     - Day den Near-RT RIC qua A1-ML              │   │
+│  │     - xApp tai va su dung mo hinh                │   │
+│  │     - Giam sat hieu nang suy luan                │   │
+│  │                                                   │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                          │
+│  Vong Phan hoi:                                         │
+│  ┌──────────────────────────────────────────────────┐   │
+│  │                                                   │   │
+│  │  Near-RT RIC (xApp) ──► So lieu hieu nang        │   │
+│  │                         mo hinh                   │   │
+│  │           │                                       │   │
+│  │           ▼                                       │   │
+│  │  Non-RT RIC (rApp) ──► Huan luyen lai neu giam   │   │
+│  │                                                   │   │
+│  └──────────────────────────────────────────────────┘   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Cac loai chinh sach A1:**
+
+| Loai Chinh sach | Muc dich | Pham vi |
+|-----------------|----------|---------|
+| QoS | Muc tieu throughput/do tre | Cell, slice, UE |
+| Traffic Steering | Quy tac can bang tai | Cell, TA |
+| Resource | Huong dan cap phat PRB | Cell, slice |
+| Energy Saving | Quan ly nang luong | Cell, site |
+
+**Cac thanh phan OSC Non-RT RIC:**
+
+```bash
+# Trien khai OSC Non-RT RIC
+helm install nonrtric oran-sc/nonrtric
+
+# Kiem tra rApp manager
+kubectl get pods -n nonrtric | grep rappmanager
+
+# Dang ky loai chinh sach A1
+curl -X PUT http://a1-pms:8081/policytype \
+  -H "Content-Type: application/json" \
+  -d '{
+    "policyTypeId": "ORAN_QoS_1.0",
+    "policySchema": {...}
+  }'
+
+# Tao chinh sach A1
+curl -X PUT http://a1-pms:8081/policy \
+  -H "Content-Type: application/json" \
+  -d '{
+    "policyId": "qos-001",
+    "policyTypeId": "ORAN_QoS_1.0",
+    "ricId": "ric-1",
+    "policyData": {
+      "scope": {"cellId": "cell-001"},
+      "qosObjectives": {"minThroughput": 100000000}
+    }
+  }'
+
+# Kiem tra trang thai chinh sach
+curl http://a1-pms:8081/policy/qos-001/status
+```
+
+**Phat trien rApp:**
+
+```python
+# Vi du rApp: Du doan luu luong
+from nonrtric_sdk import RAppClient
+
+client = RAppClient()
+
+# Lay du lieu PM lich su
+pm_data = client.get_pm_history(
+    cell_id="cell-001",
+    metrics=["prb_util", "throughput"],
+    hours=168  # 1 tuan
+)
+
+# Huan luyen mo hinh
+model = train_traffic_prediction(pm_data)
+
+# Trien khai den Near-RT RIC
+client.deploy_model(
+    model_id="traffic-pred-v1",
+    model=model,
+    target_xapp="traffic-steering-xapp"
+)
+
+# Tao chinh sach A1 dua tren du doan
+if predicted_congestion():
+    client.create_policy(
+        policy_type="ORAN_TrafficSteering_1.0",
+        policy_data={"action": "balance_load"}
+    )
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Chinh sach A1 khong duoc thuc thi.** Near-RT RIC nhan chinh sach nhung xApp bo qua. Kiem tra xu ly A1 cua xApp.
+
+2. **Mo hinh ML cu.** Mo hinh huan luyen tren du lieu cu khong phu hop dieu kien hien tai. Lap lich huan luyen lai thuong xuyen.
+
+3. **Xung dot chinh sach.** Nhieu rApps tao chinh sach xung dot. Su dung phat hien xung dot chinh sach.
+
+4. **Tre pipeline du lieu.** Du lieu PM den qua cham cho quyet dinh kip thoi. Toi uu pipeline thu thap du lieu.
+
+5. **Mo hinh qua lon.** Near-RT RIC khong the tai mo hinh trong rang buoc bo nho. Nen hoac don gian mo hinh.
+
+6. **Thieu phan hoi.** Khong co so lieu ve hieu nang mo hinh sau trien khai. Trien khai giam sat.
+
+7. **Khong khop phien ban R1 API.** rApp su dung R1 API cu. Kiem tra tuong thich voi phien ban Non-RT RIC.
+
+8. **Du lieu lam giau cu.** Du lieu ben ngoai (du doan) khong cap nhat thuong xuyen. Kiem tra nha cung cap lam giau.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- O-RAN Alliance WG2, "Non-RT RIC Architecture"
+- O-RAN Alliance WG2, "A1 Interface Specification"
+- O-RAN Alliance WG2, "Non-RT RIC and A1 Interface: Use Cases and Requirements"
+- O-RAN SC, "Non-RT RIC Documentation"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [rApps](/vi/core-network/ric-xapps-rapps/rapps/) — phat trien rApp
+- [Near-RT RIC](/vi/core-network/ric-xapps-rapps/near-rt-ric/) — vong dieu khien nhanh hon
+- [xApps](/vi/core-network/ric-xapps-rapps/xapps/) — su dung chinh sach A1
+
+</section>

@@ -8,17 +8,352 @@ track: n3
 unit: service-based-interface-http2
 order: 4
 level: L3
-estimatedReadingMinutes: 5
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n3-service-based-interface-http2-01-sbi-overview"]
+spiralRevisits: []
 title: "JSON and OpenAPI in 5G"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+description: "How 3GPP defines APIs using OpenAPI 3.0 — schema structure, common data types, and practical interoperability."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 29.501", "3GPP TS 29.571", "OpenAPI 3.0"]
+tags: ["openapi", "json", "5g", "sbi", "api"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# JSON and OpenAPI in 5G
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+5G SBI APIs aren't documented in prose — they're defined in machine-readable OpenAPI specifications. Every request body, response, and error is formally specified.
+
+This means you can generate client code, validate messages, and debug interoperability issues by reading the spec. Understanding OpenAPI in 5G context is essential for implementation and troubleshooting.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### OpenAPI as the contract
+
+```
+OpenAPI in 5G Ecosystem:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  3GPP Specification (TS 29.xxx)                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Prose Description          OpenAPI YAML        │    │
+│  │  (normative text)           (machine-readable)  │    │
+│  │        │                         │              │    │
+│  │        └─────────┬───────────────┘              │    │
+│  │                  │                              │    │
+│  │                  ▼                              │    │
+│  │  ┌──────────────────────────────────────┐      │    │
+│  │  │ Both are normative!                  │      │    │
+│  │  │ OpenAPI is the source of truth for   │      │    │
+│  │  │ API structure, types, and validation │      │    │
+│  │  └──────────────────────────────────────┘      │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  Vendors generate code from OpenAPI → interoperability  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### JSON over alternatives
+
+```
+Why JSON for 5G SBI:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Alternative      │ Why Not Used                        │
+│  ─────────────────┼────────────────────────────────────│
+│  ASN.1 (4G)       │ Complex, requires special tools    │
+│  Protocol Buffers │ Binary, less human-readable        │
+│  XML              │ Verbose, parsing overhead          │
+│  YAML             │ Superset of JSON, no added value   │
+│                                                          │
+│  JSON Advantages:                                       │
+│  ├── Human-readable for debugging                      │
+│  ├── Native to HTTP/REST ecosystem                     │
+│  ├── Wide tooling support                              │
+│  ├── HPACK compresses repetitive headers              │
+│  └── Simple type system matches telecom needs         │
+│                                                          │
+│  Trade-off: JSON is ~30-50% larger than binary formats │
+│  but HTTP/2 compression + HPACK offsets this          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### OpenAPI structure for 5G
+
+```
+Typical 5G API OpenAPI Structure:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  openapi: 3.0.0                                         │
+│  info:                                                  │
+│    title: Nsmf_PDUSession                              │
+│    version: 1.0.0                                      │
+│                                                          │
+│  servers:                                               │
+│    - url: '{apiRoot}/nsmf-pdusession/v1'              │
+│                                                          │
+│  paths:                                                 │
+│    /sm-contexts:                                       │
+│      post:                                             │
+│        operationId: CreateSMContext                    │
+│        requestBody:                                    │
+│          content:                                      │
+│            application/json:                           │
+│              schema:                                   │
+│                $ref: '#/components/schemas/...'       │
+│        responses:                                      │
+│          '201':                                        │
+│            description: Created                        │
+│          '400':                                        │
+│            $ref: 'TS29571_CommonData.yaml#/...'       │
+│                                                          │
+│  components:                                            │
+│    schemas:                                            │
+│      SmContextCreateData:                              │
+│        type: object                                    │
+│        required:                                       │
+│          - supi                                        │
+│          - pduSessionId                               │
+│        properties:                                     │
+│          supi:                                         │
+│            $ref: 'TS29571_CommonData.yaml#/.../Supi'  │
+│          pduSessionId:                                │
+│            $ref: 'TS29571_CommonData.yaml#/.../...'   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Common data types (TS 29.571)
+
+```
+3GPP Common Data Types:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Type          │ Format                │ Example        │
+│  ──────────────┼───────────────────────┼────────────────│
+│  Supi          │ imsi-{mcc}{mnc}{msin} │ imsi-310001... │
+│  Gpsi          │ msisdn-{number}       │ msisdn-141...  │
+│  Pei           │ imei-{15 digits}      │ imei-35462...  │
+│  Dnn           │ string                │ "internet"     │
+│  Snssai        │ {"sst":1,"sd":"..."}  │ {"sst":1}      │
+│  PlmnId        │ {"mcc":"...","mnc":..}│ {"mcc":"310"...│
+│  Tai           │ {"plmnId":...,"tac":} │ {"plmnId":...} │
+│  Guami         │ complex object        │ {...}          │
+│  DateTime      │ RFC 3339              │ 2025-06-03T... │
+│  Bytes         │ base64 encoded        │ "SGVsbG8="     │
+│  Uri           │ RFC 3986              │ https://...    │
+│                                                          │
+│  These types are reused across ALL 5G SBI APIs         │
+│  Defined once in TS29571_CommonData.yaml               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Error response format
+
+```
+3GPP Problem Details (RFC 7807):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  HTTP/2 400 Bad Request                                 │
+│  Content-Type: application/problem+json                │
+│                                                          │
+│  {                                                      │
+│    "type": "https://example.org/errors/invalid-supi", │
+│    "title": "Invalid SUPI format",                     │
+│    "status": 400,                                      │
+│    "detail": "SUPI must start with 'imsi-'",          │
+│    "instance": "/nsmf-pdusession/v1/sm-contexts/123", │
+│    "cause": "MANDATORY_IE_INCORRECT",                  │
+│    "invalidParams": [                                  │
+│      {                                                 │
+│        "param": "supi",                               │
+│        "reason": "Format does not match imsi-..."     │
+│      }                                                 │
+│    ]                                                   │
+│  }                                                      │
+│                                                          │
+│  Standard 5G cause values:                              │
+│  - MANDATORY_IE_MISSING                                │
+│  - MANDATORY_IE_INCORRECT                              │
+│  - UNSPECIFIED_NF_FAILURE                              │
+│  - SYSTEM_FAILURE                                      │
+│  - NF_CONGESTION                                       │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Multipart messages
+
+```
+Binary + JSON in Single Request:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Used when sending NAS messages through SBI:           │
+│                                                          │
+│  POST /nsmf-pdusession/v1/sm-contexts                  │
+│  Content-Type: multipart/related; boundary=boundary123 │
+│                                                          │
+│  --boundary123                                         │
+│  Content-Type: application/json                        │
+│                                                          │
+│  {                                                      │
+│    "supi": "imsi-310001234567890",                    │
+│    "pduSessionId": 5,                                  │
+│    "n1SmMsg": {                                        │
+│      "contentId": "n1SmMsg"                           │
+│    }                                                   │
+│  }                                                      │
+│                                                          │
+│  --boundary123                                         │
+│  Content-Type: application/vnd.3gpp.5gnas              │
+│  Content-Id: n1SmMsg                                   │
+│                                                          │
+│  <binary NAS PDU>                                      │
+│                                                          │
+│  --boundary123--                                       │
+│                                                          │
+│  JSON part references binary part via contentId        │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Schema references
+
+```
+How 3GPP Specs Reference Each Other:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TS29502_Nsmf_PDUSession.yaml                          │
+│  │                                                      │
+│  ├── $ref: 'TS29571_CommonData.yaml#/components/...'   │
+│  │   (common types: Supi, Snssai, PlmnId)             │
+│  │                                                      │
+│  ├── $ref: 'TS29503_Nudm_SDM.yaml#/components/...'    │
+│  │   (subscription data types)                         │
+│  │                                                      │
+│  └── $ref: 'TS29510_Nnrf_NFDiscovery.yaml#/...'       │
+│      (NF profile types)                                │
+│                                                          │
+│  Key specification files:                               │
+│  - TS29571: Common data types (used by ALL)            │
+│  - TS29502: SMF PDU Session API                        │
+│  - TS29518: AMF Communication API                      │
+│  - TS29503: UDM Subscriber Data API                    │
+│  - TS29509: AUSF Authentication API                    │
+│  - TS29510: NRF Management/Discovery API               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Finding OpenAPI specs:**
+
+| Source | Location |
+|--------|----------|
+| 3GPP official | https://www.3gpp.org/ftp/Specs/archive/ |
+| API directory | TS 29.5xx series (each NF has own spec) |
+| Common types | TS 29.571 |
+| Format | YAML files in spec archives |
+
+**Validating messages:**
+
+```bash
+# Generate types from OpenAPI
+openapi-generator generate -i TS29502_Nsmf.yaml -g python
+
+# Validate JSON against schema
+ajv validate -s schema.json -d message.json
+
+# Wireshark: view JSON bodies
+http2.data && json
+
+# Pretty-print JSON from logs
+jq '.' /var/log/smf/sbi-trace.json
+```
+
+**Common validation patterns:**
+
+| Field | Validation | Regex/Pattern |
+|-------|------------|---------------|
+| SUPI | imsi-\{15 digits\} | `^imsi-[0-9]{15}$` |
+| GPSI | msisdn-\{digits\} | `^msisdn-[0-9]{5,15}$` |
+| DNN | ASCII string | `^[a-zA-Z0-9.-]+$` |
+| S-NSSAI SST | 0-255 | integer |
+| S-NSSAI SD | 6 hex digits | `^[0-9A-Fa-f]{6}$` |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Spec version mismatch.** OpenAPI specs evolve with 3GPP releases. Ensure you're using the right version (R15, R16, R17).
+
+2. **Unknown fields handling.** Some implementations reject unknown JSON fields. Others ignore them. Test interop carefully.
+
+3. **Null vs absent.** JSON null is different from absent field. Some APIs are strict about this.
+
+4. **Base64 encoding.** Binary data must be base64-encoded correctly. Padding issues are common.
+
+5. **DateTime format.** Must be RFC 3339 (ISO 8601). Time zone required. "Z" for UTC.
+
+6. **$ref resolution.** Cross-file references require all referenced specs to be available.
+
+7. **Multipart parsing.** Boundary handling is tricky. Content-Id must match exactly.
+
+8. **Enum case sensitivity.** 3GPP enums are usually UPPER_CASE. "registered" ≠ "REGISTERED".
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 29.501, "Principles and Guidelines for Services Definition"
+- 3GPP TS 29.571, "Common Data Types"
+- OpenAPI Specification 3.0, https://spec.openapis.org/oas/v3.0.3
+- RFC 7807, "Problem Details for HTTP APIs"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [SBI overview](/en/core-network/service-based-interface-http2/sbi-overview/) — service model
+- [HTTP/2 in 5G](/en/core-network/service-based-interface-http2/http2-in-5g/) — transport layer
+- [Reading 3GPP specs](/en/core-network/reading-3gpp/3gpp-structure/) — navigation guide
+
+</section>

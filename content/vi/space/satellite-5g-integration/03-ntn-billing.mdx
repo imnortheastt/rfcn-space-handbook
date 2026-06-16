@@ -8,17 +8,588 @@ track: s11
 unit: satellite-5g-integration
 order: 3
 level: L4
-estimatedReadingMinutes: 5
-title: "Tinh cuoc NTN"
-description: "Bản nháp — nội dung sẽ được bổ sung."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 6
+prerequisites: ["ntn-mobility-management"]
+spiralRevisits: []
+title: "Tinh cuoc va Chuyen vung NTN — Tinh phi trong Mang Ve tinh Da Nha khai thac"
+description: "Hieu kien truc tinh cuoc, thoa thuan chuyen vung, va phan bo chi phi cho dich vu 5G NTN."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 32.240", "3GPP TS 32.255"]
+tags: ["ntn", "tinh-cuoc", "chuyen-vung", "phi", "5g", "ve-tinh"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# Tinh cuoc NTN
+<section class="lesson-hook">
 
-_Bản nháp — nội dung sẽ được bổ sung._
+## Tai sao dieu nay quan trong
+
+Khi dien thoai thong minh ket noi qua Starlink trong luc chuyen vung o nuoc khac, ai tra tien cho ai? 5G NTN gioi thieu tinh cuoc da ben phuc tap: nha khai thac ve tinh, MNO mat dat, mang tham, va nha cung cap dich vu deu can duoc boi thuong. Hieu kien truc tinh cuoc NTN la can thiet cho cac nha khai thac xay dung mang lai mat dat-ve tinh.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Truc giac
+
+### Thach thuc tinh cuoc NTN
+
+```
+Tinh cuoc Da ben trong NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  CHUYEN VUNG MAT DAT TRUYEN THONG:                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    📱 ────→ MNO tham ────→ MNO chu                    │         │
+│  │    UE       (cung cap      (tinh cuoc                │         │
+│  │             dich vu)       thue bao)                 │         │
+│  │                   │                                   │         │
+│  │                   └──→ Thanh toan lien mang          │         │
+│  │                                                        │         │
+│  │    Hai ben, thoa thuan da duoc thiet lap             │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  NTN THEM PHUC TAP:                                                 │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │                    🛰 Ve tinh                         │         │
+│  │                   ╱         ╲                         │         │
+│  │    Chu so huu    ╱           ╲   Nha khai thac      │         │
+│  │    tan so       ╱             ╲  phan mat dat       │         │
+│  │                ╱               ╲                      │         │
+│  │    📱 ────→  🗼  ────→  NTN Gateway ────→ 5GC       │         │
+│  │    UE        gNB       (co the la        │          │         │
+│  │                         nha KT khac)     │          │         │
+│  │                                          │          │         │
+│  │    ┌─────────────────────────────────────┘          │         │
+│  │    ↓                                                 │         │
+│  │    PLMN chu (tinh cuoc thue bao)                    │         │
+│  │                                                        │         │
+│  │    4-5 ben co the lien quan!                          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  AI CAN DUOC TRA:                                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Ben                │ Dong gop                        │         │
+│  │  ───────────────────┼────────────────────────────────│         │
+│  │  Nha KT ve tinh     │ Dung luong phan khong gian     │         │
+│  │  Phan mat dat       │ Ha tang gateway                │         │
+│  │  Chu so huu tan so  │ Quyen tan so                   │         │
+│  │  Mang tham          │ Neu NTN dung cho chuyen vung   │         │
+│  │  MNO chu            │ Mang loi, tinh cuoc, SIM       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Kien truc tinh cuoc 5G cho NTN
+
+```
+He thong Tinh cuoc Hoi tu 5G (CCS) voi NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MAT PHANG DIEU KHIEN (Tinh cuoc):                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    ┌─────────┐                      ┌─────────┐       │         │
+│  │    │  SMF    │───Nchf──────────────→│  CHF    │       │         │
+│  │    └─────────┘                      │ Chuc nang│       │         │
+│  │         │                           │ Tinh cuoc│       │         │
+│  │         │                           └────┬────┘       │         │
+│  │    ┌─────────┐                           │            │         │
+│  │    │  AMF    │───Nchf───────────────────→│            │         │
+│  │    └─────────┘                           │            │         │
+│  │         │                                │            │         │
+│  │    ┌─────────┐                           ↓            │         │
+│  │    │  PCF    │──────────────────→ ┌───────────┐      │         │
+│  │    └─────────┘                    │   ABMF    │      │         │
+│  │                                   │ (Quan ly  │      │         │
+│  │                                   │  So du)   │      │         │
+│  │                                   └───────────┘      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  BAN GHI DU LIEU TINH CUOC (CDR) DAC THU NTN:                       │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Truong CDR 5G tieu chuan:                            │         │
+│  │  • SUPI/GPSI                                          │         │
+│  │  • ID phien                                           │         │
+│  │  • Khoi luong du lieu (len/xuong)                     │         │
+│  │  • Thong tin luong QoS                                │         │
+│  │  • Tem thoi gian                                      │         │
+│  │                                                        │         │
+│  │  Mo rong NTN (3GPP R17+):                             │         │
+│  │  • ID ve tinh (tham chieu ephemeris)                  │         │
+│  │  • ID o NTN                                           │         │
+│  │  • Vung dich vu (buc xa phu song)                     │         │
+│  │  • Loai truy cap: NTN vs mat dat                      │         │
+│  │  • ID nha khai thac ve tinh                           │         │
+│  │  • ID gateway                                         │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## Cach hoat dong
+
+### Cac mo hinh tinh cuoc cho NTN
+
+```
+Cac Mo hinh Tinh cuoc NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  MO HINH 1: NHA KHAI THAC TICH HOP                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Mot nha khai thac so huu tat ca:                     │         │
+│  │  • Chom sao ve tinh                                   │         │
+│  │  • Phan mat dat                                       │         │
+│  │  • Giay phep tan so                                   │         │
+│  │  • Mang loi                                           │         │
+│  │  • Quan he thue bao                                   │         │
+│  │                                                        │         │
+│  │  Vi du: Starlink (truc tiep den nguoi dung)           │         │
+│  │                                                        │         │
+│  │  Tinh cuoc: Mo hinh dang ky don gian                  │         │
+│  │  • Phi co dinh hang thang hoac theo su dung           │         │
+│  │  • Khong can thanh toan lien mang                     │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  MO HINH 2: DUNG LUONG VE TINH BAN SI                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Nha KT ve tinh ban dung luong cho MNO:               │         │
+│  │                                                        │         │
+│  │    NKT Ve tinh ──ban si──→ MNO A                      │         │
+│  │         │                   MNO B                      │         │
+│  │         │                   MNO C                      │         │
+│  │         ↓                                             │         │
+│  │    Dung luong: $/MHz/thang hoac $/Mbps/thang         │         │
+│  │                                                        │         │
+│  │  MNO tich hop ve tinh vao mang rieng:                │         │
+│  │  • MNO xu ly tinh cuoc thue bao                      │         │
+│  │  • MNO tra NKT ve tinh theo dung luong da dung       │         │
+│  │  • Thue bao thay hoa don thong nhat                  │         │
+│  │                                                        │         │
+│  │  Vi du: Hop tac AST SpaceMobile                       │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  MO HINH 3: LIEN KET KIEU CHUYEN VUNG                               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  NKT NTN duoc coi nhu PLMN tham:                      │         │
+│  │                                                        │         │
+│  │    📱 ──→ 🛰 NTN ──→ MNO chu                          │         │
+│  │          (VPLMN)    (HPLMN)                          │         │
+│  │                                                        │         │
+│  │  Su dung giao thuc chuyen vung tieu chuan:           │         │
+│  │  • Tap tin TAP (Thu tuc Chuyen Tai khoan)            │         │
+│  │  • NRTRDE (Trao doi Du lieu Chuyen vung Gan Thoi gian Thuc)│    │
+│  │  • Thoa thuan chuyen vung AA.14/AA.19                 │         │
+│  │                                                        │         │
+│  │  Thanh toan:                                          │         │
+│  │  • IOT (Gia cuoc Lien Nha khai thac) theo MB/phut    │         │
+│  │  • Thuong cao hon chuyen vung mat dat                │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Luong dinh gia va tinh cuoc
+
+```
+Luong Du lieu Tinh cuoc NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  TINH CUOC TRUC TUYEN (tra truoc):                                  │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Yeu cau phien                                    │         │
+│  │     📱 ──→ gNB-NTN ──→ SMF ──→ CHF                   │         │
+│  │                              "Nguoi dung du tien?"    │         │
+│  │                                                        │         │
+│  │  2. Kiem tra so du                                   │         │
+│  │     CHF ──→ ABMF: "Kiem so du cho SUPI X"            │         │
+│  │     ABMF ──→ CHF: "So du: $15.00"                    │         │
+│  │                                                        │         │
+│  │  3. Cap han muc                                      │         │
+│  │     CHF ──→ SMF: "Cap 500 MB o $0.02/MB"             │         │
+│  │                                                        │         │
+│  │  4. Bao cao su dung                                  │         │
+│  │     SMF ──→ CHF: "Da dung 100 MB" (dinh ky)          │         │
+│  │     CHF ──→ ABMF: "Tru $2.00"                        │         │
+│  │                                                        │         │
+│  │  5. Het han muc                                      │         │
+│  │     SMF ──→ CHF: "Han muc da het"                    │         │
+│  │     CHF ──→ SMF: "Cap them" hoac "Ket thuc"          │         │
+│  │                                                        │         │
+│  │  Luu y NTN: do tre cao hon trong kiem tra tin dung   │         │
+│  │  → Dung cap han muc lon hon de giam so vong          │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  TINH CUOC NGOAI TUYEN (tra sau):                                   │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  1. Phien bat dau, tao CDR                           │         │
+│  │     gNB-NTN, SMF, UPF deu tao CDR thanh phan         │         │
+│  │                                                        │         │
+│  │  2. Phien ket thuc, CDR gui den CHF                  │         │
+│  │     Bao gom cac truong dac thu NTN:                  │         │
+│  │     • Satellite-ID: sat-0042                         │         │
+│  │     • NTN-Cell-ID: 0x1A2B3C                         │         │
+│  │     • Access-Type: NR-NTN-LEO                        │         │
+│  │     • Service-Area: BEAM-017-PACIFIC                 │         │
+│  │                                                        │         │
+│  │  3. Dinh gia                                         │         │
+│  │     CHF ap dung ke hoach gia:                        │         │
+│  │     • Gia co ban: $0.01/MB                           │         │
+│  │     • Phu phi NTN: +$0.005/MB                        │         │
+│  │     • Gio cao diem: ×1.5                             │         │
+│  │                                                        │         │
+│  │  4. Tao hoa don (hang thang)                         │         │
+│  │     Tong hop CDR → Hoa don                           │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Thanh toan lien mang
+
+```
+Thanh toan Chuyen vung NTN:
+
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                      │
+│  KICH BAN: Nguoi dung MNO-A dung ve tinh cua NKT NTN               │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │    MNO-A                    NKT NTN                   │         │
+│  │  (PLMN chu)                (PLMN tham)                │         │
+│  │      │                           │                    │         │
+│  │      │    ←── Tap TAP ───────────│                    │         │
+│  │      │    (ban ghi su dung)      │                    │         │
+│  │      │                           │                    │         │
+│  │      │    ──── Thanh toan ──────→│                    │         │
+│  │      │    (theo gia IOT)         │                    │         │
+│  │      │                           │                    │         │
+│  │      ↓                                                │         │
+│  │    Tinh cuoc thue bao                                │         │
+│  │    (gia ban le)                                      │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  BAN GHI TAP (THU TUC CHUYEN TAI KHOAN):                            │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Truong            │ Gia tri Vi du                   │         │
+│  │  ──────────────────┼─────────────────────────────────│         │
+│  │  Nguoi gui         │ NTNOP001                        │         │
+│  │  Nguoi nhan        │ MNO-A                           │         │
+│  │  IMSI              │ 310260xxxxxxxxx                 │         │
+│  │  Loai cuoc goi     │ GPRS/Du lieu                    │         │
+│  │  Khoi luong (KB)   │ 524288                          │         │
+│  │  Thoi luong        │ 00:45:00                        │         │
+│  │  Phi               │ $2.62 (gia IOT)                 │         │
+│  │  Thue              │ $0.26                           │         │
+│  │  ID Ve tinh        │ SAT-LEO-0042 (mo rong NTN)      │         │
+│  │  Loai Dich vu      │ NTN-DATA                        │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+│  GIA IOT DIEN HINH (minh hoa):                                      │
+│  ┌───────────────────────────────────────────────────────┐         │
+│  │                                                        │         │
+│  │  Dich vu         │ Mat dat     │ NTN (ve tinh)       │         │
+│  │  ────────────────┼─────────────┼─────────────────────│         │
+│  │  Du lieu (moi MB)│ $0.005-0.02 │ $0.02-0.10          │         │
+│  │  Thoai (moi phut)│ $0.02-0.10  │ $0.10-0.50          │         │
+│  │  SMS             │ $0.01-0.05  │ $0.05-0.15          │         │
+│  │                                                        │         │
+│  │  Phu phi NTN phan anh:                                │         │
+│  │  • Chi phi dung luong ve tinh                        │         │
+│  │  • Dau tu phan mat dat                               │         │
+│  │  • Khan hiem tan so                                  │         │
+│  │                                                        │         │
+│  └───────────────────────────────────────────────────────┘         │
+│                                                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Ap dung
+
+**Tinh toan tinh cuoc NTN:**
+
+```python
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from typing import Optional
+import json
+
+@dataclass
+class NTNCDRecord:
+    """Ban ghi Du lieu Tinh cuoc NTN."""
+    record_id: str
+    supi: str
+    session_start: datetime
+    session_end: datetime
+    data_volume_ul_kb: int
+    data_volume_dl_kb: int
+    satellite_id: str
+    ntn_cell_id: str
+    access_type: str  # NR-NTN-LEO, NR-NTN-GEO, v.v.
+    service_area: str
+    qos_class: int
+    home_plmn: str
+    visited_plmn: Optional[str] = None
+
+def rate_ntn_session(cdr: NTNCDRecord, rate_plan: dict) -> dict:
+    """Tinh phi cho phien NTN."""
+    
+    total_kb = cdr.data_volume_ul_kb + cdr.data_volume_dl_kb
+    total_mb = total_kb / 1024
+    
+    # Gia co ban
+    base_rate = rate_plan.get('base_rate_per_mb', 0.01)
+    base_charge = total_mb * base_rate
+    
+    # Phu phi NTN theo loai truy cap
+    ntn_surcharges = {
+        'NR-NTN-LEO': 0.005,  # LEO co phu phi thap hon (do tre thap hon)
+        'NR-NTN-MEO': 0.008,
+        'NR-NTN-GEO': 0.010,  # GEO cao hon (dung luong khan hiem)
+    }
+    ntn_surcharge = ntn_surcharges.get(cdr.access_type, 0.010)
+    ntn_charge = total_mb * ntn_surcharge
+    
+    # He so gio cao diem
+    hour = cdr.session_start.hour
+    peak_hours = rate_plan.get('peak_hours', [8, 9, 10, 17, 18, 19, 20])
+    peak_multiplier = 1.5 if hour in peak_hours else 1.0
+    
+    # Phi QoS
+    qos_premiums = {
+        1: 0.0,    # No luc tot nhat
+        2: 0.10,   # Thoai dam thoai
+        3: 0.05,   # Video streaming
+        4: 0.02,   # Tuong tac
+    }
+    qos_premium = qos_premiums.get(cdr.qos_class, 0.0)
+    
+    # Tinh tong
+    subtotal = (base_charge + ntn_charge) * peak_multiplier
+    total_charge = subtotal * (1 + qos_premium)
+    
+    return {
+        'record_id': cdr.record_id,
+        'total_mb': round(total_mb, 2),
+        'base_charge': round(base_charge, 4),
+        'ntn_surcharge': round(ntn_charge, 4),
+        'peak_multiplier': peak_multiplier,
+        'qos_premium_pct': qos_premium * 100,
+        'total_charge': round(total_charge, 4),
+        'currency': rate_plan.get('currency', 'USD')
+    }
+
+def generate_tap_record(cdr: NTNCDRecord, iot_rate: float) -> dict:
+    """Tao ban ghi TAP cho thanh toan chuyen vung."""
+    
+    total_kb = cdr.data_volume_ul_kb + cdr.data_volume_dl_kb
+    duration = (cdr.session_end - cdr.session_start).total_seconds()
+    
+    charge = (total_kb / 1024) * iot_rate
+    tax = charge * 0.10  # Vi du thue 10%
+    
+    return {
+        'tap_version': '3.12',
+        'sender': cdr.visited_plmn or 'NTNOP001',
+        'recipient': cdr.home_plmn,
+        'file_sequence': 1,
+        'call_records': [{
+            'imsi': cdr.supi.replace('imsi-', ''),
+            'call_type': 'GPRS',
+            'gprs_service_used': {
+                'data_volume_incoming_kb': cdr.data_volume_dl_kb,
+                'data_volume_outgoing_kb': cdr.data_volume_ul_kb,
+                'charging_id': cdr.record_id,
+                'pdp_type': 'IPv4',
+            },
+            'call_timestamp': cdr.session_start.isoformat(),
+            'duration_seconds': int(duration),
+            'charge': {
+                'amount': round(charge, 4),
+                'currency': 'USD',
+                'exchange_rate': 1.0,
+            },
+            'tax': round(tax, 4),
+            # Mo rong NTN (de xuat)
+            'ntn_info': {
+                'satellite_id': cdr.satellite_id,
+                'access_type': cdr.access_type,
+                'service_area': cdr.service_area,
+            }
+        }],
+        'total_charge': round(charge + tax, 4)
+    }
+
+def calculate_wholesale_cost(
+    capacity_mbps: float,
+    hours_used: float,
+    wholesale_rate_per_mbps_hour: float
+) -> dict:
+    """Tinh chi phi dung luong ve tinh ban si."""
+    
+    capacity_cost = capacity_mbps * hours_used * wholesale_rate_per_mbps_hour
+    
+    # Chi phi co dinh (gateway, phan mat dat)
+    gateway_cost_per_hour = 50.0  # Vi du
+    ground_segment_cost = hours_used * gateway_cost_per_hour
+    
+    total = capacity_cost + ground_segment_cost
+    
+    return {
+        'capacity_mbps': capacity_mbps,
+        'hours_used': hours_used,
+        'capacity_cost': round(capacity_cost, 2),
+        'ground_segment_cost': round(ground_segment_cost, 2),
+        'total_wholesale_cost': round(total, 2)
+    }
+
+# Vi du su dung
+print("Vi du Tinh cuoc NTN")
+print("=" * 60)
+
+# Tao CDR mau
+cdr = NTNCDRecord(
+    record_id="CDR-2026-06-03-00001",
+    supi="imsi-310260123456789",
+    session_start=datetime(2026, 6, 3, 14, 30, 0),
+    session_end=datetime(2026, 6, 3, 15, 15, 0),
+    data_volume_ul_kb=51200,     # 50 MB len
+    data_volume_dl_kb=512000,   # 500 MB xuong
+    satellite_id="SAT-LEO-0042",
+    ntn_cell_id="0x1A2B3C4D",
+    access_type="NR-NTN-LEO",
+    service_area="BEAM-017-PACIFIC",
+    qos_class=3,  # Video streaming
+    home_plmn="310260",
+    visited_plmn="NTNOP001"
+)
+
+# Dinh gia phien
+rate_plan = {
+    'base_rate_per_mb': 0.01,
+    'peak_hours': [8, 9, 10, 17, 18, 19, 20],
+    'currency': 'USD'
+}
+
+print("\n1. Dinh gia Phien:")
+rating = rate_ntn_session(cdr, rate_plan)
+print(f"   Tong du lieu: {rating['total_mb']} MB")
+print(f"   Phi co ban: ${rating['base_charge']}")
+print(f"   Phu phi NTN: ${rating['ntn_surcharge']}")
+print(f"   He so cao diem: {rating['peak_multiplier']}x")
+print(f"   Phi QoS: {rating['qos_premium_pct']}%")
+print(f"   Tong phi: ${rating['total_charge']}")
+
+# Tao ban ghi TAP
+print("\n" + "-" * 60)
+print("2. Ban ghi TAP cho Thanh toan Chuyen vung:")
+tap = generate_tap_record(cdr, iot_rate=0.05)  # $0.05/MB IOT
+print(f"   Nguoi gui: {tap['sender']}")
+print(f"   Nguoi nhan: {tap['recipient']}")
+print(f"   Phi phien: ${tap['call_records'][0]['charge']['amount']}")
+print(f"   Thue: ${tap['call_records'][0]['tax']}")
+print(f"   Tong: ${tap['total_charge']}")
+
+# Chi phi ban si
+print("\n" + "-" * 60)
+print("3. Chi phi Dung luong Ban si (goc nhin MNO):")
+wholesale = calculate_wholesale_cost(
+    capacity_mbps=100,
+    hours_used=720,  # 30 ngay
+    wholesale_rate_per_mbps_hour=0.10
+)
+print(f"   Dung luong: {wholesale['capacity_mbps']} Mbps")
+print(f"   Thoi gian: {wholesale['hours_used']} gio")
+print(f"   Chi phi dung luong: ${wholesale['capacity_cost']:,.2f}")
+print(f"   Phan mat dat: ${wholesale['ground_segment_cost']:,.2f}")
+print(f"   Tong hang thang: ${wholesale['total_wholesale_cost']:,.2f}")
+```
+
+**So sanh tinh cuoc NTN:**
+
+| Mo hinh | Thanh toan | Cau truc gia | Vi du |
+|---------|------------|--------------|-------|
+| Tich hop | Noi bo | Dang ky | Starlink |
+| Ban si | Mua dung luong | $/Mbps/thang | Hop tac AST |
+| Chuyen vung | TAP/IOT | $/MB + $/phut | Lien ket MNO |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Cam bay
+
+1. **Do tre anh huong tinh cuoc truc tuyen.** Kiem tra tin dung mat lau hon qua ve tinh; dung cap han muc lon hon.
+
+2. **Anh xa ID ve tinh.** CDR phai xac dinh dung ve tinh nao da phuc vu phien de phan bo chi phi chinh xac.
+
+3. **Ranh gioi buc xa phu song.** Phien co the trai qua nhieu buc xa; xac dinh buc xa nao de tinh cuoc.
+
+4. **Chuyen giao giua cac nha khai thac.** Neu nguoi dung chuyen giao tu mat dat sang NTN giua phien, chia CDR chinh xac.
+
+5. **Tien te va thue.** NTN vuot bien gioi; xac dinh thue ap dung va quy doi tien te.
+
+6. **Het so du tra truoc.** O vung xa khong co mat dat du phong, dam bao ha cap dich vu on hoa.
+
+7. **Bien loi ban si vs ban le.** MNO phai dinh gia dich vu NTN de trang trai chi phi ban si trong khi van canh tranh.
+
+</section>
+
+<section class="lesson-references">
+
+## Tham khao
+
+- 3GPP TS 32.240: Kien truc tinh cuoc
+- 3GPP TS 32.255: Tinh cuoc ket noi du lieu 5G
+- GSMA PRD BA.13: Dac ta TAP
+- GSMA PRD AA.14: Thoa thuan chuyen vung
+
+</section>
+
+<section class="lesson-bridge">
+
+## Di tiep
+
+- [Chuyen giao NTN vs Mat dat](/vi/space/satellite-5g-integration/ntn-vs-terrestrial-handover/) — quan ly phien lai
+- [Link Budget Satcom](/vi/space/satcom-link-in-one-diagram/satcom-link-overview/) — hieu chi phi dung luong
+- [Mang loi 5G](/vi/core-network/5gc-amf-smf-upf/amf-overview/) — noi tinh cuoc tich hop
+
+</section>

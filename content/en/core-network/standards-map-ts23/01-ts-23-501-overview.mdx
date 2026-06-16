@@ -8,17 +8,384 @@ track: n3
 unit: standards-map-ts23
 order: 1
 level: L3
-estimatedReadingMinutes: 5
-title: "TS 23.501 — System architecture"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 10
+prerequisites: ["core-network-n3-reading-3gpp-01-3gpp-structure"]
+spiralRevisits: []
+title: "TS 23.501 — System Architecture for 5G"
+description: "Deep dive into 3GPP TS 23.501: the definitive 5G System architecture spec covering NFs, reference points, and SBA."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 23.501"]
+tags: ["3gpp", "ts-23-501", "5g-architecture", "sba", "nf"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# TS 23.501 — System architecture
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+TS 23.501 is the "bible" of 5G architecture. Every NF, every interface, every concept traces back to this document. Understanding its structure means understanding 5G.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### Document scope
+
+```
+TS 23.501 Coverage:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  TS 23.501: System Architecture for the 5G System       │
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  WHAT IT DEFINES:                                 │  │
+│  │                                                    │  │
+│  │  • Network Functions (NFs) and their roles        │  │
+│  │  • Reference points (N1, N2, N3, N4...)           │  │
+│  │  • Service-based interfaces (Namf, Nsmf...)       │  │
+│  │  • Network slicing architecture                   │  │
+│  │  • Roaming architectures                          │  │
+│  │  • Interworking with EPC                          │  │
+│  │  • QoS framework                                  │  │
+│  │  • Security architecture (high-level)             │  │
+│  │  • Network capability exposure                    │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+│  ┌───────────────────────────────────────────────────┐  │
+│  │                                                    │  │
+│  │  WHAT IT DOES NOT DEFINE:                         │  │
+│  │                                                    │  │
+│  │  • Message formats (see TS 29.xxx)                │  │
+│  │  • Procedures/flows (see TS 23.502)               │  │
+│  │  • Protocol stacks (see TS 24.xxx, 38.xxx)        │  │
+│  │  • Security algorithms (see TS 33.xxx)            │  │
+│  │                                                    │  │
+│  └───────────────────────────────────────────────────┘  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Spec organization
+
+```
+TS 23.501 Structure (Rel-18):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Clause   Content                                       │
+│  ──────────────────────────────────────────────────     │
+│                                                          │
+│  1        Scope                                         │
+│  2        References                                    │
+│  3        Definitions and abbreviations                 │
+│                                                          │
+│  4        Architecture reference model                  │
+│           ├── 4.1 General concepts                      │
+│           ├── 4.2 Architecture models                   │
+│           │       ├── Reference point representation    │
+│           │       └── Service-based representation      │
+│           ├── 4.3 Network Functions                     │
+│           └── 4.4 Network Function services             │
+│                                                          │
+│  5        High-level features                           │
+│           ├── 5.1 Registration management               │
+│           ├── 5.2 Connection management                 │
+│           ├── 5.3 Session management                    │
+│           ├── 5.4 QoS model                             │
+│           ├── 5.5 Policy framework                      │
+│           ├── 5.6 Charging framework                    │
+│           ├── 5.7 User plane                            │
+│           ├── 5.8 Network slicing                       │
+│           └── 5.9+ Advanced features                    │
+│                                                          │
+│  6        Network functions description                 │
+│           (Details for each NF: AMF, SMF, UPF...)       │
+│                                                          │
+│  7+       Interworking, roaming, NTN, etc.              │
+│                                                          │
+│  Annexes  Informative examples                          │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### Reference architecture (Clause 4.2)
+
+```
+5G System Architecture (TS 23.501 Figure 4.2.3-1):
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  SERVICE-BASED INTERFACE VIEW:                          │
+│                                                          │
+│      ┌─────────────────────────────────────────────┐    │
+│      │              Service Bus (SBI)              │    │
+│      └─┬──────┬───────┬───────┬───────┬───────┬───┘    │
+│        │      │       │       │       │       │         │
+│   ┌────┴──┐┌──┴───┐┌──┴───┐┌──┴───┐┌──┴───┐┌──┴───┐    │
+│   │ NSSF  ││ AUSF ││ UDM  ││ AMF  ││ SMF  ││ PCF  │    │
+│   │Nnssf  ││Nausf ││Nudm  ││Namf  ││Nsmf  ││Npcf  │    │
+│   └───────┘└──────┘└──────┘└──┬───┘└──┬───┘└──────┘    │
+│                               │       │                 │
+│                               │N1     │N4               │
+│                               │       │                 │
+│   ┌───────┐              ┌────┴───┐┌──┴───┐             │
+│   │  AF   │──────────────│   UE   ││ UPF  │──→ DN      │
+│   │ Naf   │              └────────┘└──────┘             │
+│   └───────┘                                             │
+│                                                          │
+│  REFERENCE POINT VIEW (same system):                    │
+│                                                          │
+│   ┌──────┐    ┌──────┐    ┌──────┐                      │
+│   │ AMF  │────│ SMF  │────│ UPF  │──→ DN               │
+│   └──┬───┘    └──┬───┘    └──┬───┘                      │
+│      │N2         │N4         │N3                        │
+│      │           │           │                          │
+│   ┌──┴───────────┴───────────┴──┐                       │
+│   │         (R)AN / gNB         │                       │
+│   └──────────────┬──────────────┘                       │
+│                  │N1 (via RAN)                          │
+│               ┌──┴───┐                                  │
+│               │  UE  │                                  │
+│               └──────┘                                  │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Network functions (Clause 6)
+
+```
+Core NFs Defined in TS 23.501:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  CONTROL PLANE NFs:                                     │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  AMF (Access and Mobility Management Function)  │    │
+│  │  → Registration, connection, mobility, security │    │
+│  │  → Clause 6.2.1                                 │    │
+│  │                                                  │    │
+│  │  SMF (Session Management Function)              │    │
+│  │  → PDU session, QoS, UPF selection              │    │
+│  │  → Clause 6.2.2                                 │    │
+│  │                                                  │    │
+│  │  PCF (Policy Control Function)                  │    │
+│  │  → Policy decisions, QoS policies               │    │
+│  │  → Clause 6.2.8                                 │    │
+│  │                                                  │    │
+│  │  AUSF (Authentication Server Function)          │    │
+│  │  → UE authentication                            │    │
+│  │  → Clause 6.2.4                                 │    │
+│  │                                                  │    │
+│  │  UDM (Unified Data Management)                  │    │
+│  │  → Subscription data, authentication vectors    │    │
+│  │  → Clause 6.2.3                                 │    │
+│  │                                                  │    │
+│  │  NRF (NF Repository Function)                   │    │
+│  │  → NF registration, discovery                   │    │
+│  │  → Clause 6.2.6                                 │    │
+│  │                                                  │    │
+│  │  NSSF (Network Slice Selection Function)        │    │
+│  │  → Slice selection for AMF                      │    │
+│  │  → Clause 6.2.7                                 │    │
+│  │                                                  │    │
+│  │  NEF (Network Exposure Function)                │    │
+│  │  → External exposure of capabilities            │    │
+│  │  → Clause 6.2.5                                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  USER PLANE NF:                                         │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  UPF (User Plane Function)                      │    │
+│  │  → Packet routing, QoS enforcement, buffering   │    │
+│  │  → Clause 6.2.9                                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  DATA STORAGE:                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  UDR (Unified Data Repository)                  │    │
+│  │  → Subscription, policy, application data       │    │
+│  │  → Clause 6.2.10                                │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Reference points (Clause 4.2.4)
+
+```
+Key Reference Points:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Ref Point   Between              Purpose               │
+│  ─────────────────────────────────────────────────      │
+│                                                          │
+│  N1          UE ←→ AMF            NAS signaling         │
+│  N2          (R)AN ←→ AMF         N2 interface          │
+│  N3          (R)AN ←→ UPF         User plane (GTP-U)    │
+│  N4          SMF ←→ UPF           PFCP (session rules)  │
+│  N6          UPF ←→ DN            Packet data           │
+│  N7          SMF ←→ PCF           Policy control        │
+│  N8          UDM ←→ AMF           Subscription data     │
+│  N9          UPF ←→ UPF           User plane (chaining) │
+│  N10         UDM ←→ SMF           Subscription data     │
+│  N11         AMF ←→ SMF           Session management    │
+│  N12         AMF ←→ AUSF          Authentication        │
+│  N13         UDM ←→ AUSF          Auth vectors          │
+│  N14         AMF ←→ AMF           AMF-AMF communication │
+│  N15         PCF ←→ AMF           AM policies           │
+│  N22         AMF ←→ NSSF          Slice selection       │
+│                                                          │
+│  Nxx         SBI services         HTTP/2 + JSON         │
+│              (Namf, Nsmf, etc.)                         │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Network slicing (Clause 5.8)
+
+```
+Slicing Concepts:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  S-NSSAI (Single Network Slice Selection Assistance     │
+│          Information)                                   │
+│                                                          │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │                                                  │    │
+│  │  Components:                                    │    │
+│  │  ├── SST (Slice/Service Type) - 8 bits         │    │
+│  │  │   ├── 1 = eMBB                               │    │
+│  │  │   ├── 2 = URLLC                              │    │
+│  │  │   ├── 3 = MIoT                               │    │
+│  │  │   └── 4 = V2X (Rel-16)                       │    │
+│  │  │                                              │    │
+│  │  └── SD (Slice Differentiator) - 24 bits       │    │
+│  │      (optional, operator-specific)              │    │
+│  │                                                  │    │
+│  │  Example:                                       │    │
+│  │  S-NSSAI = {SST: 1, SD: 0x000001}               │    │
+│  │  → eMBB slice, differentiator 1                 │    │
+│  │                                                  │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  NSSAI = set of S-NSSAIs                                │
+│                                                          │
+│  Requested NSSAI → UE requests slices                   │
+│  Allowed NSSAI   → Network grants slices                │
+│  Configured NSSAI → Provisioned in UE                   │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**Key clauses to reference:**
+
+| Topic | Start Here |
+|-------|------------|
+| Architecture overview | Clause 4.2 |
+| NF descriptions | Clause 6 |
+| Registration concepts | Clause 5.1 |
+| Session management concepts | Clause 5.3 |
+| QoS framework | Clause 5.4 |
+| Network slicing | Clause 5.8 |
+| Roaming | Clause 5.10 |
+| Interworking with EPC | Clause 5.11 |
+
+**Common lookups:**
+
+```bash
+# What does AMF do?
+# → Clause 6.2.1 (AMF description)
+
+# What is N4 interface?
+# → Clause 4.2.4 (Reference points) + TS 29.244
+
+# How does slicing work?
+# → Clause 5.8 (Network slicing)
+
+# What QoS parameters exist?
+# → Clause 5.4 (QoS model) + Clause 5.7 (5QI table)
+```
+
+**Cross-references:**
+
+```
+TS 23.501 says "X happens"
+  → TS 23.502 shows HOW X happens (procedures)
+  → TS 29.xxx shows message formats for X
+  → TS 33.501 shows security for X
+```
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Confusing with TS 23.502.** 23.501 = architecture (static). 23.502 = procedures (dynamic). Both needed.
+
+2. **Missing service-based view.** Spec has TWO representations. SBI is the actual implementation.
+
+3. **Ignoring annexes.** Annexes have examples and clarifications. They're informative but valuable.
+
+4. **Version mismatch.** Rel-15, 16, 17, 18 have different features. Check your target release.
+
+5. **Assuming completeness.** 23.501 is high-level. Protocol details are in other specs.
+
+6. **Skipping Clause 3.** Abbreviations are dense. Keep definitions handy.
+
+7. **Not following references.** "[N]" citations point to mandatory reading.
+
+8. **Treating all NFs equally.** AMF, SMF, UPF are mandatory. Others may be optional.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 23.501, "System architecture for the 5G System (5GS)"
+- 3GPP TS 23.502, "Procedures for the 5G System (5GS)"
+- 3GPP TS 29.500, "Technical Realization of Service Based Architecture"
+- 3GPP TS 33.501, "Security architecture and procedures for 5G System"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [TS 23.502 Overview](/en/core-network/standards-map-ts23/ts-23-502-overview/) — 5G procedures
+- [AMF Deep Dive](/en/core-network/5g-core-architecture/amf/) — practical AMF
+- [SMF Deep Dive](/en/core-network/5g-core-architecture/smf/) — practical SMF
+- [Network Slicing](/en/core-network/slicing-and-nf-selection/nssf-overview/) — slicing details
+
+</section>

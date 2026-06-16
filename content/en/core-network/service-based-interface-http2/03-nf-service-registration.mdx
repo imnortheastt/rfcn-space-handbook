@@ -8,17 +8,368 @@ track: n3
 unit: service-based-interface-http2
 order: 3
 level: L3
-estimatedReadingMinutes: 5
-title: "NF service registration with NRF"
-description: "Draft — content forthcoming."
-authors: ["tba"]
-publishedAt: "2026-05-29"
-lastVerified: "2026-05-29"
-tags: []
+estimatedReadingMinutes: 9
+prerequisites: ["core-network-n3-service-based-interface-http2-01-sbi-overview"]
+spiralRevisits: ["core-network-n3-5g-core-architecture-network-functions-05-nrf-nssf-pcf-nef"]
+title: "NF Service Registration with NRF"
+description: "How NFs register, heartbeat, and deregister with NRF — the foundation of 5G service discovery."
+authors: ["Crystal D."]
+publishedAt: "2026-06-03"
+lastVerified: "2026-06-03"
+standards: ["3GPP TS 29.510", "3GPP TS 23.501"]
+tags: ["nrf", "5g", "sbi", "registration", "discovery"]
+widgets: []
 license: CC-BY-SA-4.0
-status: draft
+status: published
 ---
 
-# NF service registration with NRF
+<section class="lesson-hook">
 
-_Draft — content forthcoming._
+## Why this matters
+
+When AMF needs an SMF, how does it know which SMF instances exist? What IP addresses? What slices they serve?
+
+NRF answers this. Every NF registers with NRF at startup, provides heartbeats while running, and deregisters at shutdown. Without NRF, 5G's dynamic service architecture falls apart.
+
+</section>
+
+<section class="lesson-intuition">
+
+## Intuition
+
+### NRF as service registry
+
+```
+NRF Role in 5G Core:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│                    ┌─────────────┐                      │
+│                    │     NRF     │                      │
+│                    │  ┌───────┐  │                      │
+│                    │  │Registry│ │                      │
+│                    │  └───────┘  │                      │
+│                    └──────┬──────┘                      │
+│                           │                             │
+│    ┌──────────────────────┼──────────────────────┐     │
+│    │                      │                      │     │
+│    ▼                      ▼                      ▼     │
+│  ┌───┐    Register     ┌───┐    Register     ┌───┐    │
+│  │AMF│ ◄─────────────► │SMF│ ◄─────────────► │UDM│    │
+│  └───┘    Heartbeat    └───┘    Heartbeat    └───┘    │
+│    │      Discover        │      Discover        │     │
+│    │                      │                      │     │
+│    └──────────────────────┴──────────────────────┘     │
+│                                                          │
+│  NRF knows:                                             │
+│  - Every NF instance (IP, port, FQDN)                  │
+│  - Services each NF provides                           │
+│  - Slices, DNNs, TAIs each NF serves                   │
+│  - Current health status                               │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### NF lifecycle
+
+```
+NF Lifecycle with NRF:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  1. Registration (startup)                              │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ NF starts → PUT /nnrf-nfm/v1/nf-instances/{id} │    │
+│  │           ← 201 Created                         │    │
+│  │ NF now discoverable by other NFs               │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  2. Heartbeat (running)                                 │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ Every 30-60 seconds:                            │    │
+│  │ PATCH /nnrf-nfm/v1/nf-instances/{id}           │    │
+│  │ (update heartbeatTimer)                        │    │
+│  │                                                  │    │
+│  │ If NRF misses heartbeats → NF marked unhealthy │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+│  3. Deregistration (shutdown)                           │
+│  ┌─────────────────────────────────────────────────┐    │
+│  │ NF shutting down:                               │    │
+│  │ DELETE /nnrf-nfm/v1/nf-instances/{id}          │    │
+│  │ ← 204 No Content                                │    │
+│  │ NF no longer discoverable                       │    │
+│  └─────────────────────────────────────────────────┘    │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-mechanism">
+
+## How it works
+
+### NF profile structure
+
+```
+NF Profile Contents:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  {                                                      │
+│    "nfInstanceId": "3fa85f64-5717-4562-b3fc-...",      │
+│    "nfType": "SMF",                                    │
+│    "nfStatus": "REGISTERED",                           │
+│                                                          │
+│    "plmnList": [                                       │
+│      { "mcc": "310", "mnc": "001" }                    │
+│    ],                                                   │
+│                                                          │
+│    "sNssais": [                                        │
+│      { "sst": 1, "sd": "000001" }                      │
+│    ],                                                   │
+│                                                          │
+│    "nfServices": [                                     │
+│      {                                                 │
+│        "serviceName": "nsmf-pdusession",               │
+│        "versions": [                                   │
+│          { "apiVersionInUri": "v1",                    │
+│            "apiFullVersion": "1.0.0" }                 │
+│        ],                                              │
+│        "scheme": "https",                              │
+│        "nfServiceStatus": "REGISTERED",                │
+│        "ipEndPoints": [                                │
+│          { "ipv4Address": "10.0.0.5", "port": 29502 }  │
+│        ]                                               │
+│      }                                                 │
+│    ],                                                   │
+│                                                          │
+│    "smfInfo": {                                        │
+│      "sNssaiSmfInfoList": [...],                       │
+│      "taiList": [...],                                 │
+│      "accessType": ["3GPP_ACCESS"]                     │
+│    },                                                   │
+│                                                          │
+│    "heartBeatTimer": 30,                               │
+│    "load": 45                                          │
+│  }                                                      │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Registration flow
+
+```
+NF Registration Detail:
+
+NF (SMF)                         NRF
+│                                 │
+│ PUT /nnrf-nfm/v1/nf-instances/ │
+│ {nfInstanceId}                  │
+│ Body: NF Profile               │
+│─────────────────────────────────►│
+│                                 │
+│                                 │ Validate profile
+│                                 │ Store in registry
+│                                 │
+│ 201 Created                    │
+│ Location: /nf-instances/{id}   │
+│◄─────────────────────────────────│
+│                                 │
+│ [SMF now discoverable]         │
+│                                 │
+│ Periodic heartbeat:            │
+│ PATCH /nnrf-nfm/v1/nf-instances│
+│ /{nfInstanceId}                │
+│ Body: {"nfStatus":"REGISTERED"}│
+│─────────────────────────────────►│
+│                                 │
+│ 200 OK                         │
+│◄─────────────────────────────────│
+│                                 │
+```
+
+### Service discovery flow
+
+```
+NF Discovery:
+
+AMF                              NRF                   SMF
+│                                 │                      │
+│ GET /nnrf-disc/v1/nf-instances │                      │
+│ ?nf-type=SMF                   │                      │
+│ &snssai={"sst":1}             │                      │
+│ &dnn=internet                  │                      │
+│─────────────────────────────────►│                      │
+│                                 │                      │
+│                                 │ Query registry       │
+│                                 │ Filter by criteria   │
+│                                 │                      │
+│ 200 OK                         │                      │
+│ {                              │                      │
+│   "nfInstances": [             │                      │
+│     { SMF profile 1 },         │                      │
+│     { SMF profile 2 }          │                      │
+│   ]                            │                      │
+│ }                              │                      │
+│◄─────────────────────────────────│                      │
+│                                 │                      │
+│ [AMF selects SMF based on      │                      │
+│  load, locality, etc.]         │                      │
+│                                 │                      │
+│ POST /nsmf-pdusession/v1/...   │                      │
+│─────────────────────────────────────────────────────────►│
+│                                 │                      │
+```
+
+### Subscription for notifications
+
+```
+NF Status Subscription:
+
+AMF                              NRF
+│                                 │
+│ POST /nnrf-nfm/v1/subscriptions│
+│ {                              │
+│   "nfStatusNotificationUri":   │
+│     "https://amf:29518/callback",
+│   "reqNfType": "SMF",          │
+│   "subscriptionCond": {...}    │
+│ }                              │
+│─────────────────────────────────►│
+│                                 │
+│ 201 Created                    │
+│ subscriptionId: "sub-123"      │
+│◄─────────────────────────────────│
+│                                 │
+│ [Later, SMF goes down]         │
+│                                 │
+│ POST https://amf:29518/callback│
+│ {                              │
+│   "event": "NF_DEREGISTERED",  │
+│   "nfInstanceUri": "...",      │
+│   "nfProfile": {...}           │
+│ }                              │
+│◄─────────────────────────────────│
+│                                 │
+│ [AMF removes SMF from cache]   │
+│                                 │
+```
+
+### NF selection criteria
+
+```
+Discovery Query Parameters:
+
+┌─────────────────────────────────────────────────────────┐
+│                                                          │
+│  Parameter           │ Purpose                          │
+│  ────────────────────┼─────────────────────────────────│
+│  nf-type             │ SMF, UDM, AUSF, PCF, etc.       │
+│  snssai              │ Slice (SST + SD)                │
+│  dnn                 │ Data Network Name               │
+│  tai                 │ Tracking Area Identity          │
+│  plmn                │ MCC + MNC                       │
+│  nf-instance-id      │ Specific instance               │
+│  service-name        │ e.g., nsmf-pdusession          │
+│  target-plmn         │ For roaming scenarios           │
+│  supi                │ Specific subscriber (UDM)       │
+│  gpsi                │ Public subscriber ID            │
+│                                                          │
+│  Example: Find SMF for eMBB slice in TAI 310001-123    │
+│  GET /nnrf-disc/v1/nf-instances                        │
+│      ?nf-type=SMF                                      │
+│      &snssai={"sst":1,"sd":"000001"}                  │
+│      &tai={"plmnId":{"mcc":"310","mnc":"001"},        │
+│            "tac":"000123"}                             │
+│                                                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+</section>
+
+<section class="lesson-apply">
+
+## Apply
+
+**NF profile key fields by NF type:**
+
+| NF Type | Key Profile Fields |
+|---------|-------------------|
+| SMF | smfInfo (sNssaiSmfInfoList, taiList, dnnList) |
+| AMF | amfInfo (amfSetId, amfRegionId, guamiList, taiList) |
+| UDM | udmInfo (supiRanges, gpsiRanges) |
+| AUSF | ausfInfo (supiRanges, groupId) |
+| PCF | pcfInfo (dnnList, supiRanges) |
+| UPF | upfInfo (sNssaiUpfInfoList, interfaceUpfInfoList) |
+
+**Debugging registration:**
+
+```bash
+# Check NF registration
+curl -k "https://nrf.local:29510/nnrf-nfm/v1/nf-instances/{id}"
+
+# List all registered NFs
+curl -k "https://nrf.local:29510/nnrf-nfm/v1/nf-instances"
+
+# Wireshark: registration/discovery
+http2.header.path contains "nnrf-nfm" || http2.header.path contains "nnrf-disc"
+
+# Check heartbeat failures
+grep "heartbeat" /var/log/nrf/*.log | grep -i "fail\|timeout"
+```
+
+**Heartbeat timing:**
+
+| Scenario | Heartbeat Timer | Recovery |
+|----------|-----------------|----------|
+| Normal | 30-60 seconds | — |
+| High availability | 10-20 seconds | Faster failover |
+| NRF miss tolerance | 2-3 missed | Mark NF unhealthy |
+| Deregistration | Graceful DELETE | Immediate removal |
+
+</section>
+
+<section class="lesson-pitfalls">
+
+## Pitfalls
+
+1. **Heartbeat timeout.** If NF crashes without deregistering, NRF waits for heartbeat timeout. Configure shorter timers for HA.
+
+2. **NRF single point of failure.** Deploy NRF in HA cluster. NFs should cache discovered NF profiles.
+
+3. **Profile mismatch.** If NF profile doesn't match query criteria exactly, it won't be discovered. Check sNssai, DNN, TAI.
+
+4. **Discovery cache staleness.** Consumer caches NF profiles. If producer changes, cache is stale. Subscribe to notifications.
+
+5. **Load balancing.** NRF returns multiple instances. Consumer must implement selection logic (round-robin, least-load).
+
+6. **Registration retry.** If initial registration fails, NF must retry with backoff. Don't flood NRF.
+
+7. **Profile update.** When NF changes (new service, new IP), must re-register. Use PUT to replace or PATCH to update.
+
+8. **UUID generation.** nfInstanceId must be unique. Use proper UUID generation, not sequential IDs.
+
+</section>
+
+<section class="lesson-references">
+
+## References
+
+- 3GPP TS 29.510, "Network Function Repository Services"
+- 3GPP TS 23.501, "System Architecture" (NRF description)
+- 3GPP TS 29.500, "Technical Realization of SBA"
+- 3GPP TS 29.571, "Common Data Types"
+
+</section>
+
+<section class="lesson-bridge">
+
+## Where to go next
+
+- [JSON and OpenAPI](/en/core-network/service-based-interface-http2/json-and-openapi-in-5g/) — API definitions
+- [NRF-NSSF-PCF-NEF](/en/core-network/5g-core-architecture-network-functions/nrf-nssf-pcf-nef/) — NRF role in architecture
+- [SBI overview](/en/core-network/service-based-interface-http2/sbi-overview/) — service model
+
+</section>
