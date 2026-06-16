@@ -91,7 +91,7 @@ The deduplication bug specifically: Astro's `getCollection()` groups entries by 
 - **Phase 1 exit criteria:** public launch announcement; a reader can complete L0–L2 of any domain in either language
 - **Deferred to Phase 1+:** roadmap visualizer, 4 of 5 flagship widgets, all 3 cross-domain bridges, Sentry, newsletter signup, domain registration, Vercel project creation, real curriculum beyond decibels
 
-**Owner:** Tindang  
+**Owner:** Crystal D.  
 **Timeline:** Phase 0 complete. Phase 1 begins 2026-06-01 (target 150 lessons by 2026-10-31).
 
 ---

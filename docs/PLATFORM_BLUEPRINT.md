@@ -2,7 +2,7 @@
 ### Architecture Blueprint, PRD, Curriculum & Multi-Year Roadmap
 
 > **Author voice for content:** veteran RF / Core Network / Space engineer (20+ YoE) writing for SEA learners in Vietnamese & English.
-> **Author voice for this document:** Tech Lead writing for the platform builder (Tindang).
+> **Author voice for this document:** Tech Lead writing for the platform builder (Crystal D.).
 > **Status:** Locked architectural frame at ~96% confidence. Open items are design choices within the frame, not architectural unknowns — they are flagged in §10.
 
 ---
@@ -394,7 +394,7 @@ title: "Giản đồ bức xạ ăng-ten: hiểu trực giác trước, công th
 subtitle: "Từ một dipole đến mảng pha — vì sao hình dạng năng lượng quan trọng"
 description: "..."
 authors:
-  - tindang
+  - Crystal D.
 reviewers:
   - tba
 publishedAt: "2026-06-14"
@@ -1117,14 +1117,14 @@ These remain unspecified but I will choose sensible defaults in execution. Overr
 | Decision | Default | Reasoning |
 |---|---|---|
 | Domain name | TBD; suggest `<name>.dev` with `.vn` mirror | International + SEA visibility |
-| Brand / visual identity | Deep teal `#0b5351` accent (matches your dev env), Inter / IBM Plex Sans, hand-drawn diagram aesthetic close to Bartosz Ciechanowski / Calm Whiteboard | You have skill libraries for this |
+| Brand / visual identity | **Phase 1.2 upgrade:** Dark-first with cyan accent `#88e1e6`, dark bg `#0e1414`. System fonts (Inter fallback). Hand-drawn diagram aesthetic close to Bartosz Ciechanowski / Calm Whiteboard. See `packages/ui/src/tokens.css` for current palette. | Higher contrast, modern aesthetic, no font weight penalties |
 | Sentry vs no error tracking | Use Sentry free tier | Cheap insurance |
 | Plausible vs Cloudflare Web Analytics | Cloudflare Web Analytics | Simpler, integrated, free |
 | Privacy: cookie banner | None (we set no non-essential cookies) | EU-compliant by design |
 | Comments / discussion at launch | None; GitHub Issues only | Defer; revisit Phase 4 |
 | Newsletter | Yes, via Buttondown or self-hosted listmonk, opt-in only | Low-cost engagement loop |
-| Print stylesheet | Yes from day 1 | Researchers print things |
-| Dark mode | Yes, default-follow-OS | Audience preference |
+| Print stylesheet | Yes from day 1; auto-inverts to light bg for readability | Researchers print things; dark mode respects print media query |
+| Dark mode | **Phase 1.2:** Dark-first by default (not OS preference); CSS-only, no JS theme toggle | Better accessibility, reduced eye strain, canonical color scheme |
 | Code playground for examples | Out of scope at launch; revisit if demand emerges | Bundle weight too high otherwise |
 | Mobile app | No, never | A static site already is the mobile experience |
 | LLM integration (RAG over content) | Out of scope at launch; revisit Phase 3 with your Helios stack | Self-respecting first; clever later |
@@ -1155,7 +1155,7 @@ spiralRevisits:
 title: "Giản đồ bức xạ ăng-ten: hiểu trực giác trước, công thức sau"
 subtitle: "Từ một dipole đến mảng pha — vì sao hình dạng năng lượng quan trọng"
 description: "..."
-authors: [tindang]
+authors: [Crystal D.]
 publishedAt: "2026-06-14"
 lastVerified: "2026-06-14"
 standards:

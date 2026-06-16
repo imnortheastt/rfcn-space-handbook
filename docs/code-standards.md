@@ -99,6 +99,32 @@ export const MyWidget: React.FC<Props> = ({ data, ariaLabel = '', onDataChange }
 
 All lessons **must** include:
 
+- `id` — Unique lesson identifier following convention `{domain}-{track}-{unit-slug}-{order:02d}-{slug}`
+- `parityId` — Binds EN + VI lesson pairs together
+- `slug` — URL-friendly identifier
+- `lang` — Either `en` or `vi`
+- `domain` — One of `rf`, `core-network`, `space`
+- `track` — Track identifier (e.g., `r0`, `n2`, `s1`)
+- `unit` — Unit slug (e.g., `foundations`, `antennas`)
+- `order` — Lesson position within unit (integer, zero-padded)
+- `level` — Learning level: `L0` (beginner SWE) through `L5` (frontier)
+- `title` — Lesson title (EN + VI versions)
+- `license` — License type (e.g., `CC-BY-SA-4.0`)
+- `authors` — Array of author names (standardized to `Crystal D.`)
+- `publishedAt` — Publication timestamp
+- `description` — Brief lesson summary
+
+Optional fields:
+- `prerequisites` — Array of prerequisite lesson IDs
+- `estimatedReadingMinutes` — Expected reading time
+- `lastVerified` — Last technical verification date
+- `lastReviewedAt` — Last editorial review date
+- `standards` — Array of standards references (3GPP, IEEE, ITU-R, ECSS, IETF)
+- `widgets` — Array of widget component names used in lesson
+- `tags` — Topic tags for discovery
+- `keywords` — SEO keywords
+- `spiralRevisits` — Lesson IDs that revisit this concept at higher levels
+
 ```yaml
 ---
 # Identity (immutable, never changed once published)
@@ -122,7 +148,7 @@ spiralRevisits: [rf-r5-...]                # IDs of later lessons that revisit t
 # Editorial
 title: "Radiation Pattern: Intuition First, Formula After"
 description: "Why antenna gain and directivity matter. From dipole to phased arrays."
-authors: ["tindang"]
+authors: ["Crystal D."]
 publishedAt: "2026-06-14"
 lastVerified: "2026-06-14"
 lastReviewedAt: "2026-06-14"
@@ -401,39 +427,49 @@ Aim for >80% on `packages/` (core logic). Lessons and components: write tests fo
 
 ### Colors
 
-Defined in `packages/ui/src/tokens.ts` and exported as CSS custom properties:
+Defined in `packages/ui/src/tokens.css` and exported as CSS custom properties:
 
-```ts
-export const colors = {
-  primary: '#0b5351',      // RF teal
-  secondary: '#d97706',    // Accent amber
-  // ...
-};
+```css
+:root {
+  --color-bg: #0e1414;         /* Dark background */
+  --color-surface: #1a2020;    /* Surface/card background */
+  --color-accent-500: #88e1e6; /* Cyan primary accent */
+  --color-accent-600: #5fc7ce; /* Accent darker variant */
+  --color-text: #e5e7eb;       /* Light text on dark bg */
+  --color-text-muted: #9ca3af; /* Muted text */
+  /* ... more grays and semantic colors ... */
+}
 ```
 
 **Use in CSS:**
 ```css
 .card {
-  border: 2px solid var(--color-primary);
+  background: var(--color-surface);
+  border: 1px solid var(--color-accent-500);
+  color: var(--color-text);
 }
 ```
 
-**Use in Tailwind:**
-```jsx
-<button className="bg-primary text-white">Click me</button>
+**Use in Astro components:**
+```astro
+<button class="bg-accent-500 text-white hover:bg-accent-600">Click me</button>
 ```
+
+**Dark-first principle:** Theme is dark by default. Print media automatically inverts colors via print stylesheet (light background, dark text).
 
 ### Typography
 
-- **Serif (headings):** IBM Plex Sans (fallback: system sans-serif)
-- **Sans (body):** Inter (fallback: system sans-serif)
-- **Monospace:** IBM Plex Mono (code blocks)
+- **Body (sans):** System stack — Inter, system-ui, sans-serif (no @fontsource imports)
+- **Headings (sans):** System stack — same as body (intentional uniformity)
+- **Monospace:** System stack — monospace, IBM Plex Mono (fallback)
+- **Base size:** 16px; scales responsively (1.2x mobile, 1.5x tablet)
 
 ### Dark Mode
 
-- Default: OS preference (`prefers-color-scheme`)
-- Manual override: via JS (CSP-compliant, no inline event handlers)
-- Print: always light background, dark text (no dark mode in print)
+- **Default:** Dark theme always (not OS preference)
+- **CSS-only:** No JavaScript theme toggle — dark mode is the canonical color scheme
+- **Print:** Automatically inverts to light background with dark text via `@media print` rules
+- **Reduced motion:** All animations pause if `prefers-reduced-motion: reduce` is set
 
 ### Reduced Motion
 
